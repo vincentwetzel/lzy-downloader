@@ -6,7 +6,7 @@
             "displayName": "Release",
             "description": "Release build with MSVC and vcpkg manifest dependencies",
             "binaryDir": "${sourceDir}/build",
-            "generator": "Visual Studio 17 2022",
+            "generator": "Visual Studio 18 2026",
             "architecture": "x64",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Release",
@@ -21,7 +21,7 @@
             "displayName": "Debug",
             "description": "Debug build with MSVC and vcpkg manifest dependencies",
             "binaryDir": "${sourceDir}/build-debug",
-            "generator": "Visual Studio 17 2022",
+            "generator": "Visual Studio 18 2026",
             "architecture": "x64",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Debug",

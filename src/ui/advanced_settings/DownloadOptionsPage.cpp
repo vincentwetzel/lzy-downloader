@@ -77,9 +77,9 @@ DownloadOptionsPage::DownloadOptionsPage(ConfigManager *configManager, QWidget *
     m_downloadSectionsCheck = new ToggleSwitch(this);
     m_downloadSectionsCheck->setToolTip("Prompt to download only a specific time range or chapter instead of the full video.");
     m_ffmpegCutEncoderCombo = new QComboBox(this);
-    m_ffmpegCutEncoderCombo->setToolTip("Choose the FFmpeg video encoder yt-dlp uses when accurate SponsorBlock or section cuts require re-encoding.");
+    m_ffmpegCutEncoderCombo->setToolTip("Choose the FFmpeg video encoder yt-dlp uses when accurate SponsorBlock or section cuts require re-encoding. Hardware presets favor speed so users can leave SponsorBlock enabled for large videos.");
     m_ffmpegCutCustomArgsInput = new QLineEdit(this);
-    m_ffmpegCutCustomArgsInput->setPlaceholderText("e.g., -c:v h264_nvenc -preset p5 -cq 23");
+    m_ffmpegCutCustomArgsInput->setPlaceholderText("e.g., -c:v h264_nvenc -preset p1 -cq 24 -multipass disabled");
     m_ffmpegCutCustomArgsInput->setToolTip("Optional FFmpeg output arguments for yt-dlp's cut-normalization pass. Used only when the encoder mode is Custom.");
     populateFfmpegCutEncoderCombo();
     m_singleLineCommandPreviewCheck = new ToggleSwitch(this);

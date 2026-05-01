@@ -115,6 +115,12 @@ bool hasNonInteractiveLaunchArgument()
     return args.contains("--headless") || args.contains("--server") || !directCliUrl().isEmpty();
 }
 
+bool hasServerLaunchArgument()
+{
+    const QStringList args = QCoreApplication::arguments();
+    return args.contains("--headless") || args.contains("--server");
+}
+
 bool isNonInteractiveRequest(const QVariantMap &options)
 {
     return options.value("non_interactive", false).toBool();
@@ -145,15 +151,8 @@ MainWindow::MainWindow(ExtractorJsonParser *extractorJsonParser, QWidget *parent
     }
 
     // Initialize core components
-    QString configDir = QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation);
-    if (configDir.isEmpty()) {
-        configDir = QCoreApplication::applicationDirPath(); // Fallback
-    }
-    QDir().mkpath(configDir);
-    QString configPath = QDir(configDir).filePath("settings.ini");
-    qInfo() << "Using settings file at:" << configPath;
-
-    m_configManager = new ConfigManager(configPath, this);
+    m_configManager = new ConfigManager("settings.ini", this);
+    qInfo() << "Using settings file at:" << QDir(m_configManager->getConfigDir()).filePath("settings.ini");
 
     // Apply CLI overrides and ensure exit_after resets to false on normal launches
     if (QCoreApplication::arguments().contains("--exit-after")) {
@@ -201,15 +200,19 @@ MainWindow::MainWindow(ExtractorJsonParser *extractorJsonParser, QWidget *parent
     // Local API Server setup
     m_localApiServer = new LocalApiServer(m_configManager, this);
     connect(m_localApiServer, &LocalApiServer::enqueueRequested, this, &MainWindow::onLocalApiEnqueueRequested);
-    if (m_configManager->get("General", "enable_local_api", false).toBool()) {
-        qInfo() << "[LocalApi] Attempting to start Local API Server on startup...";
+    const bool serverMode = hasServerLaunchArgument();
+    if (serverMode || m_configManager->get("General", "enable_local_api", false).toBool()) {
+        qInfo() << "[LocalApi] Attempting to start Local API Server on startup..."
+                << "serverMode:" << serverMode;
         m_localApiServer->start();
     }
-    connect(m_configManager, &ConfigManager::settingChanged, this, [this](const QString &section, const QString &key, const QVariant &value) {
+    connect(m_configManager, &ConfigManager::settingChanged, this, [this, serverMode](const QString &section, const QString &key, const QVariant &value) {
         if (section == "General" && key == "enable_local_api") {
             if (value.toBool()) {
                 qInfo() << "[LocalApi] Local API Server enabled by user setting. Starting server...";
                 m_localApiServer->start();
+            } else if (serverMode) {
+                qInfo() << "[LocalApi] Ignoring disabled GUI API preference because server mode explicitly requested the API.";
             } else {
                 qInfo() << "[LocalApi] Local API Server disabled by user setting. Stopping server...";
                 m_localApiServer->stop();
@@ -736,11 +739,13 @@ void MainWindow::onTrayIconActivated(QSystemTrayIcon::ActivationReason reason) {
     }
 }
 
-void MainWindow::onLocalApiEnqueueRequested(const QString &url) {
+void MainWindow::onLocalApiEnqueueRequested(const QString &url, const QString &type) {
+    // The slot signature in MainWindow.h must be updated to:
+    // void onLocalApiEnqueueRequested(const QString &url, const QString &type);
     // Default to video download as requested. The settings will be handled automatically
     // by the pipeline exactly as if the user clicked "Download" on the Start tab.
     QVariantMap options;
-    options["type"] = "video";
+    options["type"] = type.isEmpty() ? "video" : type;
     applyNonInteractiveDownloadDefaults(options);
 
     // Route it through the standard validation and queuing pipeline
@@ -1156,8 +1161,8 @@ void MainWindow::onYtDlpErrorPopup(const QString &id, const QString &errorType, 
                 minWait = 60; // 1 minute
                 maxWait = 300; // 5 minutes
             } else {
-                minWait = m_configManager->get("Livestream", "wait_for_video_min", 5).toInt();
-                maxWait = m_configManager->get("Livestream", "wait_for_video_max", 15).toInt();
+                minWait = m_configManager->get("Livestream", "wait_for_video_min", 60).toInt();
+                maxWait = m_configManager->get("Livestream", "wait_for_video_max", 300).toInt();
             }
 
             options["livestream_wait_min"] = minWait;

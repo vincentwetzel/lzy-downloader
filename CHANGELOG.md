@@ -7,15 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+No unreleased changes yet.
+
+## [1.1.16] - 2026-05-01
+
 ### Changed
 - **Advanced Settings restructuring**: Reworked the Advanced Settings navigation into broader beginner-friendly sections: Essentials, Formats, Download Flow, Files & Tags, and External Tools. Single-setting pages like Authentication are now grouped with related basics, and Download Flow is split into smaller labeled groups for downloader, clipboard/queue, chapters/sections/SponsorBlock, and filename/display behavior.
-- **Download isolation and playlist handling**: yt-dlp jobs now download inside per-item temporary subfolders and expose a `%(lzy_id)s` output-template token to reduce filename collisions on sites with weak metadata. One-item playlists now queue directly without prompting, and playlist index prefixing is configurable from Advanced Settings.
-- **CLI audio launches**: Direct URL launches now honor the `--audio` argument instead of always defaulting to video.
+- **SponsorBlock hardware cut speed**: SponsorBlock-enabled video downloads now preflight the SponsorBlock segment API before starting yt-dlp and skip the expensive `--force-keyframes-at-cuts` / `ModifyChapters+ffmpeg_o` cut-encoder path when the video has no removable segments. Built-in NVENC, Quick Sync, and AMF cut encoder presets are also tuned toward faster single-pass encoding for videos that do need accurate cuts.
+- **Headless logging isolation**: Headless/server runs now write timestamped logs under the `Server/` app-data subfolder, matching their settings, API token, and queue-state isolation so Discord-bot activity is not mixed with GUI logs.
+- **yt-dlp config isolation**: LzyDownloader now passes `--ignore-config` to yt-dlp commands so user-level yt-dlp config files cannot silently override app-controlled output templates, post-processing, or bot downloads.
 
 ### Added
+- **Local API Download Type**: The `/enqueue` endpoint now accepts a `type` field in the JSON payload (e.g., `"video"`, `"audio"`, `"gallery"`) to specify the download type, enabling full support for remote clients like the Discord bot.
 - **Guided missing-binary setup**: Added a welcome-style setup dialog for missing required binaries. Startup checks, download enqueue checks, and Start-tab format checks now show a checklist with Install, Browse, and Refresh actions instead of only sending users to Advanced Settings.
 - **Binary install refresh**: Successful in-app binary installs now refresh detection in the running app instead of automatically restarting LzyDownloader; restart is only suggested if the new tool is still not visible.
 - **Hardware encoder support for accurate cuts**: Added Advanced Settings controls for yt-dlp's FFmpeg cut encoder so SponsorBlock/section cuts that require `--force-keyframes-at-cuts` can use NVENC, Quick Sync, AMF, VideoToolbox, or custom FFmpeg output arguments. The encoder dropdown now probes FFmpeg and the local GPU list asynchronously, hiding hardware options that do not apply to the current machine.
+- **Live Chat Downloading**: Added support for downloading live chat transcripts from livestreams by selecting the "Live Chat" option in the subtitle language settings.
+
+### Fixed
+- **Server settings ownership**: GUI and `--server`/`--headless` launches now share the main app-local `settings.ini` for user preferences, while server queue backups, API tokens, and logs remain isolated under `Server/`. Server mode also starts the API explicitly without flipping the GUI `General/enable_local_api` preference.
+- **Playlist sorting scope**: Audio/video playlist sorting rules now rely on app-owned playlist state instead of incidental yt-dlp playlist metadata, preventing "Audio Playlist Downloads" rules from catching normal single audio downloads.
+- **Recovered audio finalization**: Audio downloads with portrait thumbnails no longer fail square-crop conversion, and downloads that already produced a final media file now continue finalization when yt-dlp reports a thumbnail/post-processing warning. Temporary sidecar cleanup now compares literal filename stems so titles containing square brackets do not trigger invalid wildcard/regex cleanup warnings.
+- **Audio playlist album metadata**: Audio playlist entries now carry the playlist title through expansion, yt-dlp metadata args, sorting, and the app's FFmpeg metadata pass. This prevents playlist tracks from sorting into `{year} - Unknown` folders when per-track yt-dlp metadata omits album context, and ensures the `Force Playlist as Single Album` option embeds a consistent album title and `Various Artists` album artist.
+- **Abandoned thumbnail remuxing**: Fixed an issue where livestreams downloaded as MPEG-TS and converted to MP4 would abandon the `.jpg` thumbnail in the temporary directory. The post-processor now automatically detects abandoned thumbnails and embeds them into the final container using FFmpeg before sweeping the temporary folder.
+- **Single-item playlist prompts**: Fixed an issue where single-item playlists redundantly prompted the user to choose between "Download All" and "Download Single Item". The prompt is now automatically bypassed.
+- **Headless queue-state path alignment**: Queue resume state now uses the same app-local data root as settings and API tokens, preventing headless `downloads_backup.json` from drifting into a different Qt config location.
 
 ## [1.1.13] - 2026-04-24
 
@@ -513,4 +529,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Optional JavaScript runtime support (Deno/Node.js) for anti-bot challenges
 - GitHub-based auto-update system:
   - Automatic release checking on app startup
-  - Silent installer-based updates via NS
+  - Silent installer-based updates

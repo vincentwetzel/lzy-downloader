@@ -24,12 +24,16 @@ MetadataEmbedder::MetadataEmbedder(ConfigManager *configManager, QObject *parent
     connect(m_process, &QProcess::finished, this, &MetadataEmbedder::onProcessFinished);
 }
 
+void MetadataEmbedder::setExtraMetadata(const QVariantMap &metadata) {
+    m_extraMetadata = metadata;
+}
+
 void MetadataEmbedder::processFile(const QString &filePath, int trackNumber, bool normalizeContainerTimestamps) {
     m_originalFilePath = filePath;
     QFileInfo fileInfo(filePath);
     const QString suffix = fileInfo.suffix().toLower();
 
-    if (!normalizeContainerTimestamps && suffix == "opus" && trackNumber > 0) {
+    if (!normalizeContainerTimestamps && suffix == "opus" && trackNumber > 0 && m_extraMetadata.isEmpty()) {
         qDebug() << "Skipping metadata embedding for .opus file to preserve album art.";
         emit finished(true, "");
         return;
@@ -93,6 +97,13 @@ void MetadataEmbedder::startRewrite() {
 
     if (m_pendingTrackNumber > 0) {
         args << "-metadata" << QString("track=%1").arg(m_pendingTrackNumber);
+    }
+
+    for (auto it = m_extraMetadata.constBegin(); it != m_extraMetadata.constEnd(); ++it) {
+        const QString value = it.value().toString().trimmed();
+        if (!it.key().trimmed().isEmpty() && !value.isEmpty()) {
+            args << "-metadata" << QString("%1=%2").arg(it.key(), value);
+        }
     }
 
     if (m_normalizeContainerTimestamps) {

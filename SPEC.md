@@ -12,11 +12,11 @@ This document outlines the specifications for the C++ port of the LzyDownloader 
 ## 2. Core Requirements
 
 ### 2.1. Single Instance Enforcement
-- The application must ensure that only one instance of itself can run at any given time for a given mode. Standard GUI launches use one lock, while headless/server launches (`--headless`, `--server`) use a separate isolated lock and data directory, allowing one GUI instance and one background server instance to safely co-exist.
+- The application must ensure that only one instance of itself can run at any given time for a given mode. Standard GUI launches use one lock, while headless/server launches (`--headless`, `--server`) use a separate `_Server` lock, allowing one GUI instance and one background server instance to safely co-exist. User preferences remain shared through the main app-local `settings.ini`; only server/headless runtime state is isolated under `Server/`.
 
 ### 2.2. Configuration Compatibility
 - **File Format**: `settings.ini` (INI format).
-- **Location**: Application root directory or user data directory.
+- **Location**: The main app-local user data directory, for example `%LOCALAPPDATA%\LzyDownloader\settings.ini` on Windows. GUI and server/headless mode must use this same file as the single source of truth for user preferences.
 - **Parsing**: Must handle raw strings (no interpolation).
 - **Legacy Support**: Backwards compatibility with the Python application's settings file is NO LONGER required. The application uses standard Qt `QSettings` behavior and automatically prunes unrecognised or legacy keys on startup to maintain a clean configuration file.
     - `restrict_filenames`, `exit_after`.
@@ -75,7 +75,7 @@ This document outlines the specifications for the C++ port of the LzyDownloader 
     - **Navigation Styling**: The left column uses a palette-aware `QListWidget` whose stylesheet is rebuilt on palette changes so the category list stays compact and theme-consistent without reverting to a plain scrollbar-heavy layout.
     - **Saving Behavior**: Most settings auto-save on change. The "Output Template" requires a dedicated "Save" button.
 - **System Integration**: A system tray icon for quick show/hide and quit actions. Clicking the window close button (`X`) must exit the application (it must not keep running in the background).
-- **Local API Server**: When enabled, the app must bind a small HTTP API only to localhost (`127.0.0.1:8765`), require a Bearer token stored in `api_token.txt` (or `Server/api_token.txt` if running headless), accept `POST /enqueue` with a JSON `url`, and return queue snapshots from `GET /status`. API and direct CLI requests must be treated as non-interactive: no modal prompts, playlist download-all behavior, runtime picker bypasses, and log-only UI warnings.
+- **Local API Server**: In GUI mode, when `General/enable_local_api` is enabled, the app must bind a small HTTP API only to localhost (`127.0.0.1:8765`). In `--server` or `--headless` mode, the API must start automatically because the launch mode explicitly requested server behavior, without writing `General/enable_local_api=true`. The API requires a Bearer token stored in `api_token.txt` (or `Server/api_token.txt` if running headless/server), accepts `POST /enqueue` with a JSON `url` plus optional `type` (`video`, `audio`, or `gallery`), and returns queue snapshots from `GET /status`. API and direct CLI requests must be treated as non-interactive: no modal prompts, playlist download-all behavior, runtime picker bypasses, and log-only UI warnings.
 - **Theming**: Support for Light, Dark, and System themes.
 
 ### 2.5. Download Engine (yt-dlp & gallery-dl)
@@ -84,11 +84,12 @@ This document outlines the specifications for the C++ port of the LzyDownloader 
 - **Binary Discovery & Enforcement**: On launch, the application must search for required external binaries in system `PATH` and other common locations. The application must actively prevent the user from queuing video/audio downloads if `yt-dlp`, `ffmpeg`, `ffprobe`, or `deno` are missing, and block gallery downloads if `gallery-dl`, `ffmpeg`, or `ffprobe` are missing. Interactive missing-binary flows must open a guided setup dialog that lists the missing tools, offers install and browse actions, and re-scans status in place instead of only directing users to the Advanced Settings page.
 - **Binary Management UI**: The External Binaries page must show the detected/configured path and current version for each supported binary. `yt-dlp` and `gallery-dl` update actions must live there, and in-app binary updates must refuse to overwrite package-managed installations.
 - **Argument Construction**: Must dynamically build arguments based on all user settings, including:
-    - Subtitle flags (`--write-subs`, `--embed-subs`, `--sub-langs`).
+    - Config isolation (`--ignore-config`) so user-level yt-dlp config files cannot override app-controlled downloads, including headless/API jobs.
+    - Subtitle flags (`--write-subs`, `--embed-subs`, `--sub-langs` including the special `live_chat` value).
     - Filename restriction (`--restrict-filenames`).
     - External downloader (`--external-downloader aria2c`).
     - Thumbnail conversion (`--convert-thumbnails`).
-    - SponsorBlock (`--sponsorblock-remove all` plus `--force-keyframes-at-cuts` for videos to preserve A/V sync).
+    - SponsorBlock (`--sponsorblock-remove all`; video/livestream jobs preflight SponsorBlock segment availability and only add `--force-keyframes-at-cuts` plus cut-encoder postprocessor args when segments are confirmed or the preflight cannot be completed).
     - Cookies from browser (`--cookies-from-browser`).
     - Download sections (`--download-sections`).
     - Output template (`-o`).
@@ -101,9 +102,8 @@ This document outlines the specifications for the C++ port of the LzyDownloader 
     - **Section Filename Labeling**: When a section/chapter clip is queued, the output filename must include a filename-safe label describing the selected range or chapter (for example `[section 15-00_to_end]`) before the extension so the saved file clearly identifies which part of the source it contains.
     - **Codec Preference Fidelity**: Advanced Settings video/audio codec choices must map to yt-dlp selectors that recognize common codec aliases reported by sites and containers (for example H.264 matching `avc1` streams, H.265 matching `hev1`/`hvc1`, and AAC matching `mp4a`), rather than only matching one literal codec token.
     - **Runtime Format Overrides**: When the runtime picker supplies a concrete `format` ID, the downloader must treat it as an explicit `-f` override instead of re-opening the picker or falling back to the saved quality/codec defaults. If video and audio runtime format IDs are selected separately, both IDs must be merged into the final video `-f` expression.
-    - **Accurate Cut Encoder**: When configured, SponsorBlock and section cut jobs may pass hardware or custom FFmpeg output arguments to yt-dlp's cut postprocessor without disabling keyframe-safe cuts.
-    - **Internal ID Template Token**: yt-dlp jobs must inject the app's internal download ID as `%(lzy_id)s` so user templates can produce collision-proof filenames on sites with weak metadata.
 - **Output Parsing**: Must parse `yt-dlp` stdout/stderr for progress, final filename, and metadata JSON.
+- **Headless Runtime-State Isolation**: Headless/server runs must use the shared main `settings.ini` for user preferences and the `Server/` app-data subfolder for runtime state such as `downloads_backup.json`, `api_token.txt`, and timestamped log files so Discord-bot/API activity can be diagnosed separately from GUI sessions without creating a second preferences profile.
 - **Process Lifetime on Exit**: Closing the application must explicitly terminate active downloader/post-processor process trees (including child tools such as `aria2c` and `ffmpeg`) as well as any transient utility processes (updaters, validators, template checkers, cookie testers) so no background tasks survive after the UI exits. **This termination must be non-blocking to the GUI thread (e.g., using detached OS commands for process tree cleanup) to prevent UI freezes when mass-stopping downloads or exiting.**
 - **Progress Compatibility**: The worker MUST understand and emit progress from **both** native `yt-dlp` progress lines **and** aria2c external downloader output, including:
   - Native yt-dlp format: `[download] XX.X% of YY.YMiB at ZZ.ZMiB/s ETA 0:00`
@@ -159,8 +159,8 @@ This document outlines the specifications for the C++ port of the LzyDownloader 
 ### 2.6. Post-Processing
 - **File Lifecycle:**
     - Section clips saved in MP4-family containers may run through one additional asynchronous ffprobe+ffmpeg normalization pass before final move. The app probes the clipped container duration with `ffprobe`, then remuxes with `-fflags +genpts`, `-ignore_editlist 1`, `-fix_sub_duration`, `-c:s mov_text`, `-t <clip_duration>`, `-shortest`, and `-movflags +faststart` so embedded subtitle streams are hard-limited to the clip timeline and players like VLC read the clipped duration more accurately.
+    - Un-embedded thumbnails (e.g., from `.ts` to `.mp4` livestream remuxes) are automatically detected and injected into the final container using a native FFmpeg fallback pass.
     - All downloads must go to a temporary directory first.
-    - yt-dlp downloads should be isolated under per-item temporary subdirectories and the app should clean those subdirectories after successful finalization.
     - **Resuming and Clearing:** Partially downloaded files are retained in the temporary directory when a download is stopped. `DownloadQueueState` persists the current `tempFilePath`, `originalDownloadedFilePath`, and tracked cleanup candidates so users can resume or manually clean up across application restarts.
     - **Manual Cleanup:** If a user clicks "Clear Temp Files" for a stopped or failed download, the application must use the tracked cleanup candidate paths gathered during the worker run and then apply literal stem matching to sweep up associated media files, fragments (`.part-Frag`), tracking files (`.aria2`, `.ytdl`), metadata (`.info.json`), thumbnails, subtitles, and other partial sidecars. The cleanup filter must use literal string matching (`==` and `startsWith`) rather than wildcard globbing to prevent failure when video titles contain bracket characters `[]` (like YouTube IDs).
     - A file stability check must be performed before moving.

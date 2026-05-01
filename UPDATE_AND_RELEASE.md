@@ -10,10 +10,11 @@ This document describes how to build, package, and release the C++ version of Lz
    - Verify: `makensis /version` in PowerShell
 
 2. **CMake & MSVC**
-   - Required to build the C++ application.
+   - Required to build the C++ application. The checked-in CMake presets currently target the Visual Studio 18 2026 generator.
 
 3. **Qt 6**
    - Required for building the application.
+   - The manifest build path uses vcpkg; keep `vcpkg.json` synchronized with the app version before release.
 
 4. **Git & GitHub**
    - Repo: https://github.com/vincentwetzel/lzy-downloader
@@ -35,6 +36,8 @@ This will update `extractors_yt-dlp.json` and `extractors_gallery-dl.json`.
 ### Step 2: Update Version Number
 
 Update the version in `CMakeLists.txt` (`project(VERSION x.y.z)`). This is the single source of truth for the release version. The app version is generated from there into `version.h`, used by the Windows resources, and passed into the NSIS installer build by `build_release.ps1`.
+
+Also update `vcpkg.json` `version-string` to the same version and ensure `CHANGELOG.md` has the release notes under the matching dated version heading.
 
 **Release rule:** Do not manually rename the installer `.exe` to fix a version mismatch. If the setup filename version is wrong, fix the release inputs/scripts and rebuild so the installer filename, Windows app version, and uninstall `DisplayVersion` all match the same `CMakeLists.txt` version.
 
@@ -89,6 +92,8 @@ Navigate to https://github.com/vincentwetzel/lzy-downloader/releases and:
 
 - [ ] Extractor lists updated (`extractors_yt-dlp.json`, `extractors_gallery-dl.json`)
 - [ ] Version number updated in `CMakeLists.txt`
+- [ ] `vcpkg.json` `version-string` matches `CMakeLists.txt`
+- [ ] `CHANGELOG.md` has the release notes under the matching dated version
 - [ ] Installer was rebuilt from the current `CMakeLists.txt` version (`build_release.ps1` or `makensis /DAPP_VERSION=...`), not manually renamed afterward
 - [ ] Release build completed (`build_release.ps1` or equivalent manual steps)
 - [ ] NSIS installer tested (install/uninstall preserves `%LOCALAPPDATA%\LzyDownloader\settings.ini`, `download_archive.db`, `downloads_backup.json`, and log files)
@@ -108,5 +113,7 @@ The application stores user data in standard Windows directories:
 | Queue Backup | `%LOCALAPPDATA%\LzyDownloader\downloads_backup.json` |
 | Local API token | `%LOCALAPPDATA%\LzyDownloader\api_token.txt` |
 | Logs | `%LOCALAPPDATA%\LzyDownloader\LzyDownloader_YYYY-MM-dd_HH-mm-ss.log` (one new file per run; oldest logs deleted after the most recent 5) |
+
+Server/headless mode still reads user preferences from `%LOCALAPPDATA%\LzyDownloader\settings.ini`, but isolates runtime queue backups, API tokens, and logs under `%LOCALAPPDATA%\LzyDownloader\Server\`.
 
 **Important:** The NSIS installer must NOT overwrite `settings.ini`, `download_archive.db`, `downloads_backup.json`, `api_token.txt`, or log files. These are stored in user data directories, not the installation directory.

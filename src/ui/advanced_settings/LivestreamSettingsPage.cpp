@@ -124,8 +124,8 @@ void LivestreamSettingsPage::loadSettings() {
 
     m_liveFromStartCheck->setChecked(m_configManager->get("Livestream", "live_from_start", false).toBool());
     m_waitForVideoCheck->setChecked(m_configManager->get("Livestream", "wait_for_video", true).toBool());
-    m_waitMinSpin->setValue(m_configManager->get("Livestream", "wait_for_video_min", 5).toInt());
-    m_waitMaxSpin->setValue(m_configManager->get("Livestream", "wait_for_video_max", 30).toInt());
+    m_waitMinSpin->setValue(m_configManager->get("Livestream", "wait_for_video_min", 60).toInt());
+    m_waitMaxSpin->setValue(m_configManager->get("Livestream", "wait_for_video_max", 300).toInt());
     m_usePartCheck->setChecked(m_configManager->get("Livestream", "use_part", true).toBool());
     m_downloadAsCombo->setCurrentText(m_configManager->get("Livestream", "download_as", "MPEG-TS").toString());
     m_qualityCombo->setCurrentText(m_configManager->get("Livestream", "quality", "best").toString());

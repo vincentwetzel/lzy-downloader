@@ -207,9 +207,16 @@ void LocalApiServer::handleRequest(QTcpSocket *socket, const QByteArray &request
         QJsonDocument doc = QJsonDocument::fromJson(bodyStr.toUtf8(), &parseError);
         if (!doc.isNull() && doc.isObject()) {
             QString targetUrl = doc.object().value("url").toString().trimmed();
+            QString downloadType = doc.object().value("type").toString("video"); // Default to "video"
             if (!targetUrl.isEmpty()) {
-                emit enqueueRequested(targetUrl);
-                sendHttpResponse(socket, 200, "OK", "{\"status\": \"Enqueued\", \"url\": \"" + targetUrl.toUtf8() + "\"}");
+                // The signal signature in LocalApiServer.h must be updated to:
+                // void enqueueRequested(const QString &url, const QString &type);
+                emit enqueueRequested(targetUrl, downloadType);
+                QJsonObject successObj;
+                successObj["status"] = "Enqueued";
+                successObj["url"] = targetUrl;
+                successObj["type"] = downloadType;
+                sendHttpResponse(socket, 200, "OK", QJsonDocument(successObj).toJson(QJsonDocument::Compact));
                 return;
             }
         }

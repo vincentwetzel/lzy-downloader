@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 
-project(LzyDownloader VERSION 1.1.16 LANGUAGES CXX)
+project(LzyDownloader VERSION 1.1.17 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -179,14 +179,23 @@ if(WIN32)
         # runtime plugins beside the executable. Copy them directly from the active
         # vcpkg tree rather than relying on windeployqt's standalone-Qt assumptions.
         foreach(_plugin_dir IN ITEMS platforms sqldrivers tls imageformats styles)
-            add_custom_command(TARGET LzyDownloader POST_BUILD
-                COMMAND ${CMAKE_COMMAND} -E make_directory
-                "$<TARGET_FILE_DIR:LzyDownloader>/${_plugin_dir}"
-                COMMAND ${CMAKE_COMMAND} -E copy_directory
-                "$<$<CONFIG:Debug>:${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/debug/Qt6/plugins/${_plugin_dir}>$<$<NOT:$<CONFIG:Debug>>:${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/Qt6/plugins/${_plugin_dir}>"
-                "$<TARGET_FILE_DIR:LzyDownloader>/${_plugin_dir}"
-                COMMENT "Copying Qt plugin directory: ${_plugin_dir}"
-            )
+            set(_plugin_release_dir "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/Qt6/plugins/${_plugin_dir}")
+            set(_plugin_debug_dir "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/debug/Qt6/plugins/${_plugin_dir}")
+            file(GLOB _plugin_release_dlls RELATIVE "${_plugin_release_dir}" "${_plugin_release_dir}/*.dll")
+
+            foreach(_plugin_release_dll IN LISTS _plugin_release_dlls)
+                string(REGEX REPLACE "\\.dll$" "d.dll" _plugin_debug_dll "${_plugin_release_dll}")
+                if(EXISTS "${_plugin_debug_dir}/${_plugin_debug_dll}")
+                    add_custom_command(TARGET LzyDownloader POST_BUILD
+                        COMMAND ${CMAKE_COMMAND} -E make_directory
+                        "$<TARGET_FILE_DIR:LzyDownloader>/${_plugin_dir}"
+                        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                        "$<$<CONFIG:Debug>:${_plugin_debug_dir}/${_plugin_debug_dll}>$<$<NOT:$<CONFIG:Debug>>:${_plugin_release_dir}/${_plugin_release_dll}>"
+                        "$<TARGET_FILE_DIR:LzyDownloader>/${_plugin_dir}/$<$<CONFIG:Debug>:${_plugin_debug_dll}>$<$<NOT:$<CONFIG:Debug>>:${_plugin_release_dll}>"
+                        COMMENT "Copying Qt plugin: ${_plugin_dir}/${_plugin_release_dll}"
+                    )
+                endif()
+            endforeach()
         endforeach()
 
         # The OpenSSL TLS backend plugin is present in the deployed Qt plugin set,

@@ -10,6 +10,7 @@
 #include <QStandardPaths>
 #include <QRegularExpression>
 #include <QMutex>
+#include <QStringList>
 
 // Define a static file pointer for the log file
 static QFile *logFile = nullptr;
@@ -19,6 +20,12 @@ static QMutex s_logMutex;
 
 // Maximum number of log files to keep (oldest will be deleted)
 static const int MAX_LOG_FILES = 5;
+
+static bool isHeadlessMode()
+{
+    const QStringList args = QCoreApplication::arguments();
+    return args.contains("--headless") || args.contains("--server");
+}
 
 // Custom message handler
 void customMessageHandler(QtMsgType type, const QMessageLogContext &context, const QString &msg) {
@@ -112,11 +119,14 @@ static void cleanupOldLogs(const QString &logDir) {
 }
 
 void LogManager::installHandler() {
-    // Use the same location as settings.ini (AppData on Windows)
-    QString logDir = QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation);
+    // Use the same location family as settings.ini/state files (AppData on Windows).
+    QString logDir = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation);
     if (logDir.isEmpty()) {
         // Fallback to application directory if AppConfigLocation is unavailable
         logDir = QCoreApplication::applicationDirPath();
+    }
+    if (isHeadlessMode()) {
+        logDir = QDir(logDir).filePath("Server");
     }
     QDir().mkpath(logDir);
 

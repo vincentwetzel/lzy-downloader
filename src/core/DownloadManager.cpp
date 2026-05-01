@@ -16,13 +16,20 @@
 #include <QDir>
 #include <QStandardPaths>
 #include <QFile>
+#include <QCryptographicHash>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QNetworkAccessManager>
+#include <QNetworkReply>
+#include <QNetworkRequest>
 #include <QProcess>
-#include <QJsonArray>
+#include <QStringList>
 #include <QThread>
 #include <QCoreApplication>
+#include <QRegularExpression>
+#include <QUrl>
+#include <QUrlQuery>
 
 namespace {
 bool shouldNormalizeSectionContainer(const DownloadItem &item)
@@ -57,6 +64,72 @@ void appendCleanupCandidate(QVariantMap &options, const QString &path)
 bool isNonInteractiveRequest(const QVariantMap &options)
 {
     return options.value("non_interactive", false).toBool();
+}
+
+QString youtubeVideoIdFromUrl(const QString &urlString)
+{
+    const QUrl url(urlString);
+    const QString host = url.host().toLower();
+    if (host.contains("youtu.be")) {
+        const QString id = url.path().section('/', 1, 1);
+        return id.left(11);
+    }
+
+    if (host.contains("youtube.com") || host.contains("youtube-nocookie.com")) {
+        const QString queryId = QUrlQuery(url).queryItemValue("v");
+        if (!queryId.isEmpty()) {
+            return queryId.left(11);
+        }
+
+        const QStringList parts = url.path().split('/', Qt::SkipEmptyParts);
+        for (int i = 0; i + 1 < parts.size(); ++i) {
+            const QString marker = parts.at(i).toLower();
+            if (marker == "shorts" || marker == "embed" || marker == "live") {
+                return parts.at(i + 1).left(11);
+            }
+        }
+    }
+
+    if (!host.isEmpty()) {
+        return QString();
+    }
+
+    static const QRegularExpression idPattern(R"(([A-Za-z0-9_-]{11}))");
+    const QRegularExpressionMatch match = idPattern.match(urlString);
+    return match.hasMatch() ? match.captured(1) : QString();
+}
+
+QUrl sponsorBlockSegmentsUrl(const QString &videoId)
+{
+    const QByteArray hash = QCryptographicHash::hash(videoId.toUtf8(), QCryptographicHash::Sha256).toHex();
+    QUrl url(QString("https://sponsor.ajay.app/api/skipSegments/%1").arg(QString::fromLatin1(hash.left(4))));
+    QUrlQuery query;
+    query.addQueryItem("service", "YouTube");
+    query.addQueryItem("categories", R"(["preview","intro","selfpromo","interaction","filler","music_offtopic","sponsor","outro","hook"])");
+    query.addQueryItem("actionTypes", R"(["skip","poi","chapter"])");
+    url.setQuery(query);
+    return url;
+}
+
+bool sponsorBlockResponseHasSegmentsForVideo(const QByteArray &data, const QString &videoId)
+{
+    QJsonParseError parseError;
+    const QJsonDocument document = QJsonDocument::fromJson(data, &parseError);
+    if (parseError.error != QJsonParseError::NoError || !document.isArray()) {
+        return false;
+    }
+
+    for (const QJsonValue &value : document.array()) {
+        const QJsonObject object = value.toObject();
+        if (!object.value("videoID").toString().isEmpty() && object.value("videoID").toString() != videoId) {
+            continue;
+        }
+        if (object.value("segment").isArray()) {
+            return true;
+        }
+    }
+
+    return false;
 }
 }
 
@@ -142,6 +215,7 @@ void DownloadManager::shutdown() {
         delete embedder;
     }
     m_activeEmbedders.clear();
+    m_pendingSponsorBlockPreflights.clear();
 
     m_workerSpeeds.clear();
 }
@@ -414,6 +488,17 @@ void DownloadManager::cancelDownload(const QString &id) {
         }
     }
 
+    if (m_pendingSponsorBlockPreflights.contains(id)) {
+        DownloadItem item = m_pendingSponsorBlockPreflights.take(id);
+        item.options["is_stopped"] = true;
+        m_queueManager->m_pausedItems[id] = item;
+        m_activeDownloadsCount = qMax(0, m_activeDownloadsCount - 1);
+        if (!cancelled) {
+            emit downloadCancelled(id);
+            cancelled = true;
+        }
+    }
+
     // Always check active workers to ensure no ghost processes remain
     if (m_activeWorkers.contains(id)) {
         QObject *worker = m_activeWorkers.take(id);
@@ -600,6 +685,14 @@ void DownloadManager::pauseDownload(const QString &id) {
         qDebug() << "Paused active download:" << id;
         emit downloadPaused(id);
         paused = true; // Corrected: paused = true
+    } else if (!paused && m_pendingSponsorBlockPreflights.contains(id)) {
+        DownloadItem item = m_pendingSponsorBlockPreflights.take(id);
+        item.options["is_stopped"] = true;
+        m_queueManager->m_pausedItems[id] = item;
+        m_activeDownloadsCount = qMax(0, m_activeDownloadsCount - 1);
+        qDebug() << "Paused SponsorBlock preflight download:" << id;
+        emit downloadPaused(id);
+        paused = true;
     } else if (!paused && m_activeEmbedders.contains(id)) {
         qWarning() << "Cannot pause a download that is currently embedding metadata:" << id;
         emit downloadResumed(id); // Revert UI
@@ -666,10 +759,17 @@ void DownloadManager::processPlaylistSelection(const QString &url, const QString
 
     if (action == "Download All") {
         finalItems = expandedItems;
-        queueOptions["is_playlist"] = true;
+        bool containsPlaylistItems = false;
+        for (const QVariantMap &itemData : finalItems) {
+            if (itemData.value("is_playlist", false).toBool()) {
+                containsPlaylistItems = true;
+                break;
+            }
+        }
+        queueOptions["is_playlist"] = containsPlaylistItems;
     } else if (action == "Download Single Item" && !expandedItems.isEmpty()) {
         finalItems.append(expandedItems.first());
-        queueOptions["is_playlist"] = true;
+        queueOptions["is_playlist"] = expandedItems.first().value("is_playlist", false).toBool();
     } else {
         if (!queueId.isEmpty()) {
             m_queueManager->removePendingExpansionPlaceholder(queueId);
@@ -689,6 +789,7 @@ void DownloadManager::processPlaylistSelection(const QString &url, const QString
                 item.playlistIndex = itemData.value("playlist_index", -1).toInt();
                 item.options = queueOptions;
                 item.options["original_playlist_url"] = url;
+                item.options["is_playlist"] = itemData.value("is_playlist", queueOptions.value("is_playlist", false)).toBool();
                 if (itemData.contains("is_live")) {
                     item.options["is_live"] = itemData.value("is_live").toBool();
                 }
@@ -726,6 +827,7 @@ void DownloadManager::processPlaylistSelection(const QString &url, const QString
         item.id = QUuid::createUuid().toString(QUuid::WithoutBraces);
         item.url = itemData["url"].toString();
         QVariantMap itemOptions = queueOptions;
+        itemOptions["is_playlist"] = itemData.value("is_playlist", queueOptions.value("is_playlist", false)).toBool();
         if (itemData.contains("is_live")) { // Use 'options' from parameter
             itemOptions["is_live"] = itemData.value("is_live").toBool();
         }
@@ -817,9 +919,7 @@ void DownloadManager::onPlaylistExpanded(const QString &originalUrl, const QList
                 item.options = options;
                 item.options["original_playlist_url"] = originalUrl;
                 item.options["playlist_logic"] = "Download Single (ignore playlist)";
-                    if (item.playlistIndex != -1) {
-                        item.options["is_playlist"] = true;
-                    }
+                    item.options["is_playlist"] = itemData.value("is_playlist", false).toBool();
                     if (itemData.contains("playlist_title")) {
                         item.options["playlist_title"] = itemData.value("playlist_title");
                     }
@@ -901,6 +1001,20 @@ void DownloadManager::proceedWithDownload() {
     DownloadItem item = m_queueManager->takeNextQueuedDownload();
     m_activeDownloadsCount++;
 
+    if (shouldPreflightSponsorBlock(item)) {
+        startSponsorBlockPreflight(item);
+        emitDownloadStats();
+        return;
+    }
+
+    startDownloadItem(item, true);
+}
+
+void DownloadManager::startDownloadItem(DownloadItem item, bool alreadyCountedActive) {
+    if (!alreadyCountedActive) {
+        m_activeDownloadsCount++;
+    }
+
     QString downloadType = item.options.value("type", "video").toString();
 
     if (downloadType == "gallery") {
@@ -940,6 +1054,88 @@ void DownloadManager::proceedWithDownload() {
     emitDownloadStats();
 }
 
+bool DownloadManager::shouldPreflightSponsorBlock(const DownloadItem &item) const {
+    if (!m_configManager->get("General", "sponsorblock", false).toBool()) {
+        return false;
+    }
+    if (item.options.value("sponsorblock_segments_checked", false).toBool()) {
+        return false;
+    }
+
+    const QString downloadType = item.options.value("type", "video").toString();
+    const bool isLivestream = item.options.value("is_live", false).toBool()
+        || item.options.value("wait_for_video", false).toBool();
+    if (downloadType != "video" && !isLivestream) {
+        return false;
+    }
+
+    return !youtubeVideoIdFromUrl(item.url).isEmpty();
+}
+
+void DownloadManager::startSponsorBlockPreflight(const DownloadItem &item) {
+    const QString videoId = youtubeVideoIdFromUrl(item.url);
+    if (videoId.isEmpty()) {
+        DownloadItem fallbackItem = item;
+        fallbackItem.options["sponsorblock_segments_checked"] = false;
+        startDownloadItem(fallbackItem, true);
+        return;
+    }
+
+    m_pendingSponsorBlockPreflights[item.id] = item;
+
+    QVariantMap progressData;
+    progressData["status"] = "Checking SponsorBlock segments...";
+    progressData["progress"] = -1;
+    emit downloadProgress(item.id, progressData);
+
+    QNetworkAccessManager *networkManager = new QNetworkAccessManager(this);
+    QNetworkReply *reply = networkManager->get(QNetworkRequest(sponsorBlockSegmentsUrl(videoId)));
+    QTimer::singleShot(8000, reply, [reply]() {
+        if (reply->isRunning()) {
+            reply->abort();
+        }
+    });
+
+    const QString itemId = item.id;
+    connect(reply, &QNetworkReply::finished, this, [this, reply, networkManager, videoId, itemId]() {
+        if (m_isShuttingDown || !m_pendingSponsorBlockPreflights.contains(itemId)) {
+            reply->deleteLater();
+            networkManager->deleteLater();
+            return;
+        }
+
+        DownloadItem checkedItem = m_pendingSponsorBlockPreflights.take(itemId);
+        bool checked = false;
+        bool hasSegments = false;
+
+        const QVariant statusAttr = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute);
+        const int httpStatus = statusAttr.isValid() ? statusAttr.toInt() : 0;
+        const QNetworkReply::NetworkError error = reply->error();
+
+        if (error == QNetworkReply::NoError) {
+            checked = true;
+            hasSegments = sponsorBlockResponseHasSegmentsForVideo(reply->readAll(), videoId);
+        } else if (httpStatus == 404) {
+            checked = true;
+            hasSegments = false;
+        } else {
+            qWarning() << "SponsorBlock preflight failed for" << videoId << ":" << reply->errorString()
+                       << "- falling back to accurate cut arguments.";
+        }
+
+        checkedItem.options["sponsorblock_segments_checked"] = checked;
+        checkedItem.options["sponsorblock_has_segments"] = hasSegments;
+
+        qInfo() << "SponsorBlock preflight for" << videoId
+                << "checked=" << checked
+                << "hasSegments=" << hasSegments;
+
+        startDownloadItem(checkedItem, true);
+        reply->deleteLater();
+        networkManager->deleteLater();
+    });
+}
+
 void DownloadManager::applyMaxConcurrentSetting(const QString &maxThreadsStr) {
     if (maxThreadsStr == "1 (short sleep)") {
         m_maxConcurrentDownloads = 1;
@@ -954,7 +1150,7 @@ void DownloadManager::applyMaxConcurrentSetting(const QString &maxThreadsStr) {
 }
 
 void DownloadManager::startDownloadsToCapacity() {
-    while (m_activeWorkers.count() < m_maxConcurrentDownloads && m_queueManager->hasQueuedDownloads()) {
+    while ((m_activeWorkers.count() + m_pendingSponsorBlockPreflights.count()) < m_maxConcurrentDownloads && m_queueManager->hasQueuedDownloads()) {
         if (m_sleepMode != NoSleep && m_maxConcurrentDownloads == 1) {
             if (!m_sleepTimer->isActive()) {
                 int sleepDuration = (m_sleepMode == ShortSleep) ? 5000 : 30000;
@@ -1009,6 +1205,60 @@ void DownloadManager::onWorkerOutputReceived(const QString &id, const QString &o
     // Raw console output from workers can be processed or logged here if needed
 }
 
+QString DownloadManager::effectivePlaylistTitle(const DownloadItem &item) const {
+    auto isUsable = [](const QString &value) {
+        return !value.isEmpty() && value.compare("unknown", Qt::CaseInsensitive) != 0;
+    };
+
+    const QStringList playlistKeys = {"playlist_title", "playlist"};
+    for (const QString &key : playlistKeys) {
+        const QString value = item.metadata.value(key).toString().trimmed();
+        if (isUsable(value)) {
+            return value;
+        }
+    }
+    for (const QString &key : playlistKeys) {
+        const QString value = item.options.value(key).toString().trimmed();
+        if (isUsable(value)) {
+            return value;
+        }
+    }
+
+    const QString metadataAlbum = item.metadata.value("album").toString().trimmed();
+    if (isUsable(metadataAlbum)) {
+        return metadataAlbum;
+    }
+    const QString optionsAlbum = item.options.value("album").toString().trimmed();
+    if (isUsable(optionsAlbum)) {
+        return optionsAlbum;
+    }
+
+    return QString();
+}
+
+void DownloadManager::applyAudioPlaylistAlbumMetadata(DownloadItem &item) const {
+    if (item.options.value("type").toString() != "audio" || item.playlistIndex <= 0) {
+        return;
+    }
+
+    const QString playlistTitle = effectivePlaylistTitle(item);
+    if (playlistTitle.isEmpty()) {
+        return;
+    }
+
+    if (item.metadata.value("playlist_title").toString().trimmed().isEmpty()) {
+        item.metadata["playlist_title"] = playlistTitle;
+    }
+    if (item.options.value("playlist_title").toString().trimmed().isEmpty()) {
+        item.options["playlist_title"] = playlistTitle;
+    }
+
+    if (m_configManager->get("Metadata", "force_playlist_as_album", false).toBool()) {
+        item.metadata["album"] = playlistTitle;
+        item.metadata["album_artist"] = "Various Artists";
+    }
+}
+
 void DownloadManager::onWorkerFinished(const QString &id, bool success, const QString &message, const QString &finalFilename, const QString &originalDownloadedFilename, const QVariantMap &metadata) {
     if (!m_activeWorkers.contains(id)) return;
 
@@ -1048,6 +1298,10 @@ void DownloadManager::onWorkerFinished(const QString &id, bool success, const QS
     item.tempFilePath = normalizedFinal.isEmpty() ? normalizedOriginal : normalizedFinal;
     item.originalDownloadedFilePath = normalizedOriginal;
     item.metadata = metadata;
+    if (metadata.contains("postprocessor_warning")) {
+        item.options["completion_warning"] = metadata.value("postprocessor_warning").toString();
+        emit downloadProgress(id, {{"status", "Completed with post-processing warning"}});
+    }
 
     // Inject playlist_index into metadata for sorting manager
     if (item.playlistIndex != -1) {
@@ -1060,15 +1314,19 @@ void DownloadManager::onWorkerFinished(const QString &id, bool success, const QS
     if (item.options.contains("playlist_title") && !item.metadata.contains("playlist_title")) {
         item.metadata["playlist_title"] = item.options.value("playlist_title");
     }
+    applyAudioPlaylistAlbumMetadata(item);
 
     const bool needsTrackEmbedding = (item.options.value("type").toString() == "audio" && item.playlistIndex > 0);
     const bool needsSectionNormalization = shouldNormalizeSectionContainer(item);
+    const QString thumbnailPath = item.metadata.value("thumbnail_path").toString();
+    const bool wantsEmbed = m_configManager->get("Metadata", "embed_thumbnail", true).toBool();
+    const bool hasAbandonedThumb = wantsEmbed && !thumbnailPath.isEmpty() && QFile::exists(thumbnailPath);
 
-    if (needsTrackEmbedding || needsSectionNormalization) {
+    if (needsTrackEmbedding || needsSectionNormalization || hasAbandonedThumb) {
         QVariantMap progressData;
         progressData["status"] = needsSectionNormalization
             ? "Normalizing clip container metadata..."
-            : "Embedding metadata...";
+            : (hasAbandonedThumb && !needsTrackEmbedding ? "Embedding thumbnail..." : "Embedding metadata...");
         emit downloadProgress(id, progressData);
 
         MetadataEmbedder *embedder = new MetadataEmbedder(m_configManager, this);
@@ -1076,6 +1334,21 @@ void DownloadManager::onWorkerFinished(const QString &id, bool success, const QS
         connect(embedder, &MetadataEmbedder::finished, this, [this, id](bool s, const QString &e){
             onMetadataEmbedded(id, s, e);
         });
+        if (hasAbandonedThumb) {
+            embedder->setProperty("thumbnail_path", thumbnailPath);
+        }
+        QVariantMap extraMetadata;
+        if (item.options.value("type").toString() == "audio" && item.playlistIndex > 0
+            && m_configManager->get("Metadata", "force_playlist_as_album", false).toBool()) {
+            const QString playlistTitle = effectivePlaylistTitle(item);
+            if (!playlistTitle.isEmpty()) {
+                extraMetadata["album"] = playlistTitle;
+                extraMetadata["album_artist"] = "Various Artists";
+            }
+        }
+        if (!extraMetadata.isEmpty()) {
+            embedder->setExtraMetadata(extraMetadata);
+        }
         embedder->processFile(item.tempFilePath, needsTrackEmbedding ? item.playlistIndex : 0, needsSectionNormalization);
     } else {
         m_finalizer->finalize(id, item);
@@ -1163,13 +1436,21 @@ void DownloadManager::onMetadataEmbedded(const QString &id, bool success, const 
 }
 
 void DownloadManager::onFinalizationComplete(const QString &id, bool success, const QString &message) {
+    QString finalMessage = message;
+    if (success && m_activeItems.contains(id)) {
+        const QString warning = m_activeItems.value(id).options.value("completion_warning").toString();
+        if (!warning.isEmpty()) {
+            finalMessage += "\n" + warning;
+        }
+    }
+
     if (success) {
         m_completedDownloadsCount++;
     } else {
         m_errorDownloadsCount++;
     }
     
-    emit downloadFinished(id, success, message);
+    emit downloadFinished(id, success, finalMessage);
     m_activeItems.remove(id);
 
     emitDownloadStats();
@@ -1201,6 +1482,7 @@ void DownloadManager::checkQueueFinished() {
     }
 
     bool isQueueEmptyAndIdle = m_activeWorkers.isEmpty()
+        && m_pendingSponsorBlockPreflights.isEmpty()
         && !m_queueManager->hasQueuedDownloads()
         && m_activeItems.isEmpty()
         && !hasPendingPlaylistExpansions
