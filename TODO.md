@@ -9,7 +9,8 @@
   - [x] Add `POST /enqueue` endpoint to accept links safely.
   - [x] Add `GET /status` endpoint to return active queue progress, speed, and ETA.
   - [x] Add GUI Toggle in Advanced Settings (`ConfigurationPage`) to "Enable Local API Server".
-  - [x] **Headless Environment Isolation**: Branch single-instance memory locks and route data files (`settings.ini`, `downloads_backup.json`, `api_token.txt`) to a `Server` subfolder when running with `--headless` or `--server`, allowing a bot and the GUI to run concurrently.
+  - [x] **Headless Environment Isolation**: Branch single-instance memory locks, share the main app-local `settings.ini` for preferences, and route runtime files (`downloads_backup.json`, `api_token.txt`, logs) to a `Server` subfolder when running with `--headless` or `--server`, allowing a bot and the GUI to run concurrently without creating a second preferences profile.
+  - [x] **Headless logging isolation**: Route headless/server log files to the same `Server` app-data subfolder and log the actual `settings.ini` path used by `ConfigManager`.
   - [x] Wire server signals to `DownloadQueueManager` and `MainWindow`.
 
 ### Phase 14: Unbundled Binaries & Dependency Management
@@ -34,17 +35,21 @@
     - [x] `Quality`: Dropdown specifically targeting livestream resolutions.
     - [x] `Convert To`: Video codec extensions linked to FFmpeg post-processing options.
   - [x] **Argument Builder**: Update `YtDlpArgsBuilder` to route to Livestream parameters when the flag is detected.
+  - [x] **Live Chat**: Download live chat transcripts as a subtitle file.
   - [x] **Interactive Prompt**: When a scheduled livestream is detected, prompt the user to wait for it.
   - [x] **Worker Resilience**: Parse livestream indeterminate progress output and handle "Waiting for video" lines.
 
 ### Bug Fixes
+- [x] **Abandoned thumbnail remuxing**: Fixed livestream TS->MP4 remuxing abandoning the thumbnail by adding a native C++ FFmpeg fallback to embed abandoned thumbnails and explicitly sweeping leftover sidecar files in the finalizer.
+- [x] **Single-item playlist prompt**: Fixed 1-item playlists prompting the user to "Download All" vs "Download Single Item" by automatically bypassing the prompt.
 - [x] **Mass-stop GUI freeze**: Fixed severe GUI locking when stopping multiple downloads at once (like "Stop All"). Process-tree cleanup (`taskkill`) is now offloaded to a detached background process, and queue evaluation is safely deferred to the end of the event loop.
 - [x] **SponsorBlock A/V desync**: SponsorBlock video cuts now use `--force-keyframes-at-cuts` so the remaining video and audio streams do not drift out of sync when a cut falls between keyframes.
+- [x] **SponsorBlock hardware cut speed**: Preflight SponsorBlock segment availability before starting yt-dlp so no-segment videos skip the expensive accurate-cut encoder path, and tune built-in hardware presets for faster single-pass encoding (`NVENC p1`, Quick Sync `veryfast`, AMF `speed`) when cuts are actually needed.
+- [x] **yt-dlp user-config isolation**: Added `--ignore-config` to app-built yt-dlp commands so user-level yt-dlp config files cannot unexpectedly change output paths or post-processing during GUI/headless downloads.
 - [x] **Premature completion notification**: Fixed a bug where a "Downloads Complete" desktop notification fired prematurely when enqueueing the first item due to config-save triggers racing with the queue.
 - [x] **Pause-triggered completion**: Fixed a bug where pausing the last active download incorrectly triggered the queue completion and auto-exit sequence.
 - [x] **No pip installs in External Binaries GUI**: Removed `pip` as an in-app install method for `yt-dlp` and `gallery-dl`, keeping Python-managed installs as an advanced user path the app can detect but no longer provisions. Windows install choices now lead with standalone executable downloads to reduce Python runtime issues for standard users.
 - [x] **Guided missing-binary setup dialog**: Replaced missing-binary dead-end prompts with a welcome-style checklist dialog that lets users install or browse for required tools and refresh detection in place.
-- [x] **Per-download temp isolation**: Isolated yt-dlp jobs into UUID temp subfolders, added a `%(lzy_id)s` template token, and cleaned the UUID folder after finalization to prevent concurrent filename collisions.
 - [x] **Source-tree naming/layout cleanup**: Moved misplaced Start tab helper files into `src/ui/start_tab/`, moved the aria2 download pipeline into `src/core/download_pipeline/`, removed dead top-level/duplicate naming artifacts, and updated docs/build references so the codebase layout is clearer.
 - [x] **FFmpeg version string display**: Cleaned up the version string extraction for FFmpeg and ffprobe so the UI displays a concise version number or build date instead of the verbose build configuration string.
 - [x] **External Binaries version/update consolidation**: Moved yt-dlp/gallery-dl version display and update actions into the External Binaries page, added per-binary version probing, and stopped the in-app updater from overwriting package-managed installs.
@@ -70,6 +75,9 @@
 - [x] **Audio-stage size fallback**: Added a second-stage matcher that uses the active stream's emitted total size when yt-dlp delays or omits a fresh target filename during the video-to-audio handoff.
 - [x] **Empty `requested_downloads` stage fallback**: Fixed runs where `info.json` omits `requested_downloads` by seeding stream order from yt-dlp's announced format list and aria2 command-line `itag`/`mime` values, so audio-only transfers like `f251-13.webm.part` no longer stay labeled as video.
 - [x] **Clear Temp Files bracket bug**: Fixed "Clear Temp Files" failing to delete leftover `.part` files when the video title contains brackets (like `[youtube_id]`) by bypassing Qt's wildcard globbing and using literal string matching.
+- [x] **Manual regression: portrait audio thumbnail crop**: Verify an audio download with a portrait thumbnail and `crop_artwork_to_square=true` finalizes successfully with the safe square crop expression.
+- [x] **Manual regression: bracketed filenames**: Verify a download whose title contains `[` and `]` finalizes and cleans temp sidecars without invalid `QRegularExpression` warnings.
+- [x] **Manual regression: yt-dlp thumbnail/postprocessor warning**: Verify a download that emits `LZY_FINAL_PATH` and then fails thumbnail conversion still moves the media to the completed directory, cleans temp sidecars, and reports a completion warning instead of becoming a stranded failed job.
 - [x] **Clear Temp Files state persistence**: Saved active download file paths to `downloads_backup.json` so "Clear Temp Files" correctly sweeps multi-stream fragments (even stripping format IDs like `.f299`) after the application is restarted.
 - [x] **Late info.json label overwrite**: Fixed a follow-up regression where a delayed `info.json` parse could clear the already-correct stderr-derived stream mapping and flip the GUI back from audio to video mid-handoff.
 - [x] **Advanced Settings codec/format wiring audit**: Fixed the downloader path so saved codec labels map to real yt-dlp codec aliases (`avc1`, `hev1`, `mp4a`, etc.), direct runtime `format` selections become concrete `-f` overrides, runtime-selected audio tracks are merged into video downloads, and the `Restrict filenames` toggle now reaches yt-dlp instead of being ignored.

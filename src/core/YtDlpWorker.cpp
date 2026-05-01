@@ -147,8 +147,23 @@ void YtDlpWorker::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatu
 
 
     m_finishEmitted = true;
-    bool success = (exitStatus == QProcess::NormalExit && exitCode == 0 && !m_finalFilename.isEmpty());
+    const bool normalExit = (exitStatus == QProcess::NormalExit);
+    const bool capturedFinalFileExists = !m_finalFilename.isEmpty() && QFileInfo::exists(m_finalFilename);
+    const bool recoveredFromPostProcessorFailure = normalExit && exitCode != 0 && capturedFinalFileExists;
+    bool success = (normalExit && exitCode == 0 && !m_finalFilename.isEmpty()) || recoveredFromPostProcessorFailure;
     QString message = success ? "Download completed successfully." : "Download failed.";
+    QString postprocessorWarning;
+
+    if (recoveredFromPostProcessorFailure) {
+        message = "Download completed, but thumbnail/post-processing reported a warning.";
+        if (!m_errorLines.isEmpty()) {
+            message += "\n" + m_errorLines.join("\n").left(200);
+        }
+        postprocessorWarning = message;
+        qWarning() << "yt-dlp exited with code" << exitCode
+                   << "after producing final media. Continuing finalization for"
+                   << m_id << "at" << m_finalFilename;
+    }
 
     if (!m_finalFilename.isEmpty()) {
         qDebug() << "Final filename captured:" << m_finalFilename;
@@ -221,6 +236,9 @@ void YtDlpWorker::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatu
     }
     if (!m_thumbnailPath.isEmpty() && !metadata.contains("thumbnail_path")) {
         metadata["thumbnail_path"] = m_thumbnailPath;
+    }
+    if (!postprocessorWarning.isEmpty()) {
+        metadata["postprocessor_warning"] = postprocessorWarning;
     }
 
     emit finished(m_id, success, message, m_finalFilename, m_originalDownloadedFilename, metadata);
@@ -850,6 +868,15 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
         qDebug() << "Detected info.json path and initiating retry mechanism:" << m_infoJsonPath;
         m_infoJsonRetryCount = 0; // Reset retry count for a new file
         readInfoJsonWithRetry(); // Start the retry mechanism
+    }
+
+    // Capture subtitle sidecar paths so they are tracked for cleanup
+    static const QRegularExpression subtitleRegex(R"(\[info\] (?:Writing video subtitles to|Video subtitles are already present in):\s+(.+)$)");
+    QRegularExpressionMatch subtitleMatch = subtitleRegex.match(normalizedLine);
+    if (subtitleMatch.hasMatch()) {
+        QString subtitlePath = subtitleMatch.captured(1).trimmed();
+        updateTransferTarget(subtitlePath);
+        emitStatusUpdate(statusForCurrentTransfer());
     }
 
     static const QRegularExpression ariaFileRegex(R"(^FILE:\s+(.+)$)");

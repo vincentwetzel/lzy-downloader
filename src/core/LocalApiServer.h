@@ -21,7 +21,7 @@ public:
     QString getApiKey() const;
 
 signals:
-    void enqueueRequested(const QString &url);
+    void enqueueRequested(const QString &url, const QString &type);
 
 public slots:
     void onDownloadAdded(const QVariantMap &itemData);

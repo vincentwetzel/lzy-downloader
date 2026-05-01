@@ -4,6 +4,7 @@
 #include <QObject>
 #include <QByteArray>
 #include <QProcess>
+#include <QVariantMap>
 
 class ConfigManager;
 
@@ -12,6 +13,7 @@ class MetadataEmbedder : public QObject {
 
 public:
     explicit MetadataEmbedder(ConfigManager *configManager, QObject *parent = nullptr);
+    void setExtraMetadata(const QVariantMap &metadata);
     void processFile(const QString &filePath, int trackNumber, bool normalizeContainerTimestamps);
 
 signals:
@@ -40,6 +42,7 @@ private:
     double m_targetDurationSeconds;
     Stage m_stage;
     QString m_processOutputTail;
+    QVariantMap m_extraMetadata;
 };
 
 #endif // METADATAEMBEDDER_H

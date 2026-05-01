@@ -12,8 +12,59 @@
 #include <QCoreApplication>
 #include <QUrlQuery>
 #include <QDebug>
+#include <QSet>
+#include <QRegularExpression>
 
 namespace { // Anonymous namespace to limit scope to this file
+
+QString cleanupStem(QString fileName)
+{
+    if (fileName.endsWith(".part", Qt::CaseInsensitive)) {
+        fileName.chop(5);
+    }
+    if (fileName.endsWith(".ytdl", Qt::CaseInsensitive)) {
+        fileName.chop(5);
+    }
+    if (fileName.endsWith(".aria2", Qt::CaseInsensitive)) {
+        fileName.chop(6);
+    }
+
+    if (fileName.endsWith(".info.json", Qt::CaseInsensitive)) {
+        fileName.chop(10);
+    } else {
+        static const QSet<QString> knownExts = {
+            "mp4", "mkv", "webm", "m4a", "mp3", "opus", "ogg", "ts",
+            "mov", "avi", "flac", "wav", "jpg", "jpeg", "png", "webp",
+            "srt", "vtt", "ass", "lrc"
+        };
+        const QString ext = QFileInfo(fileName).suffix().toLower();
+        if (knownExts.contains(ext)) {
+            fileName.chop(ext.length() + 1);
+        }
+    }
+
+    static const QRegularExpression formatIdRe("\\.f[a-zA-Z0-9_-]+$");
+    const QRegularExpressionMatch match = formatIdRe.match(fileName);
+    if (match.hasMatch()) {
+        fileName.chop(match.capturedLength());
+    }
+
+    return fileName;
+}
+
+bool hasCleanupStemBoundary(const QString &fileName, const QString &stem)
+{
+    if (!fileName.startsWith(stem, Qt::CaseInsensitive)) {
+        return false;
+    }
+
+    if (fileName.size() == stem.size()) {
+        return true;
+    }
+
+    const QChar next = fileName.at(stem.size());
+    return next == '.' || next == '[' || next == ' ' || next == '_' || next == '-';
+}
 
 void cleanupTempFiles(const DownloadItem &item, const QDir &tempDir, const QString &mediaInfoJsonPath)
 {
@@ -25,7 +76,42 @@ void cleanupTempFiles(const DownloadItem &item, const QDir &tempDir, const QStri
     QFile::remove(mediaInfoJsonPath);
     qDebug() << "Attempted to clean up media info.json:" << mediaInfoJsonPath;
 
-    // 2. If it was a playlist download, find and remove the playlist's info.json file.
+    // 2. Clean up any explicitly tracked temporary files (like _wait_thumbnail.jpg)
+    QStringList candidates = item.options.value("cleanup_candidates").toStringList();
+    for (const QString &candidate : candidates) {
+        QFileInfo candidateInfo(candidate);
+        if (candidateInfo.exists() && candidateInfo.isFile()) {
+            if (QFile::remove(candidate)) {
+                qDebug() << "Cleaned up tracked candidate file:" << candidate;
+            }
+        }
+    }
+
+    // 3. Clean up leftover auxiliary files (like un-embedded .jpg thumbnails) matching the video basename.
+    // Avoid QDir wildcard filters here: raw titles can contain '[' and ']', which are special in
+    // Qt's wildcard-to-regex conversion and can produce invalid QRegularExpression warnings.
+    QFileInfo tempFileInfo(item.tempFilePath);
+    const QString baseName = cleanupStem(tempFileInfo.fileName());
+    if (!baseName.isEmpty()) {
+        const QString tempFilePath = QFileInfo(item.tempFilePath).absoluteFilePath();
+        const QString originalFilePath = item.originalDownloadedFilePath.isEmpty()
+            ? QString()
+            : QFileInfo(item.originalDownloadedFilePath).absoluteFilePath();
+        const QFileInfoList leftoverFiles = tempDir.entryInfoList(QDir::Files | QDir::NoDotAndDotDot);
+
+        for (const QFileInfo &leftoverInfo : leftoverFiles) {
+            const QString filePath = leftoverInfo.absoluteFilePath();
+            if (filePath == tempFilePath || (!originalFilePath.isEmpty() && filePath == originalFilePath)) {
+                continue;
+            }
+
+            if (hasCleanupStemBoundary(leftoverInfo.fileName(), baseName)) {
+                QFile::remove(filePath);
+            }
+        }
+    }
+
+    // 4. If it was a playlist download, find and remove the playlist's info.json file.
     QString playlistId;
 
     // Strategy 1: Get playlist_id from the original playlist URL stored in options. This is the most reliable.

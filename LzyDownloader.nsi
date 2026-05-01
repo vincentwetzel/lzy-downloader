@@ -2,7 +2,7 @@
 !include "LogicLib.nsh"
 
 !ifndef APP_VERSION
-  !error "APP_VERSION must be supplied to makensis (for example /DAPP_VERSION=1.1.13)"
+  !error "APP_VERSION must be supplied to makensis (for example /DAPP_VERSION=x.y.z)"
 !endif
 
 ;--------------------------------

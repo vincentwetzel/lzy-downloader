@@ -77,31 +77,14 @@ QVariantMap mergedSortingMetadata(const QVariantMap &metadata, const QVariantMap
 }
 
 bool hasPlaylistContext(const QVariantMap &metadata, const QVariantMap &downloadOptions) {
-    const int metadataPlaylistIndex = metadata.value("playlist_index", -1).toInt();
-    if (metadataPlaylistIndex != -1) {
+    Q_UNUSED(metadata);
+
+    if (downloadOptions.value("is_playlist", false).toBool()) {
         return true;
     }
 
     const int optionsPlaylistIndex = downloadOptions.value("playlist_index", -1).toInt();
-    if (optionsPlaylistIndex != -1) {
-        return true;
-    }
-
-    if (metadata.value("is_playlist", false).toBool() || downloadOptions.value("is_playlist", false).toBool()) {
-        return true;
-    }
-
-    const QString playlistTitle = metadata.value("playlist_title").toString().trimmed();
-    if (!playlistTitle.isEmpty()) {
-        return true;
-    }
-
-    const QString playlistId = metadata.value("playlist_id").toString().trimmed();
-    if (!playlistId.isEmpty()) {
-        return true;
-    }
-
-    return false;
+    return optionsPlaylistIndex != -1;
 }
 
 }

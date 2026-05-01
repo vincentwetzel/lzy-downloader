@@ -212,7 +212,7 @@ Additional download behavior and UI preferences.
 |-----|------|---------|-------------|
 | `split_chapters` | Boolean | `false` | Split video chapters into separate files during download. |
 | `download_sections_enabled` | Boolean | `false` | If enabled, a dialog will appear before downloading to let you specify time ranges or chapters to download. |
-| `ffmpeg_cut_encoder` | String | `cpu` | Encoder mode used for yt-dlp's accurate FFmpeg cut pass. Options include `cpu`, `nvenc_h264`, `qsv_h264`, `amf_h264`, `videotoolbox_h264`, and `custom`; unavailable hardware options are hidden in the UI after probing FFmpeg and local GPUs. |
+| `ffmpeg_cut_encoder` | String | `cpu` | Encoder mode used for yt-dlp's accurate FFmpeg cut pass. Options include `cpu`, `nvenc_h264`, `qsv_h264`, `amf_h264`, `videotoolbox_h264`, and `custom`; unavailable hardware options are hidden in the UI after probing FFmpeg and local GPUs. Built-in hardware presets favor speed for large SponsorBlock/section cuts. |
 | `ffmpeg_cut_custom_args` | String | *(empty)* | Custom FFmpeg output arguments used only when `ffmpeg_cut_encoder` is set to `custom`. |
 | `prefix_playlist_indices` | Boolean | `false` | Prefix playlist downloads with a padded index such as `01 - `. Audio downloads still default to prefixing unless this setting is explicitly present. |
 | `auto_clear_completed` | Boolean | `false` | Automatically clear completed downloads from the Active Downloads tab. |
@@ -278,7 +278,7 @@ The `settings.ini` file is stored in the system's standard user configuration di
 - **Linux:** `~/.config/LzyDownloader/settings.ini`
 - **macOS:** `~/Library/Application Support/LzyDownloader/settings.ini`
 
-This ensures user settings are preserved across application updates and installations via the NSIS installer.
+This file is the single source of truth for user preferences in both GUI and server/headless mode. Obsolete `Server/settings.ini` files are not used; if the main settings file is missing, the app may copy an old server settings file back to this shared location once.
 
 ## Queue Backup Location
 
@@ -287,16 +287,20 @@ Active, paused, and stopped downloads are automatically serialized to a JSON fil
 - **Linux:** `~/.config/LzyDownloader/downloads_backup.json`
 - **macOS:** `~/Library/Application Support/LzyDownloader/downloads_backup.json`
 
+When launched with `--server` or `--headless`, queue runtime state is isolated under `Server/`, for example `%LOCALAPPDATA%\LzyDownloader\Server\downloads_backup.json` on Windows.
+
 Stopped and failed entries also retain the latest known temporary file paths needed for resume and cleanup workflows. This allows the Active Downloads tab's `Clear Temp Files` action to remove tracked partial media, sidecar metadata, thumbnails, and downloader state files even after an app restart.
 
 ## Local API Token Location
 
-When `General/enable_local_api` is enabled, the API token is stored as `api_token.txt` in the app-local data directory:
+When `General/enable_local_api` is enabled in GUI mode, or when `--server`/`--headless` explicitly starts the API, the API token is stored as `api_token.txt` in the app-local data directory:
 - **Windows:** `%LOCALAPPDATA%\LzyDownloader\api_token.txt`
 - **Linux:** `~/.local/share/LzyDownloader/api_token.txt`
 - **macOS:** `~/Library/Application Support/LzyDownloader/api_token.txt`
 
-The server binds only to `127.0.0.1:8765`. Requests must include `Authorization: Bearer <token>`. Supported endpoints are `POST /enqueue` with a JSON `url` field and `GET /status`.
+Server/headless mode isolates this runtime token under `Server/`, for example `%LOCALAPPDATA%\LzyDownloader\Server\api_token.txt` on Windows.
+
+The server binds only to `127.0.0.1:8765`. Requests must include `Authorization: Bearer <token>`. Supported endpoints are `POST /enqueue` with a JSON `url` field plus optional `type` (`video`, `audio`, or `gallery`) and `GET /status`.
 
 ## Log File Location
 
@@ -304,6 +308,8 @@ Application logs are stored in the same user configuration directory:
 - **Windows:** `%LOCALAPPDATA%\LzyDownloader\LzyDownloader_YYYY-MM-dd_HH-mm-ss.log`
 - **Linux:** `~/.config/LzyDownloader/LzyDownloader_YYYY-MM-dd_HH-mm-ss.log`
 - **macOS:** `~/Library/Application Support/LzyDownloader/LzyDownloader_YYYY-MM-dd_HH-mm-ss.log`
+
+Server/headless logs are isolated under the `Server/` subfolder.
 
 **Log Retention:** Each app launch creates a fresh timestamped log file, and startup cleanup keeps only the 5 most recent logs. Legacy size-rotated `LzyDownloader.log.*` files are also deleted if they are still present from older builds.
 

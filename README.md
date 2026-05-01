@@ -56,6 +56,15 @@ cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=E:/vcpkg/script
 cmake --build build --config Release
 ```
 
+### Release Checklist
+
+Before building a release, keep all release metadata in sync:
+
+- `CMakeLists.txt` `project(VERSION x.y.z)` is the app version source of truth.
+- `vcpkg.json` `version-string` must be updated to the same version.
+- `LzyDownloader.nsi` must not contain stale hardcoded version examples or installer metadata; pass the release version with `makensis /DAPP_VERSION=x.y.z LzyDownloader.nsi`.
+- `CHANGELOG.md` must move `[Unreleased]` notes under the dated release version.
+
 ## Usage
 
 1. **Launch the app** (`LzyDownloader.exe`)
@@ -67,7 +76,7 @@ cmake --build build --config Release
 
 ## Configuration
 
-All settings are saved to `settings.ini` and persist between sessions. The C++ port now uses a Qt-native `QSettings` INI layout rather than matching Python `configparser` quirks, so existing users may regenerate settings as needed. Download history remains shared through `download_archive.db`.
+All settings are saved to `%LOCALAPPDATA%\LzyDownloader\settings.ini` on Windows and persist between sessions. GUI and `--server`/`--headless` launches share this same preferences file, so folders, binary paths, templates, cookies, codecs, and related choices stay in sync. The C++ port uses a Qt-native `QSettings` INI layout rather than matching Python `configparser` quirks, so existing users may regenerate settings as needed. Download history remains shared through `download_archive.db`.
 
 - **Output folder** — Where completed downloads are saved
 - **Temporary folder** — Where downloads are cached during progress
@@ -79,12 +88,12 @@ All settings are saved to `settings.ini` and persist between sessions. The C++ p
 
 ### Local API
 
-When enabled, LzyDownloader listens only on `127.0.0.1:8765`. The API token is stored in the app-local data directory as `api_token.txt` and must be sent as a Bearer token.
+When enabled in the GUI, or when launched with `--server`/`--headless`, LzyDownloader listens only on `127.0.0.1:8765`. The API token is stored in the app-local data directory as `api_token.txt`; server/headless mode keeps its runtime token under `Server/api_token.txt`. Requests must send the token as a Bearer token.
 
-- `POST /enqueue` with JSON body `{"url":"https://..."}` queues a video download using non-interactive defaults.
+- `POST /enqueue` with JSON body `{"url":"https://...","type":"video"}` queues a download using non-interactive defaults. `type` is optional and may be `video`, `audio`, or `gallery`; omitted requests default to `video`.
 - `GET /status` returns current tracked jobs, including progress fields when available.
 
-Automation can also launch `LzyDownloader.exe --background <url>` or `LzyDownloader.exe --server <url>` to enqueue a direct URL without showing blocking prompt dialogs.
+Automation can also launch `LzyDownloader.exe --background <url>` or `LzyDownloader.exe --server <url>` to enqueue a direct URL without showing blocking prompt dialogs. Server/headless queue backups, API tokens, and logs are isolated under `Server/`, but user preferences still come from the main `settings.ini`.
 
 ## Architecture
 

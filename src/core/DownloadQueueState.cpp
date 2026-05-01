@@ -11,7 +11,7 @@
 DownloadQueueState::DownloadQueueState(QObject *parent)
     : QObject(parent)
 {
-    QString configDir = QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation);
+    QString configDir = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation);
     if (QCoreApplication::arguments().contains("--headless") || QCoreApplication::arguments().contains("--server")) {
         configDir = QDir(configDir).filePath("Server");
     }

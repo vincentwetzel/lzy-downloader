@@ -6,6 +6,7 @@
 #include <QJsonObject>
 #include <QJsonArray>
 #include <QProcess>
+#include <QStringList>
 
 namespace {
 QString resolveExpandedItemUrl(const QJsonObject &entry)
@@ -32,6 +33,17 @@ QString resolveExpandedItemUrl(const QJsonObject &entry)
     }
 
     return urlValue;
+}
+
+QString firstStringValue(const QJsonObject &object, const QStringList &keys)
+{
+    for (const QString &key : keys) {
+        const QString value = object.value(key).toString().trimmed();
+        if (!value.isEmpty()) {
+            return value;
+        }
+    }
+    return QString();
 }
 }
 
@@ -155,10 +167,7 @@ void PlaylistExpander::onProcessFinished(int exitCode, QProcess::ExitStatus exit
         // It's a playlist
         isPlaylist = true;
         
-        QString playlistTitle = root.value("title").toString();
-        if (playlistTitle.isEmpty() && root.contains("playlist_title")) {
-            playlistTitle = root.value("playlist_title").toString();
-        }
+        QString playlistTitle = firstStringValue(root, QStringList{"playlist_title", "playlist", "album", "title"});
         QJsonArray entries = root["entries"].toArray();
         for (const QJsonValue &value : entries) {
             QJsonObject entry = value.toObject();
@@ -166,28 +175,33 @@ void PlaylistExpander::onProcessFinished(int exitCode, QProcess::ExitStatus exit
             if (!resolvedUrl.isEmpty()) {
                 QVariantMap item;
                 item["url"] = resolvedUrl;
+                item["is_playlist"] = true;
                 item["playlist_index"] = entry.value("playlist_index").toInt(-1);
                 if (entry.contains("title") && entry["title"].isString()) {
                     item["title"] = entry["title"].toString();
                 }
-                if (!playlistTitle.isEmpty()) {
-                    item["playlist_title"] = playlistTitle;
+                QString entryPlaylistTitle = firstStringValue(entry, QStringList{"playlist_title", "playlist", "album"});
+                if (entryPlaylistTitle.isEmpty()) {
+                    entryPlaylistTitle = playlistTitle;
+                }
+                if (!entryPlaylistTitle.isEmpty()) {
+                    item["playlist_title"] = entryPlaylistTitle;
                 }
                 expandedItems.append(item);
             }
         }
     } else {
         // It's a single video
-        // It might still have playlist context if it's from a URL with a list=... param
         QVariantMap item;
         item["url"] = m_url;
-        if (root.contains("playlist_index") && !root.value("playlist_index").isNull()) {
-            item["playlist_index"] = root.value("playlist_index").toInt();
-        } else {
-            item["playlist_index"] = -1;
-        }
+        item["is_playlist"] = false;
+        item["playlist_index"] = -1;
         if (root.contains("title") && root["title"].isString()) {
             item["title"] = root["title"].toString();
+        }
+        const QString playlistTitle = firstStringValue(root, QStringList{"playlist_title", "playlist", "album"});
+        if (!playlistTitle.isEmpty()) {
+            item["playlist_title"] = playlistTitle;
         }
         expandedItems.append(item);
     }

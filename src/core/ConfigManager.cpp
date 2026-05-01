@@ -3,19 +3,30 @@
 #include <QCoreApplication>
 #include <QStandardPaths>
 #include <QFile>
+#include <QDebug>
 
 ConfigManager::ConfigManager(const QString &filePath, QObject *parent)
     : QObject(parent) {
     // Determine the OS-native user data directory (e.g., %LOCALAPPDATA%\LzyDownloader)
     QString configDir = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation);
-    if (QCoreApplication::arguments().contains("--headless") || QCoreApplication::arguments().contains("--server")) {
-        configDir = QDir(configDir).filePath("Server");
-    }
     QDir dir(configDir);
     if (!dir.exists()) {
         dir.mkpath(".");
     }
     QString configPath = dir.filePath(filePath);
+
+    // Server/headless mode used to store user preferences under Server/settings.ini.
+    // Preferences now have one source of truth in the main app-local settings file;
+    // keep Server/ for runtime state only.
+    QString obsoleteServerPath = QDir(dir.filePath("Server")).filePath(filePath);
+    if (!QFile::exists(configPath) && QFile::exists(obsoleteServerPath)) {
+        if (QFile::copy(obsoleteServerPath, configPath)) {
+            qInfo() << "Migrated obsolete server settings file to shared settings file:" << configPath;
+        } else {
+            qWarning() << "Failed to migrate obsolete server settings file:" << obsoleteServerPath
+                       << "to" << configPath;
+        }
+    }
 
     // Seamlessly migrate legacy settings.ini from the application directory if present
     QString legacyPath = QDir(QCoreApplication::applicationDirPath()).filePath(filePath);

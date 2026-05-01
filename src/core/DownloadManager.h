@@ -91,12 +91,17 @@ private slots:
 private:
     void applyMaxConcurrentSetting(const QString &maxThreadsStr);
     void proceedWithDownload();
+    void startDownloadItem(DownloadItem item, bool alreadyCountedActive = false);
     void startDownloadsToCapacity();
     void checkQueueFinished();
     void updateTotalSpeed();
     void emitDownloadStats();
     void fetchInfoForSections(const QString &url, const QVariantMap &options);
     void fetchFormatsForSelection(const QString &url, const QVariantMap &options);
+    bool shouldPreflightSponsorBlock(const DownloadItem &item) const;
+    void startSponsorBlockPreflight(const DownloadItem &item);
+    QString effectivePlaylistTitle(const DownloadItem &item) const;
+    void applyAudioPlaylistAlbumMetadata(DownloadItem &item) const;
 
     ConfigManager *m_configManager;
     SortingManager *m_sortingManager;
@@ -105,6 +110,7 @@ private:
     QMap<QString, QObject*> m_activeWorkers;
     QMap<QString, DownloadItem> m_activeItems;
     QMap<QString, QObject*> m_activeEmbedders;
+    QMap<QString, DownloadItem> m_pendingSponsorBlockPreflights;
 
     int m_maxConcurrentDownloads;
     enum SleepMode { NoSleep, ShortSleep, LongSleep };

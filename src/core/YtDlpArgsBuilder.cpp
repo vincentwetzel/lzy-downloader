@@ -84,13 +84,13 @@ QString ffmpegCutEncoderArgs(ConfigManager *configManager)
         return configManager->get("DownloadOptions", "ffmpeg_cut_custom_args", "").toString().trimmed();
     }
     if (encoder == "nvenc_h264") {
-        return "-c:v h264_nvenc -preset p5 -cq 23";
+        return "-c:v h264_nvenc -preset p1 -cq 24 -multipass disabled";
     }
     if (encoder == "qsv_h264") {
-        return "-c:v h264_qsv -global_quality 23";
+        return "-c:v h264_qsv -preset veryfast -global_quality 24";
     }
     if (encoder == "amf_h264") {
-        return "-c:v h264_amf -quality balanced -qp_i 23 -qp_p 23";
+        return "-c:v h264_amf -quality speed -qp_i 24 -qp_p 24";
     }
     if (encoder == "videotoolbox_h264") {
         return "-c:v h264_videotoolbox -q:v 65";
@@ -147,6 +147,7 @@ QStringList YtDlpArgsBuilder::buildValidationArgs(ConfigManager *configManager, 
         return {};
     }
     QStringList args;
+    args << "--ignore-config";
     args << "--simulate";
 
     // --- Cookies ---
@@ -170,6 +171,7 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
     QStringList rawArgs;
 
     // --- Basic arguments ---
+    rawArgs << "--ignore-config";
     rawArgs << "--verbose";
     rawArgs << "--write-info-json";
     rawArgs << "--encoding" << "utf-8";
@@ -317,7 +319,13 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
     if (configManager->get("General", "sponsorblock", false).toBool()) {
         rawArgs << "--sponsorblock-remove" << "all";
         if (downloadType == "video" || isLivestream) {
-            forceKeyframesAtCuts = true;
+            const bool sponsorBlockSegmentsChecked = options.value("sponsorblock_segments_checked", false).toBool();
+            const bool sponsorBlockHasSegments = options.value("sponsorblock_has_segments", false).toBool();
+            if (!sponsorBlockSegmentsChecked || sponsorBlockHasSegments) {
+                forceKeyframesAtCuts = true;
+            } else {
+                qInfo() << "YtDlpArgsBuilder: SponsorBlock has no removable segments for this video; skipping forced keyframe cut encoder args.";
+            }
         }
     }
     const ProcessUtils::FoundBinary aria2Binary = ProcessUtils::findBinary("aria2c", configManager);
@@ -355,7 +363,12 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
 
     bool forceSingleAlbum = (downloadType == "audio" && configManager->get("Metadata", "force_playlist_as_album", false).toBool() && options.value("playlist_index", -1).toInt() > 0);
     if (forceSingleAlbum) {
-        rawArgs << "--parse-metadata" << "playlist_title:%(album)s";
+        const QString playlistTitle = options.value("playlist_title").toString().trimmed();
+        if (!playlistTitle.isEmpty()) {
+            rawArgs << "--parse-metadata" << QString("%1:%(album)s").arg(playlistTitle);
+        } else {
+            rawArgs << "--parse-metadata" << "playlist_title:%(album)s";
+        }
         rawArgs << "--parse-metadata" << "Various Artists:%(album_artist)s";
     }
 
@@ -382,7 +395,7 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
         
         // Crop to square if downloading audio
         if (downloadType == "audio" && configManager->get("Metadata", "crop_artwork_to_square", true).toBool()) {
-            ppaArgs << "-vf crop=ih";
+            ppaArgs << "-vf crop=(iw+ih-abs(iw-ih))/2:(iw+ih-abs(iw-ih))/2";
         }
 
         if (!ppaArgs.isEmpty()) {

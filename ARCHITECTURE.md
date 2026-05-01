@@ -6,7 +6,7 @@ This document outlines the architecture for the C++ port of LzyDownloader. The a
 ## 2. System Design
 
 ### 2.1 Single Instance Enforcement
-The application ensures that only one GUI instance can run at a time. This is achieved in `main.cpp` using `QSystemSemaphore` and `QSharedMemory`. A `QSystemSemaphore` with a unique key guards startup, and a `QSharedMemory` segment marks the active instance. If another instance is already running and the new process was launched with a direct URL argument, the new process forwards that URL to the active instance through a lightweight `QLocalSocket` handoff channel and exits. Non-URL duplicate launches still exit gracefully. **Note:** Launching the application with `--headless`, `--server`, or `--background` appends a `_Server` suffix to these locks and isolates the data directory, allowing a headless API server to run concurrently with the standard GUI.
+The application ensures that only one GUI instance can run at a time. This is achieved in `main.cpp` using `QSystemSemaphore` and `QSharedMemory`. A `QSystemSemaphore` with a unique key guards startup, and a `QSharedMemory` segment marks the active instance. If another instance is already running and the new process was launched with a direct URL argument, the new process forwards that URL to the active instance through a lightweight `QLocalSocket` handoff channel and exits. Non-URL duplicate launches still exit gracefully. **Note:** Launching the application with `--headless`, `--server`, or `--background` appends a `_Server` suffix to these locks, allowing a headless API server to run concurrently with the standard GUI. User preferences still come from the shared main `settings.ini`; server/headless runtime state is isolated under `Server/`.
 
 ### 2.2 Core Components
 - **UI Layer (`src/ui/`):** Handles user interaction, input, and visual feedback using Qt Widgets.
@@ -28,7 +28,7 @@ The application ensures that only one GUI instance can run at a time. This is ac
 - **Auto-paste Control:** `DownloadOptionsPage` saves `General/auto_paste_mode`, and `MainWindow` reacts to app focus/clipboard changes to route matching URLs to `StartTab` according to the selected mode, using a brief debounce plus duplicate queue checks instead of a long lockout. The same page also stores `DownloadOptions/ffmpeg_cut_encoder` and `DownloadOptions/ffmpeg_cut_custom_args`, which let yt-dlp's accurate SponsorBlock cut pass use hardware or custom FFmpeg output arguments. Hardware encoder choices are populated from asynchronous FFmpeg encoder and local GPU probes so irrelevant options stay hidden.
 - **Temporary File Isolation:** yt-dlp downloads are isolated under a per-item UUID subfolder of the configured temporary directory. `YtDlpArgsBuilder` also injects the item ID as `%(lzy_id)s` so advanced output templates can opt into collision-proof names, and `DownloadFinalizer` removes the UUID temp folder once finalization and cleanup finish.
 - **External Binaries:** Relies on user-installed binaries (`yt-dlp`, `ffmpeg`, `ffprobe`, `deno`, `gallery-dl`, `aria2c`) found in system paths or configured manually. **`deno` is used as the JavaScript runtime for yt-dlp's YouTube challenge solver (`--js-runtimes deno:...`).** The application includes `BinaryFinder` for startup discovery, `ProcessUtils` for runtime resolution, `BinariesPage` for status/version/install/update UX, and `MissingBinariesDialog` for guided setup when required tools are absent. Package-managed installations are detected and are not overwritten by the in-app updater.
-- **Local API Server:** `LocalApiServer` is an optional, localhost-only `QTcpServer` on port `8765`. It generates or loads `api_token.txt` from the app-local data directory, requires `Authorization: Bearer <token>`, accepts `POST /enqueue`, and exposes `GET /status` snapshots sourced from download manager signals.
+- **Local API Server:** `LocalApiServer` is an optional, localhost-only `QTcpServer` on port `8765`. GUI mode starts it only when `General/enable_local_api` is enabled; `--server` and `--headless` start it automatically without changing that GUI preference. It generates or loads `api_token.txt` from the app-local data directory, using `Server/api_token.txt` for server/headless runtime isolation, requires `Authorization: Bearer <token>`, accepts `POST /enqueue` with `url` plus optional `type` (`video`, `audio`, or `gallery`), and exposes `GET /status` snapshots sourced from download manager signals.
 - **App Update Lookup:** `AppUpdater` checks the current lowercase GitHub repo slug first and can fall back to legacy repo API URLs so releases remain discoverable across repository renames. Version tags are normalized and compared numerically, and installer selection prefers `LzyDownloader-Setup-*.exe` assets.
 - **Error Dialog UX:** `DownloadManager` always forwards the active item's metadata with detected yt-dlp errors, and `MainWindow` renders rich-text popups that can include a clickable source URL for retry/open workflows.
 - **Qt SDK Discovery:** `CMakeLists.txt` auto-adds Qt search prefixes from `Qt6_DIR`/`QT_DIR`/`QTDIR` environment variables plus common Windows installs such as `C:\Qt\6.*\msvc2022_64`, which keeps CLion/Ninja configure steps working even when the IDE does not inherit a Qt kit path.
@@ -101,7 +101,7 @@ LzyDownloader/
 - **Responsibilities:**
   - Loads and saves application settings to `settings.ini` using `QSettings`.
   - Provides default configuration values using an internal `m_defaultSettings` map.
-  - Uses the application's Qt-native INI schema. If launched in headless/server mode, it automatically routes settings to a `Server/` subfolder to prevent conflict with the GUI.
+  - Uses the application's Qt-native INI schema. GUI and server/headless launches share the same app-local `settings.ini` so user preferences have one source of truth. Obsolete `Server/settings.ini` files are not used; if the main settings file is missing, one may be copied back once as a migration source.
   - Emits `settingChanged` signal when a setting is modified.
   - Automatically prunes legacy and dead keys from `settings.ini` on startup, ensuring the configuration file remains clean and canonical.
   - Clamps persisted `General/max_threads` back to `4` during startup so resumed sessions do not reopen with an overly aggressive concurrency level.
@@ -124,15 +124,18 @@ LzyDownloader/
   - Delegates queue state saving/loading to `DownloadQueueState`.
   - Handles playlist expansion via `PlaylistExpander`.
   - Preserves playlist context (`is_playlist`, `playlist_title`, playlist index, and original playlist URL) across single-item playlist handling, full playlist expansion, resume, sorting, and finalization.
+  - Preflights YouTube SponsorBlock segment availability before starting video/livestream jobs so no-segment videos can skip expensive accurate-cut encoder arguments while unavailable preflights still fall back to the safer cut path.
+  - Reinforces audio playlist album metadata before sorting and embedding when "Force Playlist as Single Album" is enabled, keeping album and album artist tags stable even when extractor metadata omits playlist context.
   - Performs post-processing (renaming, metadata embedding).
   - **Defers queue state persistence (`saveQueueState`) and download initiation (`startNextDownload`) via `QMetaObject::invokeMethod` with `Qt::QueuedConnection` to prevent GUI thread blocking.** Queue-finished detection also guards against false positives by waiting for pending playlist expansions and actively paused items to drain before emitting `queueFinished`.
 
 ### 4.3b LocalApiServer (`src/core/LocalApiServer.h`)
 - **Responsibilities:**
   - Provides an optional localhost-only HTTP API for trusted local integrations.
-  - Generates and persists an API token in `api_token.txt` under the app-local data directory.
+  - Generates and persists an API token in `api_token.txt` under the app-local data directory, or under the `Server/` subfolder when launched with `--server` or `--headless`.
   - Requires Bearer-token authentication for all endpoints.
   - Emits enqueue requests through `MainWindow`, which applies non-interactive download defaults.
+  - Accepts an optional enqueue `type` value and passes it through to the normal queue path, defaulting to video when omitted.
   - Tracks queue additions, progress, completion, and removals to serve `GET /status`.
 
 ### 4.3c MissingBinariesDialog (`src/ui/MissingBinariesDialog.h`)
@@ -149,7 +152,7 @@ LzyDownloader/
 - **Responsibilities:**
   - Manages the persistence of the download queue, active, and paused items.
   - Serializes state including `tempFilePath`, `originalDownloadedFilePath`, and cleanup-related per-item options so features like cross-session resuming and manual temp file cleanup continue to work after an app restart.
-  - Saves the current state to a JSON backup file (`downloads_backup.json`) in the application's configuration directory.
+  - Saves the current state to a JSON backup file (`downloads_backup.json`) in the application's configuration directory, using the `Server/` subfolder for server/headless runtime state.
   - Loads the state from the backup file on startup.
   - Emits `resumeDownloadsRequested` to `DownloadManager` to prompt the user about resuming previous downloads.
   - Resolves `yt-dlp` through configured overrides, system discovery, or bundled fallback paths.
@@ -183,7 +186,7 @@ LzyDownloader/
 ### 4.7 LogManager (`src/utils/LogManager.h`)
 - **Responsibilities:**
   - Installs a custom Qt message handler to capture debug output.
-  - Writes logs to `%LOCALAPPDATA%\LzyDownloader\LzyDownloader_YYYY-MM-dd_HH-mm-ss.log` (or equivalent platform-specific config directory), alongside `settings.ini`.
+  - Writes logs to `%LOCALAPPDATA%\LzyDownloader\LzyDownloader_YYYY-MM-dd_HH-mm-ss.log` (or equivalent platform-specific config directory). Server/headless logs are written under the `Server/` subfolder while preferences remain in the shared main `settings.ini`.
   - **One log file per run:** Each application startup creates a new log file with a timestamp in the filename.
   - Implements **automatic cleanup on startup:** keeps only the 5 most recent log files, deleting older ones to prevent unbounded disk growth.
   - Designed for **NSIS release deployment**: logs are stored in user data directories, not the installation directory, ensuring they persist across application updates.
@@ -196,7 +199,7 @@ LzyDownloader/
   - Respects the Advanced Settings `restrict_filenames` toggle instead of hardcoding `--no-restrict-filenames`.
   - Injects `--parse-metadata` arguments to unify album/album_artist tags for audio playlists when the "Force Playlist as Single Album" setting is enabled.
   - Preserves the requested output container for `--download-sections` jobs instead of forcing an intermediate MKV remux; section video jobs only add `--force-keyframes-at-cuts` for cleaner clip boundaries.
-  - Adds optional `ModifyChapters+ffmpeg_o` postprocessor arguments when a hardware/custom FFmpeg cut encoder is configured, speeding up yt-dlp's accurate SponsorBlock re-encode path without disabling keyframe-safe cuts.
+  - Adds optional `ModifyChapters+ffmpeg_o` postprocessor arguments when a hardware/custom FFmpeg cut encoder is configured and SponsorBlock segments are confirmed or could not be preflighted, speeding up yt-dlp's accurate re-encode path without paying that cost for videos with no removable segments.
   - Injects the internal download ID as `%(lzy_id)s` and scopes yt-dlp output to a per-download temporary subfolder so concurrent jobs with identical site filenames do not corrupt each other.
   - Injects a filename-safe section suffix into the output template when `download_sections_label` is present so clipped files identify the chosen time range or chapter in their saved filename.
 

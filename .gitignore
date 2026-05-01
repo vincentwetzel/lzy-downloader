@@ -28,6 +28,7 @@ Makefile
 *.vcxproj
 *.vcxproj.user
 *.vcxproj.filters
+.vcpkg-scratch/
 
 # vcpkg
 vcpkg_installed/
