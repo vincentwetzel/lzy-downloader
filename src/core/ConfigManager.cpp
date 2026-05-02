@@ -3,7 +3,7 @@
 #include <QCoreApplication>
 #include <QStandardPaths>
 #include <QFile>
-#include <QDebug> // For qDebug and qWarning
+#include <QDebug>
 
 // Original constructor (now explicit about fileName)
 ConfigManager::ConfigManager(const QString &fileName, QObject *parent)

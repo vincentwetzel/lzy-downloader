@@ -1,6 +1,48 @@
 cmake_minimum_required(VERSION 3.16)
-project(LzyDownloader VERSION 1.1.16 LANGUAGES CXX)
+project(LzyDownloader VERSION 1.1.18 LANGUAGES CXX)
 enable_testing()
+
+set(_qt_search_prefixes "")
+set(_lzydownloader_using_vcpkg_toolchain OFF)
+
+if(DEFINED CMAKE_TOOLCHAIN_FILE AND CMAKE_TOOLCHAIN_FILE MATCHES "vcpkg[\\/]+scripts[\\/]+buildsystems[\\/]+vcpkg\\.cmake$")
+    set(_lzydownloader_using_vcpkg_toolchain ON)
+endif()
+
+if(NOT _lzydownloader_using_vcpkg_toolchain)
+    foreach(_qt_env_var Qt6_DIR QT_DIR QTDIR)
+        if(DEFINED ENV{${_qt_env_var}} AND NOT "$ENV{${_qt_env_var}}" STREQUAL "")
+            if(EXISTS "$ENV{${_qt_env_var}}/Qt6Config.cmake")
+                get_filename_component(_qt_prefix "$ENV{${_qt_env_var}}/../../.." ABSOLUTE)
+                list(APPEND _qt_search_prefixes "${_qt_prefix}")
+            elseif(EXISTS "$ENV{${_qt_env_var}}/lib/cmake/Qt6/Qt6Config.cmake")
+                list(APPEND _qt_search_prefixes "$ENV{${_qt_env_var}}")
+            endif()
+        endif()
+    endforeach()
+
+    if(WIN32)
+        string(SUBSTRING "${CMAKE_SOURCE_DIR}" 0 3 _project_drive)
+        file(GLOB _qt_version_dirs LIST_DIRECTORIES true
+            "C:/Qt/6.*"
+            "D:/Qt/6.*"
+            "${_project_drive}Qt/6.*"
+        )
+        foreach(_qt_version_dir IN LISTS _qt_version_dirs)
+            foreach(_qt_arch_dir msvc2022_64 msvc2019_64 mingw_64)
+                if(EXISTS "${_qt_version_dir}/${_qt_arch_dir}/lib/cmake/Qt6/Qt6Config.cmake")
+                    list(APPEND _qt_search_prefixes "${_qt_version_dir}/${_qt_arch_dir}")
+                endif()
+            endforeach()
+        endforeach()
+    endif()
+endif()
+
+if(_qt_search_prefixes)
+    list(REMOVE_DUPLICATES _qt_search_prefixes)
+    list(APPEND CMAKE_PREFIX_PATH ${_qt_search_prefixes})
+    message(STATUS "Additional Qt search prefixes: ${_qt_search_prefixes}")
+endif()
 
 find_package(Qt6 COMPONENTS Core Gui Widgets Network Sql Test Concurrent REQUIRED)
 
@@ -43,7 +85,7 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTORCC ON)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 configure_file(
@@ -143,6 +185,7 @@ target_link_libraries(LzyAppLib PRIVATE
 
 # Main application executable
 add_executable(LzyDownloader
+    WIN32
     main.cpp
     src/ui/resources.qrc
 )
@@ -161,6 +204,24 @@ target_link_libraries(LzyDownloader PRIVATE
 )
 lzy_add_qt_windows_deploy(LzyDownloader)
 
+if(MSVC)
+    target_compile_options(LzyAppLib PRIVATE /FS)
+    target_compile_options(LzyDownloader PRIVATE /FS)
+endif()
+
+add_custom_command(TARGET LzyDownloader POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    "${CMAKE_CURRENT_SOURCE_DIR}/extractors_yt-dlp.json"
+    "$<TARGET_FILE_DIR:LzyDownloader>"
+    COMMENT "Copying yt-dlp extractor list to output directory"
+)
+add_custom_command(TARGET LzyDownloader POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    "${CMAKE_CURRENT_SOURCE_DIR}/extractors_gallery-dl.json"
+    "$<TARGET_FILE_DIR:LzyDownloader>"
+    COMMENT "Copying gallery-dl extractor list to output directory"
+)
+
 add_executable(TestYtDlpArgsBuilderTest
     src/tests/BaseTest.cpp
     src/tests/TestYtDlpArgsBuilder.cpp
@@ -176,6 +237,9 @@ target_link_libraries(TestYtDlpArgsBuilderTest PRIVATE
     LzyAppLib
     Qt6::Test Qt6::Core Qt6::Network Qt6::Sql Qt6::Widgets
 )
+if(MSVC)
+    target_compile_options(TestYtDlpArgsBuilderTest PRIVATE /FS)
+endif()
 lzy_add_qt_windows_deploy(TestYtDlpArgsBuilderTest)
 add_test(NAME TestYtDlpArgsBuilderTest COMMAND TestYtDlpArgsBuilderTest)
 
@@ -194,5 +258,8 @@ target_link_libraries(TestYtDlpWorkerTest PRIVATE
     LzyAppLib
     Qt6::Test Qt6::Core Qt6::Network Qt6::Sql Qt6::Widgets
 )
+if(MSVC)
+    target_compile_options(TestYtDlpWorkerTest PRIVATE /FS)
+endif()
 lzy_add_qt_windows_deploy(TestYtDlpWorkerTest)
 add_test(NAME TestYtDlpWorkerTest COMMAND TestYtDlpWorkerTest)
