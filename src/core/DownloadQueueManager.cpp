@@ -263,6 +263,11 @@ bool DownloadQueueManager::cancelQueuedOrPausedDownload(const QString &id) {
                             QFile::remove(entry.absoluteFilePath());
                         }
                     }
+                    
+                    tempDir.refresh();
+                    if (tempDir.dirName() == id && tempDir.isEmpty()) {
+                        tempDir.removeRecursively();
+                    }
                 }
                 qDebug() << "Cleaned up temporary files for cleared download:" << id;
             }

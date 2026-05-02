@@ -3,9 +3,10 @@
 #include <QCoreApplication>
 #include <QStandardPaths>
 #include <QFile>
-#include <QDebug>
+#include <QDebug> // For qDebug and qWarning
 
-ConfigManager::ConfigManager(const QString &filePath, QObject *parent)
+// Original constructor (now explicit about fileName)
+ConfigManager::ConfigManager(const QString &fileName, QObject *parent)
     : QObject(parent) {
     // Determine the OS-native user data directory (e.g., %LOCALAPPDATA%\LzyDownloader)
     QString configDir = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation);
@@ -13,28 +14,66 @@ ConfigManager::ConfigManager(const QString &filePath, QObject *parent)
     if (!dir.exists()) {
         dir.mkpath(".");
     }
-    QString configPath = dir.filePath(filePath);
+    QString actualConfigPath = dir.filePath(fileName);
 
     // Server/headless mode used to store user preferences under Server/settings.ini.
     // Preferences now have one source of truth in the main app-local settings file;
     // keep Server/ for runtime state only.
-    QString obsoleteServerPath = QDir(dir.filePath("Server")).filePath(filePath);
-    if (!QFile::exists(configPath) && QFile::exists(obsoleteServerPath)) {
-        if (QFile::copy(obsoleteServerPath, configPath)) {
-            qInfo() << "Migrated obsolete server settings file to shared settings file:" << configPath;
+    QString obsoleteServerPath = QDir(dir.filePath("Server")).filePath(fileName);
+    if (!QFile::exists(actualConfigPath) && QFile::exists(obsoleteServerPath)) {
+        if (QFile::copy(obsoleteServerPath, actualConfigPath)) {
+            qInfo() << "Migrated obsolete server settings file to shared settings file:" << actualConfigPath;
         } else {
             qWarning() << "Failed to migrate obsolete server settings file:" << obsoleteServerPath
-                       << "to" << configPath;
+                       << "to" << actualConfigPath;
         }
     }
 
     // Seamlessly migrate legacy settings.ini from the application directory if present
-    QString legacyPath = QDir(QCoreApplication::applicationDirPath()).filePath(filePath);
-    if (QFile::exists(legacyPath) && !QFile::exists(configPath)) {
-        QFile::copy(legacyPath, configPath);
+    QString legacyPath = QDir(QCoreApplication::applicationDirPath()).filePath(fileName);
+    if (QFile::exists(legacyPath) && !QFile::exists(actualConfigPath)) {
+        QFile::copy(legacyPath, actualConfigPath);
     }
 
-    m_settings = new QSettings(configPath, QSettings::IniFormat, this);
+    m_settings = new QSettings(actualConfigPath, QSettings::IniFormat, this);
+    commonInitialization();
+}
+
+// New constructor for custom paths or testing
+ConfigManager::ConfigManager(const QString &customPath, bool forTesting, QObject *parent)
+    : QObject(parent) {
+    if (forTesting) {
+        if (customPath == ":memory:") {
+            m_settings = new QSettings("", QSettings::IniFormat, this); // In-memory
+            qDebug() << "ConfigManager using in-memory settings for testing.";
+        } else if (!customPath.isEmpty()) {
+            m_settings = new QSettings(customPath, QSettings::IniFormat, this); // Temporary file path
+            qDebug() << "ConfigManager using custom test path:" << customPath;
+        } else {
+            // Fallback for empty customPath in test mode, default to in-memory
+            m_settings = new QSettings("", QSettings::IniFormat, this);
+            qWarning() << "ConfigManager test constructor called with empty customPath. Using in-memory settings.";
+        }
+    } else {
+        // This constructor is primarily for testing or explicit custom paths.
+        // If 'forTesting' is false, 'customPath' should be a valid file path.
+        if (customPath.isEmpty()) {
+            qCritical() << "ConfigManager custom constructor called with empty customPath and forTesting=false. This is likely an error.";
+            // Fallback to default settings.ini to prevent crash, but log error
+            QString configDir = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation);
+            QDir dir(configDir);
+            if (!dir.exists()) { dir.mkpath("."); }
+            QString defaultPath = dir.filePath("settings.ini");
+            m_settings = new QSettings(defaultPath, QSettings::IniFormat, this);
+        } else {
+            m_settings = new QSettings(customPath, QSettings::IniFormat, this);
+        }
+        qDebug() << "ConfigManager using custom path (not for testing):" << customPath;
+    }
+    commonInitialization();
+}
+
+void ConfigManager::commonInitialization() {
     initializeDefaultSettings();
     cleanUpLegacyKeys();
 

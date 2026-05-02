@@ -11,9 +11,18 @@
 #include <algorithm>
 
 ArchiveManager::ArchiveManager(ConfigManager *configManager, QObject *parent)
-    : QObject(parent), m_configManager(configManager) {
+    : ArchiveManager(configManager, configManager->getConfigDir() + "/download_archive.db", false, parent) {
+    // Constructor chaining to the new one
+}
 
-    m_dbPath = m_configManager->getConfigDir() + "/download_archive.db";
+// New constructor for custom database path or testing
+ArchiveManager::ArchiveManager(ConfigManager *configManager, const QString &dbPath, bool forTesting, QObject *parent)
+    : QObject(parent), m_configManager(configManager), m_dbPath(dbPath) {
+    if (forTesting) {
+        qDebug() << "ArchiveManager using test database path:" << m_dbPath;
+    } else {
+        qDebug() << "ArchiveManager using standard database path:" << m_dbPath;
+    }
     ensureSchema();
 }
 

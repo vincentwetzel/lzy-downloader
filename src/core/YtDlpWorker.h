@@ -31,7 +31,7 @@ private slots:
     void onReadyReadStandardError();
     void readInfoJsonWithRetry(); // New slot for retry mechanism
 
-private:
+protected: // Changed from private for testing
     void parseStandardOutput(const QByteArray &output);
     void parseStandardError(const QByteArray &output);
     void handleOutputLine(const QString &line);
@@ -52,7 +52,7 @@ private:
     bool requestedAudioExtraction() const;
     QString inferPrimaryStreamStatusFromPath(const QString &path) const;
     QString inferPrimaryStreamStatusFromMetadata(int index) const;
-    void updateInferredTransferStage(double percentage, double totalBytes);
+    void updateInferredTransferStage(double percentage, double downloadedBytes, double totalBytes);
     double inferPrimaryStreamSizeBytes(const QVariantMap &requestMap) const;
     void applyOverallPrimaryProgress(QVariantMap &progressData, double percentage, double downloadedBytes, double totalBytes);
 

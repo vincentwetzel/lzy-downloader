@@ -489,6 +489,7 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
     if (forceKeyframesAtCuts) {
         appendForcedKeyframeCutArgs(rawArgs, configManager);
     }
+    qDebug() << "YtDlpArgsBuilder: forceKeyframesAtCuts before final check:" << forceKeyframesAtCuts; // Add this debug
     // --- Rate Limit ---
     QString rateLimit = options.value("rate_limit", "Unlimited").toString();
     if (rateLimit != "Unlimited") {
@@ -529,6 +530,8 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
     // --- Print final filepath ---
     rawArgs << "--print" << "after_move:LZY_FINAL_PATH:%(filepath)s";
     rawArgs << url;
+
+    qDebug() << "YtDlpArgsBuilder::build final rawArgs:" << rawArgs; // Debug statement
 
     return rawArgs;
 }

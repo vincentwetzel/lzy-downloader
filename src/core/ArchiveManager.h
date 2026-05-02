@@ -11,6 +11,8 @@ class ArchiveManager : public QObject {
 
 public:
     explicit ArchiveManager(ConfigManager *configManager, QObject *parent = nullptr);
+    // New constructor for specifying custom database path, primarily for testing
+    explicit ArchiveManager(ConfigManager *configManager, const QString &dbPath, bool forTesting, QObject *parent = nullptr);
     ~ArchiveManager();
 
     bool isInArchive(const QString &url);

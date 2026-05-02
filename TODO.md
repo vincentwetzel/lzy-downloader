@@ -2,6 +2,25 @@
 
 ## In Progress
 
+### Phase 19: Comprehensive Testing Suite
+- [x] **Step 1: Static Library Architecture (The Foundation)**
+  - [x] Refactor `CMakeLists.txt` to gather all `src/core/`, `src/utils/`, and `src/ui/` files into a new `STATIC` library target (e.g., `LzyAppLib`).
+  - [x] Update the main executable (`LzyDownloader.exe`) to only contain `main.cpp` and link against `LzyAppLib`.
+  - [x] Ensure the test executable (`LzyDownloaderTests`) links to `LzyAppLib` so it can cleanly instantiate application classes.
+  - [x] Verify CMake's `AUTOMOC` properly generates moc files for the static library to support Qt signals/slots in tests.
+- [x] **Step 2: Test Environment Isolation (Mocking & Safety)**
+  - [x] Modify `ConfigManager` to allow injecting a temporary settings file path (e.g., an in-memory `.ini` or a temp dir) during tests to protect the user's real `settings.ini`.
+  - [x] Modify `ArchiveManager` to support an in-memory SQLite database (`:memory:`) or a temporary file path for tests to protect the real `download_archive.db`.
+  - [x] Create a base test utility or setup/teardown methods to automatically provision and clean up these isolated environments for every test run.
+- [ ] **Step 3: Unit Tests (Fast & Frequent)**
+  - [x] **Logic Tests:** Write tests for `YtDlpArgsBuilder`. Inject mock `ConfigManager` states and verify the generated `QStringList` matches the expected command-line flags (e.g., SponsorBlock, restrict filenames).
+  - [x] **Signal/Parsing Tests:** Write tests for `YtDlpWorker`'s progress parsing using `QSignalSpy`. Feed it raw `stderr` strings from both native `yt-dlp` and `aria2c`, and assert that the emitted progress, speed, ETA, and status signals are perfectly accurate.
+  - [ ] **Sorting Tests:** Write tests for `SortingManager` to ensure custom tokens (`{album}`, `{uploader}`) are correctly evaluated against mock `info.json` metadata and illegal characters are sanitized.
+  - [ ] **URL Normalization Tests:** Write tests for `ArchiveManager` to verify that various URL formats normalize to identical database keys to prevent duplicate downloads.
+- [ ] **Step 4: Integration & GUI Tests (Slow & Thorough)**
+  - [ ] **Headless GUI Tests:** Instantiate UI widgets like `DownloadItemWidget` and `ProgressLabelBar` in memory. Emit simulated 100% completion signals and assert that the progress bar fills up and changes its stylesheet color to green (`#22c55e`).
+  - [ ] **End-to-End Tests:** Write a dedicated integration test that feeds a tiny, reliable 5-second test video URL into `DownloadManager`, allows it to launch the real `yt-dlp` process, and asserts that the final media file appears in the temporary test output folder.
+
 ### Phase 18: Local API Server & Discord Bridge
 - [x] **Local API Server implementation**:
   - [x] Create `LocalApiServer` class using `QTcpServer` for zero-dependency local networking.
@@ -12,6 +31,7 @@
   - [x] **Headless Environment Isolation**: Branch single-instance memory locks, share the main app-local `settings.ini` for preferences, and route runtime files (`downloads_backup.json`, `api_token.txt`, logs) to a `Server` subfolder when running with `--headless` or `--server`, allowing a bot and the GUI to run concurrently without creating a second preferences profile.
   - [x] **Headless logging isolation**: Route headless/server log files to the same `Server` app-data subfolder and log the actual `settings.ini` path used by `ConfigManager`.
   - [x] Wire server signals to `DownloadQueueManager` and `MainWindow`.
+  - [x] Handle graceful connection loss when "Exit after all downloads complete" is enabled by checking the final backup state.
 
 ### Phase 14: Unbundled Binaries & Dependency Management
 - [x] **Project Cleanup**:
@@ -46,6 +66,7 @@
 - [x] **SponsorBlock A/V desync**: SponsorBlock video cuts now use `--force-keyframes-at-cuts` so the remaining video and audio streams do not drift out of sync when a cut falls between keyframes.
 - [x] **SponsorBlock hardware cut speed**: Preflight SponsorBlock segment availability before starting yt-dlp so no-segment videos skip the expensive accurate-cut encoder path, and tune built-in hardware presets for faster single-pass encoding (`NVENC p1`, Quick Sync `veryfast`, AMF `speed`) when cuts are actually needed.
 - [x] **yt-dlp user-config isolation**: Added `--ignore-config` to app-built yt-dlp commands so user-level yt-dlp config files cannot unexpectedly change output paths or post-processing during GUI/headless downloads.
+- [x] **Discord bot exit-after handling**: Fixed false "Connection lost" errors in the Discord bot when LzyDownloader successfully closes due to the "Exit after all downloads complete" setting.
 - [x] **Premature completion notification**: Fixed a bug where a "Downloads Complete" desktop notification fired prematurely when enqueueing the first item due to config-save triggers racing with the queue.
 - [x] **Pause-triggered completion**: Fixed a bug where pausing the last active download incorrectly triggered the queue completion and auto-exit sequence.
 - [x] **No pip installs in External Binaries GUI**: Removed `pip` as an in-app install method for `yt-dlp` and `gallery-dl`, keeping Python-managed installs as an advanced user path the app can detect but no longer provisions. Windows install choices now lead with standalone executable downloads to reduce Python runtime issues for standard users.

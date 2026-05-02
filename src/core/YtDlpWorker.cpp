@@ -50,7 +50,8 @@ void YtDlpWorker::start() {
 
     const ProcessUtils::FoundBinary ytDlpBinary = ProcessUtils::findBinary("yt-dlp", m_configManager);
     if (ytDlpBinary.source == "Not Found" || ytDlpBinary.path.isEmpty()) {
-        const QString message = "Download failed.\nyt-dlp could not be found. Configure it in Advanced Settings -> External Tools.";
+        const QString message = "Download failed.\n"
+                                "yt-dlp could not be found. Configure it in Advanced Settings -> External Tools.";
         qWarning() << message;
         if (!m_finishEmitted) {
             m_finishEmitted = true;
@@ -253,7 +254,8 @@ void YtDlpWorker::onProcessError(QProcess::ProcessError error) {
     if (error == QProcess::FailedToStart || error == QProcess::Crashed ||
         error == QProcess::ReadError || error == QProcess::WriteError) {
         m_finishEmitted = true;
-        const QString message = QString("Download failed.\nFailed to start yt-dlp process (%1): %2")
+        const QString message = QString("Download failed.\n"
+                                        "Failed to start yt-dlp process (%1): %2")
                                     .arg(static_cast<int>(error))
                                     .arg(m_process->errorString());
         qWarning() << message;
@@ -487,7 +489,7 @@ QString YtDlpWorker::formatBytes(double bytes) {
     if (bytes < 0) return "N/A";
     if (bytes == 0) return "0 B";
 
-    const QStringList units = {"B", "KB", "MB", "GB", "TB"};
+    const QStringList units = {"B", "KiB", "MiB", "GiB", "TiB"}; // Use MiB units
     int i = 0;
     double d_bytes = bytes;
 
@@ -602,7 +604,8 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
             if (!m_errorEmitted) {
                 m_errorEmitted = true;
                 emit ytDlpErrorDetected(m_id, "scheduled_livestream",
-                    "This video is a scheduled livestream or premiere that has not started yet.\n\nWould you like to wait for the video to begin and download it automatically?",
+                    "This video is a scheduled livestream or premiere that has not started yet.\n\n"
+                    "Would you like to wait for the video to begin and download it automatically?",
                     normalizedLine);
             }
         }
@@ -686,7 +689,7 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
                                                 file.write(data);
                                                 file.close();
                                                 m_thumbnailPath = QDir::toNativeSeparators(newThumbPath);
-                                                qDebug() << "[YtDlpWorker] oEmbed thumbnail downloaded to:" << m_thumbnailPath;
+                                                qDebug() << "[YtDlpWorker] Pre-wait thumbnail downloaded to:" << m_thumbnailPath;
 
                                                 QVariantMap pd;
                                                 pd["progress"] = -1;
@@ -786,13 +789,12 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
                                             m_thumbnailPath = QDir::toNativeSeparators(newThumbPath);
                                             qDebug() << "[YtDlpWorker] Pre-wait thumbnail downloaded to:" << m_thumbnailPath;
 
-                                            // Update the UI again now that we have the image
-                                            QVariantMap progressData;
-                                            progressData["progress"] = -1;
-                                            progressData["status"] = "Waiting for livestream to start...";
-                                            progressData["title"] = m_videoTitle;
-                                            progressData["thumbnail_path"] = m_thumbnailPath;
-                                            emit progressUpdated(m_id, progressData);
+                                            QVariantMap pd;
+                                            pd["progress"] = -1;
+                                            pd["status"] = "Waiting for livestream to start...";
+                                            pd["title"] = m_videoTitle;
+                                            pd["thumbnail_path"] = m_thumbnailPath;
+                                            emit progressUpdated(m_id, pd);
                                         } else {
                                             file.close();
                                             file.remove();
@@ -990,7 +992,7 @@ bool YtDlpWorker::parseYtDlpProgressLine(const QString &line) {
         speedBytes = parseSizeStringToBytes(speedString);
     }
 
-    updateInferredTransferStage(percentage, totalBytes);
+    updateInferredTransferStage(percentage, downloadedBytes, totalBytes);
 
     progressData["progress"] = percentage;
     progressData["status"] = statusForCurrentTransfer();
@@ -1040,7 +1042,7 @@ bool YtDlpWorker::parseAria2ProgressLine(const QString &line) {
     double percentage = match.captured(3).isEmpty() ? -1.0 : match.captured(3).toDouble();
     const double speedBytes = parseSizeStringToBytes(match.captured(4));
 
-    updateInferredTransferStage(percentage, totalBytes);
+    updateInferredTransferStage(percentage, downloadedBytes, totalBytes);
 
     progressData["progress"] = percentage;
     progressData["status"] = statusForCurrentTransfer();
@@ -1347,7 +1349,7 @@ QString YtDlpWorker::inferPrimaryStreamStatusFromMetadata(int index) const {
     return m_requestedTransferStatuses.at(boundedIndex);
 }
 
-void YtDlpWorker::updateInferredTransferStage(double percentage, double totalBytes) {
+void YtDlpWorker::updateInferredTransferStage(double percentage, double downloadedBytes, double totalBytes) {
     if (m_currentTransferIsAuxiliary) {
         return;
     }

@@ -7,7 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-No unreleased changes yet.
+### Fixed
+- **App and Discord icons**: Fixed the CMake resource wiring so Qt runtime assets (`:/app-icon` and `:/ui/assets/discord.png`) and the Windows executable icon resource are compiled into `LzyDownloader.exe`.
 
 ## [1.1.16] - 2026-05-01
 
@@ -32,6 +33,7 @@ No unreleased changes yet.
 - **Abandoned thumbnail remuxing**: Fixed an issue where livestreams downloaded as MPEG-TS and converted to MP4 would abandon the `.jpg` thumbnail in the temporary directory. The post-processor now automatically detects abandoned thumbnails and embeds them into the final container using FFmpeg before sweeping the temporary folder.
 - **Single-item playlist prompts**: Fixed an issue where single-item playlists redundantly prompted the user to choose between "Download All" and "Download Single Item". The prompt is now automatically bypassed.
 - **Headless queue-state path alignment**: Queue resume state now uses the same app-local data root as settings and API tokens, preventing headless `downloads_backup.json` from drifting into a different Qt config location.
+- **Discord Bot exit-after completion**: Fixed an issue where the Discord bot incorrectly reported "Connection to LzyDownloader lost" when the application successfully closed itself due to the "Exit after all downloads complete" setting. The bot now checks the queue backup file to verify the final completed state.
 
 ## [1.1.13] - 2026-04-24
 

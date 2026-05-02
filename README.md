@@ -97,7 +97,7 @@ Automation can also launch `LzyDownloader.exe --background <url>` or `LzyDownloa
 
 ## Architecture
 
-The application is built using **C++20** and the **Qt 6** framework.
+The application is built using **C++20** and the **Qt 6** framework. The core logic, UI components, and utility functions are consolidated into a static library, `LzyAppLib`.
 
 ```
 LzyDownloader/

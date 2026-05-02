@@ -10,6 +10,9 @@ cmake_install.cmake
 install_manifest.txt
 compile_commands.json
 Makefile
+Testing/
+.msbuild-tmp/
+.tmp/
 
 # Qt specific
 *.user
@@ -48,6 +51,8 @@ Thumbs.db
 *.lib
 *.obj
 *.o
+*.pdb
 
 # App-specific local cache and downloaded binaries
 *.version
+src/core/version.h
