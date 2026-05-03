@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(LzyDownloader VERSION 1.1.20 LANGUAGES CXX)
+project(LzyDownloader VERSION 1.1.21 LANGUAGES CXX)
 enable_testing()
 
 set(_qt_search_prefixes "")
@@ -130,6 +130,10 @@ add_library(LzyAppLib STATIC
     src/core/YtDlpJsonExtractor.cpp
     src/core/YtDlpUpdater.cpp
     src/core/YtDlpWorker.cpp
+    src/core/YtDlpWorkerOutput.cpp
+    src/core/YtDlpWorkerProcess.cpp
+    src/core/YtDlpWorkerProgress.cpp
+    src/core/YtDlpWorkerTransfers.cpp
     src/core/download_pipeline/Aria2DownloadWorker.cpp
     src/core/download_pipeline/Aria2RpcClient.cpp
     src/core/download_pipeline/FfmpegMuxer.cpp

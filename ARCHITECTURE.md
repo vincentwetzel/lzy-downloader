@@ -63,7 +63,11 @@ LzyDownloader/
 │   │   ├── DownloadQueueState.h/cpp # Manages persistence of download queue state
 │   │   ├── DownloadManager.h/cpp # Queue & Lifecycle Management
 │   │   ├── LocalApiServer.h/cpp  # localhost API bridge for local integrations
-│   │   ├── YtDlpWorker.h/cpp     # yt-dlp Process Wrapper + progress parser (stderr)
+│   │   ├── YtDlpWorker.h/cpp     # yt-dlp process startup wrapper
+│   │   ├── YtDlpWorkerProcess.cpp # completion, errors, output buffering, info.json parsing
+│   │   ├── YtDlpWorkerOutput.cpp  # output-line orchestration and wait-state metadata
+│   │   ├── YtDlpWorkerProgress.cpp # yt-dlp/aria2 progress parsing
+│   │   ├── YtDlpWorkerTransfers.cpp # transfer target and stream-stage inference
 │   │   ├── PlaylistExpander.h/cpp # Playlist Expansion (uses YtDlpArgsBuilder)
 │   │   ├── YtDlpArgsBuilder.h/cpp # yt-dlp CLI argument construction
 │   │   ├── ProcessUtils.h/cpp    # Runtime binary resolution + process env helpers
@@ -148,6 +152,11 @@ LzyDownloader/
 ### 4.4 YtDlpWorker (`src/core/YtDlpWorker.h`)
 - **Responsibilities:**
   - Executes `yt-dlp` commands using `QProcess`.
+  - Keeps startup and binary-resolution logic in `YtDlpWorker.cpp`.
+  - Splits process completion and buffered metadata reading into `YtDlpWorkerProcess.cpp`.
+  - Splits output-line orchestration and wait-state title/thumbnail fetching into `YtDlpWorkerOutput.cpp`.
+  - Splits native yt-dlp and aria2 progress parsing into `YtDlpWorkerProgress.cpp`.
+  - Splits transfer target classification and stream-stage inference into `YtDlpWorkerTransfers.cpp`.
 
 ### 4.4b DownloadQueueState (`src/core/DownloadQueueState.h`)
 - **Responsibilities:**
