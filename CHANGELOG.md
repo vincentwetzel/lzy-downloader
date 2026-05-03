@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **DownloadManager source split**: Split `DownloadManager.cpp` into focused enqueue, playlist, control, execution, and worker/finalization translation units so the core manager files stay under the 500-line context limit.
+
 ### Fixed
 - **App and Discord icons**: Fixed the CMake resource wiring so Qt runtime assets (`:/app-icon` and `:/ui/assets/discord.png`) and the Windows executable icon resource are compiled into `LzyDownloader.exe`.
 

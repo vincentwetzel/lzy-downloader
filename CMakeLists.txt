@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(LzyDownloader VERSION 1.1.19 LANGUAGES CXX)
+project(LzyDownloader VERSION 1.1.20 LANGUAGES CXX)
 enable_testing()
 
 set(_qt_search_prefixes "")
@@ -108,6 +108,11 @@ add_library(LzyAppLib STATIC
     src/core/ConfigManager.cpp
     src/core/DownloadFinalizer.cpp
     src/core/DownloadManager.cpp
+    src/core/DownloadManagerControls.cpp
+    src/core/DownloadManagerEnqueue.cpp
+    src/core/DownloadManagerExecution.cpp
+    src/core/DownloadManagerPlaylist.cpp
+    src/core/DownloadManagerWorkers.cpp
     src/core/DownloadQueueManager.cpp
     src/core/DownloadQueueState.cpp
     src/core/FfmpegPostProcessor.cpp

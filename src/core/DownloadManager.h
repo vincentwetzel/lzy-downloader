@@ -5,10 +5,10 @@
 #include <QQueue>
 #include <QMap>
 #include <QTimer>
+#include <QJsonArray>
 #include "ConfigManager.h"
 #include "DownloadItem.h"
 
-// Forward declarations
 class SortingManager;
 class ArchiveManager;
 class PlaylistExpander;
@@ -32,16 +32,15 @@ public:
     };
     Q_ENUM(DuplicateStatus)
 
-    // Public API for adding/managing downloads
     void enqueueDownload(const QString &url, const QVariantMap &options);
-    void cancelDownload(const QString &id); // Handles active workers, delegates to queue manager for queued/paused
-    void pauseDownload(const QString &id);   // Handles active workers, delegates to queue manager for queued
-    void unpauseDownload(const QString &id); // Delegates to queue manager
+    void cancelDownload(const QString &id);
+    void pauseDownload(const QString &id);
+    void unpauseDownload(const QString &id);
     void restartDownloadWithOptions(const QVariantMap &itemData);
-    void retryDownload(const QVariantMap &itemData); // Delegates to queue manager
-    void resumeDownload(const QVariantMap &itemData); // Delegates to queue manager
-    void moveDownloadUp(const QString &id);   // Delegates to queue manager
-    void moveDownloadDown(const QString &id); // Delegates to queue manager
+    void retryDownload(const QVariantMap &itemData);
+    void resumeDownload(const QVariantMap &itemData);
+    void moveDownloadUp(const QString &id);
+    void moveDownloadDown(const QString &id);
     void onWorkerOutputReceived(const QString &id, const QString &output);
     void processPlaylistSelection(const QString &url, const QString &action, const QVariantMap &options, const QList<QVariantMap> &expandedItems);
     void resumeDownloadWithFormat(const QString &url, const QVariantMap &options, const QString &formatId);
@@ -84,7 +83,7 @@ private slots:
     void onGalleryDlWorkerFinished(const QString &id, bool success, const QString &message, const QString &finalFilename, const QVariantMap &metadata);
     void onMetadataEmbedded(const QString &id, bool success, const QString &error);
     void onYtDlpErrorDetected(const QString &id, const QString &errorType, const QString &userMessage, const QString &rawError);
-    void onFinalizationComplete(const QString &id, bool success, const QString &message); // Handles active item removal, stats update, and next download
+    void onFinalizationComplete(const QString &id, bool success, const QString &message);
     void onQueueCountsChanged(int queued, int paused);
     void onRequestStartNextDownload();
 
@@ -105,7 +104,7 @@ private:
 
     ConfigManager *m_configManager;
     SortingManager *m_sortingManager;
-    ArchiveManager *m_archiveManager; // Keep for direct archive access
+    ArchiveManager *m_archiveManager;
     DownloadFinalizer *m_finalizer;
     QMap<QString, QObject*> m_activeWorkers;
     QMap<QString, DownloadItem> m_activeItems;
@@ -118,7 +117,7 @@ private:
     QTimer *m_sleepTimer;
 
     int m_queuedDownloadsCount;
-    int m_pausedDownloadsCount; // Track paused count for stats
+    int m_pausedDownloadsCount;
     int m_activeDownloadsCount;
     int m_completedDownloadsCount;
     int m_errorDownloadsCount;
@@ -126,7 +125,7 @@ private:
     bool m_isShuttingDown;
 
     DownloadQueueState *m_queueState;
-    DownloadQueueManager *m_queueManager; // New member for queue management
+    DownloadQueueManager *m_queueManager;
 };
 
 #endif // DOWNLOADMANAGER_H
