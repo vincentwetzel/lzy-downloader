@@ -245,6 +245,16 @@ void MainWindow::scheduleInitialSetup()
 
 void MainWindow::connectDownloadManagerSignals()
 {
+    // CRITICAL: Explicitly flush state and tear down workers before quitting!
+    // This compensates for QCoreApplication::quit() bypassing MainWindow::closeEvent
+    // during automated headless shutdowns (like --server --exit-after).
+    connect(QCoreApplication::instance(), &QCoreApplication::aboutToQuit, this, [this]() {
+        if (m_downloadManager) {
+            qInfo() << "Executing headless shutdown/cleanup sequence before event loop terminates...";
+            m_downloadManager->shutdown();
+        }
+    });
+
     connect(m_downloadManager, &DownloadManager::downloadAddedToQueue,
             m_activeDownloadsTab, &ActiveDownloadsTab::addDownloadItem);
     connect(m_downloadManager, &DownloadManager::downloadProgress,

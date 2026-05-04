@@ -60,6 +60,7 @@ Agents MUST preserve and respect the following behaviors from the original Pytho
   - Single videos update to "Queued" once expansion completes
   - Playlists remove the placeholder and add individual items for each track
   - Queue state persistence (`saveQueueState`) MUST be deferred via `Qt::QueuedConnection` to avoid blocking the GUI thread
+- **Headless State Persistence**: The application MUST guarantee that final terminal states (such as a fully cleared queue upon completion) are successfully serialized to `downloads_backup.json` before `QCoreApplication::quit()` is called, especially during `--server --exit-after` execution flows that bypass `closeEvent()`.
 
 ---
 

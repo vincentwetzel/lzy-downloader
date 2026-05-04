@@ -1,5 +1,7 @@
 #include "YtDlpWorker.h"
 
+#include "ConfigManager.h"
+
 #include <QDebug>
 #include <QDir>
 #include <QFile>
@@ -57,6 +59,19 @@ void YtDlpWorker::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatu
 
     QVariantMap metadata;
     if (success) {
+        // Move wait thumbnail inside UUID folder so DownloadFinalizer cleans it up automatically
+        if (!m_thumbnailPath.isEmpty() && m_thumbnailPath.endsWith("_wait_thumbnail.jpg")) {
+            QString tempDir = m_configManager->get("Paths", "temporary_downloads_directory").toString();
+            QString uuidDirPath = QDir(tempDir).filePath(m_id);
+            QString newThumbPath = QDir(uuidDirPath).filePath(QFileInfo(m_thumbnailPath).fileName());
+            
+            QDir().mkpath(uuidDirPath); // Ensure UUID dir exists
+            if (QFile::rename(m_thumbnailPath, newThumbPath)) {
+                m_thumbnailPath = newThumbPath;
+                qDebug() << "Moved wait thumbnail into UUID directory for automatic cleanup:" << m_thumbnailPath;
+            }
+        }
+
         // Ensure metadata is loaded if it hasn't been asynchronously parsed yet
         if (m_fullMetadata.isEmpty() && !m_infoJsonPath.isEmpty() && QFile::exists(m_infoJsonPath)) {
             QFile jsonFile(m_infoJsonPath);
@@ -108,6 +123,19 @@ void YtDlpWorker::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatu
             if (!errorOutput.isEmpty()) {
                 message += "\n" + errorOutput.left(200);
             }
+        }
+        
+        // Clean up orphaned wait thumbnail on failure
+        if (!m_thumbnailPath.isEmpty() && m_thumbnailPath.endsWith("_wait_thumbnail.jpg")) {
+            QFile::remove(m_thumbnailPath);
+            m_thumbnailPath.clear();
+        }
+        
+        // Try to clean up empty UUID directory if yt-dlp failed before writing anything
+        if (m_configManager) {
+            QString tempDir = m_configManager->get("Paths", "temporary_downloads_directory").toString();
+            QString uuidDirPath = QDir(tempDir).filePath(m_id);
+            QDir().rmdir(uuidDirPath); // Only succeeds if the directory is empty
         }
     }
 
@@ -311,13 +339,18 @@ void YtDlpWorker::readInfoJsonWithRetry() {
     }
     
     // Extract thumbnail path if available from the info.json
-    if (m_thumbnailPath.isEmpty() && obj.contains("thumbnails") && obj["thumbnails"].isArray()) {
+    bool hasWaitThumbnail = !m_thumbnailPath.isEmpty() && m_thumbnailPath.endsWith("_wait_thumbnail.jpg");
+    if ((m_thumbnailPath.isEmpty() || hasWaitThumbnail) && obj.contains("thumbnails") && obj["thumbnails"].isArray()) {
         QJsonArray thumbnails = obj["thumbnails"].toArray();
         // yt-dlp adds a "filepath" key to the thumbnail entry it downloaded.
         for (const QJsonValue &thumbValue : thumbnails) {
             QJsonObject thumbObj = thumbValue.toObject();
             if (thumbObj.contains("filepath") && thumbObj["filepath"].isString()) {
-                m_thumbnailPath = QDir::toNativeSeparators(thumbObj["filepath"].toString());
+                QString newThumb = QDir::toNativeSeparators(thumbObj["filepath"].toString());
+                if (hasWaitThumbnail && newThumb != m_thumbnailPath) {
+                    QFile::remove(m_thumbnailPath); // Clean up the wait thumbnail since we found a real one
+                }
+                m_thumbnailPath = newThumb;
                 updateData["thumbnail_path"] = m_thumbnailPath;
                 qDebug() << "Extracted thumbnail path from info.json:" << m_thumbnailPath;
                 break; // Found it

@@ -8,7 +8,7 @@
 
 double YtDlpWorker::parseSizeStringToBytes(const QString &sizeString) {
     const QString normalized = sizeString.trimmed().remove('~');
-    if (normalized.isEmpty() || normalized.startsWith("Unknown", Qt::CaseInsensitive)) {
+    if (normalized.isEmpty() || normalized.startsWith(QStringLiteral("Unknown"), Qt::CaseInsensitive)) {
         return 0.0;
     }
 
@@ -45,16 +45,16 @@ QString YtDlpWorker::formatBytes(double bytes) {
     if (bytes < 0) return "N/A";
     if (bytes == 0) return "0 B";
 
-    const QStringList units = {"B", "KiB", "MiB", "GiB", "TiB"}; // Use MiB units
+    static const char* const units[] = {"B", "KiB", "MiB", "GiB", "TiB"}; // Use MiB units
     int i = 0;
     double d_bytes = bytes;
 
-    while (d_bytes >= 1024 && i < units.size() - 1) {
+    while (d_bytes >= 1024 && i < 4) {
         d_bytes /= 1024;
         i++;
     }
 
-    return QString::number(d_bytes, 'f', (d_bytes < 10 && i > 0) ? 2 : 1) + " " + units[i];
+    return QString::number(d_bytes, 'f', (d_bytes < 10 && i > 0) ? 2 : 1) + " " + QLatin1String(units[i]);
 }
 
 bool YtDlpWorker::parseYtDlpProgressLine(const QString &line) {
@@ -139,17 +139,17 @@ bool YtDlpWorker::parseYtDlpProgressLine(const QString &line) {
         progressData["thumbnail_path"] = m_thumbnailPath;
     }
         
-        QString currentFile;
-        if (!m_originalDownloadedFilename.isEmpty()) {
-            currentFile = m_originalDownloadedFilename;
-        } else if (!m_currentTransferTarget.isEmpty() && !m_currentTransferIsAuxiliary) {
-            currentFile = m_currentTransferTarget;
-        } else if (!m_infoJsonPath.isEmpty()) {
-            currentFile = m_infoJsonPath;
-        }
-        if (!currentFile.isEmpty()) {
-            progressData["current_file"] = currentFile;
-        }
+    QString currentFile;
+    if (!m_originalDownloadedFilename.isEmpty()) {
+        currentFile = m_originalDownloadedFilename;
+    } else if (!m_currentTransferTarget.isEmpty() && !m_currentTransferIsAuxiliary) {
+        currentFile = m_currentTransferTarget;
+    } else if (!m_infoJsonPath.isEmpty()) {
+        currentFile = m_infoJsonPath;
+    }
+    if (!currentFile.isEmpty()) {
+        progressData["current_file"] = currentFile;
+    }
 
     emit progressUpdated(m_id, progressData);
     qDebug() << "yt-dlp: Progress match found (native).";
@@ -189,17 +189,17 @@ bool YtDlpWorker::parseAria2ProgressLine(const QString &line) {
         progressData["thumbnail_path"] = m_thumbnailPath;
     }
         
-        QString currentFile;
-        if (!m_originalDownloadedFilename.isEmpty()) {
-            currentFile = m_originalDownloadedFilename;
-        } else if (!m_currentTransferTarget.isEmpty() && !m_currentTransferIsAuxiliary) {
-            currentFile = m_currentTransferTarget;
-        } else if (!m_infoJsonPath.isEmpty()) {
-            currentFile = m_infoJsonPath;
-        }
-        if (!currentFile.isEmpty()) {
-            progressData["current_file"] = currentFile;
-        }
+    QString currentFile;
+    if (!m_originalDownloadedFilename.isEmpty()) {
+        currentFile = m_originalDownloadedFilename;
+    } else if (!m_currentTransferTarget.isEmpty() && !m_currentTransferIsAuxiliary) {
+        currentFile = m_currentTransferTarget;
+    } else if (!m_infoJsonPath.isEmpty()) {
+        currentFile = m_infoJsonPath;
+    }
+    if (!currentFile.isEmpty()) {
+        progressData["current_file"] = currentFile;
+    }
 
     emit progressUpdated(m_id, progressData);
     qDebug() << "yt-dlp: Progress match found (aria2c raw).";

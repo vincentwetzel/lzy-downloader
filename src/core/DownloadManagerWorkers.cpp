@@ -142,8 +142,8 @@ void DownloadManager::onWorkerFinished(const QString &id, bool success, const QS
         m_errorDownloadsCount++;
         emit downloadFinished(id, false, message); // This will trigger emitDownloadStats()
         emitDownloadStats();
+        m_queueManager->saveQueueState(m_activeItems);
         QMetaObject::invokeMethod(this, [this]() {
-            m_queueManager->saveQueueState(m_activeItems);
             startNextDownload();
         }, Qt::QueuedConnection);
         return;
@@ -239,8 +239,8 @@ void DownloadManager::onGalleryDlWorkerFinished(const QString &id, bool success,
         m_errorDownloadsCount++;
         emit downloadFinished(id, false, message); // This will trigger emitDownloadStats()
         emitDownloadStats();
+        m_queueManager->saveQueueState(m_activeItems);
         QMetaObject::invokeMethod(this, [this]() {
-            m_queueManager->saveQueueState(m_activeItems);
             startNextDownload();
         }, Qt::QueuedConnection);
         return;
@@ -292,8 +292,8 @@ void DownloadManager::onMetadataEmbedded(const QString &id, bool success, const 
         m_errorDownloadsCount++;
         emit downloadFinished(id, false, "Metadata embedding failed: " + error); // This will trigger emitDownloadStats()
         emitDownloadStats();
+        m_queueManager->saveQueueState(m_activeItems);
         QMetaObject::invokeMethod(this, [this]() {
-            m_queueManager->saveQueueState(m_activeItems);
             startNextDownload();
         }, Qt::QueuedConnection);
     }
@@ -318,8 +318,12 @@ void DownloadManager::onFinalizationComplete(const QString &id, bool success, co
     m_activeItems.remove(id);
 
     emitDownloadStats();
-    QMetaObject::invokeMethod(this, [this]() {
+        
+        // CRITICAL: Synchronously flush state immediately so headless exits do not terminate
+        // with a pending state save sitting in the event loop queue.
         m_queueManager->saveQueueState(m_activeItems);
+        
+    QMetaObject::invokeMethod(this, [this]() {
         startNextDownload();
     }, Qt::QueuedConnection);
 }
@@ -373,5 +377,3 @@ void DownloadManager::updateTotalSpeed() {
 void DownloadManager::emitDownloadStats() {
     emit downloadStatsUpdated(m_queuedDownloadsCount, m_activeDownloadsCount, m_completedDownloadsCount, m_errorDownloadsCount);
 }
-
-

@@ -2,6 +2,8 @@
 #include "core/ConfigManager.h"
 #include "core/ProcessUtils.h"
 
+#include <QDir>
+#include <QFile>
 #include <QDebug>
 #include <QFileInfo>
 #include <QProcess>
@@ -112,5 +114,18 @@ void YtDlpWorker::killProcess() {
         m_process->disconnect(); // Prevent re-entrant read operations on the dying process buffer
         ProcessUtils::terminateProcessTree(m_process);
         m_process->kill(); // Forcefully kill the QProcess instance as fallback
+    }
+
+    // Clean up orphaned wait thumbnail if the process is killed by the user
+    if (!m_thumbnailPath.isEmpty() && m_thumbnailPath.endsWith("_wait_thumbnail.jpg")) {
+        QFile::remove(m_thumbnailPath);
+        m_thumbnailPath.clear();
+    }
+    
+    // Attempt to remove the UUID directory if it's completely empty
+    if (m_configManager) {
+        QString tempDir = m_configManager->get("Paths", "temporary_downloads_directory").toString();
+        QString uuidDirPath = QDir(tempDir).filePath(m_id);
+        QDir().rmdir(uuidDirPath);
     }
 }

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.28] - 2026-05-04
+
+### Fixed
+- **Headless exit-after state flush**: Fixed an issue where running in `--server --exit-after` mode would exit via `QCoreApplication::quit()` before the final completed queue state was flushed to `downloads_backup.json`. The headless shutdown sequence now explicitly invokes `DownloadManager::shutdown()` before quitting to ensure external integrations (like the Python Discord bridge) correctly see the queue as empty/completed on the next startup.
+- **Wait-state thumbnail cleanup**: Upcoming livestream wait thumbnails are now cleaned up on cancellation or failure, moved into the per-download UUID temp folder on success, and replaced by the real yt-dlp thumbnail path when one becomes available. This prevents orphaned `_wait_thumbnail.jpg` files from lingering in the temp directory.
+
 ## [1.1.25] - 2026-05-04
 
 ### Added
