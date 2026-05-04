@@ -19,6 +19,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - **App and Discord icons**: Fixed the CMake resource wiring so Qt runtime assets (`:/app-icon` and `:/ui/assets/discord.png`) and the Windows executable icon resource are compiled into `LzyDownloader.exe`.
 - **Discord Webhook Reliability**: Fixed an issue where Discord webhook POST requests would silently fail or leak memory because `QNetworkAccessManager` was being instantiated without a dedicated event loop. Webhook emissions are now strictly routed through the main GUI thread.
+- **Discord Webhook Throttling**: Fixed payload bombardment by ensuring webhook POSTs bypass the 1.5-second throttle only when the download status string actually changes.
+- **Discord Webhook Playlist Tracking**: Added `parent_id` mapping to webhook payloads so remote clients (like the Discord bot) can successfully associate dynamically generated playlist child jobs with their original parent `/enqueue` request.
 
 ## [1.1.16] - 2026-05-01
 

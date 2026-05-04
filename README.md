@@ -92,7 +92,7 @@ When enabled in the GUI, or when launched with `--server`/`--headless`, LzyDownl
 
 - `POST /enqueue` with JSON body `{"url":"https://...","type":"video"}` queues a download using non-interactive defaults. `type` is optional and may be `video`, `audio`, or `gallery`; omitted requests default to `video`.
 - `GET /status` returns current tracked jobs, including progress fields when available.
-- **Webhook Outbound**: The application automatically emits real-time HTTP POST JSON payloads to `http://127.0.0.1:8766/webhook` whenever download status, progress, speed, or ETA changes.
+- **Webhook Outbound**: The application automatically emits real-time HTTP POST JSON payloads to `http://127.0.0.1:8766/webhook` whenever download status, progress, speed, or ETA changes. Payloads are throttled to 1.5 seconds and include `parent_id` mapping to track playlist child items.
 
 Automation can also launch `LzyDownloader.exe --background <url>` or `LzyDownloader.exe --server <url>` to enqueue a direct URL without showing blocking prompt dialogs. Server/headless queue backups, API tokens, and logs are isolated under `Server/`, but user preferences still come from the main `settings.ini`.
 

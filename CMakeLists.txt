@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(LzyDownloader VERSION 1.1.23 LANGUAGES CXX)
+project(LzyDownloader VERSION 1.1.24 LANGUAGES CXX)
 enable_testing()
 
 set(_qt_search_prefixes "")
@@ -168,7 +168,6 @@ add_library(LzyAppLib STATIC
     src/ui/advanced_settings/MetadataPage.cpp
     src/ui/advanced_settings/OutputTemplatesPage.cpp
     src/ui/advanced_settings/SubtitlesPage.cpp
-    src/ui/advanced_settings/UpdatesPage.cpp
     src/ui/advanced_settings/VideoSettingsPage.cpp
     src/ui/start_tab/StartTabCommandPreviewUpdater.cpp
     src/ui/start_tab/StartTabDownloadActions.cpp

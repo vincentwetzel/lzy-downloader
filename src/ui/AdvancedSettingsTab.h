@@ -9,7 +9,6 @@ class QEvent;
 class QListWidget;
 class QStackedWidget;
 class QPushButton;
-class UpdatesPage;
 
 class AdvancedSettingsTab : public QWidget {
     Q_OBJECT

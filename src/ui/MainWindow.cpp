@@ -417,49 +417,152 @@ MainWindow::MainWindow(ExtractorJsonParser *extractorJsonParser, QWidget *parent
     // Ensure we have a single QNetworkAccessManager instance that lives strictly on the main GUI thread
     QNetworkAccessManager* discordNetworkManager = new QNetworkAccessManager(this);
 
-    auto sendDiscordWebhook = [discordNetworkManager](const QString& url, const QString& downloadType, 
-                                     const QString& status, double progress, 
-                                     const QString& speed, const QString& eta) {
+    auto sendDiscordWebhook = [discordNetworkManager](const QString& jobId, const QVariantMap& state) {
         QJsonObject json;
-        json["url"] = url;
-        json["download_type"] = downloadType;
-        json["status"] = status;
-        json["progress"] = progress;
-        json["speed"] = speed;
-        json["eta"] = eta;
+        json["job_id"] = jobId;
+        
+        if (state.contains("parent_id") && !state.value("parent_id").toString().isEmpty()) {
+            json["parent_id"] = state.value("parent_id").toString();
+        }
+        
+        json["url"] = state.value("url").toString();
+        if (state.contains("title") && !state.value("title").toString().isEmpty()) {
+            json["title"] = state.value("title").toString();
+        }
+        json["download_type"] = state.value("download_type", "video").toString();
+        json["status"] = state.value("status").toString();
+        json["progress"] = state.value("progress").toDouble();
+        json["speed"] = state.value("speed").toString();
+        json["eta"] = state.value("eta").toString();
 
         QJsonDocument doc(json);
         QByteArray payload = doc.toJson(QJsonDocument::Compact);
+
+        qDebug() << "Sending webhook update for job:" << jobId << "Progress:" << json["progress"].toDouble();
 
         QNetworkRequest request(QUrl("http://127.0.0.1:8766/webhook"));
         request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
 
         QNetworkReply* reply = discordNetworkManager->post(request, payload);
-        QObject::connect(reply, &QNetworkReply::finished, reply, &QObject::deleteLater);
+        QObject::connect(reply, &QNetworkReply::finished, reply, [reply, jobId]() {
+            if (reply->error() != QNetworkReply::NoError) {
+                qWarning() << "Discord Webhook error for job:" << jobId << reply->errorString() << reply->readAll();
+            } else {
+                int statusCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+                qDebug() << "Discord Webhook success for job:" << jobId << "HTTP Status:" << statusCode;
+            }
+            reply->deleteLater();
+        });
     };
 
     // Hook up the Discord webhook to the existing job update pipeline
-    connect(m_downloadManager, &DownloadManager::downloadProgress, this, [sendDiscordWebhook](const QString &id, const QVariantMap &data) {
-        Q_UNUSED(id);
-        // Fallbacks are provided if 'url' or 'download_type' are omitted from progress payload
-        QString url = data.value("url").toString();
-        QString type = data.value("download_type", "video").toString(); 
-        QString status = data.value("status").toString();
-        double progress = data.value("progress").toDouble();
-        QString speed = data.value("speed").toString();
-        QString eta = data.value("eta").toString();
+    QSharedPointer<QMap<QString, QVariantMap>> webhookStates = QSharedPointer<QMap<QString, QVariantMap>>::create();
+    QSharedPointer<QMap<QString, qint64>> webhookTimestamps = QSharedPointer<QMap<QString, qint64>>::create();
 
-        sendDiscordWebhook(url, type, status, progress, speed, eta);
+    connect(m_downloadManager, &DownloadManager::downloadAddedToQueue, this, [webhookStates](const QVariantMap &itemData) {
+        QString id = itemData.value("id").toString();
+        QVariantMap state;
+        state["url"] = itemData.value("url");
+        state["title"] = itemData.value("title");
+        QVariantMap options = itemData.value("options").toMap();
+        state["download_type"] = options.value("type", "video");
+        state["status"] = itemData.value("status", "Queued");
+        state["progress"] = itemData.value("progress", 0.0).toDouble();
+        
+        if (options.contains("id")) {
+            state["parent_id"] = options.value("id").toString();
+        } else if (options.contains("playlist_placeholder_id")) {
+            state["parent_id"] = options.value("playlist_placeholder_id").toString();
+        }
+        
+        (*webhookStates)[id] = state;
     });
 
-    connect(m_downloadManager, &DownloadManager::downloadFinished, this, [sendDiscordWebhook](const QString &id) {
-        Q_UNUSED(id);
-        sendDiscordWebhook("", "video", "Completed", 100.0, "", "");
+    connect(m_downloadManager, &DownloadManager::downloadProgress, this, [sendDiscordWebhook, webhookStates, webhookTimestamps](const QString &id, const QVariantMap &data) {
+        if (!webhookStates->contains(id)) {
+            // Re-initialize state for retried/resumed downloads since they skip downloadAddedToQueue
+            if (data.contains("url") && data.contains("options")) {
+                QVariantMap state;
+                state["url"] = data.value("url");
+                state["title"] = data.value("title");
+                state["download_type"] = data.value("options").toMap().value("type", "video").toString();
+                state["status"] = data.value("status", "Queued").toString();
+                state["progress"] = data.value("progress", 0.0).toDouble();
+                
+                QVariantMap options = data.value("options").toMap();
+                if (options.contains("id")) {
+                    state["parent_id"] = options.value("id").toString();
+                } else if (options.contains("playlist_placeholder_id")) {
+                    state["parent_id"] = options.value("playlist_placeholder_id").toString();
+                }
+                
+                (*webhookStates)[id] = state;
+            } else {
+                return;
+            }
+        }
+        
+        QVariantMap& state = (*webhookStates)[id];
+        QString oldStatus = state.value("status").toString();
+        
+        for (auto it = data.constBegin(); it != data.constEnd(); ++it) {
+            state[it.key()] = it.value();
+        }
+
+        qint64 now = QDateTime::currentMSecsSinceEpoch();
+        qint64 lastSent = webhookTimestamps->value(id, 0);
+
+        // Throttle updates to at most once per 1.5 seconds (1500ms), unless status changes
+        bool shouldSend = false;
+        if (now - lastSent >= 1500) {
+            shouldSend = true;
+        } else if (data.contains("status") && state.value("status").toString() != oldStatus) {
+            shouldSend = true;
+        }
+
+        if (shouldSend) {
+            (*webhookTimestamps)[id] = now;
+            sendDiscordWebhook(id, state);
+        }
     });
 
-    connect(m_downloadManager, &DownloadManager::downloadCancelled, this, [sendDiscordWebhook](const QString &id) {
-        Q_UNUSED(id);
-        sendDiscordWebhook("", "video", "Cancelled", 0.0, "", "");
+    connect(m_downloadManager, &DownloadManager::downloadFinished, this, [sendDiscordWebhook, webhookStates, webhookTimestamps](const QString &id) {
+        if (!webhookStates->contains(id)) return;
+        QVariantMap state = (*webhookStates)[id];
+        state["status"] = "Completed";
+        state["progress"] = 100.0;
+        sendDiscordWebhook(id, state);
+        webhookStates->remove(id);
+        webhookTimestamps->remove(id);
+    });
+
+    connect(m_downloadManager, &DownloadManager::downloadCancelled, this, [sendDiscordWebhook, webhookStates, webhookTimestamps](const QString &id) {
+        if (!webhookStates->contains(id)) return;
+        QVariantMap state = (*webhookStates)[id];
+        state["status"] = "Cancelled";
+        state["progress"] = 0.0;
+        sendDiscordWebhook(id, state);
+        webhookStates->remove(id);
+        webhookTimestamps->remove(id);
+    });
+
+    connect(m_downloadManager, &DownloadManager::downloadPaused, this, [sendDiscordWebhook, webhookStates, webhookTimestamps](const QString &id) {
+        if (!webhookStates->contains(id)) return;
+        QVariantMap state = (*webhookStates)[id];
+        state["status"] = "Paused";
+        sendDiscordWebhook(id, state);
+    });
+
+    connect(m_downloadManager, &DownloadManager::downloadResumed, this, [sendDiscordWebhook, webhookStates, webhookTimestamps](const QString &id) {
+        if (!webhookStates->contains(id)) return;
+        QVariantMap state = (*webhookStates)[id];
+        state["status"] = "Resuming download...";
+        sendDiscordWebhook(id, state);
+    });
+
+    connect(m_downloadManager, &DownloadManager::downloadRemovedFromQueue, this, [webhookStates, webhookTimestamps](const QString &id) {
+        webhookStates->remove(id);
+        webhookTimestamps->remove(id);
     });
 
     // Connect duplicate detection signal to StartTab
@@ -793,13 +896,16 @@ void MainWindow::onTrayIconActivated(QSystemTrayIcon::ActivationReason reason) {
     }
 }
 
-void MainWindow::onLocalApiEnqueueRequested(const QString &url, const QString &type) {
+void MainWindow::onLocalApiEnqueueRequested(const QString &url, const QString &type, const QString &jobId) {
     // The slot signature in MainWindow.h must be updated to:
-    // void onLocalApiEnqueueRequested(const QString &url, const QString &type);
+    // void onLocalApiEnqueueRequested(const QString &url, const QString &type, const QString &jobId);
     // Default to video download as requested. The settings will be handled automatically
     // by the pipeline exactly as if the user clicked "Download" on the Start tab.
     QVariantMap options;
     options["type"] = type.isEmpty() ? "video" : type;
+    if (!jobId.isEmpty()) {
+        options["id"] = jobId;
+    }
     applyNonInteractiveDownloadDefaults(options);
 
     // Route it through the standard validation and queuing pipeline

@@ -210,12 +210,13 @@ void LocalApiServer::handleRequest(QTcpSocket *socket, const QByteArray &request
             QString downloadType = doc.object().value("type").toString("video"); // Default to "video"
             if (!targetUrl.isEmpty()) {
                 // The signal signature in LocalApiServer.h must be updated to:
-                // void enqueueRequested(const QString &url, const QString &type);
-                emit enqueueRequested(targetUrl, downloadType);
+                // void enqueueRequested(const QString &url, const QString &type, const QString &jobId);
+                QString jobId = QUuid::createUuid().toString(QUuid::WithoutBraces);
+                emit enqueueRequested(targetUrl, downloadType, jobId);
                 QJsonObject successObj;
-                successObj["status"] = "Enqueued";
-                successObj["url"] = targetUrl;
-                successObj["type"] = downloadType;
+                successObj["status"] = "success";
+                successObj["message"] = "Download added to queue.";
+                successObj["job_id"] = jobId;
                 sendHttpResponse(socket, 200, "OK", QJsonDocument(successObj).toJson(QJsonDocument::Compact));
                 return;
             }

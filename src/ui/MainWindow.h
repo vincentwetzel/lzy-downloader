@@ -52,7 +52,7 @@ private slots:
     void updateTotalSpeed(double speed);
     void onDownloadStatsUpdated(int queued, int active, int completed, int errors);
     void setYtDlpVersion(const QString &version);
-    void onLocalApiEnqueueRequested(const QString &url, const QString &type);
+    void onLocalApiEnqueueRequested(const QString &url, const QString &type, const QString &jobId);
     void onClipboardChanged(); // New slot for clipboard changes
     void onRuntimeInfoReady(const QVariantMap &info);
     void onRuntimeInfoError(const QString &error);

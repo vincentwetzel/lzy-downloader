@@ -33,6 +33,8 @@
   - [x] Wire server signals to `DownloadQueueManager` and `MainWindow`.
   - [x] Handle graceful connection loss when "Exit after all downloads complete" is enabled by checking the final backup state.
   - [x] **Discord Bridge Webhook**: Emits HTTP POST payloads to a local webhook port whenever a download job's progress, status, speed, or ETA changes to keep the Python bot fully in sync.
+    - [x] Throttle payloads to 1.5 seconds to prevent rate limiting / bombardment.
+    - [x] Pass `parent_id` in webhook payloads to map expanded playlist children to original requests.
 
 ### Phase 14: Unbundled Binaries & Dependency Management
 - [x] **Project Cleanup**:
