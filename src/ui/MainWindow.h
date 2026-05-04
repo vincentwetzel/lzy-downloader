@@ -64,6 +64,14 @@ private:
     void setupTrayIcon();
     void checkBinaries();
     void startStartupChecks();
+    void setupLocalApiServer();
+    void setupWindowsDebugConsole();
+    void connectAppUpdaterSignals();
+    void scheduleInitialSetup();
+    void connectDownloadManagerSignals();
+    void connectDiscordWebhookSignals();
+    void connectStartupWorkerSignals();
+    void queueDirectCliDownload();
     void handleClipboardAutoPaste(bool forceEnqueue = false); // Modified to accept forceEnqueue
     bool showMissingBinariesDialog(const QStringList &missingBinaries);
 
