@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.17] - 2026-05-15
+
 ### Added
 - **Discord Webhook Integration**: Added real-time HTTP POST payload emissions to a local webhook (`http://127.0.0.1:8766/webhook`) during download progress, completion, and cancellation, keeping the Python Discord bot perfectly synchronized with the C++ application state.
 - **Expanded Qt test coverage**: Added archive URL-normalization, sorting-token/sanitization, UI widget progress-state, and local end-to-end download test coverage with isolated test fixtures.
@@ -16,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - **App and Discord icons**: Fixed the CMake resource wiring so Qt runtime assets (`:/app-icon` and `:/ui/assets/discord.png`) and the Windows executable icon resource are compiled into `LzyDownloader.exe`.
+- **Discord Webhook Reliability**: Fixed an issue where Discord webhook POST requests would silently fail or leak memory because `QNetworkAccessManager` was being instantiated without a dedicated event loop. Webhook emissions are now strictly routed through the main GUI thread.
 
 ## [1.1.16] - 2026-05-01
 
