@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(LzyDownloader VERSION 1.1.21 LANGUAGES CXX)
+project(LzyDownloader VERSION 1.1.22 LANGUAGES CXX)
 enable_testing()
 
 set(_qt_search_prefixes "")
@@ -272,3 +272,27 @@ if(MSVC)
 endif()
 lzy_add_qt_windows_deploy(TestYtDlpWorkerTest)
 add_test(NAME TestYtDlpWorkerTest COMMAND TestYtDlpWorkerTest)
+
+add_executable(TestEndToEnd
+    src/tests/BaseTest.cpp
+    src/tests/TestEndToEnd.cpp
+)
+
+target_include_directories(TestEndToEnd PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/core
+)
+
+target_link_libraries(TestEndToEnd PRIVATE
+    LzyAppLib
+    Qt6::Test Qt6::Core Qt6::Network Qt6::Sql Qt6::Widgets
+)
+
+if(MSVC)
+    target_compile_options(TestEndToEnd PRIVATE /FS)
+endif()
+
+lzy_add_qt_windows_deploy(TestEndToEnd)
+
+add_test(NAME TestEndToEnd COMMAND TestEndToEnd)

@@ -12,14 +12,14 @@
   - [x] Modify `ConfigManager` to allow injecting a temporary settings file path (e.g., an in-memory `.ini` or a temp dir) during tests to protect the user's real `settings.ini`.
   - [x] Modify `ArchiveManager` to support an in-memory SQLite database (`:memory:`) or a temporary file path for tests to protect the real `download_archive.db`.
   - [x] Create a base test utility or setup/teardown methods to automatically provision and clean up these isolated environments for every test run.
-- [ ] **Step 3: Unit Tests (Fast & Frequent)**
+- [x] **Step 3: Unit Tests (Fast & Frequent)**
   - [x] **Logic Tests:** Write tests for `YtDlpArgsBuilder`. Inject mock `ConfigManager` states and verify the generated `QStringList` matches the expected command-line flags (e.g., SponsorBlock, restrict filenames).
   - [x] **Signal/Parsing Tests:** Write tests for `YtDlpWorker`'s progress parsing using `QSignalSpy`. Feed it raw `stderr` strings from both native `yt-dlp` and `aria2c`, and assert that the emitted progress, speed, ETA, and status signals are perfectly accurate.
-  - [ ] **Sorting Tests:** Write tests for `SortingManager` to ensure custom tokens (`{album}`, `{uploader}`) are correctly evaluated against mock `info.json` metadata and illegal characters are sanitized.
-  - [ ] **URL Normalization Tests:** Write tests for `ArchiveManager` to verify that various URL formats normalize to identical database keys to prevent duplicate downloads.
-- [ ] **Step 4: Integration & GUI Tests (Slow & Thorough)**
-  - [ ] **Headless GUI Tests:** Instantiate UI widgets like `DownloadItemWidget` and `ProgressLabelBar` in memory. Emit simulated 100% completion signals and assert that the progress bar fills up and changes its stylesheet color to green (`#22c55e`).
-  - [ ] **End-to-End Tests:** Write a dedicated integration test that feeds a tiny, reliable 5-second test video URL into `DownloadManager`, allows it to launch the real `yt-dlp` process, and asserts that the final media file appears in the temporary test output folder.
+  - [x] **Sorting Tests:** Write tests for `SortingManager` to ensure custom tokens (`{album}`, `{uploader}`) are correctly evaluated against mock `info.json` metadata and illegal characters are sanitized.
+  - [x] **URL Normalization Tests:** Write tests for `ArchiveManager` to verify that various URL formats normalize to identical database keys to prevent duplicate downloads.
+- [x] **Step 4: Integration & GUI Tests (Slow & Thorough)**
+  - [x] **Headless GUI Tests:** Instantiate UI widgets like `DownloadItemWidget` and `ProgressLabelBar` in memory. Emit simulated 100% completion signals and assert that the progress bar fills up and changes its stylesheet color to green (`#22c55e`).
+  - [x] **End-to-End Tests:** Write a dedicated integration test that feeds a tiny, reliable 5-second test video URL into `DownloadManager`, allows it to launch the real `yt-dlp` process, and asserts that the final media file appears in the temporary test output folder.
 
 ### Phase 18: Local API Server & Discord Bridge
 - [x] **Local API Server implementation**:
@@ -32,6 +32,7 @@
   - [x] **Headless logging isolation**: Route headless/server log files to the same `Server` app-data subfolder and log the actual `settings.ini` path used by `ConfigManager`.
   - [x] Wire server signals to `DownloadQueueManager` and `MainWindow`.
   - [x] Handle graceful connection loss when "Exit after all downloads complete" is enabled by checking the final backup state.
+  - [x] **Discord Bridge Webhook**: Emits HTTP POST payloads to a local webhook port whenever a download job's progress, status, speed, or ETA changes to keep the Python bot fully in sync.
 
 ### Phase 14: Unbundled Binaries & Dependency Management
 - [x] **Project Cleanup**:

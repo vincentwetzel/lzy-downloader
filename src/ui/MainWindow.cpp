@@ -55,6 +55,12 @@
 #include <QStandardPaths>
 #include <QDateTime>
 
+#include <QNetworkAccessManager>
+#include <QNetworkRequest>
+#include <QNetworkReply>
+#include <QJsonObject>
+#include <QJsonDocument>
+
 #ifdef Q_OS_WIN
 #include <windows.h>
 #include <cstdio>
@@ -134,6 +140,30 @@ void applyNonInteractiveDownloadDefaults(QVariantMap &options)
     options["runtime_format_selected"] = true;
     options["download_sections_set"] = true;
 }
+}
+
+static void sendDiscordWebhookUpdate(const QString& url, const QString& downloadType, 
+                                     const QString& status, double progress, 
+                                     const QString& speed, const QString& eta, QObject* parent = nullptr) 
+{
+    static QNetworkAccessManager* networkManager = new QNetworkAccessManager(parent);
+
+    QJsonObject json;
+    json["url"] = url;
+    json["download_type"] = downloadType;
+    json["status"] = status;
+    json["progress"] = progress;
+    json["speed"] = speed;
+    json["eta"] = eta;
+
+    QJsonDocument doc(json);
+    QByteArray payload = doc.toJson(QJsonDocument::Compact);
+
+    QNetworkRequest request(QUrl("http://127.0.0.1:8766/webhook"));
+    request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+
+    QNetworkReply* reply = networkManager->post(request, payload);
+    QObject::connect(reply, &QNetworkReply::finished, reply, &QObject::deleteLater);
 }
 
 MainWindow::MainWindow(ExtractorJsonParser *extractorJsonParser, QWidget *parent)
@@ -407,6 +437,30 @@ MainWindow::MainWindow(ExtractorJsonParser *extractorJsonParser, QWidget *parent
     connect(m_downloadManager, &DownloadManager::downloadProgress, m_localApiServer, &LocalApiServer::onDownloadProgress);
     connect(m_downloadManager, &DownloadManager::downloadFinished, m_localApiServer, &LocalApiServer::onDownloadFinished);
     connect(m_downloadManager, &DownloadManager::downloadRemovedFromQueue, m_localApiServer, &LocalApiServer::onDownloadRemoved);
+
+    // Hook up the Discord webhook to the existing job update pipeline
+    connect(m_downloadManager, &DownloadManager::downloadProgress, this, [](const QString &id, const QVariantMap &data) {
+        Q_UNUSED(id);
+        // Fallbacks are provided if 'url' or 'download_type' are omitted from progress payload
+        QString url = data.value("url").toString();
+        QString type = data.value("download_type", "video").toString(); 
+        QString status = data.value("status").toString();
+        double progress = data.value("progress").toDouble();
+        QString speed = data.value("speed").toString();
+        QString eta = data.value("eta").toString();
+
+        sendDiscordWebhookUpdate(url, type, status, progress, speed, eta);
+    });
+
+    connect(m_downloadManager, &DownloadManager::downloadFinished, this, [](const QString &id) {
+        Q_UNUSED(id);
+        sendDiscordWebhookUpdate("", "video", "Completed", 100.0, "", "");
+    });
+
+    connect(m_downloadManager, &DownloadManager::downloadCancelled, this, [](const QString &id) {
+        Q_UNUSED(id);
+        sendDiscordWebhookUpdate("", "video", "Cancelled", 0.0, "", "");
+    });
 
     // Connect duplicate detection signal to StartTab
     connect(m_downloadManager, &DownloadManager::duplicateDownloadDetected, m_startTab, &StartTab::onDuplicateDownloadDetected);

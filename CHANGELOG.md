@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Discord Webhook Integration**: Added real-time HTTP POST payload emissions to a local webhook (`http://127.0.0.1:8766/webhook`) during download progress, completion, and cancellation, keeping the Python Discord bot perfectly synchronized with the C++ application state.
+- **Expanded Qt test coverage**: Added archive URL-normalization, sorting-token/sanitization, UI widget progress-state, and local end-to-end download test coverage with isolated test fixtures.
+
 ### Changed
 - **DownloadManager source split**: Split `DownloadManager.cpp` into focused enqueue, playlist, control, execution, and worker/finalization translation units so the core manager files stay under the 500-line context limit.
 
