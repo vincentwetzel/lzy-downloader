@@ -31,6 +31,8 @@ private slots:
     void testYtDlpProgressParsing();
     void testYtDlpErrorParsing();
     void testAria2ProgressParsing();
+    void testAria2AdvancedProgressParsing();
+    void testYtDlpProgressStalledParsing();
     void testLifecycleStatusParsing();
 };
 
@@ -133,6 +135,33 @@ void TestYtDlpWorker::testLifecycleStatusParsing() {
     worker.callHandleOutputLine("[ExtractAudio] Post-processing for audio extraction");
     QCOMPARE(progressSpy.count(), 1);
     QCOMPARE(progressSpy.takeFirst().at(1).toMap()["status"].toString(), "Extracting audio...");
+}
+
+void TestYtDlpWorker::testAria2AdvancedProgressParsing() {
+    ConfigManager *config = getConfigManager();
+    TestableYtDlpWorker worker("testId5", {}, config, this);
+    QSignalSpy progressSpy(&worker, &YtDlpWorker::progressUpdated);
+
+    // Test aria2 progress with higher percentage and different speed/ETA
+    worker.callHandleOutputLine("[#987654 4.8MiB/5.0MiB(96%) DL:2.5MiB/s ETA:00:01]");
+    QCOMPARE(progressSpy.count(), 1);
+    QVariantMap progressData = progressSpy.takeFirst().at(1).toMap();
+    QCOMPARE(progressData["progress"].toInt(), 96);
+    QCOMPARE(progressData["speed"].toString(), "2.50 MiB/s");
+}
+
+void TestYtDlpWorker::testYtDlpProgressStalledParsing() {
+    ConfigManager *config = getConfigManager();
+    TestableYtDlpWorker worker("testId6", {}, config, this);
+    QSignalSpy progressSpy(&worker, &YtDlpWorker::progressUpdated);
+
+    // Simulate yt-dlp stalled/unknown progress
+    worker.callHandleOutputLine("[download] Destination: video.mp4");
+    worker.callHandleOutputLine("[download]   0.0% of unknown size at  0.00MiB/s ETA --:--");
+    QCOMPARE(progressSpy.count(), 2);
+    QVariantMap progressData = progressSpy.last().at(1).toMap();
+    QCOMPARE(progressData["progress"].toInt(), 0);
+    QCOMPARE(progressData["status"].toString(), "Downloading video stream...");
 }
 
 // Generates the main() function for the test executable

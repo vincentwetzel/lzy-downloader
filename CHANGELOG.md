@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Sorting rule literal fallbacks**: Fixed an issue where `yt-dlp` populating missing metadata fields with literal `"NA"` or `"null"` strings (e.g., for `album`) would bypass fallback logic and result in `"Unknown"` folder names. The sorting manager now correctly rejects these literal strings and falls back to `playlist_title` or other metadata aliases.
+
 ## [1.1.31] - 2026-05-05
 
 ### Changed
