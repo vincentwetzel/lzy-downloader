@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.1.30] - 2026-05-05
+## [1.1.31] - 2026-05-05
 
 ### Changed
 - **Extractor domain refresh**: Updated the bundled yt-dlp extractor domain list so Nitter support points at the currently useful `nitter.dcs0.hu` instance instead of the retired `canada.unofficialbird.com` domain.
