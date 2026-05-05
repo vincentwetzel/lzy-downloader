@@ -58,10 +58,11 @@ QVariantMap mergedSortingMetadata(const QVariantMap &metadata, const QVariantMap
         combined.insert(it.key(), it.value());
     }
 
-    if (!combined.contains("playlist_title") || combined.value("playlist_title").toString().trimmed().isEmpty()) {
-        const QString playlistTitle = downloadOptions.value("playlist_title").toString().trimmed();
-        if (!playlistTitle.isEmpty()) {
-            combined.insert("playlist_title", playlistTitle);
+    QString metaPlaylistTitle = combined.value("playlist_title").toString().trimmed();
+    if (metaPlaylistTitle.isEmpty() || metaPlaylistTitle.toLower() == "null" || metaPlaylistTitle == "NA") {
+        const QString optionsPlaylistTitle = downloadOptions.value("playlist_title").toString().trimmed();
+        if (!optionsPlaylistTitle.isEmpty() && optionsPlaylistTitle.toLower() != "null" && optionsPlaylistTitle != "NA") {
+            combined.insert("playlist_title", optionsPlaylistTitle);
         }
     }
 
@@ -122,24 +123,33 @@ QVariant SortingManager::metadataValueForField(const QString &field, const QVari
         return metadataValueForKey("duration", metadata);
     }
 
-    if (normalizedField == "playlist_title") {
+    if (normalizedField == "playlist_title" || normalizedField == "playlist") {
         const QVariant playlistTitle = metadataValueForKey("playlist_title", metadata);
-        if (playlistTitle.isValid() && !playlistTitle.toString().isEmpty()) {
+        if (playlistTitle.isValid() && !playlistTitle.toString().trimmed().isEmpty() && 
+            playlistTitle.toString().trimmed().toLower() != "null" && playlistTitle.toString().trimmed() != "NA") {
             return playlistTitle;
         }
-        return metadataValueForKey("playlist", metadata);
+        const QVariant playlist = metadataValueForKey("playlist", metadata);
+        if (playlist.isValid() && !playlist.toString().trimmed().isEmpty() && 
+            playlist.toString().trimmed().toLower() != "null" && playlist.toString().trimmed() != "NA") {
+            return playlist;
+        }
+        return QVariant();
     }
 
     if (normalizedField == "album") {
         const QVariant album = metadataValueForKey("album", metadata);
-        if (album.isValid() && !album.toString().isEmpty()) {
+        if (album.isValid() && !album.toString().trimmed().isEmpty() && 
+            album.toString().trimmed().toLower() != "null" && album.toString().trimmed() != "NA") {
             return album;
         }
 
         const QVariant playlistTitle = metadataValueForField("playlist_title", metadata);
-        if (playlistTitle.isValid() && !playlistTitle.toString().isEmpty()) {
+        if (playlistTitle.isValid() && !playlistTitle.toString().trimmed().isEmpty() && 
+            playlistTitle.toString().trimmed().toLower() != "null" && playlistTitle.toString().trimmed() != "NA") {
             return playlistTitle;
         }
+        return QVariant();
     }
 
     static const QHash<QString, QStringList> aliases = {
@@ -151,7 +161,8 @@ QVariant SortingManager::metadataValueForField(const QString &field, const QVari
     const QStringList aliasCandidates = aliases.value(normalizedField, {normalizedField});
     for (const QString &candidate : aliasCandidates) {
         const QVariant value = metadataValueForKey(candidate, metadata);
-        if (value.isValid() && !value.toString().isEmpty()) {
+        if (value.isValid() && !value.toString().trimmed().isEmpty() && 
+            value.toString().trimmed().toLower() != "null" && value.toString().trimmed() != "NA") {
             return value;
         }
     }
@@ -357,11 +368,13 @@ QString SortingManager::parseAndReplaceTokens(const QString &pattern, const QVar
         }
 
         QVariant value = metadataValueForField(key, metadata);
-        if (!value.isValid() || value.toString().trimmed().isEmpty()) {
+        if (!value.isValid() || value.toString().trimmed().isEmpty() || 
+            value.toString().trimmed().toLower() == "null" || value.toString().trimmed() == "NA") {
             value = metadataValueForKey(key, metadata);
         }
 
-        if (value.isValid() && !value.toString().trimmed().isEmpty()) {
+        if (value.isValid() && !value.toString().trimmed().isEmpty() && 
+            value.toString().trimmed().toLower() != "null" && value.toString().trimmed() != "NA") {
             result.replace(token, sanitize(value.toString()), Qt::CaseInsensitive);
         } else {
             result.replace(token, "Unknown", Qt::CaseInsensitive);
