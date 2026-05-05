@@ -198,6 +198,11 @@ void ActiveDownloadsTab::setupUi() {
 }
 
 void ActiveDownloadsTab::addDownloadItem(const QVariantMap &itemData) {
+    QString id = itemData["id"].toString();
+    if (m_downloadItems.contains(id)) {
+        onItemClearRequested(id);
+    }
+
     DownloadItemWidget *itemWidget = new DownloadItemWidget(itemData, this);
 
     // Insert before the stretch

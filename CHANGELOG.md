@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.30] - 2026-05-05
+
+### Changed
+- **Extractor domain refresh**: Updated the bundled yt-dlp extractor domain list so Nitter support points at the currently useful `nitter.dcs0.hu` instance instead of the retired `canada.unofficialbird.com` domain.
+
+### Fixed
+- **Active Downloads duplicate row replacement**: Re-adding a download item with an existing internal ID now clears the old row before inserting the replacement, preventing duplicate widgets when queue placeholders or restored items are refreshed.
+- **Discord webhook payload stability**: Webhook status strings are now flattened and capped before POSTing to the local Discord bridge, keeping payloads compact even when yt-dlp emits multi-line status text.
+- **Discord webhook terminal-state reporting**: Completion and cancellation events now preserve the final tracked state long enough for downstream integrations to observe terminal progress/status instead of dropping the item immediately after the final webhook.
+- **Discord webhook progress preservation**: Queue refreshes that do not include a progress field now keep the previous progress value, avoiding accidental resets to `0%` in local bridge clients.
+- **Discord playlist parent mapping**: Playlist child webhook payloads now use the explicit `playlist_placeholder_id` mapping so expanded children stay associated with the original enqueue request without overloading unrelated option IDs.
+
 ## [1.1.28] - 2026-05-04
 
 ### Fixed

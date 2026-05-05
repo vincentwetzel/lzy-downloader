@@ -28,7 +28,15 @@ void MainWindow::connectDiscordWebhookSignals()
             json["title"] = state.value("title").toString();
         }
         json["download_type"] = state.value("download_type", "video").toString();
-        json["status"] = state.value("status").toString();
+        
+        QString currentStatus = state.value("status").toString();
+        currentStatus.replace('\n', ' ').replace('\r', "");
+        
+        if (currentStatus.length() > 200) {
+            currentStatus = currentStatus.left(197) + "...";
+        }
+        
+        json["status"] = currentStatus;
         json["progress"] = state.value("progress").toDouble();
         json["speed"] = state.value("speed").toString();
         json["eta"] = state.value("eta").toString();
@@ -64,11 +72,14 @@ void MainWindow::connectDiscordWebhookSignals()
         QVariantMap options = itemData.value("options").toMap();
         state["download_type"] = options.value("type", "video");
         state["status"] = itemData.value("status", "Queued");
-        state["progress"] = itemData.value("progress", 0.0).toDouble();
+        
+        if (webhookStates->contains(id) && !itemData.contains("progress")) {
+            state["progress"] = (*webhookStates)[id].value("progress", 0.0).toDouble();
+        } else {
+            state["progress"] = itemData.value("progress", 0.0).toDouble();
+        }
 
-        if (options.contains("id")) {
-            state["parent_id"] = options.value("id").toString();
-        } else if (options.contains("playlist_placeholder_id")) {
+        if (options.contains("playlist_placeholder_id")) {
             state["parent_id"] = options.value("playlist_placeholder_id").toString();
         }
 
@@ -83,12 +94,15 @@ void MainWindow::connectDiscordWebhookSignals()
                 state["title"] = data.value("title");
                 state["download_type"] = data.value("options").toMap().value("type", "video").toString();
                 state["status"] = data.value("status", "Queued").toString();
-                state["progress"] = data.value("progress", 0.0).toDouble();
+                
+                if (webhookStates->contains(id) && !data.contains("progress")) {
+                    state["progress"] = (*webhookStates)[id].value("progress", 0.0).toDouble();
+                } else {
+                    state["progress"] = data.value("progress", 0.0).toDouble();
+                }
 
                 QVariantMap options = data.value("options").toMap();
-                if (options.contains("id")) {
-                    state["parent_id"] = options.value("id").toString();
-                } else if (options.contains("playlist_placeholder_id")) {
+                if (options.contains("playlist_placeholder_id")) {
                     state["parent_id"] = options.value("playlist_placeholder_id").toString();
                 }
 
@@ -127,18 +141,13 @@ void MainWindow::connectDiscordWebhookSignals()
         state["status"] = "Completed";
         state["progress"] = 100.0;
         sendDiscordWebhook(id, state);
-        webhookStates->remove(id);
-        webhookTimestamps->remove(id);
     });
 
     connect(m_downloadManager, &DownloadManager::downloadCancelled, this, [sendDiscordWebhook, webhookStates, webhookTimestamps](const QString &id) {
         if (!webhookStates->contains(id)) return;
         QVariantMap state = (*webhookStates)[id];
         state["status"] = "Cancelled";
-        state["progress"] = 0.0;
         sendDiscordWebhook(id, state);
-        webhookStates->remove(id);
-        webhookTimestamps->remove(id);
     });
 
     connect(m_downloadManager, &DownloadManager::downloadPaused, this, [sendDiscordWebhook, webhookStates](const QString &id) {
