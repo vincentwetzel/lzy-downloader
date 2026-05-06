@@ -27,6 +27,10 @@ void YtDlpWorker::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatu
         handleOutputLine(QString::fromUtf8(m_outputBuffer).trimmed()); // Trim any remaining buffer content
         m_outputBuffer.clear();
     }
+    if (!m_errorBuffer.isEmpty()) {
+        handleOutputLine(QString::fromUtf8(m_errorBuffer).trimmed());
+        m_errorBuffer.clear();
+    }
 
 
     m_finishEmitted = true;
@@ -81,6 +85,12 @@ void YtDlpWorker::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatu
                     m_fullMetadata = doc.object().toVariantMap();
                 }
             }
+        }
+
+        // Clean up info.json now that metadata is loaded, so the UUID temp folder can be removed
+        if (!m_infoJsonPath.isEmpty() && QFile::exists(m_infoJsonPath)) {
+            QFile::remove(m_infoJsonPath);
+            qDebug() << "Cleaned up info.json file:" << m_infoJsonPath;
         }
 
         // Use the full metadata that was already parsed from info.json during readInfoJsonWithRetry
@@ -287,7 +297,6 @@ void YtDlpWorker::readInfoJsonWithRetry() {
     }
 
     // If we successfully parsed the file, we don't need to retry anymore.
-    m_infoJsonPath.clear();
     m_infoJsonRetryCount = 0;
 
     QJsonObject obj = doc.object();
