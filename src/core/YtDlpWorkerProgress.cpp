@@ -65,9 +65,9 @@ bool YtDlpWorker::parseYtDlpProgressLine(const QString &line) {
     }
 
     static const QRegularExpression progressRegex(
-        R"(^\[download\]\s+([\d\.]+)%\s+of\s+(?:~\s*)?(.+?)(?=\s+at\s+|\s+ETA\s+|\s+\(frag\s+\d+/\d+\)|$)(?:\s+at\s+(.+?)(?=\s+ETA\s+|\s+\(frag\s+\d+/\d+\)|$))?(?:\s+ETA\s+([^\s]+))?(?:\s+\(frag\s+\d+/\d+\))?.*$)");
+        R"(^\[download\]\s+([\d\.]+)%\s+of\s+(?:~\s*)?(.+?)(?=\s+at\s+|\s+ETA\s+|\s+\(frag\s+\d+/\d+\)|$)(?:\s+at\s+(.+?)(?=\s+ETA\s+|\s+\(frag\s+\d+/\d+\)|$))?(?:\s+ETA\s+([^\s]+))?(?:\s+\(frag\s+(\d+)/(\d+)\))?.*$)");
     static const QRegularExpression completedRegex(
-        R"(^\[download\]\s+100(?:\.0+)?%\s+of\s+(?:~\s*)?(.+?)(?=\s+in\s+|\s+at\s+|\s+\(frag\s+\d+/\d+\)|$)(?:\s+in\s+([^\s]+))?(?:\s+at\s+(.+?)(?=\s+\(frag\s+\d+/\d+\)|$))?(?:\s+\(frag\s+\d+/\d+\))?.*$)");
+        R"(^\[download\]\s+100(?:\.0+)?%\s+of\s+(?:~\s*)?(.+?)(?=\s+in\s+|\s+at\s+|\s+\(frag\s+\d+/\d+\)|$)(?:\s+in\s+([^\s]+))?(?:\s+at\s+(.+?)(?=\s+\(frag\s+\d+/\d+\)|$))?(?:\s+\(frag\s+(\d+)/(\d+)\))?.*$)");
     static const QRegularExpression indeterminateRegex(
         R"(^\[download\]\s+(.+?)\s+at\s+(.+?)\s+\(([^)]+)\).*$)");
 
@@ -102,6 +102,8 @@ bool YtDlpWorker::parseYtDlpProgressLine(const QString &line) {
     double totalBytes = 0.0;
     double downloadedBytes = 0.0;
     double speedBytes = 0.0;
+    QString customDownloadedSize;
+    QString customTotalSize;
 
     if (matchedIndeterminate) {
         percentage = -1.0; // Puts the progress bar into indeterminate scrolling mode
@@ -111,11 +113,51 @@ bool YtDlpWorker::parseYtDlpProgressLine(const QString &line) {
         speedBytes = parseSizeStringToBytes(speedString);
         etaString = match.captured(3).trimmed();
         if (etaString.isEmpty()) etaString = "Unknown";
+
+        if (etaString.startsWith("frag ")) {
+            static const QRegularExpression fragRegex(R"(frag\s+(\d+)/(\d+))");
+            QRegularExpressionMatch fragMatch = fragRegex.match(etaString);
+            if (fragMatch.hasMatch()) {
+                QString fragCurrentStr = fragMatch.captured(1);
+                QString fragTotalStr = fragMatch.captured(2);
+                double fragCurrent = fragCurrentStr.toDouble();
+                double fragTotal = fragTotalStr.toDouble();
+                if (fragTotal > 0) {
+                    percentage = (fragCurrent / fragTotal) * 100.0;
+                    etaString = "Unknown";
+                    customDownloadedSize = fragCurrentStr + " Segs";
+                    customTotalSize = fragTotalStr + " Segs";
+                    totalBytes = 0.0;
+                }
+            }
+        }
     } else {
         percentage = matchedCompletedFormat ? 100.0 : match.captured(1).toDouble();
         totalString = (matchedCompletedFormat ? match.captured(1) : match.captured(2)).trimmed();
         speedString = match.captured(3).trimmed();
         etaString = matchedCompletedFormat ? QStringLiteral("0:00") : match.captured(4).trimmed();
+
+        QString fragCurrentStr = matchedCompletedFormat ? match.captured(4) : match.captured(5);
+        QString fragTotalStr = matchedCompletedFormat ? match.captured(5) : match.captured(6);
+
+        if (!fragCurrentStr.isEmpty() && !fragTotalStr.isEmpty()) {
+            double fragCurrent = fragCurrentStr.toDouble();
+            double fragTotal = fragTotalStr.toDouble();
+            if (fragTotal > 0) {
+                double fragPercentage = (fragCurrent / fragTotal) * 100.0;
+                double printedPercentage = percentage;
+
+                // If printed percentage differs from fragment overall progress by more than 1%,
+                // yt-dlp is reporting progress for the individual fragment, not the overall video.
+                // We override it to display the true overall progress.
+                if (qAbs(printedPercentage - fragPercentage) > 1.0) {
+                    percentage = fragPercentage;
+                    customDownloadedSize = fragCurrentStr + " Segs";
+                    customTotalSize = fragTotalStr + " Segs";
+                    totalString = "Unknown"; // so totalBytes becomes 0
+                }
+            }
+        }
 
         totalBytes = parseSizeStringToBytes(totalString);
         downloadedBytes = totalBytes > 0.0 ? (totalBytes * (percentage / 100.0)) : 0.0;
@@ -126,8 +168,8 @@ bool YtDlpWorker::parseYtDlpProgressLine(const QString &line) {
 
     progressData["progress"] = percentage;
     progressData["status"] = statusForCurrentTransfer();
-    progressData["downloaded_size"] = downloadedBytes > 0.0 ? formatBytes(downloadedBytes) : QString("N/A");
-    progressData["total_size"] = totalBytes > 0.0 ? formatBytes(totalBytes) : totalString;
+    progressData["downloaded_size"] = !customDownloadedSize.isEmpty() ? customDownloadedSize : (downloadedBytes > 0.0 ? formatBytes(downloadedBytes) : QString("N/A"));
+    progressData["total_size"] = !customTotalSize.isEmpty() ? customTotalSize : (totalBytes > 0.0 ? formatBytes(totalBytes) : totalString);
     applyOverallPrimaryProgress(progressData, percentage, downloadedBytes, totalBytes);
     progressData["speed"] = speedBytes > 0.0 ? formatBytes(speedBytes) + "/s" : (speedString.isEmpty() ? QString("Unknown") : speedString);
     progressData["speed_bytes"] = speedBytes;

@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - **Sorting rule literal fallbacks**: Fixed an issue where `yt-dlp` populating missing metadata fields with literal `"NA"` or `"null"` strings (e.g., for `album`) would bypass fallback logic and result in `"Unknown"` folder names. The sorting manager now correctly rejects these literal strings and falls back to `playlist_title` or other metadata aliases.
+- **HLS fragment progress parsing**: Fixed an issue where yt-dlp's native downloader caused the UI progress bar to violently snap back to 0% thousands of times when downloading fragmented HLS streams (like Twitch VODs). The progress parser now intercepts the `(frag X/Y)` output to calculate and display the true overall progress percentage and replaces the fragment byte size with a clear segment count.
 
 ## [1.1.31] - 2026-05-05
 

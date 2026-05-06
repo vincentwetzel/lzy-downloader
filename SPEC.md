@@ -111,7 +111,7 @@ This document outlines the specifications for the C++ port of the LzyDownloader 
   - Native yt-dlp format: `[download] XX.X% of YY.YMiB at ZZ.ZMiB/s ETA 0:00`
   - aria2c format: `[#XXXXX AA.AMiB/BB.BMiB(CC.C%)(...)ETA:0:00]`
   - Unknown or approximate totals (e.g., `~XX.XMiB`, `Unknown total size`)
-  - Destination-aware native stages, including fragment downloads and auxiliary-file transfers
+  - Destination-aware native stages, including fragment downloads and auxiliary-file transfers. For HLS streams, the parser must intercept `(frag X/Y)` tags to calculate and display the true overall progress percentage and segment counts, preventing the progress bar from repeatedly snapping to 0%.
   - Primary-stream handoff detection must correctly switch the label from video to audio when multi-stream downloads restart progress on the next requested format, even if the temporary filename ends in `.part` or yt-dlp omits a fresh destination line
   - Stream labeling should prefer yt-dlp `format_id` clues from temp filenames such as `.f251.webm.part` before falling back to container extensions, since extensions like `.webm` can represent either audio-only or video streams
   - **Download Sections Dialog**: When section downloads are enabled, the application presents a dialog. This dialog must include a visible instruction indicating how users can disable the "Download Sections" prompt in the Advanced Settings tab if they no longer wish to use it.
