@@ -217,6 +217,7 @@ void ActiveDownloadsTab::addDownloadItem(const QVariantMap &itemData) {
     connect(itemWidget, &DownloadItemWidget::unpauseRequested, this, &ActiveDownloadsTab::unpauseDownloadRequested);
     connect(itemWidget, &DownloadItemWidget::moveUpRequested, this, &ActiveDownloadsTab::onItemMoveUpRequested);
     connect(itemWidget, &DownloadItemWidget::moveDownRequested, this, &ActiveDownloadsTab::onItemMoveDownRequested);
+    connect(itemWidget, &DownloadItemWidget::finishRequested, this, &ActiveDownloadsTab::finishDownloadRequested);
 
     updatePlaceholderVisibility();
 }
@@ -348,11 +349,7 @@ void ActiveDownloadsTab::togglePauseAllDownloads() {
 void ActiveDownloadsTab::onItemClearRequested(const QString &id) {
     if (m_downloadItems.contains(id)) {
         DownloadItemWidget *widget = m_downloadItems.take(id);
-        // FIXME: Re-enable this signal emission once `itemCleared` is declared as a signal in ActiveDownloadsTab.h
-        // The signal should be:
-        // signals:
-        //     void itemCleared(const QString &id, bool wasSuccessful, bool wasFinished);
-        // emit itemCleared(id, widget->isSuccessful(), widget->isFinished());
+        emit itemCleared(id, widget->isSuccessful(), widget->isFinished());
         m_downloadsLayout->removeWidget(widget);
         widget->deleteLater();
         updatePlaceholderVisibility();

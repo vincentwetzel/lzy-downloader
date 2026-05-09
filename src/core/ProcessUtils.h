@@ -14,6 +14,7 @@ namespace ProcessUtils {
     FoundBinary resolveBinary(const QString& name, ConfigManager* configManager);
     void setProcessEnvironment(QProcess &process);
     void terminateProcessTree(QProcess *process, int gracefulTimeoutMs = 2000);
+    void sendGracefulInterrupt(qint64 pid);
 
     QString fetchFfmpegVersion(const QString& execPath);
 

@@ -12,6 +12,8 @@
 #define NOMINMAX
 #endif
 #include <windows.h>
+#else
+#include <signal.h>
 #endif
 #include <QMutex>
 
@@ -297,6 +299,24 @@ void terminateProcessTree(QProcess *process, int gracefulTimeoutMs) {
     process->kill();
 #else
     process->kill();
+#endif
+}
+
+void sendGracefulInterrupt(qint64 pid) {
+    if (pid <= 0) return;
+    qInfo() << "[ProcessUtils] Sending graceful interrupt to PID" << pid;
+
+#ifdef Q_OS_WIN
+    if (AttachConsole(static_cast<DWORD>(pid))) {
+        SetConsoleCtrlHandler(NULL, TRUE);
+        GenerateConsoleCtrlEvent(CTRL_C_EVENT, 0);
+        FreeConsole();
+        SetConsoleCtrlHandler(NULL, FALSE);
+    } else {
+        qWarning() << "[ProcessUtils] Failed to attach console to PID" << pid << "for graceful interrupt. Error:" << GetLastError();
+    }
+#else
+    kill(pid, SIGINT);
 #endif
 }
 

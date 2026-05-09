@@ -328,13 +328,22 @@ void DownloadManager::onFinalizationComplete(const QString &id, bool success, co
     }, Qt::QueuedConnection);
 }
 
-/*
-FIXME: The implementation for onItemCleared was causing build errors because it is not declared in DownloadManager.h.
-To fix this, declare it as a public slot in DownloadManager.h:
-    public slots:
-        void onItemCleared(const QString &id, bool wasSuccessful, bool wasFinished);
-Then, uncomment the function body below and the corresponding connect() call in MainWindow.cpp.
-*/
+void DownloadManager::onItemCleared(const QString &id, bool wasSuccessful, bool wasFinished) {
+    Q_UNUSED(wasSuccessful);
+    
+    if (!wasFinished) {
+        cancelDownload(id);
+    }
+    
+    if (m_queueManager) {
+        m_queueManager->m_pausedItems.remove(id);
+    }
+    
+    QMetaObject::invokeMethod(this, [this]() {
+        if (m_queueManager) m_queueManager->saveQueueState(m_activeItems);
+        startNextDownload();
+    }, Qt::QueuedConnection);
+}
 
 void DownloadManager::checkQueueFinished() {
     const bool hasPendingPlaylistExpansions = m_queueManager && !m_queueManager->m_pendingExpansions.isEmpty();

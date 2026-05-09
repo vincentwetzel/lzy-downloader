@@ -39,6 +39,8 @@ signals:
     void unpauseDownloadRequested(const QString &id);
     void moveDownloadUpRequested(const QString &id);
     void moveDownloadDownRequested(const QString &id);
+    void finishDownloadRequested(const QString &id);
+    void itemCleared(const QString &id, bool wasSuccessful, bool wasFinished);
 
 private:
     void setupUi();

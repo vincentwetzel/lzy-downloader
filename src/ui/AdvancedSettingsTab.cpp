@@ -210,11 +210,9 @@ void AdvancedSettingsTab::setupUI() {
     QCheckBox *consoleToggle = new QCheckBox("Show Debug Console", this);
     consoleToggle->setChecked(m_configManager->get("General", "show_debug_console", isDebug).toBool());
     
-    DWORD processList[2];
-    DWORD numProcesses = GetConsoleProcessList(processList, 2);
-    if (numProcesses > 1) {
-        consoleToggle->setEnabled(false);
-        consoleToggle->setToolTip("Console visibility cannot be toggled because the application was launched from an existing terminal.");
+    bool ownsConsole = qApp->property("lzy_consoleAllocatedByUs").toBool();
+    if (GetConsoleWindow() != NULL && !ownsConsole) {
+        consoleToggle->setToolTip("Setting saved for next launch. (Cannot hide the console right now because the app was launched from an existing terminal.)");
     } else {
         consoleToggle->setToolTip("Show or hide the command prompt / debug console window while the application is running.");
     }

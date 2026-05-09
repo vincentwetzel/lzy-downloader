@@ -39,12 +39,16 @@ public:
     void restartDownloadWithOptions(const QVariantMap &itemData);
     void retryDownload(const QVariantMap &itemData);
     void resumeDownload(const QVariantMap &itemData);
+    void finishDownload(const QString &id);
     void moveDownloadUp(const QString &id);
     void moveDownloadDown(const QString &id);
     void onWorkerOutputReceived(const QString &id, const QString &output);
     void processPlaylistSelection(const QString &url, const QString &action, const QVariantMap &options, const QList<QVariantMap> &expandedItems);
     void resumeDownloadWithFormat(const QString &url, const QVariantMap &options, const QString &formatId);
     void shutdown();
+
+public slots:
+    void onItemCleared(const QString &id, bool wasSuccessful, bool wasFinished);
 
 signals:
     void downloadAddedToQueue(const QVariantMap &itemData);

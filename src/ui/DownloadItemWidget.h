@@ -72,6 +72,7 @@ signals:
     void unpauseRequested(const QString &id);
     void moveUpRequested(const QString &id);
     void moveDownRequested(const QString &id);
+    void finishRequested(const QString &id);
 
 private slots:
     void onCancelClicked();
@@ -80,6 +81,7 @@ private slots:
     void onPauseResumeClicked();
     void onMoveUpClicked();
     void onMoveDownClicked();
+    void onFinishClicked();
 
 private:
     void setupUi();
@@ -97,6 +99,7 @@ private:
     QPushButton *m_cancelButton;
     QPushButton *m_retryButton;
     QPushButton *m_openFolderButton;
+    QPushButton *m_finishButton;
     QPushButton *m_moveUpButton;
     QPushButton *m_moveDownButton;
     bool m_isFinished = false;

@@ -17,6 +17,7 @@ public:
     QString getId() const { return m_id; }
     void start();
     void killProcess();
+    void finishGracefully();
 
 signals:
     void progressUpdated(const QString &id, const QVariantMap &progressData);

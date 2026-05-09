@@ -48,6 +48,7 @@ void applyConsoleState(bool show)
         if (consoleWindow == NULL) {
             if (AllocConsole()) {
                 s_consoleAllocatedByUs = true;
+                QCoreApplication::instance()->setProperty("lzy_consoleAllocatedByUs", true);
                 FILE *dummy;
                 freopen_s(&dummy, "CONOUT$", "w", stdout);
                 freopen_s(&dummy, "CONOUT$", "w", stderr);
@@ -364,6 +365,10 @@ void MainWindow::connectDownloadManagerSignals()
             m_downloadManager, &DownloadManager::moveDownloadUp);
     connect(m_activeDownloadsTab, &ActiveDownloadsTab::moveDownloadDownRequested,
             m_downloadManager, &DownloadManager::moveDownloadDown);
+    connect(m_activeDownloadsTab, &ActiveDownloadsTab::finishDownloadRequested,
+            m_downloadManager, &DownloadManager::finishDownload);
+    connect(m_activeDownloadsTab, &ActiveDownloadsTab::itemCleared,
+            m_downloadManager, &DownloadManager::onItemCleared);
 
     connect(m_urlValidator, &UrlValidator::validationFinished, this, &MainWindow::onValidationFinished);
 }

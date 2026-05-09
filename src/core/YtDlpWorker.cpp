@@ -129,3 +129,10 @@ void YtDlpWorker::killProcess() {
         QDir().rmdir(uuidDirPath);
     }
 }
+
+void YtDlpWorker::finishGracefully() {
+    if (m_process && m_process->state() != QProcess::NotRunning) {
+        qDebug() << "[YtDlpWorker] Sending graceful interrupt to finish download early:" << m_id;
+        ProcessUtils::sendGracefulInterrupt(m_process->processId());
+    }
+}

@@ -91,6 +91,12 @@ void DownloadItemWidget::setupUi() {
     m_cancelButton->setFixedSize(30, 30);
     m_cancelButton->setToolTip("Stop this download.");
 
+    m_finishButton = new QPushButton(this);
+    m_finishButton->setIcon(createColoredIcon(QStyle::SP_DialogApplyButton, QColor("#10b981")));
+    m_finishButton->setFixedSize(30, 30);
+    m_finishButton->setToolTip("Finish Now (Stop streaming and finalize the video)");
+    m_finishButton->hide();
+
     m_retryButton = new QPushButton(this);
     m_retryButton->setIcon(createColoredIcon(QStyle::SP_BrowserReload, QColor("#eab308")));
     m_retryButton->setFixedSize(30, 30);
@@ -111,6 +117,7 @@ void DownloadItemWidget::setupUi() {
 
     QHBoxLayout *buttonLayout = new QHBoxLayout();
     buttonLayout->addWidget(m_cancelButton);
+    buttonLayout->addWidget(m_finishButton);
     buttonLayout->addWidget(m_retryButton);
     buttonLayout->addWidget(clearTempButton);
     buttonLayout->addWidget(m_openFolderButton);
@@ -136,6 +143,7 @@ void DownloadItemWidget::setupUi() {
     mainLayout->addLayout(buttonLayout);
 
     connect(m_cancelButton, &QPushButton::clicked, this, &DownloadItemWidget::onCancelClicked);
+    connect(m_finishButton, &QPushButton::clicked, this, &DownloadItemWidget::onFinishClicked);
     connect(m_retryButton, &QPushButton::clicked, this, &DownloadItemWidget::onRetryClicked);
     connect(m_openFolderButton, &QPushButton::clicked, this, &DownloadItemWidget::onOpenContainingFolderClicked);
     connect(m_clearButton, &QPushButton::clicked, this, [this]() {
@@ -168,6 +176,11 @@ void DownloadItemWidget::updateProgress(const QVariantMap &progressData) {
             m_titleLabel->setText(title);
             m_itemData["title"] = title;
         }
+    }
+
+    // Show "Finish Now" button if the download is active and marked as live
+    if (m_itemData.value("options").toMap().value("is_live", false).toBool() && !m_isFinished) {
+        m_finishButton->show();
     }
 
     if (progressData.contains("status")) {
@@ -281,6 +294,7 @@ void DownloadItemWidget::setFinalPath(const QString &path) {
 
 void DownloadItemWidget::setFinished(bool success, const QString &message) {
     m_cancelButton->hide();
+    m_finishButton->hide();
     m_moveUpButton->hide();
     m_moveDownButton->hide();
     m_isFinished = true;
@@ -322,6 +336,7 @@ void DownloadItemWidget::setFinished(bool success, const QString &message) {
 
 void DownloadItemWidget::setCancelled() {
     m_cancelButton->hide();
+    m_finishButton->hide();
     m_moveUpButton->hide();
     m_moveDownButton->hide();
     m_retryButton->setEnabled(true);
@@ -410,6 +425,15 @@ void DownloadItemWidget::onMoveUpClicked() {
 
 void DownloadItemWidget::onMoveDownClicked() {
     emit moveDownRequested(getId());
+}
+
+void DownloadItemWidget::onFinishClicked() {
+    if (m_statusLabel) {
+        m_statusLabel->setText("Finishing stream...");
+    }
+    m_finishButton->setEnabled(false);
+    m_cancelButton->setEnabled(false);
+    emit finishRequested(getId());
 }
 
 void DownloadItemWidget::showCancellingFeedback()

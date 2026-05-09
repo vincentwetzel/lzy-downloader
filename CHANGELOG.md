@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Livestream Finish Now action**: Active livestream downloads now expose a `Finish Now` control that sends yt-dlp a graceful interrupt so the current stream can stop recording and continue through normal finalization.
+
+### Fixed
+- **Qt HTTPS on clean Windows installs**: Restored explicit OpenSSL runtime deployment from vcpkg/Qt install directories so `qopensslbackend` can initialize instead of falling back to Qt's `cert-only` backend and failing update checks with `TLS initialization failed`.
+- **Cleared download state cleanup**: Clearing stopped or failed rows now notifies `DownloadManager`, cancels any still-running worker, removes paused queue state, saves the queue asynchronously, and resumes scheduling.
+
 ## [1.1.35] - 2026-05-09
 
 ### Added

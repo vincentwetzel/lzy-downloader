@@ -268,6 +268,20 @@ void DownloadManager::unpauseDownload(const QString &id) {
     m_queueManager->unpauseDownload(id);
 }
 
+void DownloadManager::finishDownload(const QString &id) {
+    if (m_activeWorkers.contains(id)) {
+        QObject *worker = m_activeWorkers.value(id);
+        YtDlpWorker *ytDlpWorker = qobject_cast<YtDlpWorker*>(worker);
+        if (ytDlpWorker) {
+            QVariantMap progressData;
+            progressData["status"] = "Finishing stream & finalizing...";
+            emit downloadProgress(id, progressData);
+            
+            ytDlpWorker->finishGracefully();
+        }
+    }
+}
+
 void DownloadManager::moveDownloadUp(const QString &id) {
     m_queueManager->moveDownloadUp(id);
 }
@@ -275,5 +289,3 @@ void DownloadManager::moveDownloadUp(const QString &id) {
 void DownloadManager::moveDownloadDown(const QString &id) {
     m_queueManager->moveDownloadDown(id);
 }
-
-

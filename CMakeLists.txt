@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(LzyDownloader VERSION 1.1.36 LANGUAGES CXX)
+project(LzyDownloader VERSION 1.1.38 LANGUAGES CXX)
 enable_testing()
 
 set(_qt_search_prefixes "")
@@ -73,6 +73,27 @@ if(WIN32)
             )
         elseif(NOT DEFINED VCPKG_INSTALLED_DIR)
             message(WARNING "windeployqt was not found; ${target_name} may fail to start without Qt plugins in the output directory.")
+        endif()
+
+        set(_openssl_runtime_dir "")
+        if(DEFINED VCPKG_INSTALLED_DIR AND DEFINED VCPKG_TARGET_TRIPLET)
+            set(_openssl_runtime_dir "$<$<CONFIG:Debug>:${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/debug/bin>$<$<NOT:$<CONFIG:Debug>>:${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/bin>")
+        elseif(DEFINED Qt6_DIR)
+            get_filename_component(_qt_prefix "${Qt6_DIR}/../../.." ABSOLUTE)
+            set(_openssl_runtime_dir "${_qt_prefix}/bin")
+        endif()
+
+        if(_openssl_runtime_dir)
+            add_custom_command(TARGET ${target_name} POST_BUILD
+                COMMAND "${CMAKE_COMMAND}"
+                    -DOPENSSL_RUNTIME_DIR=${_openssl_runtime_dir}
+                    -DTARGET_RUNTIME_DIR=$<TARGET_FILE_DIR:${target_name}>
+                    -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/deploy_openssl_runtime.cmake"
+                COMMENT "Copying OpenSSL runtime DLLs for ${target_name}"
+                VERBATIM
+            )
+        else()
+            message(WARNING "OpenSSL runtime DLLs were not found; Qt HTTPS requests may fail if the OpenSSL TLS backend is deployed without libssl/libcrypto.")
         endif()
     endfunction()
 else()
