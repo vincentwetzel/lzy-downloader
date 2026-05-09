@@ -102,9 +102,23 @@ void appendForcedKeyframeCutArgs(QStringList &args, ConfigManager *configManager
 {
     args << "--force-keyframes-at-cuts";
 
+    QStringList ppaArgs;
+    const QString encoder = configManager->get("DownloadOptions", "ffmpeg_cut_encoder", "cpu").toString();
     const QString encoderArgs = ffmpegCutEncoderArgs(configManager);
-    if (!encoderArgs.isEmpty()) {
-        args << "--ppa" << QString("ModifyChapters+ffmpeg_o:%1").arg(encoderArgs);
+
+    if (encoder == "custom") {
+        if (!encoderArgs.isEmpty()) ppaArgs << encoderArgs;
+    } else {
+        if (!encoderArgs.isEmpty()) ppaArgs << encoderArgs;
+        // Add essential A/V sync and timestamp preservation arguments.
+        // Copy audio explicitly and reset timestamps to prevent drift and
+        // edit-list desync issues in MP4 containers when cutting segments.
+        ppaArgs << "-c:a copy" << "-avoid_negative_ts make_zero" << "-fflags +genpts" << "-max_muxing_queue_size 2048";
+    }
+
+    args << "--ppa" << "ModifyChapters+ffmpeg_i:-ignore_editlist 1";
+    if (!ppaArgs.isEmpty()) {
+        args << "--ppa" << QString("ModifyChapters+ffmpeg_o:%1").arg(ppaArgs.join(" "));
     }
 }
 }

@@ -18,6 +18,7 @@
 - Local API Server implementation (`QTcpServer` on port 8765)
 - Headless Environment Isolation (`Server/` app-data subfolder for logs, state, and tokens)
 - Discord Bridge Webhook (HTTP POST payloads to local port 8766)
+- Discord queue-position payloads for queued download ordering
 
 ### Phase 17: Download Sections
 - Download Sections Support (time range and chapter-based downloading)

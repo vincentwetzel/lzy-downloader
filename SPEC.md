@@ -90,7 +90,7 @@ This document outlines the specifications for the C++ port of the LzyDownloader 
     - Filename restriction (`--restrict-filenames`).
     - External downloader (`--external-downloader aria2c`).
     - Thumbnail conversion (`--convert-thumbnails`).
-    - SponsorBlock (`--sponsorblock-remove all`; video/livestream jobs preflight SponsorBlock segment availability and only add `--force-keyframes-at-cuts` plus cut-encoder postprocessor args when segments are confirmed or the preflight cannot be completed).
+    - SponsorBlock (`--sponsorblock-remove all`; video/livestream jobs preflight SponsorBlock segment availability and only add `--force-keyframes-at-cuts` plus cut-encoder postprocessor args (including edit-list and timestamp normalization to prevent A/V desync) when segments are confirmed or the preflight cannot be completed).
     - Cookies from browser (`--cookies-from-browser`).
     - Download sections (`--download-sections`).
     - Output template (`-o`).
@@ -105,6 +105,7 @@ This document outlines the specifications for the C++ port of the LzyDownloader 
     - **Runtime Format Overrides**: When the runtime picker supplies a concrete `format` ID, the downloader must treat it as an explicit `-f` override instead of re-opening the picker or falling back to the saved quality/codec defaults. If video and audio runtime format IDs are selected separately, both IDs must be merged into the final video `-f` expression.
 - **Output Parsing**: Must parse `yt-dlp` stdout/stderr for progress, final filename, and metadata JSON.
 - **Headless Runtime-State Isolation**: Headless/server runs must use the shared main `settings.ini` for user preferences and the `Server/` app-data subfolder for runtime state such as `downloads_backup.json`, `api_token.txt`, and timestamped log files so Discord-bot/API activity can be diagnosed separately from GUI sessions without creating a second preferences profile.
+- **Discord Bridge Queue Ordering**: Webhook payloads sent to the local Discord bridge must include a `queue_position` value for queued jobs, clear it for active/terminal jobs, and refresh affected payloads when queued downloads are moved, started, paused, cancelled, completed, or removed.
 - **Process Lifetime on Exit**: Closing the application must explicitly terminate active downloader/post-processor process trees (including child tools such as `aria2c` and `ffmpeg`) as well as any transient utility processes (updaters, validators, template checkers, cookie testers) so no background tasks survive after the UI exits. **This termination must be non-blocking to the GUI thread (e.g., using detached OS commands for process tree cleanup) to prevent UI freezes when mass-stopping downloads or exiting.**
 - **Headless Shutdown Sequence**: When exiting automatically via `--exit-after`, the application MUST explicitly flush the terminal queue state (with all completed items pruned or marked) to `downloads_backup.json` and cleanly shutdown managers *before* calling `QCoreApplication::quit()`, as this function bypasses standard `QCloseEvent` hooks.
 - **Progress Compatibility**: The worker MUST understand and emit progress from **both** native `yt-dlp` progress lines **and** aria2c external downloader output, including:
