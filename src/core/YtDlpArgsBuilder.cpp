@@ -117,8 +117,11 @@ void appendForcedKeyframeCutArgs(QStringList &args, ConfigManager *configManager
     }
 
     args << "--ppa" << "ModifyChapters+ffmpeg_i:-ignore_editlist 1";
+    args << "--ppa" << "SponsorBlock+ffmpeg_i:-ignore_editlist 1";
     if (!ppaArgs.isEmpty()) {
-        args << "--ppa" << QString("ModifyChapters+ffmpeg_o:%1").arg(ppaArgs.join(" "));
+        QString joinedArgs = ppaArgs.join(" ");
+        args << "--ppa" << QString("ModifyChapters+ffmpeg_o:%1").arg(joinedArgs);
+        args << "--ppa" << QString("SponsorBlock+ffmpeg_o:%1").arg(joinedArgs);
     }
 }
 }
