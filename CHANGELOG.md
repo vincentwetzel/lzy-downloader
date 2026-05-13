@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - **Qt HTTPS on clean Windows installs**: Restored explicit OpenSSL runtime deployment from vcpkg/Qt install directories so `qopensslbackend` can initialize instead of falling back to Qt's `cert-only` backend and failing update checks with `TLS initialization failed`.
 - **Cleared download state cleanup**: Clearing stopped or failed rows now notifies `DownloadManager`, cancels any still-running worker, removes paused queue state, saves the queue asynchronously, and resumes scheduling.
+- **SponsorBlock A/V desync**: Fixed a regression where audio/video desynchronization still occurred during SponsorBlock segment removal because synchronization arguments were only being applied to the `ModifyChapters` post-processor.
 
 ## [1.1.35] - 2026-05-09
 
