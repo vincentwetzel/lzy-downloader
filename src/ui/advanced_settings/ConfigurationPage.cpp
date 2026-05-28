@@ -110,9 +110,11 @@ void ConfigurationPage::handleConfigSettingChanged(const QString &section, const
         if (key == "completed_downloads_directory") m_completedDirInput->setText(value.toString());
         else if (key == "temporary_downloads_directory") m_tempDirInput->setText(value.toString());
     } else if (section == "General" && key == "theme") {
-        disconnect(m_themeCombo, &QComboBox::currentTextChanged, this, &ConfigurationPage::onThemeChanged);
-        m_themeCombo->setCurrentText(value.toString());
-        connect(m_themeCombo, &QComboBox::currentTextChanged, this, &ConfigurationPage::onThemeChanged);
+        if (m_themeCombo->currentText() != value.toString()) {
+            QSignalBlocker b(m_themeCombo);
+            m_themeCombo->setCurrentText(value.toString());
+            emit themeChanged(value.toString());
+        }
     }
     else if (section == "General" && key == "enable_local_api") {
         QSignalBlocker b(m_enableApiServerCheck);

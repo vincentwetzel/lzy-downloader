@@ -229,6 +229,11 @@ void DownloadOptionsPage::loadSettings() {
         m_externalDownloaderCombo->setVisible(true);
         m_externalDownloaderCombo->setCurrentIndex(useAria2c ? 1 : 0);
     }
+    if (QFormLayout* form = qobject_cast<QFormLayout*>(m_externalDownloaderCombo->parentWidget()->layout())) {
+        if (QWidget* label = form->labelForField(m_externalDownloaderCombo)) {
+            label->setVisible(aria2Available);
+        }
+    }
     m_sponsorBlockCheck->setChecked(m_configManager->get("General", "sponsorblock", false).toBool());
     m_embedChaptersCheck->setChecked(m_configManager->get("Metadata", "embed_chapters", true).toBool());
     m_splitChaptersCheck->setChecked(m_configManager->get("DownloadOptions", "split_chapters", false).toBool());
@@ -249,7 +254,7 @@ void DownloadOptionsPage::loadSettings() {
 }
 
 void DownloadOptionsPage::onExternalDownloaderChanged(int index) {
-    bool useAria2c = (index == 1);
+    bool useAria2c = (m_externalDownloaderCombo->itemData(index).toString() == "aria2c");
     m_configManager->set("Metadata", "use_aria2c", useAria2c);
 }
 void DownloadOptionsPage::onSponsorBlockToggled(bool c) { m_configManager->set("General", "sponsorblock", c); }
@@ -258,7 +263,6 @@ void DownloadOptionsPage::onSplitChaptersToggled(bool c) { m_configManager->set(
 void DownloadOptionsPage::onDownloadSectionsToggled(bool c) { m_configManager->set("DownloadOptions", "download_sections_enabled", c); }
 void DownloadOptionsPage::onFfmpegCutEncoderChanged(int index) {
     const QString encoder = m_ffmpegCutEncoderCombo->itemData(index).toString();
-    m_ffmpegCutCustomArgsInput->setEnabled(encoder == "custom");
     m_configManager->set("DownloadOptions", "ffmpeg_cut_encoder", encoder);
 }
 void DownloadOptionsPage::onFfmpegCutCustomArgsChanged() { m_configManager->set("DownloadOptions", "ffmpeg_cut_custom_args", m_ffmpegCutCustomArgsInput->text().trimmed()); }
@@ -269,27 +273,22 @@ void DownloadOptionsPage::onAutoClearCompletedToggled(bool c) { m_configManager-
 void DownloadOptionsPage::onGeoProxyChanged() { m_configManager->set("DownloadOptions", "geo_verification_proxy", m_geoProxyInput->text()); }
 
 void DownloadOptionsPage::populateFfmpegCutEncoderCombo(const QStringList &visibleEncoderIds) {
-    const QString selectedEncoder = m_ffmpegCutEncoderCombo
-        ? m_ffmpegCutEncoderCombo->currentData().toString()
-        : m_configManager->get("DownloadOptions", "ffmpeg_cut_encoder", "cpu").toString();
+    // Always read the intended target from config so async repopulation doesn't lose it
+    const QString savedEncoder = m_configManager->get("DownloadOptions", "ffmpeg_cut_encoder", "cpu").toString();
     QSignalBlocker blocker(m_ffmpegCutEncoderCombo);
     m_ffmpegCutEncoderCombo->clear();
 
     for (const CutEncoderOption &option : kCutEncoderOptions) {
         const QString id = QString::fromLatin1(option.id);
         const bool alwaysVisible = (id == "cpu" || id == "custom");
-        if (alwaysVisible || visibleEncoderIds.contains(id)) {
+        if (alwaysVisible || visibleEncoderIds.contains(id) || savedEncoder == id) {
             m_ffmpegCutEncoderCombo->addItem(QString::fromLatin1(option.label), id);
         }
     }
 
-    int index = m_ffmpegCutEncoderCombo->findData(selectedEncoder);
-    if (index < 0) {
-        index = m_ffmpegCutEncoderCombo->findData("cpu");
-        if (selectedEncoder != "cpu" && !selectedEncoder.isEmpty()) {
-            m_configManager->set("DownloadOptions", "ffmpeg_cut_encoder", "cpu");
-        }
-    }
+    int index = m_ffmpegCutEncoderCombo->findData(savedEncoder);
+    if (index < 0) index = m_ffmpegCutEncoderCombo->findData("cpu");
+
     m_ffmpegCutEncoderCombo->setCurrentIndex(index < 0 ? 0 : index);
     if (m_ffmpegCutCustomArgsInput) {
         m_ffmpegCutCustomArgsInput->setEnabled(m_ffmpegCutEncoderCombo->currentData().toString() == "custom");
@@ -352,29 +351,31 @@ void DownloadOptionsPage::maybeApplyHardwareEncoderProbe() {
 
 void DownloadOptionsPage::handleConfigSettingChanged(const QString &section, const QString &key, const QVariant &value) {
     if (section == "General") {
-        if (key == "sponsorblock") m_sponsorBlockCheck->setChecked(value.toBool());
-        else if (key == "auto_paste_mode") m_autoPasteModeCombo->setCurrentIndex(value.toInt());
-        else if (key == "single_line_preview") m_singleLineCommandPreviewCheck->setChecked(value.toBool());
-        else if (key == "restrict_filenames") m_restrictFilenamesCheck->setChecked(value.toBool());
+        if (key == "sponsorblock") { QSignalBlocker b(m_sponsorBlockCheck); m_sponsorBlockCheck->setChecked(value.toBool()); }
+        else if (key == "auto_paste_mode") { QSignalBlocker b(m_autoPasteModeCombo); m_autoPasteModeCombo->setCurrentIndex(value.toInt()); }
+        else if (key == "single_line_preview") { QSignalBlocker b(m_singleLineCommandPreviewCheck); m_singleLineCommandPreviewCheck->setChecked(value.toBool()); }
+        else if (key == "restrict_filenames") { QSignalBlocker b(m_restrictFilenamesCheck); m_restrictFilenamesCheck->setChecked(value.toBool()); }
     } else if (section == "Metadata") {
         if (key == "use_aria2c") {
             bool useAria2c = value.toBool();
+            QSignalBlocker b(m_externalDownloaderCombo);
             m_externalDownloaderCombo->setCurrentIndex(useAria2c ? 1 : 0);
         }
-        else if (key == "embed_chapters") m_embedChaptersCheck->setChecked(value.toBool());
+        else if (key == "embed_chapters") { QSignalBlocker b(m_embedChaptersCheck); m_embedChaptersCheck->setChecked(value.toBool()); }
     } else if (section == "DownloadOptions") {
-        if (key == "split_chapters") m_splitChaptersCheck->setChecked(value.toBool());
-        else if (key == "auto_clear_completed") m_autoClearCompletedCheck->setChecked(value.toBool());
-        else if (key == "download_sections_enabled") m_downloadSectionsCheck->setChecked(value.toBool());
+        if (key == "split_chapters") { QSignalBlocker b(m_splitChaptersCheck); m_splitChaptersCheck->setChecked(value.toBool()); }
+        else if (key == "auto_clear_completed") { QSignalBlocker b(m_autoClearCompletedCheck); m_autoClearCompletedCheck->setChecked(value.toBool()); }
+        else if (key == "download_sections_enabled") { QSignalBlocker b(m_downloadSectionsCheck); m_downloadSectionsCheck->setChecked(value.toBool()); }
         else if (key == "ffmpeg_cut_encoder") {
             const QString encoder = value.toString();
             int index = m_ffmpegCutEncoderCombo->findData(encoder);
             if (index < 0) index = 0;
+            QSignalBlocker b(m_ffmpegCutEncoderCombo);
             m_ffmpegCutEncoderCombo->setCurrentIndex(index);
             m_ffmpegCutCustomArgsInput->setEnabled(m_ffmpegCutEncoderCombo->currentData().toString() == "custom");
         }
-        else if (key == "ffmpeg_cut_custom_args") m_ffmpegCutCustomArgsInput->setText(value.toString());
-        else if (key == "geo_verification_proxy") m_geoProxyInput->setText(value.toString());
+        else if (key == "ffmpeg_cut_custom_args") { QSignalBlocker b(m_ffmpegCutCustomArgsInput); m_ffmpegCutCustomArgsInput->setText(value.toString()); }
+        else if (key == "geo_verification_proxy") { QSignalBlocker b(m_geoProxyInput); m_geoProxyInput->setText(value.toString()); }
         else if (key == "prefix_playlist_indices") {
             QSignalBlocker b(m_prefixPlaylistIndicesCheck);
             m_prefixPlaylistIndicesCheck->setChecked(value.toBool());

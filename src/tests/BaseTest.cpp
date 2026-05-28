@@ -54,7 +54,7 @@ QString BaseTest::getTempDir() const {
 ConfigManager* BaseTest::getConfigManager() {
     if (m_configManager.isNull()) {
         QString settingsFilePath = getTempDir() + "/test_settings.ini";
-        m_configManager = QSharedPointer<ConfigManager>(new ConfigManager(settingsFilePath, true, this));
+        m_configManager = QSharedPointer<ConfigManager>(new ConfigManager(settingsFilePath, true, nullptr));
         qDebug() << "ConfigManager created for testing with path:" << settingsFilePath;
     }
     return m_configManager.data();
@@ -63,7 +63,7 @@ ConfigManager* BaseTest::getConfigManager() {
 ArchiveManager* BaseTest::getArchiveManager() {
     if (m_archiveManager.isNull()) {
         QString dbFilePath = getTempDir() + "/test_archive.db"; // Use a file path to demonstrate
-        m_archiveManager = QSharedPointer<ArchiveManager>(new ArchiveManager(getConfigManager(), dbFilePath, true, this));
+        m_archiveManager = QSharedPointer<ArchiveManager>(new ArchiveManager(getConfigManager(), dbFilePath, true, nullptr));
         qDebug() << "ArchiveManager created for testing with path:" << dbFilePath;
     }
     return m_archiveManager.data();

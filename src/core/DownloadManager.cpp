@@ -101,6 +101,13 @@ void DownloadManager::onQueueCountsChanged(int queued, int paused) {
     m_queuedDownloadsCount = queued;
     // m_pausedDownloadsCount is not directly stored in DownloadManager, but can be derived if needed.
     emitDownloadStats();
+
+    // Save queue state to disk, preserving active items
+    QMetaObject::invokeMethod(this, [this]() {
+        if (m_queueManager) {
+            m_queueManager->saveQueueState(m_activeItems);
+        }
+    }, Qt::QueuedConnection);
 }
 
 void DownloadManager::onConfigSettingChanged(const QString &section, const QString &key, const QVariant &value) {
@@ -121,5 +128,3 @@ void DownloadManager::onConfigSettingChanged(const QString &section, const QStri
 void DownloadManager::onRequestStartNextDownload() {
     startDownloadsToCapacity();
 }
-
-

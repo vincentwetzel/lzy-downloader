@@ -243,17 +243,26 @@ void DownloadManager::applyMaxConcurrentSetting(const QString &maxThreadsStr) {
 }
 
 void DownloadManager::startDownloadsToCapacity() {
-    while ((m_activeWorkers.count() + m_pendingSponsorBlockPreflights.count()) < m_maxConcurrentDownloads && m_queueManager->hasQueuedDownloads()) {
-        if (m_sleepMode != NoSleep && m_maxConcurrentDownloads == 1) {
-            if (!m_sleepTimer->isActive()) {
-                int sleepDuration = (m_sleepMode == ShortSleep) ? 5000 : 30000;
-                qDebug() << "Starting sleep timer for" << sleepDuration << "ms.";
-                m_sleepTimer->start(sleepDuration);
-            }
-            return;
-        }
+    if (m_sleepTimer->isActive()) {
+        return;
+    }
 
+    if (m_sleepMode != NoSleep && m_maxConcurrentDownloads == 1 && property("needsSleep").toBool()) {
+        setProperty("needsSleep", false);
+        int sleepDuration = (m_sleepMode == ShortSleep) ? 5000 : 30000;
+        qDebug() << "Starting sleep timer for" << sleepDuration << "ms.";
+        m_sleepTimer->start(sleepDuration);
+        return;
+    }
+
+    bool started = false;
+    while ((m_activeWorkers.count() + m_pendingSponsorBlockPreflights.count()) < m_maxConcurrentDownloads && m_queueManager->hasQueuedDownloads()) {
         proceedWithDownload();
+        started = true;
+    }
+
+    if (started && m_sleepMode != NoSleep && m_maxConcurrentDownloads == 1) {
+        setProperty("needsSleep", true);
     }
 
     checkQueueFinished();
@@ -267,5 +276,3 @@ void DownloadManager::onSleepTimerTimeout() {
     qDebug() << "Sleep timer timed out. Attempting to start next download.";
     startNextDownload();
 }
-
-

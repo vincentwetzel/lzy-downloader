@@ -111,14 +111,26 @@ void SubtitlesPage::onSelectLanguagesClicked()
 
     QStringList keys = langMap.keys();
     std::sort(keys.begin(), keys.end(), [&langMap](const QString &a, const QString &b){
-        if (a == "runtime") return true; if (b == "runtime") return false;
-        if (a == "all") return true; if (b == "all") return false;
-        if (a == "auto") return true; if (b == "auto") return false;
-        if (a == "live_chat") return true; if (b == "live_chat") return false;
+        auto rank = [](const QString &k) {
+            if (k == "runtime") return 0;
+            if (k == "all") return 1;
+            if (k == "auto") return 2;
+            if (k == "live_chat") return 3;
+            return 4;
+        };
+        if (rank(a) != rank(b)) return rank(a) < rank(b);
         return langMap[a] < langMap[b];
     });
 
     QStringList selectedLangs = m_subtitleLanguagesDisplay->text().split(',', Qt::SkipEmptyParts);
+
+    for (const QString& sel : selectedLangs) {
+        QString code = sel.trimmed();
+        if (!code.isEmpty() && !keys.contains(code)) {
+            keys.append(code);
+            langMap[code] = QString("Custom (%1)").arg(code);
+        }
+    }
 
     for (const QString& code : keys) {
         QListWidgetItem *item = new QListWidgetItem(QString("%1 (%2)").arg(langMap[code], code), listWidget);
@@ -147,7 +159,7 @@ void SubtitlesPage::onSelectLanguagesClicked()
     }
 }
 
-void SubtitlesPage::onEmbedSubtitlesToggled(bool c) { m_configManager->set("Subtitles", "embed_subtitles", c); updateSubtitleFormatAvailability(c); }
+void SubtitlesPage::onEmbedSubtitlesToggled(bool c) { m_configManager->set("Subtitles", "embed_subtitles", c); }
 void SubtitlesPage::onWriteSubtitlesToggled(bool c) { m_configManager->set("Subtitles", "write_subtitles", c); }
 void SubtitlesPage::onIncludeAutoSubtitlesToggled(bool c) { m_configManager->set("Subtitles", "write_auto_subtitles", c); }
 void SubtitlesPage::onSubtitleFormatChanged(const QString &text) { m_configManager->set("Subtitles", "format", text); }
@@ -160,14 +172,18 @@ void SubtitlesPage::handleConfigSettingChanged(const QString &section, const QSt
     if (key == "languages") {
         m_subtitleLanguagesDisplay->setText(value.toString());
     } else if (key == "embed_subtitles") {
+        QSignalBlocker b(m_embedSubtitlesCheck);
         const bool checked = value.toBool();
         m_embedSubtitlesCheck->setChecked(checked);
         updateSubtitleFormatAvailability(checked);
     } else if (key == "write_subtitles") {
+        QSignalBlocker b(m_writeSubtitlesCheck);
         m_writeSubtitlesCheck->setChecked(value.toBool());
     } else if (key == "write_auto_subtitles") {
+        QSignalBlocker b(m_includeAutoSubtitlesCheck);
         m_includeAutoSubtitlesCheck->setChecked(value.toBool());
     } else if (key == "format") {
+        QSignalBlocker b(m_subtitleFormatCombo);
         m_subtitleFormatCombo->setCurrentText(value.toString());
     }
 }

@@ -8,6 +8,12 @@
 
 ## Completed
 
+### Phase 20: Settings and Tooling Reliability
+- Hardened External Tools install/update flows with cancellable process-tree cleanup, package-manager-aware update commands, quoted command previews, fresh binary cache invalidation, and clearer permission-denied failures.
+- Improved output-template handling so video/audio templates inherit the shared default when blank and are validated with `yt-dlp` before saving.
+- Stabilized browser cookie checks, archive database shutdown, single-download sleep scheduling, queue persistence churn, and cross-platform end-to-end test server setup.
+- Made extractor-list refresh scripts non-interactive for release automation.
+
 ### Phase 19: Comprehensive Testing Suite
 - Static Library Architecture (`LzyAppLib`)
 - Test Environment Isolation (mocking settings and archive database)

@@ -87,4 +87,15 @@ void MetadataPage::onCropThumbnailToggled(bool c) { m_configManager->set("Metada
 void MetadataPage::onGenerateFolderJpgToggled(bool c) { m_configManager->set("Metadata", "generate_folder_jpg", c); }
 void MetadataPage::onForcePlaylistAsAlbumToggled(bool c) { m_configManager->set("Metadata", "force_playlist_as_album", c); }
 void MetadataPage::onConvertThumbnailsChanged(const QString &text) { m_configManager->set("Metadata", "convert_thumbnail_to", text); }
-void MetadataPage::handleConfigSettingChanged(const QString &section, const QString &key, const QVariant &value) { /* Handled seamlessly through toggles mapping */ }
+
+void MetadataPage::handleConfigSettingChanged(const QString &section, const QString &key, const QVariant &value) {
+    if (section != "Metadata") return;
+    
+    if (key == "embed_metadata") { QSignalBlocker b(m_embedMetadataCheck); m_embedMetadataCheck->setChecked(value.toBool()); }
+    else if (key == "embed_thumbnail") { QSignalBlocker b(m_embedThumbnailCheck); m_embedThumbnailCheck->setChecked(value.toBool()); }
+    else if (key == "high_quality_thumbnail") { QSignalBlocker b(m_highQualityThumbnailCheck); m_highQualityThumbnailCheck->setChecked(value.toBool()); }
+    else if (key == "crop_artwork_to_square") { QSignalBlocker b(m_cropThumbnailCheck); m_cropThumbnailCheck->setChecked(value.toBool()); }
+    else if (key == "generate_folder_jpg") { QSignalBlocker b(m_generateFolderJpgCheck); m_generateFolderJpgCheck->setChecked(value.toBool()); }
+    else if (key == "force_playlist_as_album") { QSignalBlocker b(m_forcePlaylistAsAlbumSwitch); m_forcePlaylistAsAlbumSwitch->setChecked(value.toBool()); }
+    else if (key == "convert_thumbnail_to") { QSignalBlocker b(m_convertThumbnailsCombo); m_convertThumbnailsCombo->setCurrentText(value.toString()); }
+}

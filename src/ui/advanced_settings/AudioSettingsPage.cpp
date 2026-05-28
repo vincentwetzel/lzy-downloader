@@ -62,19 +62,22 @@ void AudioSettingsPage::loadSettings() {
     updateAudioOptions();
 }
 
-void AudioSettingsPage::onAudioQualityChanged(const QString &text) { m_configManager->set("Audio", "audio_quality", text); updateAudioOptions(); }
-void AudioSettingsPage::onAudioCodecChanged(const QString &text) { m_configManager->set("Audio", "audio_codec", text); updateAudioOptions(); }
+void AudioSettingsPage::onAudioQualityChanged(const QString &text) { m_configManager->set("Audio", "audio_quality", text); }
+void AudioSettingsPage::onAudioCodecChanged(const QString &text) { m_configManager->set("Audio", "audio_codec", text); }
 void AudioSettingsPage::onAudioExtChanged(const QString &text) { m_configManager->set("Audio", "audio_extension", text); }
 
 void AudioSettingsPage::handleConfigSettingChanged(const QString &section, const QString &key, const QVariant &value) {
     if (section == "Audio") {
         if (key == "quality" || key == "audio_quality") {
+            QSignalBlocker b(m_audioQualityCombo);
             m_audioQualityCombo->setCurrentText(value.toString());
             updateAudioOptions();
         } else if (key == "codec" || key == "audio_codec") {
+            QSignalBlocker b(m_audioCodecCombo);
             m_audioCodecCombo->setCurrentText(value.toString());
             updateAudioOptions();
         } else if (key == "extension" || key == "audio_extension") {
+            QSignalBlocker b(m_audioExtCombo);
             m_audioExtCombo->setCurrentText(value.toString());
         }
     }
@@ -103,18 +106,22 @@ void AudioSettingsPage::updateAudioOptions() {
     if (isDefaultCodec) return;
 
     QString currentExt = m_audioExtCombo->currentText();
-    m_audioExtCombo->clear();
-    
-    if (selectedAudioCodec == "AAC") m_audioExtCombo->addItems({"m4a", "aac"});
-    else if (selectedAudioCodec == "Opus") m_audioExtCombo->addItem("opus");
-    else if (selectedAudioCodec == "Vorbis") m_audioExtCombo->addItem("ogg");
-    else if (selectedAudioCodec == "MP3") m_audioExtCombo->addItem("mp3");
-    else if (selectedAudioCodec == "FLAC") m_audioExtCombo->addItem("flac");
-    else if (selectedAudioCodec == "WAV" || selectedAudioCodec == "PCM") m_audioExtCombo->addItem("wav");
-    else if (selectedAudioCodec == "ALAC") m_audioExtCombo->addItems({"m4a", "alac"});
-    else if (selectedAudioCodec == "AC3" || selectedAudioCodec == "EAC3" || selectedAudioCodec == "DTS") m_audioExtCombo->addItems({"ac3", "eac3", "dts"});
-    else m_audioExtCombo->addItems({"mp3", "m4a", "opus", "wav", "flac"});
+    {
+        QSignalBlocker b(m_audioExtCombo);
+        m_audioExtCombo->clear();
+        
+        if (selectedAudioCodec == "AAC") m_audioExtCombo->addItems({"m4a", "aac"});
+        else if (selectedAudioCodec == "Opus") m_audioExtCombo->addItem("opus");
+        else if (selectedAudioCodec == "Vorbis") m_audioExtCombo->addItem("ogg");
+        else if (selectedAudioCodec == "MP3") m_audioExtCombo->addItem("mp3");
+        else if (selectedAudioCodec == "FLAC") m_audioExtCombo->addItem("flac");
+        else if (selectedAudioCodec == "WAV" || selectedAudioCodec == "PCM") m_audioExtCombo->addItem("wav");
+        else if (selectedAudioCodec == "ALAC") m_audioExtCombo->addItems({"m4a", "alac"});
+        else if (selectedAudioCodec == "AC3" || selectedAudioCodec == "EAC3" || selectedAudioCodec == "DTS") m_audioExtCombo->addItems({"ac3", "eac3", "dts"});
+        else m_audioExtCombo->addItems({"mp3", "m4a", "opus", "wav", "flac"});
 
-    if (m_audioExtCombo->findText(currentExt) != -1) m_audioExtCombo->setCurrentText(currentExt);
-    else m_audioExtCombo->setCurrentIndex(0);
+        if (m_audioExtCombo->findText(currentExt) != -1) m_audioExtCombo->setCurrentText(currentExt);
+        else m_audioExtCombo->setCurrentIndex(0);
+    }
+    if (m_audioExtCombo->currentText() != currentExt) onAudioExtChanged(m_audioExtCombo->currentText());
 }

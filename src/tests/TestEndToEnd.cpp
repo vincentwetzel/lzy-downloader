@@ -8,9 +8,6 @@
 #include <QTcpSocket> // Added for server readiness check
 #include <QUuid>
 #include <QTimer> // Include QTimer
-#include <QNetworkAccessManager> // Added for robust server readiness check
-#include <QNetworkRequest>       // Added for robust server readiness check
-#include <QNetworkReply>         // Added for robust server readiness check
 #include <QThread> // Added for QThread::sleep
 
 // Helper to setup ConfigManager for test (implementation)
@@ -57,11 +54,13 @@ void TestEndToEnd::init() {
 
 
     m_httpServerProcess = new QProcess(this);
-    m_httpServerProcess->setProgram("python.exe"); // Use python.exe explicitly
+#ifdef Q_OS_WIN
+    m_httpServerProcess->setProgram("python.exe");
+#else
+    m_httpServerProcess->setProgram("python3"); // Fallback for Unix-like systems
+#endif
     m_httpServerProcess->setArguments(QStringList() << destPythonScriptPath); // Run the copied script
     m_httpServerProcess->setWorkingDirectory(getTempDir()); // Server serves from temp dir
-
-    QEventLoop loop;
     
     QObject::connect(m_httpServerProcess, &QProcess::readyReadStandardOutput, this, [&]() {
         QString output = m_httpServerProcess->readAllStandardOutput();
@@ -83,10 +82,11 @@ void TestEndToEnd::init() {
     QTcpSocket socket;
     qint64 startTime = QDateTime::currentMSecsSinceEpoch();
     while (socket.state() != QAbstractSocket::ConnectedState && QDateTime::currentMSecsSinceEpoch() - startTime < 10000) {
-        socket.connectToHost("localhost", 8000);
+        socket.connectToHost("127.0.0.1", 8000); // 127.0.0.1 prevents ambiguous IPv6 loops
         if (socket.waitForConnected(200)) {
             break;
         }
+        socket.abort(); // Reset socket state before retrying
     }
     
     if (socket.state() != QAbstractSocket::ConnectedState) {
@@ -112,12 +112,12 @@ void TestEndToEnd::cleanup() {
     } else if (m_serverProcessId != 0) {
         // Fallback for detached process if any part of the test failed to properly manage m_httpServerProcess
 #ifdef Q_OS_WIN
-        if (QProcess::execute("taskkill /F /PID " + QString::number(m_serverProcessId)) != 0) {
+        if (QProcess::execute("taskkill", {"/F", "/PID", QString::number(m_serverProcessId)}) != 0) {
              qWarning() << "Failed to terminate test HTTP server fallback process with PID:" << m_serverProcessId;
         }
 #else
         // For Unix-like systems, use 'kill' command
-        if (QProcess::execute("kill -9 " + QString::number(m_serverProcessId)) != 0) {
+        if (QProcess::execute("kill", {"-9", QString::number(m_serverProcessId)}) != 0) {
              qWarning() << "Failed to terminate test HTTP server fallback process with PID:" << m_serverProcessId;
         }
 #endif

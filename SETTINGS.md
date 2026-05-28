@@ -28,6 +28,8 @@ Application-wide settings that control theme, cookie handling, clipboard behavio
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `output_template` | String | `%(title)s [%(uploader)s][%(upload_date>%Y-%m-%d)s][%(id)s].%(ext)s` | Default filename template for yt-dlp downloads. Used as fallback when type-specific templates are not set. |
+| `output_template_video` | String | *(empty; inherits `output_template`)* | Optional video-specific yt-dlp filename template. Validated with `yt-dlp` before saving. |
+| `output_template_audio` | String | *(empty; inherits `output_template`)* | Optional audio-specific yt-dlp filename template. Validated with `yt-dlp` before saving. |
 | `gallery_output_template` | String | `{category}/{id}_{filename}.{extension}` | Filename template for gallery-dl downloads. Uses gallery-dl's own template syntax. |
 | `theme` | String | `System` | Application visual theme. Options: `System`, `Light`, `Dark`. |
 | `cookies_from_browser` | String | `None` | Browser to extract cookies from for video/audio downloads. Options: installed browser names (e.g., `Firefox`, `Chrome`) or `None`. |
@@ -202,6 +204,8 @@ Manual path overrides for external executables. If not set, the application auto
 
 > **Binary Resolution Order:** The application searches in this order: (1) User-configured path, (2) System PATH, (3) User-local install locations (e.g., `~/.deno/bin`, scoop shims, WindowsApps, Chocolatey).
 
+The External Tools page can also run install/update commands through detected package managers. WinGet updates use exact package IDs where available (`yt-dlp.yt-dlp`, `mikf.gallery-dl`, `Gyan.FFmpeg`, `aria2.aria2`, `DenoLand.Deno`), Deno standalone updates use `deno upgrade`, and cancellable progress dialogs preserve command output for troubleshooting.
+
 ---
 
 ## DownloadOptions
@@ -319,7 +323,7 @@ The C++ port rewrites `settings.ini` on save to ensure a canonical layout:
 - Removes legacy sections like `[%General]`
 - Removes deprecated duplicate keys
 - Preserves all valid settings including `SortingRules`
-- Maintains compatibility with Python's `configparser`
+- Uses Qt-native `QSettings` formatting; Python `configparser` compatibility is no longer required
 
 ### Reset to Defaults
 
@@ -371,4 +375,4 @@ If a required binary (`yt-dlp`, `ffmpeg`, `ffprobe`, `deno`) is not found, LzyDo
 
 ---
 
-*Last updated: April 24, 2026 — LzyDownloader C++ Port*
+*Last updated: May 28, 2026 — LzyDownloader C++ Port*

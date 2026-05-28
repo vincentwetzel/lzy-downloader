@@ -26,6 +26,7 @@
 #include <QTextEdit>
 #include <QTextCursor>
 #include <QTimer>
+#include <QPointer>
 
 BinariesPage::BinariesPage(ConfigManager *configManager, QWidget *parent)
     : QWidget(parent), m_configManager(configManager) {
@@ -176,7 +177,7 @@ void BinariesPage::setupRow(QVBoxLayout *layout,
         updateButton->setObjectName("updateGalleryDlButton");
         updateButton->setToolTip("Check for and install gallery-dl updates.");
     } else {
-        updateButton->setToolTip(QString("Update %1 via the detected package manager.").arg(labelText));
+        updateButton->setToolTip(QString("Update %1.").arg(labelText));
     }
 
     QFont childFont = browseButton->font();
@@ -230,7 +231,12 @@ void BinariesPage::setupRow(QVBoxLayout *layout,
             cmd = (binaryName == "yt-dlp") ? "scoop update yt-dlp-nightly" : "scoop update " + binaryName;
         } else if (pathLower.contains("windowsapps")) {
             manager = "WinGet";
-            cmd = (binaryName == "yt-dlp") ? "winget upgrade yt-dlp" : "winget upgrade " + binaryName;
+            if (binaryName == "gallery-dl") cmd = "winget upgrade --id mikf.gallery-dl --exact --accept-package-agreements --accept-source-agreements";
+            else if (binaryName == "yt-dlp") cmd = "winget upgrade --id yt-dlp.yt-dlp --exact --accept-package-agreements --accept-source-agreements";
+            else if (binaryName == "ffmpeg" || binaryName == "ffprobe") cmd = "winget upgrade --id Gyan.FFmpeg --exact --accept-package-agreements --accept-source-agreements";
+            else if (binaryName == "aria2c") cmd = "winget upgrade --id aria2.aria2 --exact --accept-package-agreements --accept-source-agreements";
+            else if (binaryName == "deno") cmd = "winget upgrade --id DenoLand.Deno --exact --accept-package-agreements --accept-source-agreements";
+            else cmd = "winget upgrade " + binaryName + " --accept-package-agreements --accept-source-agreements";
         } else if (pathLower.contains("python") || pathLower.contains("pip") || pathLower.contains("scripts") || pathLower.contains("site-packages")) {
             manager = "pip";
             cmd = (binaryName == "yt-dlp") ? "pip install -U --pre yt-dlp" : "pip install -U " + binaryName;
@@ -245,7 +251,11 @@ void BinariesPage::setupRow(QVBoxLayout *layout,
         bool isStandalone = manager.isEmpty();
         if (isStandalone) {
             manager = "Standalone";
-            cmd = QString("\"%1\" -U").arg(foundBinary.path);
+            if (binaryName == "deno") {
+                cmd = QString("\"%1\" upgrade").arg(foundBinary.path);
+            } else {
+                cmd = QString("\"%1\" -U").arg(foundBinary.path);
+            }
         }
 
         if (!manager.isEmpty()) {
@@ -287,16 +297,27 @@ void BinariesPage::setupRow(QVBoxLayout *layout,
                 connect(pButtons, &QDialogButtonBox::rejected, &progressDialog, &QDialog::reject);
 
                 QProcess *process = new QProcess(&progressDialog);
+                ProcessUtils::setProcessEnvironment(*process);
                 process->setProcessChannelMode(QProcess::MergedChannels);
 
-                connect(process, &QProcess::readyReadStandardOutput, [&]() {
+                connect(&progressDialog, &QDialog::rejected, process, [process]() {
+                    if (process->state() != QProcess::NotRunning) {
+                        process->setProperty("cancelled", true);
+                        ProcessUtils::terminateProcessTree(process);
+                    }
+                });
+
+                connect(process, &QProcess::readyReadStandardOutput, process, [process, outputEdit]() {
                     QString output = QString::fromLocal8Bit(process->readAllStandardOutput());
                     outputEdit->moveCursor(QTextCursor::End);
                     outputEdit->insertPlainText(output);
                     outputEdit->moveCursor(QTextCursor::End);
                 });
 
-                connect(process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished), [&](int exitCode, QProcess::ExitStatus exitStatus) {
+            QPointer<QDialog> pDialog(&progressDialog);
+            connect(process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished), process, [this, process, outputEdit, closeBtn, binaryName, pDialog](int exitCode, QProcess::ExitStatus exitStatus) {
+                    if (!pDialog) return; // Guard against destroyed child widgets
+                    if (process->property("cancelled").toBool()) return;
                     closeBtn->setEnabled(true);
                     if (exitStatus == QProcess::NormalExit && exitCode == 0) {
                         outputEdit->moveCursor(QTextCursor::End);
@@ -306,10 +327,20 @@ void BinariesPage::setupRow(QVBoxLayout *layout,
                     } else {
                         outputEdit->moveCursor(QTextCursor::End);
                         outputEdit->insertPlainText(QString("\n--- Update failed with exit code %1. ---\n").arg(exitCode));
+                
+                QString logText = outputEdit->toPlainText();
+                if (logText.contains("Permission denied", Qt::CaseInsensitive) || logText.contains("Access is denied", Qt::CaseInsensitive)) {
+                            QMessageBox::warning(pDialog, "Permission Denied", 
+                        QString("The update of %1 failed due to insufficient permissions.\n\n"
+                                "If it is installed in a protected system folder (like 'Program Files'), "
+                                "please restart LzyDownloader as Administrator and try again.").arg(displayName(binaryName)));
+                } else {
+                            QMessageBox::warning(pDialog, "Update Failed", QString("The update of %1 failed. Please check the output log.").arg(displayName(binaryName)));
+                }
                     }
                 });
 
-                connect(process, &QProcess::errorOccurred, [&](QProcess::ProcessError) {
+                connect(process, &QProcess::errorOccurred, process, [process, outputEdit, closeBtn](QProcess::ProcessError) {
                     closeBtn->setEnabled(true);
                     outputEdit->moveCursor(QTextCursor::End);
                     outputEdit->insertPlainText(QString("\n--- Process error: %1 ---\n").arg(process->errorString()));
@@ -352,10 +383,16 @@ void BinariesPage::fetchBinaryVersion(const QString &binaryName, const QString &
     process->setProcessChannelMode(QProcess::MergedChannels);
 
 #ifdef Q_OS_WIN
-    // cmd.exe seamlessly resolves WindowsApps execution aliases (winget stubs)
-    process->setProgram("cmd.exe");
-    QString argVersion = (binaryName == "ffmpeg" || binaryName == "ffprobe") ? "-version" : "--version";
-    process->setArguments({"/c", path, argVersion});
+    if (path.toLower().contains("windowsapps")) {
+        // cmd.exe seamlessly resolves WindowsApps execution aliases (winget stubs)
+        process->setProgram("cmd.exe");
+        QString argVersion = (binaryName == "ffmpeg" || binaryName == "ffprobe") ? "-version" : "--version";
+        process->setArguments({"/c", path, argVersion});
+    } else {
+        process->setProgram(path);
+        QString argVersion = (binaryName == "ffmpeg" || binaryName == "ffprobe") ? "-version" : "--version";
+        process->setArguments({argVersion});
+    }
 #else
     process->setProgram(path);
     if (binaryName == "ffmpeg" || binaryName == "ffprobe") {
@@ -366,8 +403,8 @@ void BinariesPage::fetchBinaryVersion(const QString &binaryName, const QString &
 #endif
     
     connect(process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished), 
-            this, [this, process, binaryName](int exitCode, QProcess::ExitStatus) {
-        if (exitCode == 0) {
+            this, [this, process, binaryName](int exitCode, QProcess::ExitStatus exitStatus) {
+        if (exitStatus == QProcess::NormalExit && exitCode == 0) {
             QString output = QString::fromUtf8(process->readAllStandardOutput()).trimmed();
             QString firstLine = output.split('\n').first().trimmed();
             if (firstLine.length() > 65) firstLine = firstLine.left(62) + "...";
@@ -377,8 +414,9 @@ void BinariesPage::fetchBinaryVersion(const QString &binaryName, const QString &
         }
     });
     
-    connect(process, &QProcess::errorOccurred, this, [this, binaryName](QProcess::ProcessError) {
+    connect(process, &QProcess::errorOccurred, this, [this, binaryName, process](QProcess::ProcessError) {
         m_versionLabels[binaryName]->setText("Version: Error");
+        process->deleteLater();
     });
 
     connect(process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished), process, &QObject::deleteLater);
@@ -499,7 +537,15 @@ void BinariesPage::installBinaryFor(const QString &binaryName) {
         connect(pButtons, &QDialogButtonBox::rejected, &progressDialog, &QDialog::reject);
 
         QProcess *process = new QProcess(&progressDialog);
+        ProcessUtils::setProcessEnvironment(*process);
         process->setProcessChannelMode(QProcess::MergedChannels);
+
+        connect(&progressDialog, &QDialog::rejected, process, [process]() {
+            if (process->state() != QProcess::NotRunning) {
+                process->setProperty("cancelled", true);
+                ProcessUtils::terminateProcessTree(process);
+            }
+        });
 
         // For WindowsApps execution-alias stubs (for example winget from the MS Store) we
         // must NOT invoke the full path directly — the 0-byte stubs crash when
@@ -510,7 +556,7 @@ void BinariesPage::installBinaryFor(const QString &binaryName) {
 
         if (isAlias) {
             // Prepend WindowsApps directory to PATH
-            QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
+            QProcessEnvironment env = process->processEnvironment();
             const QString localAppData = env.value("LOCALAPPDATA");
             if (!localAppData.isEmpty()) {
                 const QString windowsAppsPath = localAppData + "/Microsoft/WindowsApps";
@@ -521,7 +567,12 @@ void BinariesPage::installBinaryFor(const QString &binaryName) {
         }
 
         // Build the command string
-        QString fullCommand = option.program;
+        QString fullCommand;
+        if (option.program.contains(' ')) {
+            fullCommand = "\"" + option.program + "\"";
+        } else {
+            fullCommand = option.program;
+        }
         for (const QString &arg : option.arguments) {
             if (arg.contains(' ')) {
                 fullCommand += " \"" + arg + "\"";
@@ -530,14 +581,17 @@ void BinariesPage::installBinaryFor(const QString &binaryName) {
             }
         }
 
-        connect(process, &QProcess::readyReadStandardOutput, [&]() {
+        connect(process, &QProcess::readyReadStandardOutput, process, [process, outputEdit]() {
             QString output = QString::fromLocal8Bit(process->readAllStandardOutput());
             outputEdit->moveCursor(QTextCursor::End);
             outputEdit->insertPlainText(output);
             outputEdit->moveCursor(QTextCursor::End);
         });
 
-        connect(process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished), [&](int exitCode, QProcess::ExitStatus exitStatus) {
+        QPointer<QDialog> pDialog(&progressDialog);
+        connect(process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished), process, [this, process, outputEdit, closeBtn, binaryName, option, pDialog](int exitCode, QProcess::ExitStatus exitStatus) {
+            if (!pDialog) return; // Guard against destroyed child widgets
+            if (process->property("cancelled").toBool()) return;
             closeBtn->setEnabled(true);
             if (exitStatus == QProcess::NormalExit && exitCode == 0) {
                 outputEdit->moveCursor(QTextCursor::End);
@@ -560,36 +614,40 @@ void BinariesPage::installBinaryFor(const QString &binaryName) {
                 else if (binaryName == "ffprobe") this->refreshBinaryStatus("ffmpeg");
 
                 const ProcessUtils::FoundBinary refreshedBinary = ProcessUtils::resolveBinary(binaryName, m_configManager);
-                if (refreshedBinary.source == "Not Found" || refreshedBinary.source == "Invalid Custom") {
-                    QMessageBox::information(
-                        &progressDialog,
-                        "Install Finished",
-                        QString("%1 finished installing, but LzyDownloader could not detect it yet.\n\n"
-                                "Use Refresh after closing this dialog. If it is still missing, restart LzyDownloader or use Browse to select the executable.")
-                            .arg(displayName(binaryName)));
-                } else {
-                    QMessageBox::information(
-                        &progressDialog,
-                        "Install Successful",
-                        QString("%1 has been installed and detected successfully.").arg(displayName(binaryName)));
+                if (pDialog) {
+                    if (refreshedBinary.source == "Not Found" || refreshedBinary.source == "Invalid Custom") {
+                        QMessageBox::information(
+                            pDialog,
+                            "Install Finished",
+                            QString("%1 finished installing, but LzyDownloader could not detect it yet.\n\n"
+                                    "Use Refresh after closing this dialog. If it is still missing, restart LzyDownloader or use Browse to select the executable.")
+                                .arg(displayName(binaryName)));
+                    } else {
+                        QMessageBox::information(
+                            pDialog,
+                            "Install Successful",
+                            QString("%1 has been installed and detected successfully.").arg(displayName(binaryName)));
+                    }
                 }
             } else {
                 outputEdit->moveCursor(QTextCursor::End);
                 outputEdit->insertPlainText(QString("\n--- Installation failed with exit code %1. ---\n").arg(exitCode));
                 
                 QString logText = outputEdit->toPlainText();
-                if (logText.contains("Permission denied", Qt::CaseInsensitive) || logText.contains("Access is denied", Qt::CaseInsensitive)) {
-                    QMessageBox::warning(&progressDialog, "Permission Denied", 
-                        QString("The installation of %1 failed due to insufficient permissions.\n\n"
-                                "If you are trying to install or update in a protected system folder (like 'Program Files'), "
-                                "please restart LzyDownloader as Administrator and try again.").arg(displayName(binaryName)));
-                } else {
-                    QMessageBox::warning(&progressDialog, "Install Failed", QString("The installation of %1 failed. Please check the output log.").arg(displayName(binaryName)));
+                if (pDialog) {
+                    if (logText.contains("Permission denied", Qt::CaseInsensitive) || logText.contains("Access is denied", Qt::CaseInsensitive)) {
+                        QMessageBox::warning(pDialog, "Permission Denied", 
+                            QString("The installation of %1 failed due to insufficient permissions.\n\n"
+                                    "If you are trying to install or update in a protected system folder (like 'Program Files'), "
+                                    "please restart LzyDownloader as Administrator and try again.").arg(displayName(binaryName)));
+                    } else {
+                        QMessageBox::warning(pDialog, "Install Failed", QString("The installation of %1 failed. Please check the output log.").arg(displayName(binaryName)));
+                    }
                 }
             }
         });
 
-        connect(process, &QProcess::errorOccurred, [&](QProcess::ProcessError error) {
+        connect(process, &QProcess::errorOccurred, process, [process, outputEdit, closeBtn](QProcess::ProcessError) {
             closeBtn->setEnabled(true);
             outputEdit->moveCursor(QTextCursor::End);
             outputEdit->insertPlainText(QString("\n--- Process error: %1 ---\n").arg(process->errorString()));
@@ -617,15 +675,15 @@ void BinariesPage::saveBinaryOverride(const QString &binaryName, const QString &
         return;
     }
 
+    // Clear cache BEFORE modifying config so signal handlers see the fresh state
+    ProcessUtils::clearCache();
+
     if (path.isEmpty()) {
         m_configManager->remove("Binaries", configKey);
     } else {
         m_configManager->set("Binaries", configKey, path);
     }
     m_configManager->save(); // Explicitly save changes to disk
-    
-    // Clear cache so the new path is used immediately
-    ProcessUtils::clearCache();
 }
 
 void BinariesPage::loadSettings() {
@@ -670,7 +728,13 @@ void BinariesPage::refreshBinaryStatus(const QString &binaryName) {
 
     bool isInstalled = (foundBinary.source != "Not Found" && foundBinary.source != "Invalid Custom");
     bool hasCustomPath = !m_configManager->get("Binaries", m_configKeys.value(binaryName)).toString().isEmpty();
-    bool supportsUpdate = (binaryName == "yt-dlp" || binaryName == "gallery-dl");
+    
+    QString pathLower = foundBinary.path.toLower();
+    bool isPackageManaged = pathLower.contains("scoop") || pathLower.contains("windowsapps") || 
+                            pathLower.contains("python") || pathLower.contains("pip") || pathLower.contains("scripts") || pathLower.contains("site-packages") || 
+                            pathLower.contains("homebrew") || pathLower.contains("cellar") || pathLower.contains("linuxbrew") || 
+                            pathLower.contains("chocolatey") || pathLower.contains("choco");
+    bool supportsUpdate = (binaryName == "yt-dlp" || binaryName == "gallery-dl" || binaryName == "deno" || isPackageManaged);
 
     // Re-enable in case they were disabled by "Refresh All Statuses"
     installButton->setEnabled(true);
@@ -816,6 +880,8 @@ QList<BinariesPage::InstallOption> BinariesPage::buildInstallOptions(const QStri
         }
 
         if (isWindows()) addOptionIfPresent("scoop", {"install", "yt-dlp-nightly"}, "Install yt-dlp (nightly) with Scoop. Requires the 'extras' bucket (`scoop bucket add extras`).");
+            if (isWindows()) addOptionIfPresent("winget", {"install", "--id", "yt-dlp.yt-dlp", "--exact", "--accept-package-agreements", "--accept-source-agreements"}, "Install yt-dlp (stable) with WinGet.");
+            if (isWindows()) addOptionIfPresent("choco", {"install", "-y", "yt-dlp"}, "Install yt-dlp (stable) with Chocolatey.");
         if (isMacOS() || isLinux()) addOptionIfPresent("brew", {"install", "yt-dlp", "--HEAD"}, "Install yt-dlp (latest from master) with Homebrew.");
     } else if (binaryName == "ffmpeg" || binaryName == "ffprobe") {
         if (isWindows()) addOptionIfPresent("winget", {"install", "--id", "Gyan.FFmpeg", "--exact", "--accept-package-agreements", "--accept-source-agreements"}, "Install FFmpeg (includes ffprobe) with WinGet.");
@@ -869,7 +935,20 @@ QList<BinariesPage::InstallOption> BinariesPage::buildInstallOptions(const QStri
 }
 
 QString BinariesPage::commandPreview(const InstallOption &option) const {
-    return option.program + " " + option.arguments.join(' ');
+    QString fullCommand;
+    if (option.program.contains(' ')) {
+        fullCommand = "\"" + option.program + "\"";
+    } else {
+        fullCommand = option.program;
+    }
+    for (const QString &arg : option.arguments) {
+        if (arg.contains(' ')) {
+            fullCommand += " \"" + arg + "\"";
+        } else {
+            fullCommand += " " + arg;
+        }
+    }
+    return fullCommand;
 }
 
 QString BinariesPage::displayName(const QString &binaryName) const {

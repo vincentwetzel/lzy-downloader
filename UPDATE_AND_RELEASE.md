@@ -31,7 +31,7 @@ Run the following Python scripts from the project root:
 python ./update_yt-dlp_extractors.py
 python ./update_gallery-dl_extractors.py
 ```
-This will update `extractors_yt-dlp.json` and `extractors_gallery-dl.json`.
+This will update `extractors_yt-dlp.json` and `extractors_gallery-dl.json`. Both scripts are intentionally non-interactive and should return directly to the shell when they finish.
 
 ### Step 2: Update Version Number
 
@@ -91,6 +91,7 @@ Navigate to https://github.com/vincentwetzel/lzy-downloader/releases and:
 ## Release Checklist
 
 - [ ] Extractor lists updated (`extractors_yt-dlp.json`, `extractors_gallery-dl.json`)
+- [ ] Extractor refresh scripts completed without prompts or manual keypresses
 - [ ] Version number updated in `CMakeLists.txt`
 - [ ] `vcpkg.json` `version-string` matches `CMakeLists.txt`
 - [ ] `CHANGELOG.md` has the release notes under the matching dated version

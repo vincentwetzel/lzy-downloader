@@ -200,7 +200,6 @@ def main():
 
     total_domains = sum(len(v['domains']) for v in result.values())
     print(f'Done! {out_path} — {len(result)} extractors, {total_domains} domains.')
-    input('\nPress Enter to exit…')
 
 
 if __name__ == '__main__':

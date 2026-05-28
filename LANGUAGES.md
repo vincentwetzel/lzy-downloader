@@ -1,6 +1,6 @@
 # Supported Languages
 
-This file lists the languages that will be supported in the LzyDownloader application.
+This file lists the planned interface languages for LzyDownloader. Translation implementation is still tracked as a future task in `TODO.md`.
 
 - English
 - Mandarin

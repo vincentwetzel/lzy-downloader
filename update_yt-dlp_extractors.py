@@ -1,13 +1,13 @@
 """
 extract_yt_dlp_domains.py
 ─────────────────────────
-Builds a comprehensive JSON map of every yt-dlp extractor → its domains.
+Builds a comprehensive JSON map of every yt-dlp extractor and its domains.
 
 Domain discovery uses four independent sources (in priority order):
-  1. _VALID_URL regex  – parsed with a robust multi-pass approach
-  2. _TESTS / _TEST    – real example URLs embedded in each extractor class
-  3. IE_NAME heuristic – "site:variant" → "site" often equals "site.com"
-  4. _NETRC_MACHINE    – login-hint string often contains the bare domain name
+  1. _VALID_URL regex – parsed with a robust multi-pass approach
+  2. _TESTS / _TEST – real example URLs embedded in each extractor class
+  3. _NETRC_MACHINE – login-hint string often contains the bare domain name
+  4. _WORKING_URL_RE – a newer regex pattern used in some extractors
 
 No values are hardcoded.
 """
@@ -84,6 +84,23 @@ def domains_from_valid_url(pattern: str) -> set[str]:
     return found
 
 
+def domain_from_url_string(url: str) -> str | None:
+    """Parse a plain URL or bare domain string into a normalised domain."""
+    if not url or not isinstance(url, str):
+        return None
+    if url.startswith(('http://', 'https://', '//')):
+        try:
+            host = urlparse(url).hostname or ''
+        except Exception:
+            return None
+    else:
+        host = url.split('/')[0]
+    host = re.sub(r'^www\.', '', host.lower()).strip()
+    if '.' in host and re.search(r'\.[a-z]{2,13}$', host):
+        return host
+    return None
+
+
 def domains_from_tests(cls) -> set[str]:
     """Pull domains from the real example URLs stored in _TESTS / _TEST."""
     found: set[str] = set()
@@ -94,29 +111,11 @@ def domains_from_tests(cls) -> set[str]:
 
     for test in tests:
         url = test.get('url', '') if isinstance(test, dict) else ''
-        if not url:
-            continue
-        try:
-            host = urlparse(url).hostname or ''
-        except Exception:
-            continue
-        host = re.sub(r'^www\.', '', host.lower())
-        if host and '.' in host:
-            found.add(host)
+        domain = domain_from_url_string(url)
+        if domain:
+            found.add(domain)
 
     return found
-
-
-def domain_from_ie_name(name: str) -> set[str]:
-    """
-    Many extractors are named exactly like their domain minus the TLD, e.g.
-    'vimeo', 'dailymotion', 'twitch'.  We can't *know* the TLD without
-    looking it up, but we can harvest the bare label and let the other
-    sources fill in TLD details.  This function intentionally returns nothing
-    on its own — it is used only as a last-resort label hint combined with
-    _NETRC_MACHINE below.
-    """
-    return set()
 
 
 def domains_from_netrc(cls) -> set[str]:
@@ -188,12 +187,10 @@ def main():
 
     out_path = 'extractors_yt-dlp.json'
     with open(out_path, 'w', encoding='utf-8') as f:
-        output = result.get('yt_dlp', result)  # unwrap if nested, else use as-is
-        json.dump(output, f, indent=4, ensure_ascii=False)
+        json.dump(result, f, indent=4, ensure_ascii=False)
 
     total_domains = sum(len(v['domains']) for v in result.values())
     print(f'Done! {out_path} — {len(result)} extractors, {total_domains} domains.')
-    input('\nPress Enter to exit…')
 
 
 if __name__ == '__main__':

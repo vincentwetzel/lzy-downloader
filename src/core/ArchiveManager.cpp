@@ -31,7 +31,7 @@ ArchiveManager::~ArchiveManager() {
         QMutexLocker locker(&m_mutex);
         QString connectionName;
         {
-            QSqlDatabase db = QSqlDatabase::database("archive_connection");
+            QSqlDatabase db = QSqlDatabase::database("archive_connection", false);
             if (db.isValid() && db.isOpen()) {
                 connectionName = db.connectionName();
                 db.close();
@@ -64,7 +64,7 @@ QSqlDatabase ArchiveManager::getDatabase() {
 
 void ArchiveManager::closeDatabase() {
     QMutexLocker locker(&m_mutex);
-    QSqlDatabase db = QSqlDatabase::database("archive_connection");
+    QSqlDatabase db = QSqlDatabase::database("archive_connection", false);
     if (db.isValid() && db.isOpen()) {
         db.close();
         qDebug() << "Archive database connection closed.";

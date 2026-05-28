@@ -96,18 +96,24 @@ void LivestreamSettingsPage::setupUI() {
     mainLayout->addStretch();
 
     // Connect signals for auto-saving
-    connect(m_liveFromStartCheck, &ToggleSwitch::toggled, this, &LivestreamSettingsPage::saveSettings);
-    connect(m_waitForVideoCheck, &ToggleSwitch::toggled, this, [this](bool checked) {
-        m_waitMinSpin->setEnabled(checked);
-        m_waitMaxSpin->setEnabled(checked);
-        saveSettings();
+    connect(m_liveFromStartCheck, &ToggleSwitch::toggled, this, [this](bool checked) { m_configManager->set("Livestream", "live_from_start", checked); });
+    connect(m_waitForVideoCheck, &ToggleSwitch::toggled, this, [this](bool checked) { m_configManager->set("Livestream", "wait_for_video", checked); });
+    connect(m_waitMinSpin, QOverload<int>::of(&QSpinBox::valueChanged), this, [this](int value) {
+        m_configManager->set("Livestream", "wait_for_video_min", value);
+        if (m_waitMaxSpin->value() < value) {
+            m_waitMaxSpin->setValue(value);
+        }
     });
-    connect(m_waitMinSpin, QOverload<int>::of(&QSpinBox::valueChanged), this, &LivestreamSettingsPage::saveSettings);
-    connect(m_waitMaxSpin, QOverload<int>::of(&QSpinBox::valueChanged), this, &LivestreamSettingsPage::saveSettings);
-    connect(m_usePartCheck, &ToggleSwitch::toggled, this, &LivestreamSettingsPage::saveSettings);
-    connect(m_downloadAsCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &LivestreamSettingsPage::saveSettings);
-    connect(m_qualityCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &LivestreamSettingsPage::saveSettings);
-    connect(m_convertToCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &LivestreamSettingsPage::saveSettings);
+    connect(m_waitMaxSpin, QOverload<int>::of(&QSpinBox::valueChanged), this, [this](int value) {
+        m_configManager->set("Livestream", "wait_for_video_max", value);
+        if (m_waitMinSpin->value() > value) {
+            m_waitMinSpin->setValue(value);
+        }
+    });
+    connect(m_usePartCheck, &ToggleSwitch::toggled, this, [this](bool checked) { m_configManager->set("Livestream", "use_part", checked); });
+    connect(m_downloadAsCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this]() { m_configManager->set("Livestream", "download_as", m_downloadAsCombo->currentText()); });
+    connect(m_qualityCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this]() { m_configManager->set("Livestream", "quality", m_qualityCombo->currentText()); });
+    connect(m_convertToCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this]() { m_configManager->set("Livestream", "convert_to", m_convertToCombo->currentText()); });
     
     connect(m_configManager, &ConfigManager::settingChanged, this, &LivestreamSettingsPage::handleConfigSettingChanged);
 }
@@ -136,14 +142,7 @@ void LivestreamSettingsPage::loadSettings() {
 }
 
 void LivestreamSettingsPage::saveSettings() {
-    m_configManager->set("Livestream", "live_from_start", m_liveFromStartCheck->isChecked());
-    m_configManager->set("Livestream", "wait_for_video", m_waitForVideoCheck->isChecked());
-    m_configManager->set("Livestream", "wait_for_video_min", m_waitMinSpin->value());
-    m_configManager->set("Livestream", "wait_for_video_max", m_waitMaxSpin->value());
-    m_configManager->set("Livestream", "use_part", m_usePartCheck->isChecked());
-    m_configManager->set("Livestream", "download_as", m_downloadAsCombo->currentText());
-    m_configManager->set("Livestream", "quality", m_qualityCombo->currentText());
-    m_configManager->set("Livestream", "convert_to", m_convertToCombo->currentText());
+    // Redundant: Settings are auto-saved via signals in setupUI() when changed
 }
 
 void LivestreamSettingsPage::handleConfigSettingChanged(const QString &section, const QString &key, const QVariant &value) {
@@ -163,8 +162,20 @@ void LivestreamSettingsPage::handleConfigSettingChanged(const QString &section, 
             m_waitMinSpin->setEnabled(value.toBool());
             m_waitMaxSpin->setEnabled(value.toBool());
         }
-        else if (key == "wait_for_video_min") m_waitMinSpin->setValue(value.toInt());
-        else if (key == "wait_for_video_max") m_waitMaxSpin->setValue(value.toInt());
+        else if (key == "wait_for_video_min") {
+            m_waitMinSpin->setValue(value.toInt());
+            if (m_waitMaxSpin->value() < value.toInt()) {
+                m_waitMaxSpin->setValue(value.toInt());
+                m_configManager->set("Livestream", "wait_for_video_max", value.toInt());
+            }
+        }
+        else if (key == "wait_for_video_max") {
+            m_waitMaxSpin->setValue(value.toInt());
+            if (m_waitMinSpin->value() > value.toInt()) {
+                m_waitMinSpin->setValue(value.toInt());
+                m_configManager->set("Livestream", "wait_for_video_min", value.toInt());
+            }
+        }
         else if (key == "use_part") m_usePartCheck->setChecked(value.toBool());
         else if (key == "download_as") m_downloadAsCombo->setCurrentText(value.toString());
         else if (key == "quality") m_qualityCombo->setCurrentText(value.toString());

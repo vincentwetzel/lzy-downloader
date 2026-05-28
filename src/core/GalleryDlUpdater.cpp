@@ -36,6 +36,7 @@ void GalleryDlUpdater::stop() {
         if (m_process->state() == QProcess::Running) {
             ProcessUtils::terminateProcessTree(m_process);
         }
+        m_process->deleteLater();
         m_process = nullptr;
     }
 
@@ -51,7 +52,7 @@ void GalleryDlUpdater::fetchVersion() {
         return; // Already checking
     }
 
-    m_process = new QProcess(); // No parent
+    m_process = new QProcess(this);
     connect(m_process, &QProcess::finished, this, &GalleryDlUpdater::onVersionCheckFinished);
     connect(m_process, &QProcess::errorOccurred, this, [this](QProcess::ProcessError error) {
         if (error == QProcess::FailedToStart) {

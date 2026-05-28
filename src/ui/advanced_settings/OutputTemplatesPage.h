@@ -17,9 +17,6 @@ private slots:
     void validateAndSaveVideoTemplate();
     void validateAndSaveAudioTemplate();
     void validateAndSaveGalleryDlTemplate();
-    void insertVideoTemplateToken(int index);
-    void insertAudioTemplateToken(int index);
-    void insertGalleryDlTemplateToken(int index);
     void handleConfigSettingChanged(const QString &section, const QString &key, const QVariant &value);
 private:
     ConfigManager *m_configManager;

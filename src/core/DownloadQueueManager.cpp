@@ -179,7 +179,6 @@ void DownloadQueueManager::enqueueDownload(const DownloadItem &item, bool isNew)
     }
 
     emitQueueCountsChanged();
-    QMetaObject::invokeMethod(this, [this]() { saveQueueState(QMap<QString, DownloadItem>()); }, Qt::QueuedConnection);
     emit requestStartNextDownload();
 }
 
@@ -190,7 +189,6 @@ bool DownloadQueueManager::removePendingExpansionPlaceholder(const QString &id) 
             m_pendingExpansions.remove(id);
             emit playlistExpansionPlaceholderRemoved(id);
             emitQueueCountsChanged();
-            QMetaObject::invokeMethod(this, [this]() { saveQueueState(QMap<QString, DownloadItem>()); }, Qt::QueuedConnection);
             emit requestStartNextDownload();
             return true;
         }
@@ -209,7 +207,6 @@ bool DownloadQueueManager::cancelQueuedOrPausedDownload(const QString &id) {
             qDebug() << "Stopped queued download:" << id;
             emit downloadCancelled(id);
             emitQueueCountsChanged();
-            QMetaObject::invokeMethod(this, [this]() { saveQueueState(QMap<QString, DownloadItem>()); }, Qt::QueuedConnection);
             emit requestStartNextDownload();
             return true;
         }
@@ -272,7 +269,6 @@ bool DownloadQueueManager::cancelQueuedOrPausedDownload(const QString &id) {
                 qDebug() << "Cleaned up temporary files for cleared download:" << id;
             }
             emitQueueCountsChanged();
-            QMetaObject::invokeMethod(this, [this]() { saveQueueState(QMap<QString, DownloadItem>()); }, Qt::QueuedConnection);
             return true;
         } else {
             // Item was paused, now it's stopped
@@ -280,7 +276,6 @@ bool DownloadQueueManager::cancelQueuedOrPausedDownload(const QString &id) {
             qDebug() << "Stopped paused download:" << id;
             emit downloadCancelled(id);
             emitQueueCountsChanged();
-            QMetaObject::invokeMethod(this, [this]() { saveQueueState(QMap<QString, DownloadItem>()); }, Qt::QueuedConnection);
             return true;
         }
     }
@@ -295,7 +290,6 @@ bool DownloadQueueManager::pauseQueuedDownload(const QString &id, DownloadItem &
             qDebug() << "Paused queued download:" << id;
             emit downloadPaused(id);
             emitQueueCountsChanged();
-            QMetaObject::invokeMethod(this, [this]() { saveQueueState(QMap<QString, DownloadItem>()); }, Qt::QueuedConnection);
             emit requestStartNextDownload();
             return true;
         }
@@ -310,7 +304,6 @@ bool DownloadQueueManager::unpauseDownload(const QString &id) {
         qDebug() << "Unpaused download:" << id;
         emit downloadResumed(id);
         emitQueueCountsChanged();
-        QMetaObject::invokeMethod(this, [this]() { saveQueueState(QMap<QString, DownloadItem>()); }, Qt::QueuedConnection);
         emit requestStartNextDownload();
         return true;
     }
@@ -321,7 +314,7 @@ void DownloadQueueManager::moveDownloadUp(const QString &id) {
     for (int i = 1; i < m_downloadQueue.size(); ++i) { // Can't move 0 up
         if (m_downloadQueue.at(i).id == id) {
             m_downloadQueue.swapItemsAt(i, i - 1);
-            QMetaObject::invokeMethod(this, [this]() { saveQueueState(QMap<QString, DownloadItem>()); }, Qt::QueuedConnection);
+            emitQueueCountsChanged();
             break;
         }
     }
@@ -331,7 +324,7 @@ void DownloadQueueManager::moveDownloadDown(const QString &id) {
     for (int i = 0; i < m_downloadQueue.size() - 1; ++i) { // Can't move last down
         if (m_downloadQueue.at(i).id == id) {
             m_downloadQueue.swapItemsAt(i, i + 1);
-            QMetaObject::invokeMethod(this, [this]() { saveQueueState(QMap<QString, DownloadItem>()); }, Qt::QueuedConnection);
+            emitQueueCountsChanged();
             break;
         }
     }

@@ -66,12 +66,12 @@ This document outlines the specifications for the C++ port of the LzyDownloader 
     - **Organization**: Settings are grouped into logical sections:
         - **Configuration**: Output folder, Temporary folder, Theme, Enable Local API Server.
         - **Authentication Access**: Cookies from browser (Video/Audio), Cookies from browser (Galleries). The cookie access check is handled directly within `AdvancedSettingsTab` using `QProcess`, with a 30-second timeout and improved logging. The check uses a specific YouTube Shorts URL for more reliable validation.
-        - **Output Template**: Filename Pattern (with "Insert token...", "Save", and "Reset" buttons). The "Save" button validates the pattern using `yt-dlp`.
+        - **Output Template**: Filename Pattern (with "Insert token...", "Save", and "Reset" buttons). The "Save" button validates video/audio templates using `yt-dlp` with explicit start/finish timeouts. Blank video/audio templates inherit the current shared default, while gallery templates use gallery-dl syntax and reset to the factory gallery default.
         - **Download Options**: External Downloader (aria2c), Enable SponsorBlock, Restrict filenames, Embed video chapters, Enable Download Sections, and the multi-mode auto-paste setting.
         - **Metadata / Thumbnails**: Embed metadata, Embed thumbnail, Use high-quality thumbnail converter, Convert thumbnails to, Force Playlist as Single Album.
         - **Livestream Settings**: Record from beginning, Wait for video (with min/max intervals). The app dynamically scales these wait intervals for streams hours away vs seconds away. Download As (MPEG-TS or MKV), Use .part files, Quality, Convert To.
         - **Subtitles**: Subtitle language (using full words in a combo box), Embed subtitles in video, Write subtitles (separate file), Include automatically-generated subtitles, Subtitle file format (greyed out if "Embed subtitles in video" is selected).
-        - **External Binaries**: Per-binary status rows for `yt-dlp`, `ffmpeg`, `ffprobe`, `gallery-dl`, `aria2c`, and `deno`, with brief explanations of what each tool does, auto-detection status, manual `Browse` overrides, and `Install` actions that offer detected package-manager commands plus manual-download links. yt-dlp install suggestions should prefer nightly-capable commands where the platform supports them and clearly label stable-only package-manager options.
+        - **External Binaries**: Per-binary status rows for `yt-dlp`, `ffmpeg`, `ffprobe`, `gallery-dl`, `aria2c`, and `deno`, with brief explanations of what each tool does, auto-detection status, manual `Browse` overrides, and `Install` actions that offer detected package-manager commands plus manual-download links. yt-dlp install suggestions should prefer nightly-capable commands where the platform supports them and clearly label stable-only package-manager options. Install and update progress dialogs must use the app-managed process environment, allow cancellation by terminating the process tree, quote command paths with spaces, and report permission-denied failures clearly.
         - **Restore defaults** button.
     - **Navigation Styling**: The left column uses a palette-aware `QListWidget` whose stylesheet is rebuilt on palette changes so the category list stays compact and theme-consistent without reverting to a plain scrollbar-heavy layout.
     - **Saving Behavior**: Most settings auto-save on change. The "Output Template" requires a dedicated "Save" button.
@@ -93,7 +93,7 @@ This document outlines the specifications for the C++ port of the LzyDownloader 
     - SponsorBlock (`--sponsorblock-remove all`; video/livestream jobs preflight SponsorBlock segment availability and only add `--force-keyframes-at-cuts` plus cut-encoder postprocessor args (including edit-list and timestamp normalization to prevent A/V desync) when segments are confirmed or the preflight cannot be completed).
     - Cookies from browser (`--cookies-from-browser`).
     - Download sections (`--download-sections`).
-    - Output template (`-o`).
+    - Output template (`-o`), including type-specific templates that inherit the shared default when unset.
     - Max concurrent downloads (`--concurrent-fragments`).
     - Rate limit (`--limit-rate`).
     - Override archive (`--no-download-archive`).
@@ -179,6 +179,7 @@ This document outlines the specifications for the C++ port of the LzyDownloader 
   - Provides a UI for users to see the status of external binaries (`yt-dlp`, `ffmpeg`, etc.), manually locate them, or trigger an installation process.
   - The installation process will guide the user through automated (package manager) or manual (web download) methods.
   - Startup checks, enqueue-time checks, and Start-tab format checks must surface missing required binaries through the guided setup dialog and reuse the External Binaries install/browse logic.
+  - Update commands for package-managed binaries must call the relevant package manager instead of overwriting files directly; standalone binaries may use their own updater command such as `yt-dlp -U`, `gallery-dl -U`, or `deno upgrade`.
 - **Executable Name**: Must be `LzyDownloader.exe`.
 - **Binaries**: The application does not bundle external binaries. It requires the user to have `ffmpeg`, `ffprobe`, `deno`, and `yt-dlp` installed. `gallery-dl` and `aria2c` are optional.
 - **Qt Image Plugins**: Windows builds must deploy the Qt `imageformats` plugins required to display active-download thumbnails and converted artwork, including JPEG, PNG, WebP, and ICO support.

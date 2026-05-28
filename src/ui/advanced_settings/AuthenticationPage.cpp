@@ -26,13 +26,15 @@ AuthenticationPage::AuthenticationPage(ConfigManager *configManager, QWidget *pa
     QStringList installedBrowsers = BrowserUtils::getInstalledBrowsers();
     QStringList orderedBrowsers;
 
-    int firefoxIndex = -1, chromeIndex = -1;
-    for (int i = 0; i < installedBrowsers.size(); ++i) {
-        if (installedBrowsers.at(i).compare("Firefox", Qt::CaseInsensitive) == 0) firefoxIndex = i;
-        if (installedBrowsers.at(i).compare("Chrome", Qt::CaseInsensitive) == 0) chromeIndex = i;
+    QString firefoxName, chromeName;
+    QMutableStringListIterator it(installedBrowsers);
+    while (it.hasNext()) {
+        QString browser = it.next();
+        if (browser.compare("Firefox", Qt::CaseInsensitive) == 0) { firefoxName = browser; it.remove(); }
+        else if (browser.compare("Chrome", Qt::CaseInsensitive) == 0) { chromeName = browser; it.remove(); }
     }
-    if (firefoxIndex != -1) orderedBrowsers.append(installedBrowsers.takeAt(firefoxIndex));
-    if (chromeIndex != -1) orderedBrowsers.append(installedBrowsers.takeAt(chromeIndex));
+    if (!firefoxName.isEmpty()) orderedBrowsers.append(firefoxName);
+    if (!chromeName.isEmpty()) orderedBrowsers.append(chromeName);
 
     std::sort(installedBrowsers.begin(), installedBrowsers.end(), [](const QString &s1, const QString &s2){
         return s1.compare(s2, Qt::CaseInsensitive) < 0;
@@ -68,17 +70,18 @@ AuthenticationPage::AuthenticationPage(ConfigManager *configManager, QWidget *pa
 AuthenticationPage::~AuthenticationPage() {
     if (m_cookieCheckProcess->state() != QProcess::NotRunning) {
         ProcessUtils::terminateProcessTree(m_cookieCheckProcess);
+        m_cookieCheckProcess->kill();
+        m_cookieCheckProcess->waitForFinished(1000);
     }
 }
 
 void AuthenticationPage::loadSettings() {
-    disconnect(m_cookiesBrowserCombo, &QComboBox::currentTextChanged, this, &AuthenticationPage::onCookiesBrowserChanged);
+    QSignalBlocker b(m_cookiesBrowserCombo);
     m_lastSavedBrowser = m_configManager->get("General", "cookies_from_browser", "None").toString();
     if (m_lastSavedBrowser == "None") {
         m_lastSavedBrowser = m_configManager->get("General", "gallery_cookies_from_browser", "None").toString();
     }
     m_cookiesBrowserCombo->setCurrentText(m_lastSavedBrowser);
-    connect(m_cookiesBrowserCombo, &QComboBox::currentTextChanged, this, &AuthenticationPage::onCookiesBrowserChanged);
 }
 
 void AuthenticationPage::onCookiesBrowserChanged(const QString &text) {
@@ -89,9 +92,18 @@ void AuthenticationPage::onCookiesBrowserChanged(const QString &text) {
         m_configManager->set("General", "gallery_cookies_from_browser", text);
         return;
     }
-    if (m_cookieCheckProcess->state() != QProcess::NotRunning) m_cookieCheckProcess->terminate();
+    if (m_cookieCheckProcess->state() != QProcess::NotRunning) {
+        m_cookieCheckProcess->setProperty("timedOut", true); // Re-use timedOut property to suppress popups on manual cancellation
+        ProcessUtils::terminateProcessTree(m_cookieCheckProcess);
+        m_cookieCheckProcess->waitForFinished(2000);
+    }
+    m_cookieCheckTimeoutTimer->stop();
     setCursor(Qt::WaitCursor);
     m_cookiesBrowserCombo->setEnabled(false);
+
+    // Clear the timeout flag so previous timeouts don't suppress the next valid finish
+    m_cookieCheckProcess->setProperty("timedOut", false);
+    m_cookieCheckProcess->setProperty("stderr_buffer", QByteArray());
 
     QStringList args;
     args << "--cookies-from-browser" << text.toLower() << "--simulate" << "--verbose" << "https://www.youtube.com/watch?v=7x52ID-2H0E";
@@ -101,18 +113,27 @@ void AuthenticationPage::onCookiesBrowserChanged(const QString &text) {
         args << "--js-runtimes" << QString("deno:%1").arg(denoBinary.path);
     }
 
+    ProcessUtils::setProcessEnvironment(*m_cookieCheckProcess);
     m_cookieCheckProcess->start(ProcessUtils::findBinary("yt-dlp", m_configManager).path, args);
 }
 
 void AuthenticationPage::onCookieCheckProcessStarted() { m_cookieCheckTimeoutTimer->start(30000); }
 void AuthenticationPage::onCookieCheckProcessFinished(int exitCode, QProcess::ExitStatus exitStatus) {
     m_cookieCheckTimeoutTimer->stop();
+
+    if (m_cookieCheckProcess->property("timedOut").toBool()) {
+        return;
+    }
+
     unsetCursor();
     m_cookiesBrowserCombo->setEnabled(true);
     QString selectedBrowser = m_cookiesBrowserCombo->currentText();
 
     if (exitStatus != QProcess::NormalExit || exitCode != 0) {
-        QString stderrOutput = m_cookieCheckProcess->readAllStandardError();
+        QString stderrOutput = m_cookieCheckProcess->property("stderr_buffer").toString();
+        if (stderrOutput.isEmpty()) {
+            stderrOutput = m_cookieCheckProcess->readAllStandardError();
+        }
         QString errorMessage = (stderrOutput.contains("Unable to get cookie info", Qt::CaseInsensitive) || stderrOutput.contains("database is locked", Qt::CaseInsensitive))
             ? QString("Failed to access cookies for %1. The browser may be running, which can lock the cookie database. Please close %1 and try again.").arg(selectedBrowser)
             : QString("An unexpected error occurred while checking cookies for %1.\n\nDetails:\n%2").arg(selectedBrowser, stderrOutput);
@@ -126,21 +147,42 @@ void AuthenticationPage::onCookieCheckProcessFinished(int exitCode, QProcess::Ex
 }
 void AuthenticationPage::onCookieCheckProcessErrorOccurred(QProcess::ProcessError error) {
     m_cookieCheckTimeoutTimer->stop();
-    if (m_cookieCheckProcess->state() == QProcess::NotRunning) return;
+
+    if (m_cookieCheckProcess->property("timedOut").toBool()) {
+        return;
+    }
+
+    // FailedToStart means it never started; we must handle it to unlock the UI.
+    if (error != QProcess::FailedToStart && m_cookieCheckProcess->state() == QProcess::NotRunning) {
+        return;
+    }
+
     unsetCursor(); m_cookiesBrowserCombo->setEnabled(true);
     QMessageBox::critical(this, "Process Error", error == QProcess::FailedToStart ? "Failed to start yt-dlp. Please ensure it is installed and configured in Advanced Settings." : QString("An unknown error occurred: %1").arg(m_cookieCheckProcess->errorString()));
     loadSettings();
 }
 void AuthenticationPage::onCookieCheckProcessReadyReadStandardOutput() { qDebug().noquote() << "yt-dlp stdout:" << m_cookieCheckProcess->readAllStandardOutput(); }
-void AuthenticationPage::onCookieCheckProcessReadyReadStandardError() { qWarning().noquote() << "yt-dlp stderr:" << m_cookieCheckProcess->readAllStandardError(); }
-void AuthenticationPage::onCookieCheckTimeout() { ProcessUtils::terminateProcessTree(m_cookieCheckProcess); unsetCursor(); m_cookiesBrowserCombo->setEnabled(true); QMessageBox::warning(this, "Timed Out", "The cookie check took too long to respond."); loadSettings(); }
+void AuthenticationPage::onCookieCheckProcessReadyReadStandardError() { 
+    QByteArray data = m_cookieCheckProcess->readAllStandardError();
+    QByteArray existing = m_cookieCheckProcess->property("stderr_buffer").toByteArray();
+    existing.append(data);
+    m_cookieCheckProcess->setProperty("stderr_buffer", existing);
+    qWarning().noquote() << "yt-dlp stderr:" << data; 
+}
+void AuthenticationPage::onCookieCheckTimeout() {
+    m_cookieCheckProcess->setProperty("timedOut", true);
+    ProcessUtils::terminateProcessTree(m_cookieCheckProcess);
+    unsetCursor();
+    m_cookiesBrowserCombo->setEnabled(true);
+    QMessageBox::warning(this, "Timed Out", "The cookie check took too long to respond.");
+    loadSettings();
+}
 void AuthenticationPage::handleConfigSettingChanged(const QString &section, const QString &key, const QVariant &value) {
     if (section == "General" && (key == "cookies_from_browser" || key == "gallery_cookies_from_browser")) {
         m_lastSavedBrowser = value.toString();
         if (m_cookiesBrowserCombo->currentText() != m_lastSavedBrowser) {
-            disconnect(m_cookiesBrowserCombo, &QComboBox::currentTextChanged, this, &AuthenticationPage::onCookiesBrowserChanged);
+            QSignalBlocker b(m_cookiesBrowserCombo);
             m_cookiesBrowserCombo->setCurrentText(m_lastSavedBrowser);
-            connect(m_cookiesBrowserCombo, &QComboBox::currentTextChanged, this, &AuthenticationPage::onCookiesBrowserChanged);
         }
     }
 }

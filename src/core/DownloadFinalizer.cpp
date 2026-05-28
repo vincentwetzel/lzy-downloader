@@ -301,13 +301,13 @@ void DownloadFinalizer::finalize(const QString &id, DownloadItem item) {
 
     if (item.options.value("type").toString() == "gallery") {
         QString tempPath = QDir::fromNativeSeparators(item.tempFilePath);
-        QDir tempDir(tempPath);
-        if (!tempDir.exists()) {
+        QDir galleryTempDir(tempPath);
+        if (!galleryTempDir.exists()) {
             emit finalizationComplete(id, false, "Gallery download failed: temp directory missing.");
             return;
         }
 
-        QFileInfoList entries = tempDir.entryInfoList(QDir::NoDotAndDotDot | QDir::Dirs | QDir::Files);
+        QFileInfoList entries = galleryTempDir.entryInfoList(QDir::NoDotAndDotDot | QDir::Dirs | QDir::Files);
         if (entries.size() == 1) {
             QFileInfo entry = entries.first();
             QString newDestPath = QDir(finalDir).filePath(entry.fileName());

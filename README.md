@@ -16,7 +16,7 @@ A lightweight, high-performance desktop application for downloading media (video
 - 🔌 **Local API** — Optional localhost API for trusted local integrations such as Discord bots
 - 📊 **Concurrent Downloads** — Queue and manage multiple downloads simultaneously
 - ⏸️ **Pause & Resume** — Safely stop downloads, preserve partial `.part` files, and resume them across application restarts
-- 🧰 **External Binaries Manager** — Detect, version-check, install, and update `yt-dlp`, `gallery-dl`, `ffmpeg`, `ffprobe`, `aria2c`, and `deno` from inside the app
+- 🧰 **External Binaries Manager** — Detect, version-check, install, and update `yt-dlp`, `gallery-dl`, `ffmpeg`, `ffprobe`, `aria2c`, and `deno` from inside the app, with package-manager-aware commands and cancellable install/update logs
 - 🖼️ **Thumbnail Embedding** — Automatic thumbnail download and embedding for videos and audio
 - 🌐 **Browser Cookies** — Use saved cookies from Firefox, Chrome, Edge, or other browsers for age-restricted content
 - 📂 **Smart Sorting** — Automatically organize downloads into subfolders based on uploader, playlist, date, or custom patterns
@@ -81,6 +81,7 @@ All settings are saved to `%LOCALAPPDATA%\LzyDownloader\settings.ini` on Windows
 - **Output folder** — Where completed downloads are saved
 - **Temporary folder** — Where downloads are cached during progress
 - **Quality/Format** — Video/audio codec and quality preferences
+- **Output templates** — Type-specific video/audio templates inherit the shared default when blank and are validated with `yt-dlp` before saving
 - **Metadata** — Embed titles, artists, and thumbnails
 - **SponsorBlock** — Automatically skip sponsored segments
 - **Browser Cookies** — Select a browser to use for authentication
@@ -95,6 +96,8 @@ When enabled in the GUI, or when launched with `--server`/`--headless`, LzyDownl
 - **Webhook Outbound**: The application automatically emits real-time HTTP POST JSON payloads to `http://127.0.0.1:8766/webhook` whenever download status, progress, speed, or ETA changes. Payloads are throttled to 1.5 seconds, sanitize long or multi-line status strings, preserve terminal completion/cancellation state for local bridge clients, and include `parent_id` mapping to track playlist child items.
 
 Automation can also launch `LzyDownloader.exe --background <url>` or `LzyDownloader.exe --server <url>` to enqueue a direct URL without showing blocking prompt dialogs. Server/headless queue backups, API tokens, and logs are isolated under `Server/`, but user preferences still come from the main `settings.ini`.
+
+Extractor-list refresh scripts are non-interactive, so release automation can run `update_yt-dlp_extractors.py` and `update_gallery-dl_extractors.py` without waiting for a final keypress.
 
 ## Architecture
 

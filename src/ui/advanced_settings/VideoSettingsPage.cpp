@@ -86,22 +86,26 @@ void VideoSettingsPage::loadSettings() {
     updateVideoOptions();
 }
 
-void VideoSettingsPage::onVideoQualityChanged(const QString &text) { m_configManager->set("Video", "video_quality", text); updateVideoOptions(); }
-void VideoSettingsPage::onVideoCodecChanged(const QString &text) { m_configManager->set("Video", "video_codec", text); updateVideoOptions(); }
+void VideoSettingsPage::onVideoQualityChanged(const QString &text) { m_configManager->set("Video", "video_quality", text); }
+void VideoSettingsPage::onVideoCodecChanged(const QString &text) { m_configManager->set("Video", "video_codec", text); }
 void VideoSettingsPage::onVideoExtChanged(const QString &text) { m_configManager->set("Video", "video_extension", text); }
 void VideoSettingsPage::onVideoAudioCodecChanged(const QString &text) { m_configManager->set("Video", "video_audio_codec", text); }
 
 void VideoSettingsPage::handleConfigSettingChanged(const QString &section, const QString &key, const QVariant &value) {
     if (section == "Video") {
         if (key == "quality" || key == "video_quality") {
+            QSignalBlocker b(m_videoQualityCombo);
             m_videoQualityCombo->setCurrentText(value.toString());
             updateVideoOptions();
         } else if (key == "codec" || key == "video_codec") {
+            QSignalBlocker b(m_videoCodecCombo);
             m_videoCodecCombo->setCurrentText(canonicalVideoCodecValue(value.toString()));
             updateVideoOptions();
         } else if (key == "extension" || key == "video_extension") {
+            QSignalBlocker b(m_videoExtCombo);
             m_videoExtCombo->setCurrentText(value.toString());
         } else if (key == "audio_codec" || key == "video_audio_codec") {
+            QSignalBlocker b(m_videoAudioCodecCombo);
             m_videoAudioCodecCombo->setCurrentText(value.toString());
         }
     }
@@ -129,29 +133,38 @@ void VideoSettingsPage::updateVideoOptions() {
     bool isDefaultCodec = (selectedVideoCodec == "Default");
     m_videoExtLabel->setVisible(!isDefaultCodec);
     m_videoExtCombo->setVisible(!isDefaultCodec);
-    if (isDefaultCodec) return;
 
     QString currentExt = m_videoExtCombo->currentText();
-    m_videoExtCombo->clear();
-    
-    if (selectedVideoCodec == "AV1" || selectedVideoCodec == "VP9") m_videoExtCombo->addItems({"webm", "mkv"});
-    else if (selectedVideoCodec == "H.264 (AVC)" || selectedVideoCodec == "H.265 (HEVC)") m_videoExtCombo->addItems({"mp4", "mkv"});
-    else if (selectedVideoCodec == "ProRes (Archive)") m_videoExtCombo->addItem("mov");
-    else if (selectedVideoCodec == "Theora") m_videoExtCombo->addItem("ogv");
-    else m_videoExtCombo->addItems({"mp4", "mkv", "webm"});
+    if (!isDefaultCodec) {
+        {
+            QSignalBlocker b(m_videoExtCombo);
+            m_videoExtCombo->clear();
+            
+            if (selectedVideoCodec == "AV1" || selectedVideoCodec == "VP9") m_videoExtCombo->addItems({"webm", "mkv"});
+            else if (selectedVideoCodec == "H.264 (AVC)" || selectedVideoCodec == "H.265 (HEVC)") m_videoExtCombo->addItems({"mp4", "mkv"});
+            else if (selectedVideoCodec == "ProRes (Archive)") m_videoExtCombo->addItem("mov");
+            else if (selectedVideoCodec == "Theora") m_videoExtCombo->addItem("ogv");
+            else m_videoExtCombo->addItems({"mp4", "mkv", "webm"});
 
-    if (m_videoExtCombo->findText(currentExt) != -1) m_videoExtCombo->setCurrentText(currentExt);
-    else m_videoExtCombo->setCurrentIndex(0);
+            if (m_videoExtCombo->findText(currentExt) != -1) m_videoExtCombo->setCurrentText(currentExt);
+            else m_videoExtCombo->setCurrentIndex(0);
+        }
+        if (m_videoExtCombo->currentText() != currentExt) onVideoExtChanged(m_videoExtCombo->currentText());
+    }
 
     QString currentAudioCodec = m_videoAudioCodecCombo->currentText();
-    m_videoAudioCodecCombo->clear();
-    
-    if (selectedVideoCodec == "AV1" || selectedVideoCodec == "VP9") m_videoAudioCodecCombo->addItems({"Default", "Opus", "Vorbis", "AAC"});
-    else if (selectedVideoCodec == "H.264 (AVC)" || selectedVideoCodec == "H.265 (HEVC)") m_videoAudioCodecCombo->addItems({"Default", "AAC", "MP3", "FLAC", "PCM"});
-    else if (selectedVideoCodec == "ProRes (Archive)") m_videoAudioCodecCombo->addItems({"Default", "PCM", "AAC"});
-    else if (selectedVideoCodec == "Theora") m_videoAudioCodecCombo->addItems({"Default", "Vorbis"});
-    else m_videoAudioCodecCombo->addItems({"Default", "AAC", "Opus", "Vorbis", "MP3", "FLAC", "PCM"});
+    {
+        QSignalBlocker b(m_videoAudioCodecCombo);
+        m_videoAudioCodecCombo->clear();
+        
+        if (selectedVideoCodec == "AV1" || selectedVideoCodec == "VP9") m_videoAudioCodecCombo->addItems({"Default", "Opus", "Vorbis", "AAC"});
+        else if (selectedVideoCodec == "H.264 (AVC)" || selectedVideoCodec == "H.265 (HEVC)") m_videoAudioCodecCombo->addItems({"Default", "AAC", "MP3", "FLAC", "PCM"});
+        else if (selectedVideoCodec == "ProRes (Archive)") m_videoAudioCodecCombo->addItems({"Default", "PCM", "AAC"});
+        else if (selectedVideoCodec == "Theora") m_videoAudioCodecCombo->addItems({"Default", "Vorbis"});
+        else m_videoAudioCodecCombo->addItems({"Default", "AAC", "Opus", "Vorbis", "MP3", "FLAC", "PCM"});
 
-    if (m_videoAudioCodecCombo->findText(currentAudioCodec) != -1) m_videoAudioCodecCombo->setCurrentText(currentAudioCodec);
-    else m_videoAudioCodecCombo->setCurrentIndex(0);
+        if (m_videoAudioCodecCombo->findText(currentAudioCodec) != -1) m_videoAudioCodecCombo->setCurrentText(currentAudioCodec);
+        else m_videoAudioCodecCombo->setCurrentIndex(0);
+    }
+    if (m_videoAudioCodecCombo->currentText() != currentAudioCodec) onVideoAudioCodecChanged(m_videoAudioCodecCombo->currentText());
 }
