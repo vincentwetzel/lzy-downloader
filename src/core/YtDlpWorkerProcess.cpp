@@ -140,13 +140,14 @@ void YtDlpWorker::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatu
             QFile::remove(m_thumbnailPath);
             m_thumbnailPath.clear();
         }
-        
-        // Try to clean up empty UUID directory if yt-dlp failed before writing anything
-        if (m_configManager) {
-            QString tempDir = m_configManager->get("Paths", "temporary_downloads_directory").toString();
-            QString uuidDirPath = QDir(tempDir).filePath(m_id);
-            QDir().rmdir(uuidDirPath); // Only succeeds if the directory is empty
-        }
+    }
+
+    // Try to clean up empty UUID directory if yt-dlp failed before writing anything,
+    // or if the process completed but left the directory empty (e.g. skipped downloads).
+    if (m_configManager) {
+        QString tempDir = m_configManager->get("Paths", "temporary_downloads_directory").toString();
+        QString uuidDirPath = QDir(tempDir).filePath(m_id);
+        QDir().rmdir(uuidDirPath); // Only succeeds if the directory is empty
     }
 
     // Ensure m_videoTitle is included in the metadata for the finished signal

@@ -371,7 +371,14 @@ void DownloadFinalizer::finalize(const QString &id, DownloadItem item) {
 
     // Because yt-dlp downloads are now isolated into their own UUID subfolders
     // to prevent naming collisions, we must delete the UUID folder afterward.
-    if (item.options.value("type").toString() != "gallery" && tempDir.dirName() == id) {
-        tempDir.removeRecursively();
+    if (item.options.value("type").toString() != "gallery") {
+        if (tempDir.dirName() == id) {
+            tempDir.removeRecursively();
+        }
+    } else {
+        QDir galleryTempDir(item.tempFilePath);
+        if (galleryTempDir.exists() && galleryTempDir.dirName() == id) {
+            galleryTempDir.removeRecursively();
+        }
     }
 }

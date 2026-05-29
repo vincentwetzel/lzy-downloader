@@ -3737,11 +3737,6 @@
             "whitecapsfc.com"
         ]
     },
-    "mms": {
-        "domains": [
-            "kentro.kaist.ac.kr"
-        ]
-    },
     "mnettv": {
         "domains": [
             "tvplus.m-net.de"
@@ -4291,7 +4286,7 @@
     },
     "nitter": {
         "domains": [
-            "singapore.unofficialbird.com"
+            "ntr.odyssey346.dev"
         ]
     },
     "njoy": {
@@ -5614,12 +5609,6 @@
     "rtlluradio": {
         "domains": [
             "rtl.lu"
-        ]
-    },
-    "rtmp": {
-        "domains": [
-            "cp44293.edgefcs.net",
-            "edge.live.hitbox.tv"
         ]
     },
     "rtnews": {

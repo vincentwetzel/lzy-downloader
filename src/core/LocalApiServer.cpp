@@ -211,7 +211,10 @@ void LocalApiServer::handleRequest(QTcpSocket *socket, const QByteArray &request
             if (!targetUrl.isEmpty()) {
                 // The signal signature in LocalApiServer.h must be updated to:
                 // void enqueueRequested(const QString &url, const QString &type, const QString &jobId);
-                QString jobId = QUuid::createUuid().toString(QUuid::WithoutBraces);
+                QString jobId = doc.object().value("id").toString().trimmed();
+                if (jobId.isEmpty()) {
+                    jobId = QUuid::createUuid().toString(QUuid::WithoutBraces);
+                }
                 emit enqueueRequested(targetUrl, downloadType, jobId);
                 QJsonObject successObj;
                 successObj["status"] = "success";

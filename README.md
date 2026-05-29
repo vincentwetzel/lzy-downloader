@@ -91,7 +91,7 @@ All settings are saved to `%LOCALAPPDATA%\LzyDownloader\settings.ini` on Windows
 
 When enabled in the GUI, or when launched with `--server`/`--headless`, LzyDownloader listens only on `127.0.0.1:8765`. The API token is stored in the app-local data directory as `api_token.txt`; server/headless mode keeps its runtime token under `Server/api_token.txt`. Requests must send the token as a Bearer token.
 
-- `POST /enqueue` with JSON body `{"url":"https://...","type":"video"}` queues a download using non-interactive defaults. `type` is optional and may be `video`, `audio`, or `gallery`; omitted requests default to `video`.
+- `POST /enqueue` with JSON body `{"url":"https://...","type":"video","id":"optional-stable-job-id"}` queues a download using non-interactive defaults. `type` is optional and may be `video`, `audio`, or `gallery`; omitted requests default to `video`. `id` is optional; when omitted, the app generates a UUID.
 - `GET /status` returns current tracked jobs, including progress fields when available.
 - **Webhook Outbound**: The application automatically emits real-time HTTP POST JSON payloads to `http://127.0.0.1:8766/webhook` whenever download status, progress, speed, or ETA changes. Payloads are throttled to 1.5 seconds, sanitize long or multi-line status strings, preserve terminal completion/cancellation state for local bridge clients, and include `parent_id` mapping to track playlist child items.
 

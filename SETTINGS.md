@@ -304,7 +304,7 @@ When `General/enable_local_api` is enabled in GUI mode, or when `--server`/`--he
 
 Server/headless mode isolates this runtime token under `Server/`, for example `%LOCALAPPDATA%\LzyDownloader\Server\api_token.txt` on Windows.
 
-The server binds only to `127.0.0.1:8765`. Requests must include `Authorization: Bearer <token>`. Supported endpoints are `POST /enqueue` with a JSON `url` field plus optional `type` (`video`, `audio`, or `gallery`) and `GET /status`.
+The server binds only to `127.0.0.1:8765`. Requests must include `Authorization: Bearer <token>`. Supported endpoints are `POST /enqueue` with a JSON `url` field plus optional `type` (`video`, `audio`, or `gallery`) and optional caller-provided `id`, plus `GET /status`. If `id` is omitted, LzyDownloader generates a UUID.
 
 ## Log File Location
 

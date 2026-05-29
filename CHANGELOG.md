@@ -15,10 +15,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Output template validation**: Video and audio filename templates now share a single yt-dlp validation path with explicit start/finish timeouts, type-specific templates inherit the current shared default when blank, and gallery template reset/save messaging is clearer.
 - **Extractor refresh automation**: The yt-dlp and gallery-dl extractor update scripts now finish without waiting for a final Enter keypress, making them safer for release scripts and CI.
 - **Single-download sleep mode**: Sleep-mode scheduling now starts the first eligible item immediately and waits between subsequent single-download starts.
+- **Local API enqueue IDs**: `POST /enqueue` now accepts an optional `id` field so trusted local integrations can provide stable job IDs instead of always receiving an app-generated UUID.
 
 ### Fixed
 - **Qt HTTPS on clean Windows installs**: Restored explicit OpenSSL runtime deployment from vcpkg/Qt install directories so `qopensslbackend` can initialize instead of falling back to Qt's `cert-only` backend and failing update checks with `TLS initialization failed`.
 - **Cleared download state cleanup**: Clearing stopped or failed rows now notifies `DownloadManager`, cancels any still-running worker, removes paused queue state, saves the queue asynchronously, and resumes scheduling.
+- **Temporary directory cleanup**: Finished gallery downloads, skipped yt-dlp jobs, and cancelled queued or paused jobs now clean up their per-download UUID temp directories instead of leaving empty or stale folders behind.
 - **SponsorBlock A/V desync**: Fixed a regression where audio/video desynchronization still occurred during SponsorBlock segment removal because synchronization arguments were only being applied to the `ModifyChapters` post-processor.
 - **Cookie-check UI recovery**: Browser cookie validation now buffers stderr for the final error dialog, handles `yt-dlp` launch failures, suppresses stale timeout/cancel callbacks, and cleans up the validation process tree when the settings page is destroyed.
 - **Archive database teardown**: Closing the archive connection no longer accidentally creates a Qt SQL connection while checking whether one already exists.

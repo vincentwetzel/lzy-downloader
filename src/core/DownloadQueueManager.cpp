@@ -8,6 +8,7 @@
 #include <QMetaObject>
 #include <QTimer>
 #include <QDir>
+#include <QStandardPaths>
 #include <QSet>
 #include <QRegularExpression>
 
@@ -231,6 +232,10 @@ bool DownloadQueueManager::cancelQueuedOrPausedDownload(const QString &id) {
                     if (!anchor.absoluteDir().exists()) {
                         continue;
                     }
+                    if (anchor.isDir() && anchor.fileName() == id) {
+                        QDir(anchor.absoluteFilePath()).removeRecursively();
+                        continue;
+                    }
 
                     QFile::remove(anchor.absoluteFilePath());
 
@@ -262,7 +267,7 @@ bool DownloadQueueManager::cancelQueuedOrPausedDownload(const QString &id) {
                     }
                     
                     tempDir.refresh();
-                    if (tempDir.dirName() == id && tempDir.isEmpty()) {
+                    if (tempDir.dirName() == id) {
                         tempDir.removeRecursively();
                     }
                 }
