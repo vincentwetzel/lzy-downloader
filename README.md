@@ -99,6 +99,8 @@ Automation can also launch `LzyDownloader.exe --background <url>`, `LzyDownloade
 
 Extractor-list refresh scripts are non-interactive, so release automation can run `update_yt-dlp_extractors.py` and `update_gallery-dl_extractors.py` without waiting for a final keypress.
 
+Temporary downloads are isolated in per-download UUID folders under the configured temp directory. If that setting is still unset, the app derives the temp path from the completed-downloads folder as `temp_downloads`, including for cleanup after cancelled, skipped, or wait-state yt-dlp jobs. Playlist expansion checks reuse the full yt-dlp command configuration without creating those transfer-only UUID folders.
+
 ## Architecture
 
 The application is built using **C++20** and the **Qt 6** framework. The core logic, UI components, and utility functions are consolidated into a static library, `LzyAppLib`.

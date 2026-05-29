@@ -66,13 +66,21 @@ void YtDlpWorker::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatu
         // Move wait thumbnail inside UUID folder so DownloadFinalizer cleans it up automatically
         if (!m_thumbnailPath.isEmpty() && m_thumbnailPath.endsWith("_wait_thumbnail.jpg")) {
             QString tempDir = m_configManager->get("Paths", "temporary_downloads_directory").toString();
-            QString uuidDirPath = QDir(tempDir).filePath(m_id);
-            QString newThumbPath = QDir(uuidDirPath).filePath(QFileInfo(m_thumbnailPath).fileName());
-            
-            QDir().mkpath(uuidDirPath); // Ensure UUID dir exists
-            if (QFile::rename(m_thumbnailPath, newThumbPath)) {
-                m_thumbnailPath = newThumbPath;
-                qDebug() << "Moved wait thumbnail into UUID directory for automatic cleanup:" << m_thumbnailPath;
+            if (tempDir.isEmpty()) {
+                QString completedDir = m_configManager->get("Paths", "completed_downloads_directory").toString();
+                if (!completedDir.isEmpty()) {
+                    tempDir = QDir(completedDir).filePath("temp_downloads");
+                }
+            }
+            if (!tempDir.isEmpty()) {
+                QString uuidDirPath = QDir(tempDir).filePath(m_id);
+                QString newThumbPath = QDir(uuidDirPath).filePath(QFileInfo(m_thumbnailPath).fileName());
+                
+                QDir().mkpath(uuidDirPath); // Ensure UUID dir exists
+                if (QFile::rename(m_thumbnailPath, newThumbPath)) {
+                    m_thumbnailPath = newThumbPath;
+                    qDebug() << "Moved wait thumbnail into UUID directory for automatic cleanup:" << m_thumbnailPath;
+                }
             }
         }
 
@@ -146,8 +154,16 @@ void YtDlpWorker::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatu
     // or if the process completed but left the directory empty (e.g. skipped downloads).
     if (m_configManager) {
         QString tempDir = m_configManager->get("Paths", "temporary_downloads_directory").toString();
-        QString uuidDirPath = QDir(tempDir).filePath(m_id);
-        QDir().rmdir(uuidDirPath); // Only succeeds if the directory is empty
+        if (tempDir.isEmpty()) {
+            QString completedDir = m_configManager->get("Paths", "completed_downloads_directory").toString();
+            if (!completedDir.isEmpty()) {
+                tempDir = QDir(completedDir).filePath("temp_downloads");
+            }
+        }
+        if (!tempDir.isEmpty()) {
+            QString uuidDirPath = QDir(tempDir).filePath(m_id);
+            QDir().rmdir(uuidDirPath); // Only succeeds if the directory is empty
+        }
     }
 
     // Ensure m_videoTitle is included in the metadata for the finished signal

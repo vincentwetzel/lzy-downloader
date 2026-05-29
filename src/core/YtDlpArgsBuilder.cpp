@@ -513,7 +513,9 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
     }
 
     // --- Output paths ---
-    QDir().mkpath(tempPath);
+    if (!options.value("skip_dir_creation", false).toBool()) {
+        QDir().mkpath(tempPath);
+    }
     
     QString outputTemplate;
     if (downloadType == "audio") {

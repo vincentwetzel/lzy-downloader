@@ -5,6 +5,15 @@ All notable changes to LzyDownloader will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.46] - 2026-05-29
+
+### Changed
+- **Extractor domain refresh**: Updated the bundled yt-dlp extractor domain list so Nitter support points at `nt.vern.cc`.
+
+### Fixed
+- **Playlist expansion temp-folder hygiene**: Playlist pre-expansion now reuses `YtDlpArgsBuilder` without creating a stranded per-download UUID temp folder for the placeholder item.
+- **yt-dlp temp cleanup fallback**: yt-dlp cancellation, skipped-download cleanup, and wait-thumbnail relocation now derive the temp directory from the completed-downloads folder when `temporary_downloads_directory` is not explicitly set, preventing orphaned UUID folders and wait thumbnails in first-run or partially configured environments.
+
 ## [1.1.45] - 2026-05-28
 
 ### Added

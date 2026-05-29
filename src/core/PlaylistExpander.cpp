@@ -64,6 +64,7 @@ void PlaylistExpander::startExpansion(const QString &playlistLogic) {
     // Create a minimal options map for playlist expansion
     // We need playlist_logic to be set correctly
     m_options["playlist_logic"] = playlistLogic;
+    m_options["skip_dir_creation"] = true; // Prevent creating a stranded UUID temp folder
     
     QStringList args = builder.build(m_configManager, m_url, m_options);
     

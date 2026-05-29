@@ -125,8 +125,16 @@ void YtDlpWorker::killProcess() {
     // Attempt to remove the UUID directory if it's completely empty
     if (m_configManager) {
         QString tempDir = m_configManager->get("Paths", "temporary_downloads_directory").toString();
-        QString uuidDirPath = QDir(tempDir).filePath(m_id);
-        QDir().rmdir(uuidDirPath);
+        if (tempDir.isEmpty()) {
+            QString completedDir = m_configManager->get("Paths", "completed_downloads_directory").toString();
+            if (!completedDir.isEmpty()) {
+                tempDir = QDir(completedDir).filePath("temp_downloads");
+            }
+        }
+        if (!tempDir.isEmpty()) {
+            QString uuidDirPath = QDir(tempDir).filePath(m_id);
+            QDir().rmdir(uuidDirPath);
+        }
     }
 }
 
