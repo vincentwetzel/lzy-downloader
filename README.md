@@ -89,13 +89,13 @@ All settings are saved to `%LOCALAPPDATA%\LzyDownloader\settings.ini` on Windows
 
 ### Local API
 
-When enabled in the GUI, or when launched with `--server`/`--headless`, LzyDownloader listens only on `127.0.0.1:8765`. The API token is stored in the app-local data directory as `api_token.txt`; server/headless mode keeps its runtime token under `Server/api_token.txt`. Requests must send the token as a Bearer token.
+When enabled in the GUI, or when launched with `--server`, `--headless`, or `--background`, LzyDownloader listens only on `127.0.0.1:8765`. The API token is stored in the app-local data directory as `api_token.txt`; server/headless/background mode keeps its runtime token under `Server/api_token.txt`. Requests must send the token as a Bearer token.
 
 - `POST /enqueue` with JSON body `{"url":"https://...","type":"video","id":"optional-stable-job-id"}` queues a download using non-interactive defaults. `type` is optional and may be `video`, `audio`, or `gallery`; omitted requests default to `video`. `id` is optional; when omitted, the app generates a UUID.
 - `GET /status` returns current tracked jobs, including progress fields when available.
 - **Webhook Outbound**: The application automatically emits real-time HTTP POST JSON payloads to `http://127.0.0.1:8766/webhook` whenever download status, progress, speed, or ETA changes. Payloads are throttled to 1.5 seconds, sanitize long or multi-line status strings, preserve terminal completion/cancellation state for local bridge clients, and include `parent_id` mapping to track playlist child items.
 
-Automation can also launch `LzyDownloader.exe --background <url>` or `LzyDownloader.exe --server <url>` to enqueue a direct URL without showing blocking prompt dialogs. Server/headless queue backups, API tokens, and logs are isolated under `Server/`, but user preferences still come from the main `settings.ini`.
+Automation can also launch `LzyDownloader.exe --background <url>`, `LzyDownloader.exe --server <url>`, or `LzyDownloader.exe --headless <url>` to enqueue a direct URL without showing blocking prompt dialogs. Server/headless queue backups, API tokens, and logs are isolated under `Server/`, but user preferences still come from the main `settings.ini`.
 
 Extractor-list refresh scripts are non-interactive, so release automation can run `update_yt-dlp_extractors.py` and `update_gallery-dl_extractors.py` without waiting for a final keypress.
 
@@ -132,7 +132,7 @@ LzyDownloader/
 │   │   │   └── ...
 │   │   └── ...
 │   └── utils/                  # Helper Modules
-│       └── StringUtils.h/cpp   # String/URL utilities
+│       └── ExtractorJsonParser.h/cpp # Extractor-domain cache loader
 ```
 
 **Note:** External binaries (yt-dlp, ffmpeg, ffprobe, gallery-dl, aria2c, deno) are not bundled with the application. Users must install them separately or configure paths in Advanced Settings.

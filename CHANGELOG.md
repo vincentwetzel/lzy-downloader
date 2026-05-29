@@ -5,7 +5,7 @@ All notable changes to LzyDownloader will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.1.45] - 2026-05-28
 
 ### Added
 - **Livestream Finish Now action**: Active livestream downloads now expose a `Finish Now` control that sends yt-dlp a graceful interrupt so the current stream can stop recording and continue through normal finalization.
@@ -13,7 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - **External Tools reliability**: Install/update dialogs now run with the app-managed process environment, can be cancelled safely, quote command paths with spaces, clear binary-resolution caches before config changes propagate, and use package-manager-aware update commands for WinGet/Scoop/Chocolatey/Homebrew/pip installs. Standalone Deno updates now use `deno upgrade`.
 - **Output template validation**: Video and audio filename templates now share a single yt-dlp validation path with explicit start/finish timeouts, type-specific templates inherit the current shared default when blank, and gallery template reset/save messaging is clearer.
-- **Extractor refresh automation**: The yt-dlp and gallery-dl extractor update scripts now finish without waiting for a final Enter keypress, making them safer for release scripts and CI.
+- **Extractor refresh automation**: The yt-dlp and gallery-dl extractor update scripts now finish without waiting for a final Enter keypress, share one domain-parsing helper, and keep the app on the two explicit extractor list files used by clipboard checks and the Supported Sites dialog.
+- **Test target registration**: CMake now registers Qt tests through a shared `lzy_add_test(...)` helper and includes the archive, sorting, and UI widget test executables alongside the existing yt-dlp and end-to-end coverage.
+- **Headless/background launch docs**: Documentation now treats `--background` consistently with server/headless automation for single-instance locks, API startup, and isolated runtime state.
 - **Single-download sleep mode**: Sleep-mode scheduling now starts the first eligible item immediately and waits between subsequent single-download starts.
 - **Local API enqueue IDs**: `POST /enqueue` now accepts an optional `id` field so trusted local integrations can provide stable job IDs instead of always receiving an app-generated UUID.
 
@@ -23,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Temporary directory cleanup**: Finished gallery downloads, skipped yt-dlp jobs, and cancelled queued or paused jobs now clean up their per-download UUID temp directories instead of leaving empty or stale folders behind.
 - **SponsorBlock A/V desync**: Fixed a regression where audio/video desynchronization still occurred during SponsorBlock segment removal because synchronization arguments were only being applied to the `ModifyChapters` post-processor.
 - **Cookie-check UI recovery**: Browser cookie validation now buffers stderr for the final error dialog, handles `yt-dlp` launch failures, suppresses stale timeout/cancel callbacks, and cleans up the validation process tree when the settings page is destroyed.
+- **yt-dlp error extraction**: URL validation, JSON metadata extraction, and worker output handling now capture embedded `ERROR:` text more reliably and classify no-format failures with clearer guidance.
 - **Archive database teardown**: Closing the archive connection no longer accidentally creates a Qt SQL connection while checking whether one already exists.
 - **Queue persistence churn**: Queue mutations no longer each schedule redundant state saves; queue count updates and manager-level reactions handle persistence more cleanly during rapid queue operations.
 - **End-to-end test server startup**: The local test HTTP server now chooses `python.exe` on Windows and `python3` elsewhere, probes `127.0.0.1`, resets the socket between retries, and uses argument-list process termination.

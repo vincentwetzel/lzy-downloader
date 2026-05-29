@@ -7,39 +7,39 @@
 QStringList BinaryFinder::getExtendedSearchPaths() {
     QStringList paths;
 
-    // 1. Application directory and its 'bin' subdirectory (fallback for bundled/portable use cases)
-    paths << QCoreApplication::applicationDirPath();
-    paths << QDir(QCoreApplication::applicationDirPath()).filePath("bin");
-
-    // 2. System PATH
+    // 1. System PATH
     QString systemPath = QProcessEnvironment::systemEnvironment().value("PATH");
     if (!systemPath.isEmpty()) {
         paths << systemPath.split(QDir::listSeparator(), Qt::SkipEmptyParts);
     }
 
-    // 3. Common Package Manager & Standard Installation Paths
+    // 2. Common Package Manager & Standard Installation Paths
 #ifdef Q_OS_WIN
     QString localData = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation);
+    QString programFiles = qgetenv("ProgramFiles");
+    if (programFiles.isEmpty()) programFiles = "C:/Program Files";
+    QString programData = qgetenv("ProgramData");
+    if (programData.isEmpty()) programData = "C:/ProgramData";
     
     // winget
     if (!localData.isEmpty()) {
         paths << QDir(localData).filePath("Microsoft/WindowsApps");
     }
     // scoop
-    paths << QDir::homePath() + "/scoop/shims";
+    paths << QDir(QDir::homePath()).filePath("scoop/shims");
     // chocolatey
-    paths << "C:/ProgramData/chocolatey/bin";
+    paths << QDir(programData).filePath("chocolatey/bin");
     
     // Standard Program Files fallbacks
-    paths << "C:/Program Files/ffmpeg/bin";
-    paths << "C:/Program Files/aria2";
-    paths << "C:/Program Files/yt-dlp";
+    paths << QDir(programFiles).filePath("ffmpeg/bin");
+    paths << QDir(programFiles).filePath("aria2");
+    paths << QDir(programFiles).filePath("yt-dlp");
 #else
     // macOS / Linux package managers
     paths << "/usr/local/bin";                 // Homebrew (Intel) / standard source installs
     paths << "/opt/homebrew/bin";              // Homebrew (Apple Silicon)
     paths << "/opt/local/bin";                 // MacPorts
-    paths << QDir::homePath() + "/.local/bin"; // pip user installs / pipx
+    paths << QDir(QDir::homePath()).filePath(".local/bin"); // pip user installs / pipx
 #endif
 
     return paths;
@@ -61,9 +61,9 @@ QString BinaryFinder::findBinary(const QString& binaryName) {
 
 QMap<QString, QString> BinaryFinder::findAllBinaries() {
     QMap<QString, QString> results;
-    QStringList requiredBinaries = {"yt-dlp", "ffmpeg", "ffprobe", "gallery-dl", "deno", "aria2c"};
+    QStringList trackedBinaries = {"yt-dlp", "ffmpeg", "ffprobe", "gallery-dl", "deno", "aria2c"};
 
-    for (const QString& bin : requiredBinaries) {
+    for (const QString& bin : trackedBinaries) {
         results[bin] = findBinary(bin);
     }
 

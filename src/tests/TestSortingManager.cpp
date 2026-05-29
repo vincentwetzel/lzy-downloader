@@ -48,10 +48,6 @@ void TestSortingManager::testIllegalCharacterSanitization() {
 
     QString result = m_sortingManager->sanitize(input);
 
-    qDebug() << "Input:" << input << " (len:" << input.length() << ")";
-    qDebug() << "Expected:" << expected << " (len:" << expected.length() << ")";
-    qDebug() << "Actual:" << result << " (len:" << result.length() << ")";
-    
     QCOMPARE(result, expected);
 }
 

@@ -12,7 +12,7 @@ This document outlines the specifications for the C++ port of the LzyDownloader 
 ## 2. Core Requirements
 
 ### 2.1. Single Instance Enforcement
-- The application must ensure that only one instance of itself can run at any given time for a given mode. Standard GUI launches use one lock, while headless/server launches (`--headless`, `--server`) use a separate `_Server` lock, allowing one GUI instance and one background server instance to safely co-exist. User preferences remain shared through the main app-local `settings.ini`; only server/headless runtime state is isolated under `Server/`.
+- The application must ensure that only one instance of itself can run at any given time for a given mode. Standard GUI launches use one lock, while headless/server launches (`--headless`, `--server`, `--background`) use a separate `_Server` lock, allowing one GUI instance and one background server instance to safely co-exist. User preferences remain shared through the main app-local `settings.ini`; only server/headless runtime state is isolated under `Server/`.
 
 ### 2.2. Configuration Compatibility
 - **File Format**: `settings.ini` (INI format).
@@ -28,7 +28,6 @@ This document outlines the specifications for the C++ port of the LzyDownloader 
     - `convert_thumbnails`, `high_quality_thumbnail`.
     - `use_aria2c`.
     - `force_playlist_as_album`.
-    - `output_template`.
     - `cookies_from_browser`, `gallery_cookies_from_browser`.
     - `theme`.
     - `playlist_logic`, `max_threads`, `rate_limit`.
@@ -76,7 +75,7 @@ This document outlines the specifications for the C++ port of the LzyDownloader 
     - **Navigation Styling**: The left column uses a palette-aware `QListWidget` whose stylesheet is rebuilt on palette changes so the category list stays compact and theme-consistent without reverting to a plain scrollbar-heavy layout.
     - **Saving Behavior**: Most settings auto-save on change. The "Output Template" requires a dedicated "Save" button.
 - **System Integration**: A system tray icon for quick show/hide and quit actions. Clicking the window close button (`X`) must exit the application (it must not keep running in the background).
-- **Local API Server**: In GUI mode, when `General/enable_local_api` is enabled, the app must bind a small HTTP API only to localhost (`127.0.0.1:8765`). In `--server` or `--headless` mode, the API must start automatically because the launch mode explicitly requested server behavior, without writing `General/enable_local_api=true`. The API requires a Bearer token stored in `api_token.txt` (or `Server/api_token.txt` if running headless/server), accepts `POST /enqueue` with a JSON `url` plus optional `type` (`video`, `audio`, or `gallery`) and optional caller-provided `id`, and returns queue snapshots from `GET /status`. If `id` is omitted, the API must generate a UUID. API and direct CLI requests must be treated as non-interactive: no modal prompts, playlist download-all behavior, runtime picker bypasses, and log-only UI warnings. The application must also emit real-time HTTP POST JSON payloads to `http://127.0.0.1:8766/webhook` during download progress, completion, and cancellation, utilizing a main-thread `QNetworkAccessManager` to prevent event loop silent failures, implementing a 1.5s rate limit throttle, sanitizing long or multi-line status strings, preserving terminal state long enough for bridge clients to observe completion/cancellation, and propagating `parent_id` for playlist items via explicit playlist placeholder IDs.
+- **Local API Server**: In GUI mode, when `General/enable_local_api` is enabled, the app must bind a small HTTP API only to localhost (`127.0.0.1:8765`). In `--server`, `--headless`, or `--background` mode, the API must start automatically because the launch mode explicitly requested server behavior, without writing `General/enable_local_api=true`. The API requires a Bearer token stored in `api_token.txt` (or `Server/api_token.txt` if running headless/server), accepts `POST /enqueue` with a JSON `url` plus optional `type` (`video`, `audio`, or `gallery`) and optional caller-provided `id`, and returns queue snapshots from `GET /status`. If `id` is omitted, the API must generate a UUID. API and direct CLI requests must be treated as non-interactive: no modal prompts, playlist download-all behavior, runtime picker bypasses, and log-only UI warnings. The application must also emit real-time HTTP POST JSON payloads to `http://127.0.0.1:8766/webhook` during download progress, completion, and cancellation, utilizing a main-thread `QNetworkAccessManager` to prevent event loop silent failures, implementing a 1.5s rate limit throttle, sanitizing long or multi-line status strings, preserving terminal state long enough for bridge clients to observe completion/cancellation, and propagating `parent_id` for playlist items via explicit playlist placeholder IDs.
 - **Theming**: Support for Light, Dark, and System themes.
 
 ### 2.5. Download Engine (yt-dlp & gallery-dl)

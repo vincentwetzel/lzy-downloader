@@ -24,7 +24,6 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
     m_allOutputLines.append(normalizedLine); // Store all output lines
 
     emit outputReceived(m_id, normalizedLine);
-    // qDebug().noquote() << "yt-dlp (processed line):" << normalizedLine;
 
     if (normalizedLine.startsWith("LZY_FINAL_PATH:")) {
         m_finalFilename = normalizedLine.mid(15).trimmed(); // 15 is length of "LZY_FINAL_PATH:"
@@ -36,72 +35,55 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
     if (normalizedLine.startsWith("ERROR:")) {
         m_errorLines.append(normalizedLine);
         
+        auto emitError = [&](const QString& type, const QString& msg) {
+            if (!m_errorEmitted) {
+                m_errorEmitted = true;
+                emit ytDlpErrorDetected(m_id, type, msg, normalizedLine);
+            }
+        };
+
         // Check for private video error
         if (normalizedLine.contains("private", Qt::CaseInsensitive) || 
             normalizedLine.contains("This video is private", Qt::CaseInsensitive)) {
-            if (!m_errorEmitted) {
-                m_errorEmitted = true;
-                emit ytDlpErrorDetected(m_id, "private", 
-                    "This video is private and cannot be downloaded.", 
-                    normalizedLine);
-            }
+            emitError("private", "This video is private and cannot be downloaded.");
         }
         // Check for unavailable video error
         else if (normalizedLine.contains("unavailable", Qt::CaseInsensitive) ||
                  normalizedLine.contains("Video is unavailable", Qt::CaseInsensitive) ||
                  normalizedLine.contains("This video is no longer available", Qt::CaseInsensitive) ||
                  normalizedLine.contains("does not exist", Qt::CaseInsensitive)) {
-            if (!m_errorEmitted) {
-                m_errorEmitted = true;
-                emit ytDlpErrorDetected(m_id, "unavailable",
-                    "This video is unavailable or has been removed.",
-                    normalizedLine);
-            }
+            emitError("unavailable", "This video is unavailable or has been removed.");
         }
         // Check for geo-restriction error
         else if (normalizedLine.contains("geo", Qt::CaseInsensitive) && 
                  (normalizedLine.contains("restrict", Qt::CaseInsensitive) ||
                   normalizedLine.contains("unavailable in your country", Qt::CaseInsensitive))) {
-            if (!m_errorEmitted) {
-                m_errorEmitted = true;
-                emit ytDlpErrorDetected(m_id, "geo_restricted",
-                    "This video is not available in your region.",
-                    normalizedLine);
-            }
+            emitError("geo_restricted", "This video is not available in your region.");
         }
         // Check for members-only error
         else if (normalizedLine.contains("members", Qt::CaseInsensitive) &&
                  normalizedLine.contains("only", Qt::CaseInsensitive)) {
-            if (!m_errorEmitted) {
-                m_errorEmitted = true;
-                emit ytDlpErrorDetected(m_id, "members_only",
-                    "This video is exclusive to channel members.",
-                    normalizedLine);
-            }
+            emitError("members_only", "This video is exclusive to channel members.");
         }
         // Check for age-restriction error
         else if (normalizedLine.contains("age", Qt::CaseInsensitive) &&
                  (normalizedLine.contains("restrict", Qt::CaseInsensitive) ||
                   normalizedLine.contains("verify your age", Qt::CaseInsensitive) ||
                   normalizedLine.contains("confirm your age", Qt::CaseInsensitive))) {
-            if (!m_errorEmitted) {
-                m_errorEmitted = true;
-                emit ytDlpErrorDetected(m_id, "age_restricted",
-                    "This video requires age verification. Try enabling cookies from your browser.",
-                    normalizedLine);
-            }
+            emitError("age_restricted", "This video requires age verification. Try enabling cookies from your browser.");
         }
         // Check for content removed/unavailable (e.g., deleted tweet)
         else if (normalizedLine.contains("Requested tweet is unavailable", Qt::CaseInsensitive) ||
                  normalizedLine.contains("This content is no longer available", Qt::CaseInsensitive) ||
                  normalizedLine.contains("The requested content was removed", Qt::CaseInsensitive) ||
                  normalizedLine.contains("Suspended", Qt::CaseInsensitive)) {
-            if (!m_errorEmitted) {
-                m_errorEmitted = true;
-                emit ytDlpErrorDetected(m_id, "content_removed",
-                    "The requested content is unavailable or has been removed by the uploader.",
-                    normalizedLine);
-            }
+            emitError("content_removed", "The requested content is unavailable or has been removed by the uploader.");
+        }
+        // Check for No video formats found / Ghost IDs
+        else if (normalizedLine.contains("No video formats found", Qt::CaseInsensitive)) {
+            emitError("no_video_formats", "No video formats found for this URL.\n\n"
+                                          "This usually means the site requires authentication, the media is unsupported, or the link is a 'ghost ID' that needs to be redirected.\n\n"
+                                          "Try opening the link in a normal web browser to get the real URL, or check your authentication settings.");
         }
         // Check for scheduled livestream/premiere
         else if (normalizedLine.contains("Premieres in", Qt::CaseInsensitive) ||
@@ -115,13 +97,9 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
                  normalizedLine.contains("waiting for livestream", Qt::CaseInsensitive) ||
                  normalizedLine.contains("Live in ", Qt::CaseInsensitive) ||
                  normalizedLine.contains("Starting in ", Qt::CaseInsensitive)) {
-            if (!m_errorEmitted) {
-                m_errorEmitted = true;
-                emit ytDlpErrorDetected(m_id, "scheduled_livestream",
-                    "This video is a scheduled livestream or premiere that has not started yet.\n\n"
-                    "Would you like to wait for the video to begin and download it automatically?",
-                    normalizedLine);
-            }
+            emitError("scheduled_livestream", 
+                "This video is a scheduled livestream or premiere that has not started yet.\n\n"
+                "Would you like to wait for the video to begin and download it automatically?");
         }
     }
 
@@ -146,6 +124,45 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
         if (m_videoTitle.isEmpty() && !property("fetchingPreWaitMetadata").toBool()) {
             setProperty("fetchingPreWaitMetadata", true);
             
+            auto fetchThumbnail = [this](const QString& thumbUrl) {
+                QNetworkAccessManager *manager = new QNetworkAccessManager(this);
+                QNetworkRequest request((QUrl(thumbUrl)));
+                request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
+                QNetworkReply *reply = manager->get(request);
+                connect(reply, &QNetworkReply::finished, this, [this, reply, manager]() {
+                    if (reply->error() == QNetworkReply::NoError) {
+                        QString tempDir = m_configManager->get("Paths", "temporary_downloads_directory").toString();
+                        QDir().mkpath(tempDir);
+                        QString ext = reply->url().toString().contains(".webp", Qt::CaseInsensitive) ? ".webp" : ".jpg";
+                        QString newThumbPath = QDir(tempDir).filePath(m_id + "_wait_thumbnail" + ext);
+                        QFile file(newThumbPath);
+                        if (file.open(QIODevice::WriteOnly)) {
+                            QByteArray data = reply->readAll();
+                            if (!data.isEmpty()) {
+                                file.write(data);
+                                file.close();
+                                m_thumbnailPath = QDir::toNativeSeparators(newThumbPath);
+                                qDebug() << "[YtDlpWorker] Pre-wait thumbnail downloaded to:" << m_thumbnailPath;
+
+                                QVariantMap pd;
+                                pd["progress"] = -1;
+                                pd["status"] = "Waiting for livestream to start...";
+                                pd["title"] = m_videoTitle;
+                                pd["thumbnail_path"] = m_thumbnailPath;
+                                emit progressUpdated(m_id, pd);
+                            } else {
+                                file.close();
+                                file.remove();
+                            }
+                        }
+                    } else {
+                        qWarning() << "[YtDlpWorker] Failed to download pre-wait thumbnail:" << reply->errorString();
+                    }
+                    reply->deleteLater();
+                    manager->deleteLater();
+                });
+            };
+
             QString url;
             for (const QString &arg : m_args) {
                 if (arg.startsWith("http")) { url = arg; break; }
@@ -166,7 +183,7 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
                 QNetworkRequest request(oembedUrl);
                 request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
                 QNetworkReply *reply = manager->get(request);
-                connect(reply, &QNetworkReply::finished, this, [this, reply, manager]() {
+                connect(reply, &QNetworkReply::finished, this, [this, reply, manager, fetchThumbnail]() {
                     if (reply->error() == QNetworkReply::NoError) {
                         QJsonDocument doc = QJsonDocument::fromJson(reply->readAll());
                         if (doc.isObject()) {
@@ -186,43 +203,9 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
                             emit progressUpdated(m_id, progressData);
 
                             if (!thumbUrl.isEmpty() && m_thumbnailPath.isEmpty()) {
-                                QNetworkRequest thumbReq((QUrl(thumbUrl)));
-                                thumbReq.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
-                                QNetworkReply *thumbReply = manager->get(thumbReq);
-                                connect(thumbReply, &QNetworkReply::finished, this, [this, thumbReply, manager]() {
-                                    if (thumbReply->error() == QNetworkReply::NoError) {
-                                        QString tempDir = m_configManager->get("Paths", "temporary_downloads_directory").toString();
-                                        QDir().mkpath(tempDir);
-                                        QString ext = ".jpg";
-                                        if (thumbReply->url().toString().contains(".webp", Qt::CaseInsensitive)) ext = ".webp";
-                                        QString newThumbPath = QDir(tempDir).filePath(m_id + "_wait_thumbnail" + ext);
-                                        QFile file(newThumbPath);
-                                        if (file.open(QIODevice::WriteOnly)) {
-                                            QByteArray data = thumbReply->readAll();
-                                            if (!data.isEmpty()) {
-                                                file.write(data);
-                                                file.close();
-                                                m_thumbnailPath = QDir::toNativeSeparators(newThumbPath);
-                                                qDebug() << "[YtDlpWorker] Pre-wait thumbnail downloaded to:" << m_thumbnailPath;
-
-                                                QVariantMap pd;
-                                                pd["progress"] = -1;
-                                                pd["status"] = "Waiting for livestream to start...";
-                                                pd["title"] = m_videoTitle;
-                                                pd["thumbnail_path"] = m_thumbnailPath;
-                                                emit progressUpdated(m_id, pd);
-                                            } else {
-                                                file.close();
-                                                file.remove();
-                                            }
-                                        }
-                                    }
-                                    thumbReply->deleteLater();
-                                    manager->deleteLater();
-                                });
-                            } else {
-                                manager->deleteLater();
+                                fetchThumbnail(thumbUrl);
                             }
+                            manager->deleteLater();
                         } else {
                             manager->deleteLater();
                         }
@@ -250,7 +233,7 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
             }
 
             qDebug() << "[YtDlpWorker] Pre-wait fetch command:" << ytDlpPath << fetchArgs;
-            connect(fetchProcess, &QProcess::finished, this, [this, fetchProcess](int exitCode, QProcess::ExitStatus) {
+            connect(fetchProcess, &QProcess::finished, this, [this, fetchProcess, fetchThumbnail](int exitCode, QProcess::ExitStatus) {
                     QByteArray jsonData = fetchProcess->readAllStandardOutput();
                     QJsonDocument doc = QJsonDocument::fromJson(jsonData);
                     if (doc.isObject()) {
@@ -283,43 +266,7 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
 
                         if (!thumbUrl.isEmpty()) {
                             qDebug() << "[YtDlpWorker] Pre-wait thumbnail URL found:" << thumbUrl;
-                            QNetworkAccessManager *manager = new QNetworkAccessManager(this);
-                            QNetworkRequest request((QUrl(thumbUrl)));
-                            request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
-                            QNetworkReply *reply = manager->get(request);
-                            connect(reply, &QNetworkReply::finished, this, [this, reply, manager]() {
-                                if (reply->error() == QNetworkReply::NoError) {
-                                    QString tempDir = m_configManager->get("Paths", "temporary_downloads_directory").toString();
-                                    QDir().mkpath(tempDir);
-                                    QString ext = ".jpg";
-                                    if (reply->url().toString().contains(".webp", Qt::CaseInsensitive)) ext = ".webp";
-                                    QString newThumbPath = QDir(tempDir).filePath(m_id + "_wait_thumbnail" + ext);
-                                    QFile file(newThumbPath);
-                                    if (file.open(QIODevice::WriteOnly)) {
-                                        QByteArray data = reply->readAll();
-                                        if (!data.isEmpty()) {
-                                            file.write(data);
-                                            file.close();
-                                            m_thumbnailPath = QDir::toNativeSeparators(newThumbPath);
-                                            qDebug() << "[YtDlpWorker] Pre-wait thumbnail downloaded to:" << m_thumbnailPath;
-
-                                            QVariantMap pd;
-                                            pd["progress"] = -1;
-                                            pd["status"] = "Waiting for livestream to start...";
-                                            pd["title"] = m_videoTitle;
-                                            pd["thumbnail_path"] = m_thumbnailPath;
-                                            emit progressUpdated(m_id, pd);
-                                        } else {
-                                            file.close();
-                                            file.remove();
-                                        }
-                                    }
-                                } else {
-                                    qWarning() << "[YtDlpWorker] Failed to download pre-wait thumbnail:" << reply->errorString();
-                                }
-                                reply->deleteLater();
-                                manager->deleteLater();
-                            });
+                            fetchThumbnail(thumbUrl);
                         }
                     } else {
                         qWarning() << "[YtDlpWorker] Pre-wait metadata fetch failed or returned invalid JSON. Exit code:" << exitCode;

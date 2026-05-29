@@ -21,12 +21,14 @@ int main(int argc, char *argv[]) {
         }
     }
 
+    const QString APP_NAME = "LzyDownloader";
+
     QString instanceSuffix = startBackground ? "_Server" : "";
 
-    QSystemSemaphore semaphore("LzyDownloaderSemaphore" + instanceSuffix, 1);
+    QSystemSemaphore semaphore(APP_NAME + "Semaphore" + instanceSuffix, 1);
     semaphore.acquire();
 
-    QSharedMemory sharedMemory("LzyDownloaderSingleInstance" + instanceSuffix);
+    QSharedMemory sharedMemory(APP_NAME + "SingleInstance" + instanceSuffix);
     if (!sharedMemory.create(1)) {
         semaphore.release();
         return 0;
@@ -36,7 +38,7 @@ int main(int argc, char *argv[]) {
     a.setWindowIcon(QIcon(":/app-icon"));
 
     a.setOrganizationName("");
-    a.setApplicationName("LzyDownloader");
+    a.setApplicationName(APP_NAME);
 
     QStringList libraryPaths = QApplication::libraryPaths();
     libraryPaths.prepend(a.applicationDirPath());

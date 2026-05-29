@@ -9,6 +9,11 @@
 #include <QtConcurrent>
 #include <QFuture>
 
+namespace {
+    const QString YTDLP_EXTRACTORS_FILE = "extractors_yt-dlp.json";
+    const QString GALLERYDL_EXTRACTORS_FILE = "extractors_gallery-dl.json";
+}
+
 ExtractorJsonParser::ExtractorJsonParser(QObject *parent) : QObject(parent)
 {
     m_loader = new QFutureWatcher<QPair<QJsonObject, QJsonObject>>(this);
@@ -54,17 +59,17 @@ void ExtractorJsonParser::startGeneration()
 QPair<QJsonObject, QJsonObject> ExtractorJsonParser::loadExtractors()
 {
     const QString appDir = QCoreApplication::applicationDirPath();
-    const QString ytDlpPath = QDir(appDir).filePath("extractors_yt-dlp.json");
-    const QString galleryDlPath = QDir(appDir).filePath("extractors_gallery-dl.json");
+    const QString ytDlpPath = QDir(appDir).filePath(YTDLP_EXTRACTORS_FILE);
+    const QString galleryDlPath = QDir(appDir).filePath(GALLERYDL_EXTRACTORS_FILE);
 
     QJsonObject ytDlpExtractors = loadExtractorsFromFile(ytDlpPath);
     QJsonObject galleryDlExtractors = loadExtractorsFromFile(galleryDlPath);
 
     if (ytDlpExtractors.isEmpty()) {
-        qWarning() << "ExtractorJsonParser: extractors_yt-dlp.json not found or is empty in" << appDir;
+        qWarning() << "ExtractorJsonParser:" << YTDLP_EXTRACTORS_FILE << "not found or is empty in" << appDir;
     }
     if (galleryDlExtractors.isEmpty()) {
-        qWarning() << "ExtractorJsonParser: extractors_gallery-dl.json not found or is empty in" << appDir;
+        qWarning() << "ExtractorJsonParser:" << GALLERYDL_EXTRACTORS_FILE << "not found or is empty in" << appDir;
     }
 
     return qMakePair(ytDlpExtractors, galleryDlExtractors);

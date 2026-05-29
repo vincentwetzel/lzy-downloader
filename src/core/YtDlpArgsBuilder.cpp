@@ -506,7 +506,6 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
     if (forceKeyframesAtCuts) {
         appendForcedKeyframeCutArgs(rawArgs, configManager);
     }
-    qDebug() << "YtDlpArgsBuilder: forceKeyframesAtCuts before final check:" << forceKeyframesAtCuts; // Add this debug
     // --- Rate Limit ---
     QString rateLimit = options.value("rate_limit", "Unlimited").toString();
     if (rateLimit != "Unlimited") {

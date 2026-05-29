@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(LzyDownloader VERSION 1.1.45 LANGUAGES CXX)
+project(LzyDownloader VERSION 1.1.46 LANGUAGES CXX)
 enable_testing()
 
 set(_qt_search_prefixes "")
@@ -163,8 +163,6 @@ add_library(LzyAppLib STATIC
     src/utils/BrowserUtils.cpp
     src/utils/ExtractorJsonParser.cpp
     src/utils/LogManager.cpp
-    src/utils/StringUtils.cpp
-    src/utils/YtDlpJsonParser.cpp
     src/ui/ActiveDownloadsTab.cpp
     src/ui/AdvancedSettingsTab.cpp
     src/ui/DownloadItemWidget.cpp
@@ -255,68 +253,31 @@ add_custom_command(TARGET LzyDownloader POST_BUILD
     COMMENT "Copying gallery-dl extractor list to output directory"
 )
 
-add_executable(TestYtDlpArgsBuilderTest
-    src/tests/BaseTest.cpp
-    src/tests/TestYtDlpArgsBuilder.cpp
-)
+function(lzy_add_test target_name source_file)
+    add_executable(${target_name} src/tests/BaseTest.cpp ${source_file})
+    
+    target_include_directories(${target_name} PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/tests
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/core
+    )
+    
+    target_link_libraries(${target_name} PRIVATE
+        LzyAppLib
+        Qt6::Test Qt6::Core Qt6::Network Qt6::Sql Qt6::Widgets
+    )
+    
+    if(MSVC)
+        target_compile_options(${target_name} PRIVATE /FS)
+    endif()
+    
+    lzy_add_qt_windows_deploy(${target_name})
+    add_test(NAME ${target_name} COMMAND ${target_name})
+endfunction()
 
-target_include_directories(TestYtDlpArgsBuilderTest PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/src
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/core
-)
-
-target_link_libraries(TestYtDlpArgsBuilderTest PRIVATE
-    LzyAppLib
-    Qt6::Test Qt6::Core Qt6::Network Qt6::Sql Qt6::Widgets
-)
-if(MSVC)
-    target_compile_options(TestYtDlpArgsBuilderTest PRIVATE /FS)
-endif()
-lzy_add_qt_windows_deploy(TestYtDlpArgsBuilderTest)
-add_test(NAME TestYtDlpArgsBuilderTest COMMAND TestYtDlpArgsBuilderTest)
-
-add_executable(TestYtDlpWorkerTest
-    src/tests/BaseTest.cpp
-    src/tests/TestYtDlpWorker.cpp
-)
-
-target_include_directories(TestYtDlpWorkerTest PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/src
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/core
-)
-
-target_link_libraries(TestYtDlpWorkerTest PRIVATE
-    LzyAppLib
-    Qt6::Test Qt6::Core Qt6::Network Qt6::Sql Qt6::Widgets
-)
-if(MSVC)
-    target_compile_options(TestYtDlpWorkerTest PRIVATE /FS)
-endif()
-lzy_add_qt_windows_deploy(TestYtDlpWorkerTest)
-add_test(NAME TestYtDlpWorkerTest COMMAND TestYtDlpWorkerTest)
-
-add_executable(TestEndToEnd
-    src/tests/BaseTest.cpp
-    src/tests/TestEndToEnd.cpp
-)
-
-target_include_directories(TestEndToEnd PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/src
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/core
-)
-
-target_link_libraries(TestEndToEnd PRIVATE
-    LzyAppLib
-    Qt6::Test Qt6::Core Qt6::Network Qt6::Sql Qt6::Widgets
-)
-
-if(MSVC)
-    target_compile_options(TestEndToEnd PRIVATE /FS)
-endif()
-
-lzy_add_qt_windows_deploy(TestEndToEnd)
-
-add_test(NAME TestEndToEnd COMMAND TestEndToEnd)
+lzy_add_test(TestYtDlpArgsBuilder src/tests/TestYtDlpArgsBuilder.cpp)
+lzy_add_test(TestYtDlpWorker src/tests/TestYtDlpWorker.cpp)
+lzy_add_test(TestEndToEnd src/tests/TestEndToEnd.cpp)
+lzy_add_test(TestArchiveManager src/tests/TestArchiveManager.cpp)
+lzy_add_test(TestSortingManager src/tests/TestSortingManager.cpp)
+lzy_add_test(TestUIWidgets src/tests/TestUIWidgets.cpp)

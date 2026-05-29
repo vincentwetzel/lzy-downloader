@@ -38,12 +38,10 @@ void YtDlpJsonExtractor::onProcessFinished(int exitCode, QProcess::ExitStatus ex
         QString stderrOutput = m_process->readAllStandardError();
         qWarning() << "YtDlpJsonExtractor failed. Exit code:" << exitCode << "Stderr:" << stderrOutput;
         QString cleanError = "Unknown error";
-        QStringList lines = stderrOutput.split('\n');
-        for (const QString &line : lines) {
-            if (line.startsWith("ERROR:")) {
-                cleanError = line.trimmed();
-                break;
-            }
+        int errIdx = stderrOutput.indexOf("ERROR:");
+        if (errIdx != -1) {
+            int endIdx = stderrOutput.indexOf('\n', errIdx);
+            cleanError = stderrOutput.mid(errIdx, endIdx == -1 ? -1 : endIdx - errIdx).trimmed();
         }
         emit error("Failed to extract information.\n" + cleanError);
         return;

@@ -1,8 +1,11 @@
 #include "TestUIWidgets.h"
 #include <QSignalSpy>
 #include <QVariantMap>
-#include <QLabel>
-#include <QPushButton>
+
+namespace {
+    const QString COLOR_SUCCESS_GREEN = "#22c55e";
+    const QString COLOR_ERROR_RED = "#dc2626";
+}
 
 void TestUIWidgets::testProgressLabelBarFilling() {
     ProgressLabelBar progressBar;
@@ -40,19 +43,19 @@ void TestUIWidgets::testDownloadItemWidgetFinishedState() {
     widget.setFinished(true, "Download Complete");
     QCOMPARE(widget.isFinished(), true);
     QCOMPARE(widget.isSuccessful(), true);
-    QCOMPARE(widget.findChild<ProgressLabelBar*>()->styleSheet(), "QProgressBar::chunk { background-color: #22c55e; }");
+    QCOMPARE(widget.findChild<ProgressLabelBar*>()->styleSheet(), QString("QProgressBar::chunk { background-color: %1; }").arg(COLOR_SUCCESS_GREEN));
 
     // Test cancelled state
     widget.setCancelled();
     QCOMPARE(widget.isFinished(), true);
     QCOMPARE(widget.isSuccessful(), false);
-    QCOMPARE(widget.findChild<ProgressLabelBar*>()->styleSheet(), "QProgressBar { color: #dc2626; }");
+    QCOMPARE(widget.findChild<ProgressLabelBar*>()->styleSheet(), QString("QProgressBar { color: %1; }").arg(COLOR_ERROR_RED));
 
     // Test failed state
     widget.setFinished(false, "Download Failed");
     QCOMPARE(widget.isFinished(), true);
     QCOMPARE(widget.isSuccessful(), false);
-    QCOMPARE(widget.findChild<ProgressLabelBar*>()->styleSheet(), "QProgressBar { color: #dc2626; }");
+    QCOMPARE(widget.findChild<ProgressLabelBar*>()->styleSheet(), QString("QProgressBar { color: %1; }").arg(COLOR_ERROR_RED));
 
     // Assertion for color change (tricky in headless)
     // The TODO.md states: "assert that the progress bar fills up and changes its stylesheet color to green (#22c55e)."

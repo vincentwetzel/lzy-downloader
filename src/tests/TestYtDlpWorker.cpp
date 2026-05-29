@@ -1,8 +1,8 @@
 #include <QtTest/QtTest>
 #include <QSignalSpy>
-#include "BaseTest.h" // Now in src/tests
-#include "../core/YtDlpWorker.h" // Relative path
-#include "../core/ConfigManager.h" // Relative path
+#include "BaseTest.h"
+#include "core/YtDlpWorker.h"
+#include "core/ConfigManager.h"
 
 // Define a testable YtDlpWorker that allows direct access to protected parsing methods
 class TestableYtDlpWorker : public YtDlpWorker {

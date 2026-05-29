@@ -139,12 +139,10 @@ void PlaylistExpander::onProcessFinished(int exitCode, QProcess::ExitStatus exit
         QString errorMessage = "Failed to expand playlist.";
         
         // Try to extract a clean error message line instead of the whole stack trace
-        QStringList lines = stderrOutput.split('\n');
-        for (const QString &line : lines) {
-            if (line.startsWith("ERROR:")) {
-                errorMessage += "\n" + line.trimmed();
-                break;
-            }
+        int errIdx = stderrOutput.indexOf("ERROR:");
+        if (errIdx != -1) {
+            int endIdx = stderrOutput.indexOf('\n', errIdx);
+            errorMessage += "\n" + stderrOutput.mid(errIdx, endIdx == -1 ? -1 : endIdx - errIdx).trimmed();
         }
         
         emit expansionFinished(m_url, {}, errorMessage);

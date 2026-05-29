@@ -12,19 +12,22 @@
 #include <QMutex>
 #include <QStringList>
 
+namespace {
+    const int MAX_LOG_FILES = 5;
+    const QString LOG_FILE_PREFIX = "LzyDownloader_";
+    const QString LOG_FILE_EXTENSION = ".log";
+}
+
 // Define a static file pointer for the log file
 static QFile *logFile = nullptr;
 
 // Mutex to prevent concurrent file I/O from multiple threads
 static QMutex s_logMutex;
 
-// Maximum number of log files to keep (oldest will be deleted)
-static const int MAX_LOG_FILES = 5;
-
 static bool isHeadlessMode()
 {
     const QStringList args = QCoreApplication::arguments();
-    return args.contains("--headless") || args.contains("--server");
+    return args.contains("--headless") || args.contains("--server") || args.contains("--background");
 }
 
 // Custom message handler
@@ -91,7 +94,7 @@ static void cleanupOldLogs(const QString &logDir) {
     }
 
     // Find all log files matching the pattern, sort by name descending (newest first)
-    QStringList logFiles = dir.entryList(QStringList() << "LzyDownloader*.log", QDir::Files, QDir::Name | QDir::Reversed);
+    QStringList logFiles = dir.entryList(QStringList() << LOG_FILE_PREFIX + "*" + LOG_FILE_EXTENSION, QDir::Files, QDir::Name | QDir::Reversed);
     
     // We want to keep exactly MAX_LOG_FILES - 1 files before creating the new one
     const int maxKeep = MAX_LOG_FILES > 0 ? MAX_LOG_FILES - 1 : 0;
@@ -108,7 +111,7 @@ static void cleanupOldLogs(const QString &logDir) {
     }
 
     // Also cleanup legacy size-rotated logs if they exist
-    QStringList legacyLogs = dir.entryList(QStringList() << "LzyDownloader.log.*", QDir::Files);
+    QStringList legacyLogs = dir.entryList(QStringList() << "LzyDownloader.log" << "LzyDownloader.log.*", QDir::Files);
     for (const QString& legacyLog : legacyLogs) {
         QString path = dir.filePath(legacyLog);
         if (QFile::exists(path)) {
@@ -135,7 +138,7 @@ void LogManager::installHandler() {
 
     // Create a new log file with timestamp in the filename
     QString timestamp = QDateTime::currentDateTime().toString("yyyy-MM-dd_HH-mm-ss");
-    const QString logPath = QDir(logDir).filePath("LzyDownloader_" + timestamp + ".log");
+    const QString logPath = QDir(logDir).filePath(LOG_FILE_PREFIX + timestamp + LOG_FILE_EXTENSION);
 
     // Open the new log file (write mode, no append - fresh log for each run)
     logFile = new QFile(logPath);

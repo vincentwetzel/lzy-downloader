@@ -197,25 +197,14 @@ void YtDlpWorker::onReadyReadStandardError() {
 void YtDlpWorker::parseStandardOutput(const QByteArray &output) {
     m_outputBuffer.append(output);
 
-    // Find the last complete line ending
-    int lastNewline = m_outputBuffer.lastIndexOf('\n');
-    int lastCarriageReturn = m_outputBuffer.lastIndexOf('\r');
-    int lastDelimiter = qMax(lastNewline, lastCarriageReturn);
+    int lastDelimiter = qMax(m_outputBuffer.lastIndexOf('\n'), m_outputBuffer.lastIndexOf('\r'));
+    if (lastDelimiter == -1) return;
 
-    if (lastDelimiter == -1) {
-        // No complete line yet, wait for more data
-        return;
-    }
-
-    // Extract all complete lines
-    QByteArray completeData = m_outputBuffer.left(lastDelimiter + 1);
+    QStringList lines = QString::fromUtf8(m_outputBuffer.left(lastDelimiter + 1)).split(QRegularExpression("[\\r\\n]"), Qt::SkipEmptyParts);
     m_outputBuffer.remove(0, lastDelimiter + 1);
 
-    // Split and process lines, skipping empty parts
-    QStringList lines = QString::fromUtf8(completeData).split(QRegularExpression("[\\r\\n]"), Qt::SkipEmptyParts);
-
     for (const QString &line : lines) {
-        handleOutputLine(line.trimmed()); // Ensure each line is trimmed
+        handleOutputLine(line.trimmed());
     }
 }
 
@@ -223,18 +212,11 @@ void YtDlpWorker::parseStandardError(const QByteArray &output) {
     m_errorBuffer.append(output);
     qDebug() << "parseStandardError called. Current buffer size:" << m_errorBuffer.size();
 
-    int lastNewline = m_errorBuffer.lastIndexOf('\n');
-    int lastCarriageReturn = m_errorBuffer.lastIndexOf('\r');
-    int lastDelimiter = qMax(lastNewline, lastCarriageReturn);
+    int lastDelimiter = qMax(m_errorBuffer.lastIndexOf('\n'), m_errorBuffer.lastIndexOf('\r'));
+    if (lastDelimiter == -1) return;
 
-    if (lastDelimiter == -1) {
-        return;
-    }
-
-    QByteArray completeData = m_errorBuffer.left(lastDelimiter + 1);
+    QStringList lines = QString::fromUtf8(m_errorBuffer.left(lastDelimiter + 1)).split(QRegularExpression("[\\r\\n]"), Qt::SkipEmptyParts);
     m_errorBuffer.remove(0, lastDelimiter + 1);
-
-    QStringList lines = QString::fromUtf8(completeData).split(QRegularExpression("[\\r\\n]"), Qt::SkipEmptyParts);
 
     for (const QString &line : lines) {
         qDebug() << "Processing stderr line:" << line.trimmed();
@@ -250,30 +232,26 @@ void YtDlpWorker::readInfoJsonWithRetry() {
         return;
     }
 
-    QFile jsonFile(m_infoJsonPath);
-    if (!jsonFile.exists()) {
-        qDebug() << "readInfoJsonWithRetry: info.json file does not exist yet at:" << m_infoJsonPath;
-        if (m_infoJsonRetryCount < 5) { // Retry up to 5 times
+    auto scheduleRetry = [this](const QString& reason) {
+        qWarning().noquote() << "readInfoJsonWithRetry:" << reason;
+        if (m_infoJsonRetryCount < 5) {
             m_infoJsonRetryCount++;
-            QTimer::singleShot(500, this, &YtDlpWorker::readInfoJsonWithRetry); // Retry after 500ms
+            QTimer::singleShot(500, this, &YtDlpWorker::readInfoJsonWithRetry);
             qDebug() << "readInfoJsonWithRetry: Retrying in 500ms. Attempt:" << m_infoJsonRetryCount;
         } else {
-            qWarning() << "readInfoJsonWithRetry: Max retries reached for info.json. File not found at:" << m_infoJsonPath;
+            qWarning() << "readInfoJsonWithRetry: Max retries reached for info.json.";
             m_infoJsonPath.clear(); // Give up
         }
+    };
+
+    QFile jsonFile(m_infoJsonPath);
+    if (!jsonFile.exists()) {
+        scheduleRetry(QString("info.json file does not exist yet at: %1").arg(m_infoJsonPath));
         return;
     }
 
     if (!jsonFile.open(QIODevice::ReadOnly)) {
-        qWarning() << "readInfoJsonWithRetry: Could not open info.json file at:" << m_infoJsonPath << "Error:" << jsonFile.errorString();
-        if (m_infoJsonRetryCount < 5) { // Retry up to 5 times
-            m_infoJsonRetryCount++;
-            QTimer::singleShot(500, this, &YtDlpWorker::readInfoJsonWithRetry); // Retry after 500ms
-            qDebug() << "readInfoJsonWithRetry: Retrying in 500ms. Attempt:" << m_infoJsonRetryCount;
-        } else {
-            qWarning() << "readInfoJsonWithRetry: Max retries reached for info.json. Could not open file at:" << m_infoJsonPath;
-            m_infoJsonPath.clear(); // Give up
-        }
+        scheduleRetry(QString("Could not open info.json file at: %1 Error: %2").arg(m_infoJsonPath, jsonFile.errorString()));
         return;
     }
 
@@ -285,15 +263,7 @@ void YtDlpWorker::readInfoJsonWithRetry() {
     QJsonDocument doc = QJsonDocument::fromJson(jsonData, &parseError);
 
     if (doc.isNull() || !doc.isObject()) {
-        qWarning() << "readInfoJsonWithRetry: Failed to parse info.json as JSON or it's not an object. Error:" << parseError.errorString();
-        if (m_infoJsonRetryCount < 5) { // Retry up to 5 times
-            m_infoJsonRetryCount++;
-            QTimer::singleShot(500, this, &YtDlpWorker::readInfoJsonWithRetry); // Retry after 500ms
-            qDebug() << "readInfoJsonWithRetry: Retrying in 500ms. Attempt:" << m_infoJsonRetryCount;
-        } else {
-            qWarning() << "readInfoJsonWithRetry: Max retries reached for info.json. Invalid JSON at:" << m_infoJsonPath;
-            m_infoJsonPath.clear(); // Give up
-        }
+        scheduleRetry(QString("Failed to parse info.json as JSON or it's not an object. Error: %1").arg(parseError.errorString()));
         return;
     }
 

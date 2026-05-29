@@ -5,6 +5,10 @@
 #include "BaseTest.h" // Include BaseTest, now in src/tests
 
 
+namespace {
+    const QString TEST_URL = "https://www.youtube.com/watch?v=dQw4w9WgXcQ";
+}
+
 void TestYtDlpArgsBuilder::testBasicVideoArguments() {
     ConfigManager *mockConfig = getConfigManager();
     mockConfig->set("General", "restrict_filenames", true);
@@ -21,13 +25,13 @@ void TestYtDlpArgsBuilder::testBasicVideoArguments() {
     options["videoExtension"] = "mp4";
     // Add other relevant options here if needed for specific tests
 
-    QStringList args = builder.build(mockConfig, QUrl("https://www.youtube.com/watch?v=dQw4w9WgXcQ").toString(), options);
+    QStringList args = builder.build(mockConfig, QUrl(TEST_URL).toString(), options);
 
     QString expectedFormatArg = "bestvideo+bestaudio/bestvideo+bestaudio/bestvideo+bestaudio/bestvideo+bestaudio/bestvideo/bestvideo/best";
 
     QVERIFY(args.contains("--ignore-config"));
     QVERIFY(args.contains("--restrict-filenames")); // Now this should be true
-    QVERIFY(args.contains("https://www.youtube.com/watch?v=dQw4w9WgXcQ"));
+    QVERIFY(args.contains(TEST_URL));
     QVERIFY(args.contains("-f"));
     QVERIFY(args.contains(expectedFormatArg)); // Check for the expected simple format
     QVERIFY(args.contains("--merge-output-format"));
@@ -48,7 +52,7 @@ void TestYtDlpArgsBuilder::testSponsorBlockArguments() {
     options["videoExtension"] = "mp4";
     // Add other relevant options here if needed for specific tests
 
-    QStringList args = builder.build(mockConfig, QUrl("https://www.youtube.com/watch?v=dQw4w9WgXcQ").toString(), options);
+    QStringList args = builder.build(mockConfig, QUrl(TEST_URL).toString(), options);
 
     QVERIFY(args.contains("--sponsorblock-remove"));
     QVERIFY(args.contains("all"));

@@ -291,13 +291,13 @@ Active, paused, and stopped downloads are automatically serialized to a JSON fil
 - **Linux:** `~/.config/LzyDownloader/downloads_backup.json`
 - **macOS:** `~/Library/Application Support/LzyDownloader/downloads_backup.json`
 
-When launched with `--server` or `--headless`, queue runtime state is isolated under `Server/`, for example `%LOCALAPPDATA%\LzyDownloader\Server\downloads_backup.json` on Windows.
+When launched with `--server`, `--headless`, or `--background`, queue runtime state is isolated under `Server/`, for example `%LOCALAPPDATA%\LzyDownloader\Server\downloads_backup.json` on Windows.
 
 Stopped and failed entries also retain the latest known temporary file paths needed for resume and cleanup workflows. This allows the Active Downloads tab's `Clear Temp Files` action to remove tracked partial media, sidecar metadata, thumbnails, and downloader state files even after an app restart.
 
 ## Local API Token Location
 
-When `General/enable_local_api` is enabled in GUI mode, or when `--server`/`--headless` explicitly starts the API, the API token is stored as `api_token.txt` in the app-local data directory:
+When `General/enable_local_api` is enabled in GUI mode, or when `--server`, `--headless`, or `--background` explicitly starts the API, the API token is stored as `api_token.txt` in the app-local data directory:
 - **Windows:** `%LOCALAPPDATA%\LzyDownloader\api_token.txt`
 - **Linux:** `~/.local/share/LzyDownloader/api_token.txt`
 - **macOS:** `~/Library/Application Support/LzyDownloader/api_token.txt`

@@ -8,6 +8,11 @@
 #include <QDateTime>
 #include <QtTest/QTest>
 
+namespace {
+    const QString TEST_SETTINGS_FILE = "test_settings.ini";
+    const QString TEST_ARCHIVE_FILE = "test_archive.db";
+}
+
 BaseTest::BaseTest(QObject *parent)
     : QObject(parent), m_temporaryDir() { // Initialize QTemporaryDir directly
 }
@@ -53,7 +58,7 @@ QString BaseTest::getTempDir() const {
 
 ConfigManager* BaseTest::getConfigManager() {
     if (m_configManager.isNull()) {
-        QString settingsFilePath = getTempDir() + "/test_settings.ini";
+        QString settingsFilePath = QDir(getTempDir()).filePath(TEST_SETTINGS_FILE);
         m_configManager = QSharedPointer<ConfigManager>(new ConfigManager(settingsFilePath, true, nullptr));
         qDebug() << "ConfigManager created for testing with path:" << settingsFilePath;
     }
@@ -62,7 +67,7 @@ ConfigManager* BaseTest::getConfigManager() {
 
 ArchiveManager* BaseTest::getArchiveManager() {
     if (m_archiveManager.isNull()) {
-        QString dbFilePath = getTempDir() + "/test_archive.db"; // Use a file path to demonstrate
+        QString dbFilePath = QDir(getTempDir()).filePath(TEST_ARCHIVE_FILE);
         m_archiveManager = QSharedPointer<ArchiveManager>(new ArchiveManager(getConfigManager(), dbFilePath, true, nullptr));
         qDebug() << "ArchiveManager created for testing with path:" << dbFilePath;
     }

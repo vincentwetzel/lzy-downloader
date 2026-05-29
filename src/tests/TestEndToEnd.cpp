@@ -10,16 +10,21 @@
 #include <QTimer> // Include QTimer
 #include <QThread> // Added for QThread::sleep
 
+namespace {
+    constexpr quint16 TEST_SERVER_PORT = 8000;
+    const QString TEST_DUMMY_FILE = "test_video.webm";
+    const QString TEST_SERVER_SCRIPT = "test_server.py";
+}
+
 // Helper to setup ConfigManager for test (implementation)
 void TestEndToEnd::setupTestConfig(ConfigManager *configManager, const QString &tempDir, const QString &ytDlpBinaryPath) {
     configManager->set("Paths", "completed_downloads_directory", tempDir);
-    configManager->set("Paths", "temporary_downloads_directory", tempDir);
-    configManager->set("Binaries", "yt_dlp_path", ytDlpBinaryPath); // Use provided path
+    // temporary_downloads_directory is automatically derived from completed_downloads_directory by ConfigManager
+    configManager->set("Binaries", "yt-dlp_path", ytDlpBinaryPath); // Use provided path
     configManager->set("Binaries", "aria2c_path", "aria2c"); // Assuming aria2c is in PATH
     configManager->set("Binaries", "ffmpeg_path", "ffmpeg"); // Assuming ffmpeg is in PATH
-    // Ensure that direct downloads are enabled, and aria2c is NOT used to simplify the test initially
-    configManager->set("DownloadOptions", "external_downloader_enabled", false);
-    configManager->set("DownloadOptions", "external_downloader", "yt-dlp");
+    // Ensure aria2c is NOT used to simplify the test initially
+    configManager->set("Metadata", "use_aria2c", false);
     
     // Explicitly clear audio/video specific templates to force fallback to generic output_template
     configManager->set("General", "output_template_audio", "");
@@ -33,7 +38,7 @@ void TestEndToEnd::init() {
     BaseTest::init();
     
     // 1. Create dummy video file
-    const QString videoFilePath = getTempDir() + "/test_video.webm";
+    const QString videoFilePath = QDir(getTempDir()).filePath(TEST_DUMMY_FILE);
     QFile videoFile(videoFilePath);
     if (videoFile.open(QIODevice::WriteOnly)) {
         videoFile.write("dummy video content", 19); // Small content for a small file size
@@ -43,13 +48,13 @@ void TestEndToEnd::init() {
     }
 
     // 2. Start Python HTTP server
-    const QString sourcePythonScriptPath = QCoreApplication::applicationDirPath() + "/../../../src/tests/test_server.py";
-    if (sourcePythonScriptPath.isEmpty()) {
-        QFAIL("test_server.py not found. Ensure it's in the correct test data path.");
+    const QString sourcePythonScriptPath = QDir(QCoreApplication::applicationDirPath()).absoluteFilePath("../../../src/tests/" + TEST_SERVER_SCRIPT);
+    if (!QFile::exists(sourcePythonScriptPath)) {
+        QFAIL(qPrintable(QString("%1 not found. Ensure it's in the correct test data path.").arg(TEST_SERVER_SCRIPT)));
     }
-    const QString destPythonScriptPath = getTempDir() + "/test_server.py";
+    const QString destPythonScriptPath = QDir(getTempDir()).filePath(TEST_SERVER_SCRIPT);
     if (!QFile::copy(sourcePythonScriptPath, destPythonScriptPath)) {
-        QFAIL(qPrintable(QString("Failed to copy test_server.py to temporary directory: %1").arg(destPythonScriptPath)));
+        QFAIL(qPrintable(QString("Failed to copy %1 to temporary directory: %2").arg(TEST_SERVER_SCRIPT, destPythonScriptPath)));
     }
 
 
@@ -59,7 +64,7 @@ void TestEndToEnd::init() {
 #else
     m_httpServerProcess->setProgram("python3"); // Fallback for Unix-like systems
 #endif
-    m_httpServerProcess->setArguments(QStringList() << destPythonScriptPath); // Run the copied script
+    m_httpServerProcess->setArguments(QStringList() << destPythonScriptPath << QString::number(TEST_SERVER_PORT)); // Run the copied script
     m_httpServerProcess->setWorkingDirectory(getTempDir()); // Server serves from temp dir
     
     QObject::connect(m_httpServerProcess, &QProcess::readyReadStandardOutput, this, [&]() {
@@ -82,7 +87,7 @@ void TestEndToEnd::init() {
     QTcpSocket socket;
     qint64 startTime = QDateTime::currentMSecsSinceEpoch();
     while (socket.state() != QAbstractSocket::ConnectedState && QDateTime::currentMSecsSinceEpoch() - startTime < 10000) {
-        socket.connectToHost("127.0.0.1", 8000); // 127.0.0.1 prevents ambiguous IPv6 loops
+        socket.connectToHost("127.0.0.1", TEST_SERVER_PORT); // 127.0.0.1 prevents ambiguous IPv6 loops
         if (socket.waitForConnected(200)) {
             break;
         }
@@ -102,25 +107,11 @@ void TestEndToEnd::init() {
 
 void TestEndToEnd::cleanup() {
     if (m_httpServerProcess && m_httpServerProcess->state() == QProcess::Running) {
-        m_httpServerProcess->terminate();
-        m_httpServerProcess->waitForFinished(3000); // Wait for termination
-        if (m_httpServerProcess->state() == QProcess::Running) {
-            m_httpServerProcess->kill(); // Force kill if still running
-            m_httpServerProcess->waitForFinished(1000);
-        }
+        ProcessUtils::terminateProcessTree(m_serverProcessId);
         qDebug() << "Terminated test HTTP server process with PID:" << m_serverProcessId;
     } else if (m_serverProcessId != 0) {
         // Fallback for detached process if any part of the test failed to properly manage m_httpServerProcess
-#ifdef Q_OS_WIN
-        if (QProcess::execute("taskkill", {"/F", "/PID", QString::number(m_serverProcessId)}) != 0) {
-             qWarning() << "Failed to terminate test HTTP server fallback process with PID:" << m_serverProcessId;
-        }
-#else
-        // For Unix-like systems, use 'kill' command
-        if (QProcess::execute("kill", {"-9", QString::number(m_serverProcessId)}) != 0) {
-             qWarning() << "Failed to terminate test HTTP server fallback process with PID:" << m_serverProcessId;
-        }
-#endif
+        ProcessUtils::terminateProcessTree(m_serverProcessId);
         qDebug() << "Terminated test HTTP server fallback process with PID:" << m_serverProcessId;
     }
     m_serverProcessId = 0; // Reset PID
@@ -128,7 +119,7 @@ void TestEndToEnd::cleanup() {
 }
 
 void TestEndToEnd::testSingleVideoDownload() {
-    const QString testUrl = "http://localhost:8000/test_video.webm"; // Local HTTP server URL
+    const QString testUrl = QString("http://localhost:%1/%2").arg(TEST_SERVER_PORT).arg(TEST_DUMMY_FILE); // Local HTTP server URL
     
     // 1. Setup ConfigManager
     ConfigManager *configManager = getConfigManager();
@@ -161,7 +152,7 @@ void TestEndToEnd::testSingleVideoDownload() {
     QVERIFY(downloadAddedSpy.wait(5000));
     QList<QVariant> addedArguments = downloadAddedSpy.takeFirst();
     QString downloadId = addedArguments.at(0).toMap().value("id").toString();
-    const QString expectedFilePath = QDir(getTempDir()).filePath("test_video.webm");
+    const QString expectedFilePath = QDir(getTempDir()).filePath(TEST_DUMMY_FILE);
 
     // 6. Wait for download to finish
     QVERIFY(downloadFinishedSpy.wait(60000)); // Wait up to 60 seconds for the download to complete

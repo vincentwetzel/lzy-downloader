@@ -14,41 +14,44 @@ QStringList getInstalledBrowsers() {
 
     QString programFiles = qgetenv("ProgramFiles");
     QString programFilesX86 = qgetenv("ProgramFiles(x86)");
-    QString localAppData = QStandardPaths::writableLocation(QStandardPaths::HomeLocation) + "/AppData/Local";
+    QString localAppData = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation);
 
-    // Chrome
-    if (QFile::exists(programFiles + "/Google/Chrome/Application/chrome.exe") ||
-        QFile::exists(programFilesX86 + "/Google/Chrome/Application/chrome.exe")) {
-        browsers << "chrome";
-    }
+    auto checkBrowser = [&](const QString& browserId, const QStringList& paths) {
+        for (const QString& path : paths) {
+            if (QFile::exists(path)) {
+                browsers << browserId;
+                break;
+            }
+        }
+    };
 
-    // Firefox
-    if (QFile::exists(programFiles + "/Mozilla Firefox/firefox.exe") ||
-        QFile::exists(programFilesX86 + "/Mozilla Firefox/firefox.exe")) {
-        browsers << "firefox";
-    }
+    checkBrowser("chrome", {
+        QDir(programFiles).filePath("Google/Chrome/Application/chrome.exe"),
+        QDir(programFilesX86).filePath("Google/Chrome/Application/chrome.exe")
+    });
 
-    // Edge
-    if (QFile::exists(programFiles + "/Microsoft/Edge/Application/msedge.exe") ||
-        QFile::exists(programFilesX86 + "/Microsoft/Edge/Application/msedge.exe")) {
-        browsers << "edge";
-    }
+    checkBrowser("firefox", {
+        QDir(programFiles).filePath("Mozilla Firefox/firefox.exe"),
+        QDir(programFilesX86).filePath("Mozilla Firefox/firefox.exe")
+    });
 
-    // Opera
-    if (QFile::exists(localAppData + "/Programs/Opera/launcher.exe")) {
-        browsers << "opera";
-    }
+    checkBrowser("edge", {
+        QDir(programFiles).filePath("Microsoft/Edge/Application/msedge.exe"),
+        QDir(programFilesX86).filePath("Microsoft/Edge/Application/msedge.exe")
+    });
 
-    // Brave
-    if (QFile::exists(programFiles + "/BraveSoftware/Brave-Browser/Application/brave.exe") ||
-        QFile::exists(programFilesX86 + "/BraveSoftware/Brave-Browser/Application/brave.exe")) {
-        browsers << "brave";
-    }
+    checkBrowser("opera", {
+        QDir(localAppData).filePath("Programs/Opera/launcher.exe")
+    });
 
-    // Vivaldi
-    if (QFile::exists(localAppData + "/Vivaldi/Application/vivaldi.exe")) {
-        browsers << "vivaldi";
-    }
+    checkBrowser("brave", {
+        QDir(programFiles).filePath("BraveSoftware/Brave-Browser/Application/brave.exe"),
+        QDir(programFilesX86).filePath("BraveSoftware/Brave-Browser/Application/brave.exe")
+    });
+
+    checkBrowser("vivaldi", {
+        QDir(localAppData).filePath("Vivaldi/Application/vivaldi.exe")
+    });
 
     return browsers;
 }
