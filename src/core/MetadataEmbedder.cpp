@@ -22,6 +22,12 @@ MetadataEmbedder::MetadataEmbedder(ConfigManager *configManager, QObject *parent
         appendProcessOutput(m_process->readAllStandardError());
     });
     connect(m_process, &QProcess::finished, this, &MetadataEmbedder::onProcessFinished);
+    connect(m_process, &QProcess::errorOccurred, this, [this](QProcess::ProcessError error) {
+        if (error == QProcess::FailedToStart) {
+            m_stage = Stage::Idle;
+            emit finished(false, tr("Failed to start ffprobe/ffmpeg process. Please check your configuration."));
+        }
+    });
 }
 
 void MetadataEmbedder::setExtraMetadata(const QVariantMap &metadata) {
@@ -40,11 +46,11 @@ void MetadataEmbedder::processFile(const QString &filePath, int trackNumber, boo
     }
 
     if (m_process->state() != QProcess::NotRunning || m_stage != Stage::Idle) {
-        emit finished(false, "FFmpeg post-processing is already running.");
+        emit finished(false, tr("FFmpeg post-processing is already running."));
         return;
     }
 
-    m_tempFilePath = fileInfo.absolutePath() + "/temp_" + fileInfo.fileName();
+    m_tempFilePath = QDir(fileInfo.absolutePath()).filePath(QStringLiteral("temp_%1").arg(fileInfo.fileName()));
     m_pendingTrackNumber = trackNumber;
     m_targetDurationSeconds = 0.0;
     m_processOutputTail.clear();
@@ -154,10 +160,10 @@ void MetadataEmbedder::onProcessFinished(int exitCode, QProcess::ExitStatus exit
     if (success) {
         if (QFile::remove(m_originalFilePath)) {
             if (!QFile::rename(m_tempFilePath, m_originalFilePath)) {
-                error = "Failed to rename temp file to original file.";
+                error = tr("Failed to rename temp file to original file.");
             }
         } else {
-            error = "Failed to remove original file.";
+            error = tr("Failed to remove original file.");
         }
     } else {
         error = m_processOutputTail;

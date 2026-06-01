@@ -4,6 +4,7 @@
 #include <QUuid>
 #include <QFile>
 #include <QJsonDocument>
+#include <QSaveFile>
 #include <QJsonObject>
 #include <QJsonArray>
 #include <QUrl>
@@ -62,11 +63,11 @@ QString LocalApiServer::getApiKey() const
 void LocalApiServer::generateOrLoadApiKey()
 {
     QString dataPath = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation);
-    if (QCoreApplication::arguments().contains("--headless") || QCoreApplication::arguments().contains("--server")) {
-        dataPath = QDir(dataPath).filePath("Server");
+    if (QCoreApplication::arguments().contains(QStringLiteral("--headless")) || QCoreApplication::arguments().contains(QStringLiteral("--server")) || QCoreApplication::arguments().contains(QStringLiteral("--background"))) {
+        dataPath = QDir(dataPath).filePath(QStringLiteral("Server"));
     }
     QDir().mkpath(dataPath);
-    QString keyPath = QDir(dataPath).filePath("api_token.txt");
+    QString keyPath = QDir(dataPath).filePath(QStringLiteral("api_token.txt"));
 
     QFile file(keyPath);
     if (file.exists() && file.open(QIODevice::ReadOnly | QIODevice::Text)) {
@@ -76,18 +77,23 @@ void LocalApiServer::generateOrLoadApiKey()
 
     if (m_apiKey.isEmpty()) {
         m_apiKey = QUuid::createUuid().toString(QUuid::WithoutBraces);
-        if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
-            file.write(m_apiKey.toUtf8());
-            file.close();
+        QSaveFile saveFile(keyPath);
+        if (saveFile.open(QIODevice::WriteOnly | QIODevice::Text)) {
+            saveFile.write(m_apiKey.toUtf8());
+            if (saveFile.commit()) {
+                QFile::setPermissions(keyPath, QFileDevice::ReadOwner | QFileDevice::WriteOwner);
+            } else {
+                qWarning() << "Failed to commit API key to" << keyPath << ":" << saveFile.errorString();
+            }
         } else {
-            qWarning() << "Failed to write API key to" << keyPath;
+            qWarning() << "Failed to open API key file for writing:" << keyPath << ":" << saveFile.errorString();
         }
     }
 }
 
 void LocalApiServer::onDownloadAdded(const QVariantMap &itemData)
 {
-    QString id = itemData.value("id").toString();
+    QString id = itemData.value(QStringLiteral("id")).toString();
     m_activeJobs[id] = itemData;
 }
 
@@ -103,8 +109,8 @@ void LocalApiServer::onDownloadProgress(const QString &id, const QVariantMap &pr
 void LocalApiServer::onDownloadFinished(const QString &id, bool success, const QString &message)
 {
     if (m_activeJobs.contains(id)) {
-        m_activeJobs[id].insert("status", success ? "Complete" : message);
-        m_activeJobs[id].insert("progress", 100);
+        m_activeJobs[id].insert(QStringLiteral("status"), success ? QStringLiteral("Complete") : message);
+        m_activeJobs[id].insert(QStringLiteral("progress"), 100);
     }
 }
 
@@ -128,19 +134,26 @@ void LocalApiServer::onReadyRead()
     QByteArray buffer = socket->property("requestBuffer").toByteArray();
     buffer.append(socket->readAll());
 
+    // Prevent memory exhaustion if headers are extremely large or missing \r\n\r\n
+    if (buffer.size() > 5 * 1024 * 1024) {
+        socket->write("HTTP/1.1 413 Payload Too Large\r\n\r\n");
+        socket->disconnectFromHost();
+        return;
+    }
+
     int headerEnd = buffer.indexOf("\r\n\r\n");
     if (headerEnd != -1) {
         int contentLength = 0;
         
         QString headersStr = QString::fromUtf8(buffer.left(headerEnd));
 
-        QRegularExpression clRe("Content-Length:\\s*(\\d+)", QRegularExpression::CaseInsensitiveOption);
+        static const QRegularExpression clRe(QStringLiteral("Content-Length:\\s*(\\d+)"), QRegularExpression::CaseInsensitiveOption);
         QRegularExpressionMatch clMatch = clRe.match(headersStr);
         if (clMatch.hasMatch()) {
             contentLength = clMatch.captured(1).toInt();
         }
 
-        bool expect100 = headersStr.contains("Expect: 100-continue", Qt::CaseInsensitive);
+        bool expect100 = headersStr.contains(QStringLiteral("Expect: 100-continue"), Qt::CaseInsensitive);
 
         if (expect100 && !socket->property("100sent").toBool()) {
             socket->write("HTTP/1.1 100 Continue\r\n\r\n");
@@ -176,28 +189,59 @@ void LocalApiServer::handleRequest(QTcpSocket *socket, const QByteArray &request
     QUrl url(pathQuery);
     QString path = url.path();
 
-    // Enforce API Key
+    // Enforce API Key, Host, and Origin
     bool authorized = false;
+    bool validHost = false;
+    QString originHeader;
+
     for (const QString &line : lines) {
-        if (line.startsWith("Authorization:", Qt::CaseInsensitive)) {
+        if (line.startsWith(QStringLiteral("Authorization:"), Qt::CaseInsensitive)) {
             QString token = line.mid(14).trimmed();
-            if (token.startsWith("Bearer ", Qt::CaseInsensitive)) token = token.mid(7).trimmed();
+            if (token.startsWith(QStringLiteral("Bearer "), Qt::CaseInsensitive)) token = token.mid(7).trimmed();
             if (token == m_apiKey) {
                 authorized = true;
-                break;
             }
+        } else if (line.startsWith(QStringLiteral("Host:"), Qt::CaseInsensitive)) {
+            QString host = line.mid(5).trimmed();
+            if (host.startsWith(QStringLiteral("127.0.0.1")) || host.startsWith(QStringLiteral("localhost"))) {
+                validHost = true;
+            }
+        } else if (line.startsWith(QStringLiteral("Origin:"), Qt::CaseInsensitive)) {
+            originHeader = line.mid(7).trimmed();
         }
     }
 
+    if (!validHost) {
+        sendHttpResponse(socket, 403, QStringLiteral("Forbidden"), "{\"error\": \"Invalid Host header.\"}");
+        return;
+    }
+
+    if (!originHeader.isEmpty()) {
+        QUrl originUrl(originHeader);
+        QString originHost = originUrl.host();
+        if (originHost != QStringLiteral("127.0.0.1") && originHost != QStringLiteral("localhost") && 
+            !originUrl.scheme().startsWith(QStringLiteral("chrome-extension")) && 
+            !originUrl.scheme().startsWith(QStringLiteral("moz-extension"))) {
+            sendHttpResponse(socket, 403, QStringLiteral("Forbidden"), "{\"error\": \"Unauthorized cross-origin request.\"}");
+            return;
+        }
+    }
+
+    if (method == QStringLiteral("OPTIONS")) {
+        // Explicitly reject CORS preflight
+        sendHttpResponse(socket, 403, QStringLiteral("Forbidden"), "{\"error\": \"CORS preflight rejected.\"}");
+        return;
+    }
+
     if (!authorized) {
-        sendHttpResponse(socket, 401, "Unauthorized", "{\"error\": \"Unauthorized. Invalid API Key.\"}");
+        sendHttpResponse(socket, 401, QStringLiteral("Unauthorized"), "{\"error\": \"Unauthorized. Invalid API Key.\"}");
         return;
     }
 
     // Route Endpoints
-    if (method == "POST" && path == "/enqueue") {
+    if (method == QStringLiteral("POST") && path == QStringLiteral("/enqueue")) {
         QString bodyStr;
-        if (bodyData.size() >= 2 && (unsigned char)bodyData.at(0) == 0xFF && (unsigned char)bodyData.at(1) == 0xFE) {
+        if (bodyData.size() >= 2 && static_cast<unsigned char>(bodyData.at(0)) == 0xFF && static_cast<unsigned char>(bodyData.at(1)) == 0xFE) {
             bodyStr = QString::fromUtf16(reinterpret_cast<const char16_t*>(bodyData.constData()), bodyData.size() / 2);
         } else {
             bodyStr = QString::fromUtf8(bodyData);
@@ -206,57 +250,58 @@ void LocalApiServer::handleRequest(QTcpSocket *socket, const QByteArray &request
         QJsonParseError parseError;
         QJsonDocument doc = QJsonDocument::fromJson(bodyStr.toUtf8(), &parseError);
         if (!doc.isNull() && doc.isObject()) {
-            QString targetUrl = doc.object().value("url").toString().trimmed();
-            QString downloadType = doc.object().value("type").toString("video"); // Default to "video"
+            QString targetUrl = doc.object().value(QStringLiteral("url")).toString().trimmed();
+            QString downloadType = doc.object().value(QStringLiteral("type")).toString(QStringLiteral("video")); // Default to "video"
             if (!targetUrl.isEmpty()) {
                 // The signal signature in LocalApiServer.h must be updated to:
                 // void enqueueRequested(const QString &url, const QString &type, const QString &jobId);
-                QString jobId = doc.object().value("id").toString().trimmed();
+                QString jobId = doc.object().value(QStringLiteral("id")).toString().trimmed();
                 if (jobId.isEmpty()) {
                     jobId = QUuid::createUuid().toString(QUuid::WithoutBraces);
                 }
                 emit enqueueRequested(targetUrl, downloadType, jobId);
                 QJsonObject successObj;
-                successObj["status"] = "success";
-                successObj["message"] = "Download added to queue.";
-                successObj["job_id"] = jobId;
-                sendHttpResponse(socket, 200, "OK", QJsonDocument(successObj).toJson(QJsonDocument::Compact));
+                successObj[QStringLiteral("status")] = QStringLiteral("success");
+                successObj[QStringLiteral("message")] = QStringLiteral("Download added to queue.");
+                successObj[QStringLiteral("job_id")] = jobId;
+                sendHttpResponse(socket, 200, QStringLiteral("OK"), QJsonDocument(successObj).toJson(QJsonDocument::Compact));
                 return;
             }
         }
         
         QJsonObject errObj;
-        errObj["error"] = "Missing or invalid 'url' in JSON body.";
+        errObj[QStringLiteral("error")] = QStringLiteral("Missing or invalid 'url' in JSON body.");
         if (doc.isNull()) {
-            errObj["parse_error"] = parseError.errorString();
-            errObj["body_length"] = bodyData.size();
-            errObj["received_body"] = bodyStr.left(200);
+            errObj[QStringLiteral("parse_error")] = parseError.errorString();
+            errObj[QStringLiteral("body_length")] = bodyData.size();
+            errObj[QStringLiteral("received_body")] = bodyStr.left(200);
         } else if (!doc.isObject()) {
-            errObj["parse_error"] = "JSON is valid but not an object.";
+            errObj[QStringLiteral("parse_error")] = QStringLiteral("JSON is valid but not an object.");
         }
         QByteArray errBytes = QJsonDocument(errObj).toJson(QJsonDocument::Compact);
-        sendHttpResponse(socket, 400, "Bad Request", errBytes);
-    } else if (method == "GET" && path == "/status") {
+        sendHttpResponse(socket, 400, QStringLiteral("Bad Request"), errBytes);
+    } else if (method == QStringLiteral("GET") && path == QStringLiteral("/status")) {
         QJsonArray jobsArray;
         for (const QVariantMap &job : m_activeJobs.values()) {
             jobsArray.append(QJsonObject::fromVariantMap(job));
         }
         QJsonObject responseObj;
-        responseObj["status"] = "OK";
-        responseObj["jobs"] = jobsArray;
+        responseObj[QStringLiteral("status")] = QStringLiteral("OK");
+        responseObj[QStringLiteral("jobs")] = jobsArray;
         QByteArray responseBytes = QJsonDocument(responseObj).toJson(QJsonDocument::Compact);
-        sendHttpResponse(socket, 200, "OK", responseBytes);
+        sendHttpResponse(socket, 200, QStringLiteral("OK"), responseBytes);
     } else {
-        sendHttpResponse(socket, 404, "Not Found", "{\"error\": \"Endpoint Not Found\"}");
+        sendHttpResponse(socket, 404, QStringLiteral("Not Found"), "{\"error\": \"Endpoint Not Found\"}");
     }
 }
 
 void LocalApiServer::sendHttpResponse(QTcpSocket *socket, int statusCode, const QString &statusText, const QByteArray &body)
 {
     QByteArray response;
-    response.append(QString("HTTP/1.1 %1 %2\r\n").arg(statusCode).arg(statusText).toUtf8());
+    response.append(QStringLiteral("HTTP/1.1 %1 %2\r\n").arg(statusCode).arg(statusText).toUtf8());
     response.append("Content-Type: application/json\r\n");
-    response.append(QString("Content-Length: %1\r\n\r\n").arg(body.size()).toUtf8());
+    response.append("Connection: close\r\n");
+    response.append(QStringLiteral("Content-Length: %1\r\n\r\n").arg(body.size()).toUtf8());
     response.append(body);
     socket->write(response);
 }

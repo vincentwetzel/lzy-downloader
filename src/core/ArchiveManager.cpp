@@ -182,13 +182,13 @@ bool ArchiveManager::isInArchive(const QString &url) {
     QSqlQuery query(db);
 
     if (identity.provider == "youtube" && !identity.mediaId.isEmpty()) {
-        query.prepare("SELECT 1 FROM downloads WHERE provider = ? AND media_id = ? LIMIT 1");
+        query.prepare(QStringLiteral("SELECT 1 FROM downloads WHERE provider = ? AND media_id = ? LIMIT 1"));
         query.addBindValue("youtube");
         query.addBindValue(identity.mediaId);
         if (query.exec() && query.next()) return true;
     }
 
-    query.prepare("SELECT 1 FROM downloads WHERE normalized_url = ? OR url = ? LIMIT 1");
+    query.prepare(QStringLiteral("SELECT 1 FROM downloads WHERE normalized_url = ? OR url = ? LIMIT 1"));
     query.addBindValue(identity.normalizedUrl);
     query.addBindValue(url);
 
@@ -219,11 +219,11 @@ QString ArchiveManager::extractVideoId(const QString &urlStr) const {
         QUrlQuery query(url);
         QString v = query.queryItemValue("v");
         if (!v.isEmpty()) {
-            QRegularExpression re("^[0-9A-Za-z_-]{11}$");
+            static const QRegularExpression re(QStringLiteral("^[0-9A-Za-z_-]{11}$"));
             if (re.match(v).hasMatch()) return v;
         }
 
-        QRegularExpression re("/(?:shorts|live|embed)/([0-9A-Za-z_-]{11})(?:[/?#]|$)");
+        static const QRegularExpression re(QStringLiteral("/(?:shorts|live|embed)/([0-9A-Za-z_-]{11})(?:[/?#]|$)"));
         QRegularExpressionMatch match = re.match(url.path());
         if (match.hasMatch()) return match.captured(1);
     }
@@ -234,17 +234,17 @@ QString ArchiveManager::extractVideoId(const QString &urlStr) const {
         QStringList parts = path.split("/");
         if (!parts.isEmpty()) {
             QString seg = parts.first();
-            QRegularExpression re("^[0-9A-Za-z_-]{11}$");
+            static const QRegularExpression re(QStringLiteral("^[0-9A-Za-z_-]{11}$"));
             if (re.match(seg).hasMatch()) return seg;
         }
     }
 
     // Fallback patterns
-    QRegularExpression p1("(?:v=|/)([0-9A-Za-z_-]{11}).*");
+    static const QRegularExpression p1(QStringLiteral("(?:v=|/)([0-9A-Za-z_-]{11}).*"));
     QRegularExpressionMatch m1 = p1.match(urlStr);
     if (m1.hasMatch()) return m1.captured(1);
 
-    QRegularExpression p2("youtu\\.be/([0-9A-Za-z_-]{11})");
+    static const QRegularExpression p2(QStringLiteral("youtu\\.be/([0-9A-Za-z_-]{11})"));
     QRegularExpressionMatch m2 = p2.match(urlStr);
     if (m2.hasMatch()) return m2.captured(1);
 
@@ -260,7 +260,7 @@ QString ArchiveManager::normalizeUrl(const QString &urlStr) const {
 
     QString path = url.path();
     // Remove duplicate slashes and trailing slash
-    static QRegularExpression duplicateSlashes("/+");
+    static const QRegularExpression duplicateSlashes(QStringLiteral("/+"));
     path.replace(duplicateSlashes, "/");
     if (path.endsWith("/") && path.length() > 1) path.chop(1);
 
@@ -289,12 +289,12 @@ QString ArchiveManager::normalizeUrl(const QString &urlStr) const {
 
     for (const auto &item : queryItems) {
         if (dropParams.contains(item.first.toLower())) continue;
-        keptParams.append(item.first + "=" + item.second);
+        keptParams.append(QStringLiteral("%1=%2").arg(item.first, item.second));
     }
 
     QString queryString;
     if (!keptParams.isEmpty()) {
-        queryString = "?" + keptParams.join("&");
+        queryString = QStringLiteral("?") + keptParams.join(QStringLiteral("&"));
     }
 
     return (host + path + queryString).toLower();

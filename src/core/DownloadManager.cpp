@@ -78,7 +78,7 @@ void DownloadManager::shutdown() {
             continue;
         }
         worker->disconnect(this);
-        delete worker;
+        worker->deleteLater();
     }
     m_activeWorkers.clear();
 
@@ -89,7 +89,7 @@ void DownloadManager::shutdown() {
             continue;
         }
         embedder->disconnect(this);
-        delete embedder;
+        embedder->deleteLater();
     }
     m_activeEmbedders.clear();
     m_pendingSponsorBlockPreflights.clear();

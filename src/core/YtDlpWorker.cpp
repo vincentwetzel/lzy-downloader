@@ -66,7 +66,7 @@ void YtDlpWorker::start() {
         m_args.prepend("--progress");
     }
 
-    emitStatusUpdate("Extracting media information...", -1);
+    emitStatusUpdate(tr("Extracting media information..."), -1);
 
     qDebug() << "[YtDlpWorker] Binary path:" << ytDlpPath;
     qDebug() << "[YtDlpWorker] Working directory:" << workingDirPath;
@@ -76,21 +76,21 @@ void YtDlpWorker::start() {
     qDebug() << "Working directory set to:" << workingDirPath;
 
     // Log full command for debugging
-    QString fullCommand = "\"" + ytDlpPath + "\"";
+    QString fullCommand = QStringLiteral("\"%1\"").arg(ytDlpPath);
     for (const QString &arg : m_args) {
         if (arg.contains(' ')) {
-            fullCommand += " \"" + arg + "\"";
+            fullCommand += QStringLiteral(" \"%1\"").arg(arg);
         } else {
-            fullCommand += " " + arg;
+            fullCommand += QStringLiteral(" %1").arg(arg);
         }
     }
     qDebug() << "Full yt-dlp command:" << fullCommand;
     
     // Connect state change signals for diagnostics
-    connect(m_process, &QProcess::stateChanged, [this](QProcess::ProcessState state) {
+    connect(m_process, &QProcess::stateChanged, this, [this](QProcess::ProcessState state) {
         qDebug() << "[YtDlpWorker] Process state changed to:" << state;
     });
-    connect(m_process, &QProcess::errorOccurred, [this](QProcess::ProcessError error) {
+    connect(m_process, &QProcess::errorOccurred, this, [this](QProcess::ProcessError error) {
         qWarning() << "[YtDlpWorker] Process error occurred:" << error << m_process->errorString();
     });
     
@@ -117,7 +117,7 @@ void YtDlpWorker::killProcess() {
     }
 
     // Clean up orphaned wait thumbnail if the process is killed by the user
-    if (!m_thumbnailPath.isEmpty() && m_thumbnailPath.endsWith("_wait_thumbnail.jpg")) {
+    if (!m_thumbnailPath.isEmpty() && QFileInfo(m_thumbnailPath).fileName().startsWith(m_id + "_wait_thumbnail")) {
         QFile::remove(m_thumbnailPath);
         m_thumbnailPath.clear();
     }

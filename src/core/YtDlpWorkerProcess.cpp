@@ -38,13 +38,13 @@ void YtDlpWorker::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatu
     const bool capturedFinalFileExists = !m_finalFilename.isEmpty() && QFileInfo::exists(m_finalFilename);
     const bool recoveredFromPostProcessorFailure = normalExit && exitCode != 0 && capturedFinalFileExists;
     bool success = (normalExit && exitCode == 0 && !m_finalFilename.isEmpty()) || recoveredFromPostProcessorFailure;
-    QString message = success ? "Download completed successfully." : "Download failed.";
+    QString message = success ? tr("Download completed successfully.") : tr("Download failed.");
     QString postprocessorWarning;
 
     if (recoveredFromPostProcessorFailure) {
-        message = "Download completed, but thumbnail/post-processing reported a warning.";
+        message = tr("Download completed, but thumbnail/post-processing reported a warning.");
         if (!m_errorLines.isEmpty()) {
-            message += "\n" + m_errorLines.join("\n").left(200);
+            message = QString("%1\n%2").arg(message, m_errorLines.join("\n").left(200));
         }
         postprocessorWarning = message;
         qWarning() << "yt-dlp exited with code" << exitCode
@@ -57,14 +57,14 @@ void YtDlpWorker::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatu
     } else {
         qWarning() << "Could not determine final filename. Download may have failed or produced no output.";
         if (exitCode == 0 && exitStatus == QProcess::NormalExit) {
-            message += "\nCould not determine final filename.";
+            message = QString("%1\n%2").arg(message, tr("Could not determine final filename."));
         }
     }
 
     QVariantMap metadata;
     if (success) {
         // Move wait thumbnail inside UUID folder so DownloadFinalizer cleans it up automatically
-        if (!m_thumbnailPath.isEmpty() && m_thumbnailPath.endsWith("_wait_thumbnail.jpg")) {
+        if (!m_thumbnailPath.isEmpty() && QFileInfo(m_thumbnailPath).fileName().startsWith(m_id + "_wait_thumbnail") && m_configManager) {
             QString tempDir = m_configManager->get("Paths", "temporary_downloads_directory").toString();
             if (tempDir.isEmpty()) {
                 QString completedDir = m_configManager->get("Paths", "completed_downloads_directory").toString();
@@ -76,10 +76,12 @@ void YtDlpWorker::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatu
                 QString uuidDirPath = QDir(tempDir).filePath(m_id);
                 QString newThumbPath = QDir(uuidDirPath).filePath(QFileInfo(m_thumbnailPath).fileName());
                 
-                QDir().mkpath(uuidDirPath); // Ensure UUID dir exists
-                if (QFile::rename(m_thumbnailPath, newThumbPath)) {
+                QDir().mkpath(uuidDirPath);
+                if (QFile::rename(m_thumbnailPath, newThumbPath) || (QFile::copy(m_thumbnailPath, newThumbPath) && QFile::remove(m_thumbnailPath))) {
                     m_thumbnailPath = newThumbPath;
                     qDebug() << "Moved wait thumbnail into UUID directory for automatic cleanup:" << m_thumbnailPath;
+                } else {
+                    qWarning() << "Failed to move wait thumbnail to UUID directory:" << m_thumbnailPath;
                 }
             }
         }
@@ -88,9 +90,12 @@ void YtDlpWorker::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatu
         if (m_fullMetadata.isEmpty() && !m_infoJsonPath.isEmpty() && QFile::exists(m_infoJsonPath)) {
             QFile jsonFile(m_infoJsonPath);
             if (jsonFile.open(QIODevice::ReadOnly)) {
-                QJsonDocument doc = QJsonDocument::fromJson(jsonFile.readAll());
-                if (doc.isObject()) {
+                QJsonParseError parseError;
+                QJsonDocument doc = QJsonDocument::fromJson(jsonFile.readAll(), &parseError);
+                if (parseError.error == QJsonParseError::NoError && doc.isObject()) {
                     m_fullMetadata = doc.object().toVariantMap();
+                } else {
+                    qWarning() << "Failed to parse info.json in onProcessFinished:" << parseError.errorString();
                 }
             }
         }
@@ -121,30 +126,29 @@ void YtDlpWorker::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatu
         // CRITICAL FIX: Emit 100% progress update before finished signal to ensure
         // the UI progress bar reaches 100% and turns green, not stuck at <100%
         QVariantMap finalProgressData;
-        finalProgressData["progress"] = 100;
-        finalProgressData["status"] = "Complete";
+        finalProgressData[QStringLiteral("progress")] = 100;
+        finalProgressData[QStringLiteral("status")] = tr("Complete");
         if (!m_videoTitle.isEmpty()) {
-            finalProgressData["title"] = m_videoTitle;
+            finalProgressData[QStringLiteral("title")] = m_videoTitle;
         }
         if (!m_thumbnailPath.isEmpty()) {
-            finalProgressData["thumbnail_path"] = m_thumbnailPath;
+            finalProgressData[QStringLiteral("thumbnail_path")] = m_thumbnailPath;
         }
         emit progressUpdated(m_id, finalProgressData);
     }
 
     if (!success) {
         if (!m_errorLines.isEmpty()) {
-            message += "\n" + m_errorLines.join("\n").left(200);
+            message = QString("%1\n%2").arg(message, m_errorLines.join("\n").left(200));
         } else {
-            // Fallback: Ensure stderr is also read as UTF-8
-            QString errorOutput = QString::fromUtf8(m_process->readAllStandardError());
-            if (!errorOutput.isEmpty()) {
-                message += "\n" + errorOutput.left(200);
+            // Fallback: Use the last few lines of general output if no ERROR: lines were captured
+            if (!m_allOutputLines.isEmpty()) {
+                message = QString("%1\n%2").arg(message, m_allOutputLines.mid(qMax(0, m_allOutputLines.size() - 5)).join("\n").left(200));
             }
         }
         
         // Clean up orphaned wait thumbnail on failure
-        if (!m_thumbnailPath.isEmpty() && m_thumbnailPath.endsWith("_wait_thumbnail.jpg")) {
+        if (!m_thumbnailPath.isEmpty() && QFileInfo(m_thumbnailPath).fileName().startsWith(m_id + "_wait_thumbnail")) {
             QFile::remove(m_thumbnailPath);
             m_thumbnailPath.clear();
         }
@@ -168,13 +172,13 @@ void YtDlpWorker::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatu
 
     // Ensure m_videoTitle is included in the metadata for the finished signal
     if (!m_videoTitle.isEmpty() && !metadata.contains("title")) {
-        metadata["title"] = m_videoTitle;
+        metadata[QStringLiteral("title")] = m_videoTitle;
     }
     if (!m_thumbnailPath.isEmpty() && !metadata.contains("thumbnail_path")) {
-        metadata["thumbnail_path"] = m_thumbnailPath;
+        metadata[QStringLiteral("thumbnail_path")] = m_thumbnailPath;
     }
     if (!postprocessorWarning.isEmpty()) {
-        metadata["postprocessor_warning"] = postprocessorWarning;
+        metadata[QStringLiteral("postprocessor_warning")] = postprocessorWarning;
     }
 
     emit finished(m_id, success, message, m_finalFilename, m_originalDownloadedFilename, metadata);
@@ -189,8 +193,7 @@ void YtDlpWorker::onProcessError(QProcess::ProcessError error) {
     if (error == QProcess::FailedToStart || error == QProcess::Crashed ||
         error == QProcess::ReadError || error == QProcess::WriteError) {
         m_finishEmitted = true;
-        const QString message = QString("Download failed.\n"
-                                        "Failed to start yt-dlp process (%1): %2")
+        const QString message = tr("Download failed.\nFailed to start yt-dlp process (%1): %2")
                                     .arg(static_cast<int>(error))
                                     .arg(m_process->errorString());
         qWarning() << message;
@@ -213,10 +216,11 @@ void YtDlpWorker::onReadyReadStandardError() {
 void YtDlpWorker::parseStandardOutput(const QByteArray &output) {
     m_outputBuffer.append(output);
 
-    int lastDelimiter = qMax(m_outputBuffer.lastIndexOf('\n'), m_outputBuffer.lastIndexOf('\r'));
+    qsizetype lastDelimiter = qMax(m_outputBuffer.lastIndexOf('\n'), m_outputBuffer.lastIndexOf('\r'));
     if (lastDelimiter == -1) return;
 
-    QStringList lines = QString::fromUtf8(m_outputBuffer.left(lastDelimiter + 1)).split(QRegularExpression("[\\r\\n]"), Qt::SkipEmptyParts);
+    static const QRegularExpression newlineRegex("[\\r\\n]");
+    QStringList lines = QString::fromUtf8(m_outputBuffer.left(lastDelimiter + 1)).split(newlineRegex, Qt::SkipEmptyParts);
     m_outputBuffer.remove(0, lastDelimiter + 1);
 
     for (const QString &line : lines) {
@@ -228,10 +232,11 @@ void YtDlpWorker::parseStandardError(const QByteArray &output) {
     m_errorBuffer.append(output);
     qDebug() << "parseStandardError called. Current buffer size:" << m_errorBuffer.size();
 
-    int lastDelimiter = qMax(m_errorBuffer.lastIndexOf('\n'), m_errorBuffer.lastIndexOf('\r'));
+    qsizetype lastDelimiter = qMax(m_errorBuffer.lastIndexOf('\n'), m_errorBuffer.lastIndexOf('\r'));
     if (lastDelimiter == -1) return;
 
-    QStringList lines = QString::fromUtf8(m_errorBuffer.left(lastDelimiter + 1)).split(QRegularExpression("[\\r\\n]"), Qt::SkipEmptyParts);
+    static const QRegularExpression newlineRegex("[\\r\\n]");
+    QStringList lines = QString::fromUtf8(m_errorBuffer.left(lastDelimiter + 1)).split(newlineRegex, Qt::SkipEmptyParts);
     m_errorBuffer.remove(0, lastDelimiter + 1);
 
     for (const QString &line : lines) {
@@ -278,7 +283,7 @@ void YtDlpWorker::readInfoJsonWithRetry() {
     QJsonParseError parseError;
     QJsonDocument doc = QJsonDocument::fromJson(jsonData, &parseError);
 
-    if (doc.isNull() || !doc.isObject()) {
+    if (parseError.error != QJsonParseError::NoError || !doc.isObject()) {
         scheduleRetry(QString("Failed to parse info.json as JSON or it's not an object. Error: %1").arg(parseError.errorString()));
         return;
     }
@@ -330,12 +335,12 @@ void YtDlpWorker::readInfoJsonWithRetry() {
 
     if (m_videoTitle.isEmpty() && obj.contains("title") && obj["title"].isString()) {
         m_videoTitle = obj["title"].toString();
-        updateData["title"] = m_videoTitle;
+        updateData[QStringLiteral("title")] = m_videoTitle;
         qDebug() << "Extracted title from info.json:" << m_videoTitle;
     }
     
     // Extract thumbnail path if available from the info.json
-    bool hasWaitThumbnail = !m_thumbnailPath.isEmpty() && m_thumbnailPath.endsWith("_wait_thumbnail.jpg");
+    bool hasWaitThumbnail = !m_thumbnailPath.isEmpty() && QFileInfo(m_thumbnailPath).fileName().startsWith(m_id + "_wait_thumbnail");
     if ((m_thumbnailPath.isEmpty() || hasWaitThumbnail) && obj.contains("thumbnails") && obj["thumbnails"].isArray()) {
         QJsonArray thumbnails = obj["thumbnails"].toArray();
         // yt-dlp adds a "filepath" key to the thumbnail entry it downloaded.
@@ -347,7 +352,7 @@ void YtDlpWorker::readInfoJsonWithRetry() {
                     QFile::remove(m_thumbnailPath); // Clean up the wait thumbnail since we found a real one
                 }
                 m_thumbnailPath = newThumb;
-                updateData["thumbnail_path"] = m_thumbnailPath;
+                updateData[QStringLiteral("thumbnail_path")] = m_thumbnailPath;
                 qDebug() << "Extracted thumbnail path from info.json:" << m_thumbnailPath;
                 break; // Found it
             }

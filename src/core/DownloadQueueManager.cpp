@@ -161,15 +161,15 @@ void DownloadQueueManager::enqueueDownload(const DownloadItem &item, bool isNew)
     m_downloadQueue.enqueue(item);
     
     QVariantMap uiData;
-    uiData["id"] = item.id;
-    uiData["url"] = item.url;
-    uiData["status"] = "Queued";
-    uiData["progress"] = -1;
-    uiData["options"] = item.options;
-    uiData["playlistIndex"] = item.playlistIndex;
+    uiData[QStringLiteral("id")] = item.id;
+    uiData[QStringLiteral("url")] = item.url;
+    uiData[QStringLiteral("status")] = tr("Queued");
+    uiData[QStringLiteral("progress")] = -1;
+    uiData[QStringLiteral("options")] = item.options;
+    uiData[QStringLiteral("playlistIndex")] = item.playlistIndex;
     const QString initialTitle = item.options.value("initial_title").toString().trimmed();
     if (!initialTitle.isEmpty()) {
-        uiData["title"] = initialTitle;
+        uiData[QStringLiteral("title")] = initialTitle;
     }
     
     if (isNew) {
@@ -203,7 +203,7 @@ bool DownloadQueueManager::cancelQueuedOrPausedDownload(const QString &id) {
     for (int i = 0; i < m_downloadQueue.size(); ++i) {
         if (m_downloadQueue.at(i).id == id) {
             DownloadItem item = m_downloadQueue.takeAt(i);
-            item.options["is_stopped"] = true;
+            item.options[QStringLiteral("is_stopped")] = true;
             m_pausedItems[id] = item;
             qDebug() << "Stopped queued download:" << id;
             emit downloadCancelled(id);
@@ -215,13 +215,13 @@ bool DownloadQueueManager::cancelQueuedOrPausedDownload(const QString &id) {
 
     if (m_pausedItems.contains(id)) {
         DownloadItem item = m_pausedItems.value(id);
-        if (item.options.value("is_stopped").toBool() || item.options.value("is_failed").toBool()) {
+        if (item.options.value(QStringLiteral("is_stopped")).toBool() || item.options.value(QStringLiteral("is_failed")).toBool()) {
             // Item was already stopped/failed. A second cancel means the user cleared it from the UI!
             m_pausedItems.remove(id);
             QStringList cleanupPaths;
             collectCleanupPath(cleanupPaths, item.tempFilePath);
             collectCleanupPath(cleanupPaths, item.originalDownloadedFilePath);
-            for (const QString &candidate : item.options.value("cleanup_candidates").toStringList()) {
+            for (const QString &candidate : item.options.value(QStringLiteral("cleanup_candidates")).toStringList()) {
                 collectCleanupPath(cleanupPaths, candidate);
             }
 
@@ -277,7 +277,7 @@ bool DownloadQueueManager::cancelQueuedOrPausedDownload(const QString &id) {
             return true;
         } else {
             // Item was paused, now it's stopped
-            m_pausedItems[id].options["is_stopped"] = true;
+            m_pausedItems[id].options[QStringLiteral("is_stopped")] = true;
             qDebug() << "Stopped paused download:" << id;
             emit downloadCancelled(id);
             emitQueueCountsChanged();
@@ -337,14 +337,14 @@ void DownloadQueueManager::moveDownloadDown(const QString &id) {
 
 void DownloadQueueManager::retryDownload(const QVariantMap &itemData) {
     DownloadItem item;
-    item.id = itemData["id"].toString();
-    item.url = itemData["url"].toString();
-    item.options = itemData["options"].toMap();
-    item.playlistIndex = itemData.value("playlistIndex", -1).toInt();
+    item.id = itemData.value(QStringLiteral("id")).toString();
+    item.url = itemData.value(QStringLiteral("url")).toString();
+    item.options = itemData.value(QStringLiteral("options")).toMap();
+    item.playlistIndex = itemData.value(QStringLiteral("playlistIndex"), -1).toInt();
 
     m_pausedItems.remove(item.id);
-    item.options.remove("is_stopped");
-    item.options.remove("is_failed");
+    item.options.remove(QStringLiteral("is_stopped"));
+    item.options.remove(QStringLiteral("is_failed"));
 
     enqueueDownload(item, false); // false prevents spawning a new UI progress bar
 }
@@ -361,31 +361,31 @@ void DownloadQueueManager::processResumeDownloadsSelection(const QJsonArray &arr
     for (const QJsonValue& val : arr) {
         QJsonObject obj = val.toObject();
         DownloadItem item;
-        item.id = obj["id"].toString();
-        item.url = obj["url"].toString();
-        item.options = obj["options"].toObject().toVariantMap();
-        item.metadata = obj["metadata"].toObject().toVariantMap();
-        item.playlistIndex = obj["playlistIndex"].toInt(-1);
-        item.tempFilePath = obj["tempFilePath"].toString();
-        item.originalDownloadedFilePath = obj["originalDownloadedFilePath"].toString();
+        item.id = obj.value(QStringLiteral("id")).toString();
+        item.url = obj.value(QStringLiteral("url")).toString();
+        item.options = obj.value(QStringLiteral("options")).toObject().toVariantMap();
+        item.metadata = obj.value(QStringLiteral("metadata")).toObject().toVariantMap();
+        item.playlistIndex = obj.value(QStringLiteral("playlistIndex")).toInt(-1);
+        item.tempFilePath = obj.value(QStringLiteral("tempFilePath")).toString();
+        item.originalDownloadedFilePath = obj.value(QStringLiteral("originalDownloadedFilePath")).toString();
         
-        QString status = obj["status"].toString("queued");
+        QString status = obj.value(QStringLiteral("status")).toString(QStringLiteral("queued"));
 
         QVariantMap uiData;
-        uiData["id"] = item.id;
-        uiData["url"] = item.url;
-        uiData["status"] = (status == "paused") ? "Paused" : "Queued";
-        uiData["progress"] = 0;
-        uiData["options"] = item.options;
+        uiData[QStringLiteral("id")] = item.id;
+        uiData[QStringLiteral("url")] = item.url;
+        uiData[QStringLiteral("status")] = (status == "paused") ? tr("Paused") : tr("Queued");
+        uiData[QStringLiteral("progress")] = 0;
+        uiData[QStringLiteral("options")] = item.options;
 
         if (status == "paused") {
             m_pausedItems[item.id] = item;
             emit downloadAddedToQueue(uiData);
             emit downloadPaused(item.id);
         } else if (status == "stopped") {
-            uiData["status"] = "Stopped";
-            uiData["progress"] = 0;
-            item.options["is_stopped"] = true;
+            uiData[QStringLiteral("status")] = tr("Stopped");
+            uiData[QStringLiteral("progress")] = 0;
+        item.options[QStringLiteral("is_stopped")] = true;
             m_pausedItems[item.id] = item;
             emit downloadAddedToQueue(uiData);
             emit downloadCancelled(item.id); // Triggers "Stopped" visuals in the UI

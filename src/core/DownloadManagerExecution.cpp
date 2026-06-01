@@ -22,13 +22,13 @@ QString youtubeVideoIdFromUrl(const QString &urlString)
 {
     const QUrl url(urlString);
     const QString host = url.host().toLower();
-    if (host.contains("youtu.be")) {
+    if (host.contains(QStringLiteral("youtu.be"))) {
         const QString id = url.path().section('/', 1, 1);
         return id.left(11);
     }
 
-    if (host.contains("youtube.com") || host.contains("youtube-nocookie.com")) {
-        const QString queryId = QUrlQuery(url).queryItemValue("v");
+    if (host.contains(QStringLiteral("youtube.com")) || host.contains(QStringLiteral("youtube-nocookie.com"))) {
+        const QString queryId = QUrlQuery(url).queryItemValue(QStringLiteral("v"));
         if (!queryId.isEmpty()) {
             return queryId.left(11);
         }
@@ -36,7 +36,7 @@ QString youtubeVideoIdFromUrl(const QString &urlString)
         const QStringList parts = url.path().split('/', Qt::SkipEmptyParts);
         for (int i = 0; i + 1 < parts.size(); ++i) {
             const QString marker = parts.at(i).toLower();
-            if (marker == "shorts" || marker == "embed" || marker == "live") {
+            if (marker == QStringLiteral("shorts") || marker == QStringLiteral("embed") || marker == QStringLiteral("live")) {
                 return parts.at(i + 1).left(11);
             }
         }
@@ -46,7 +46,7 @@ QString youtubeVideoIdFromUrl(const QString &urlString)
         return QString();
     }
 
-    static const QRegularExpression idPattern(R"(([A-Za-z0-9_-]{11}))");
+    static const QRegularExpression idPattern(QStringLiteral(R"(([A-Za-z0-9_-]{11}))"));
     const QRegularExpressionMatch match = idPattern.match(urlString);
     return match.hasMatch() ? match.captured(1) : QString();
 }
@@ -54,11 +54,11 @@ QString youtubeVideoIdFromUrl(const QString &urlString)
 QUrl sponsorBlockSegmentsUrl(const QString &videoId)
 {
     const QByteArray hash = QCryptographicHash::hash(videoId.toUtf8(), QCryptographicHash::Sha256).toHex();
-    QUrl url(QString("https://sponsor.ajay.app/api/skipSegments/%1").arg(QString::fromLatin1(hash.left(4))));
+    QUrl url(QStringLiteral("https://sponsor.ajay.app/api/skipSegments/%1").arg(QString::fromLatin1(hash.left(4))));
     QUrlQuery query;
-    query.addQueryItem("service", "YouTube");
-    query.addQueryItem("categories", R"(["preview","intro","selfpromo","interaction","filler","music_offtopic","sponsor","outro","hook"])");
-    query.addQueryItem("actionTypes", R"(["skip","poi","chapter"])");
+    query.addQueryItem(QStringLiteral("service"), QStringLiteral("YouTube"));
+    query.addQueryItem(QStringLiteral("categories"), QStringLiteral(R"(["preview","intro","selfpromo","interaction","filler","music_offtopic","sponsor","outro","hook"])"));
+    query.addQueryItem(QStringLiteral("actionTypes"), QStringLiteral(R"(["skip","poi","chapter"])"));
     url.setQuery(query);
     return url;
 }
@@ -73,10 +73,10 @@ bool sponsorBlockResponseHasSegmentsForVideo(const QByteArray &data, const QStri
 
     for (const QJsonValue &value : document.array()) {
         const QJsonObject object = value.toObject();
-        if (!object.value("videoID").toString().isEmpty() && object.value("videoID").toString() != videoId) {
+        if (!object.value(QStringLiteral("videoID")).toString().isEmpty() && object.value(QStringLiteral("videoID")).toString() != videoId) {
             continue;
         }
-        if (object.value("segment").isArray()) {
+        if (object.value(QStringLiteral("segment")).isArray()) {
             return true;
         }
     }
@@ -108,11 +108,11 @@ void DownloadManager::startDownloadItem(DownloadItem item, bool alreadyCountedAc
         m_activeDownloadsCount++;
     }
 
-    QString downloadType = item.options.value("type", "video").toString();
+    QString downloadType = item.options.value(QStringLiteral("type"), QStringLiteral("video")).toString();
 
-    if (downloadType == "gallery") {
-        item.options["id"] = item.id;
-        item.options["playlist_index"] = item.playlistIndex;
+    if (downloadType == QStringLiteral("gallery")) {
+        item.options[QStringLiteral("id")] = item.id;
+        item.options[QStringLiteral("playlist_index")] = item.playlistIndex;
         GalleryDlArgsBuilder argsBuilder(m_configManager);
         QStringList args = argsBuilder.build(item.url, item.options);
 
@@ -127,8 +127,8 @@ void DownloadManager::startDownloadItem(DownloadItem item, bool alreadyCountedAc
         emit downloadStarted(item.id);
         worker->start();
     } else {
-        item.options["id"] = item.id;
-        item.options["playlist_index"] = item.playlistIndex;
+        item.options[QStringLiteral("id")] = item.id;
+        item.options[QStringLiteral("playlist_index")] = item.playlistIndex;
         YtDlpArgsBuilder argsBuilder;
         QStringList args = argsBuilder.build(m_configManager, item.url, item.options);
 
@@ -148,17 +148,17 @@ void DownloadManager::startDownloadItem(DownloadItem item, bool alreadyCountedAc
 }
 
 bool DownloadManager::shouldPreflightSponsorBlock(const DownloadItem &item) const {
-    if (!m_configManager->get("General", "sponsorblock", false).toBool()) {
+    if (!m_configManager->get(QStringLiteral("General"), QStringLiteral("sponsorblock"), false).toBool()) {
         return false;
     }
-    if (item.options.value("sponsorblock_segments_checked", false).toBool()) {
+    if (item.options.value(QStringLiteral("sponsorblock_segments_checked"), false).toBool()) {
         return false;
     }
 
-    const QString downloadType = item.options.value("type", "video").toString();
-    const bool isLivestream = item.options.value("is_live", false).toBool()
-        || item.options.value("wait_for_video", false).toBool();
-    if (downloadType != "video" && !isLivestream) {
+    const QString downloadType = item.options.value(QStringLiteral("type"), QStringLiteral("video")).toString();
+    const bool isLivestream = item.options.value(QStringLiteral("is_live"), false).toBool()
+        || item.options.value(QStringLiteral("wait_for_video"), false).toBool();
+    if (downloadType != QStringLiteral("video") && !isLivestream) {
         return false;
     }
 
@@ -169,7 +169,7 @@ void DownloadManager::startSponsorBlockPreflight(const DownloadItem &item) {
     const QString videoId = youtubeVideoIdFromUrl(item.url);
     if (videoId.isEmpty()) {
         DownloadItem fallbackItem = item;
-        fallbackItem.options["sponsorblock_segments_checked"] = false;
+        fallbackItem.options[QStringLiteral("sponsorblock_segments_checked")] = false;
         startDownloadItem(fallbackItem, true);
         return;
     }
@@ -177,12 +177,15 @@ void DownloadManager::startSponsorBlockPreflight(const DownloadItem &item) {
     m_pendingSponsorBlockPreflights[item.id] = item;
 
     QVariantMap progressData;
-    progressData["status"] = "Checking SponsorBlock segments...";
-    progressData["progress"] = -1;
+    progressData[QStringLiteral("status")] = tr("Checking SponsorBlock segments...");
+    progressData[QStringLiteral("progress")] = -1;
     emit downloadProgress(item.id, progressData);
 
     QNetworkAccessManager *networkManager = new QNetworkAccessManager(this);
-    QNetworkReply *reply = networkManager->get(QNetworkRequest(sponsorBlockSegmentsUrl(videoId)));
+    QNetworkRequest request(sponsorBlockSegmentsUrl(videoId));
+    request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
+    request.setHeader(QNetworkRequest::UserAgentHeader, QStringLiteral("LzyDownloader"));
+    QNetworkReply *reply = networkManager->get(request);
     QTimer::singleShot(8000, reply, [reply]() {
         if (reply->isRunning()) {
             reply->abort();
@@ -216,8 +219,8 @@ void DownloadManager::startSponsorBlockPreflight(const DownloadItem &item) {
                        << "- falling back to accurate cut arguments.";
         }
 
-        checkedItem.options["sponsorblock_segments_checked"] = checked;
-        checkedItem.options["sponsorblock_has_segments"] = hasSegments;
+        checkedItem.options[QStringLiteral("sponsorblock_segments_checked")] = checked;
+        checkedItem.options[QStringLiteral("sponsorblock_has_segments")] = hasSegments;
 
         qInfo() << "SponsorBlock preflight for" << videoId
                 << "checked=" << checked
@@ -230,10 +233,10 @@ void DownloadManager::startSponsorBlockPreflight(const DownloadItem &item) {
 }
 
 void DownloadManager::applyMaxConcurrentSetting(const QString &maxThreadsStr) {
-    if (maxThreadsStr == "1 (short sleep)") {
+    if (maxThreadsStr == QStringLiteral("1 (short sleep)")) {
         m_maxConcurrentDownloads = 1;
         m_sleepMode = ShortSleep;
-    } else if (maxThreadsStr == "1 (long sleep)") {
+    } else if (maxThreadsStr == QStringLiteral("1 (long sleep)")) {
         m_maxConcurrentDownloads = 1;
         m_sleepMode = LongSleep;
     } else {

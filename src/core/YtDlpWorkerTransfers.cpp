@@ -15,13 +15,13 @@ void YtDlpWorker::updateTransferTarget(const QString &path) {
     if (m_currentTransferIsAuxiliary) {
         const QString lowerPath = m_currentTransferTarget.toLower();
         if (lowerPath.endsWith(".info.json")) {
-            m_currentTransferStatus = "Downloading metadata...";
+            m_currentTransferStatus = tr("Downloading metadata...");
         } else if (lowerPath.contains(".jpg") || lowerPath.contains(".jpeg") || lowerPath.contains(".png") || lowerPath.contains(".webp") || lowerPath.contains(".avif")) {
-            m_currentTransferStatus = "Downloading thumbnail...";
+            m_currentTransferStatus = tr("Downloading thumbnail...");
         } else if (lowerPath.contains(".srt") || lowerPath.contains(".vtt") || lowerPath.contains(".ass") || lowerPath.contains(".lrc") || lowerPath.contains(".sbv")) {
-            m_currentTransferStatus = "Downloading subtitles...";
+            m_currentTransferStatus = tr("Downloading subtitles...");
         } else {
-            m_currentTransferStatus = "Downloading auxiliary file...";
+            m_currentTransferStatus = tr("Downloading auxiliary file...");
         }
     } else {
         const int inferredIndex = inferPrimaryStreamIndexFromPath(m_currentTransferTarget);
@@ -78,11 +78,11 @@ void YtDlpWorker::inferRequestedTransfersFromFormatList(const QString &formatLis
 
         m_requestedTransferFormatIds.append(part);
         if (parts.size() == 1) {
-            m_requestedTransferStatuses.append(QStringLiteral("Downloading media stream..."));
+            m_requestedTransferStatuses.append(tr("Downloading media stream..."));
         } else if (i == 0) {
-            m_requestedTransferStatuses.append(QStringLiteral("Downloading video stream..."));
+            m_requestedTransferStatuses.append(tr("Downloading video stream..."));
         } else {
-            m_requestedTransferStatuses.append(QStringLiteral("Downloading audio stream..."));
+            m_requestedTransferStatuses.append(tr("Downloading audio stream..."));
         }
         m_requestedTransferSizes.append(0.0);
     }
@@ -115,11 +115,11 @@ bool YtDlpWorker::handleAria2CommandLine(const QString &line) {
             if (!itag.isEmpty()) {
                 if (mimeValue.startsWith("audio/")) {
                     m_requestedTransferFormatIds.append(itag);
-                    m_requestedTransferStatuses.append(QStringLiteral("Downloading audio stream..."));
+                    m_requestedTransferStatuses.append(tr("Downloading audio stream..."));
                     m_requestedTransferSizes.append(0.0);
                 } else if (mimeValue.startsWith("video/")) {
                     m_requestedTransferFormatIds.append(itag);
-                    m_requestedTransferStatuses.append(QStringLiteral("Downloading video stream..."));
+                    m_requestedTransferStatuses.append(tr("Downloading video stream..."));
                     m_requestedTransferSizes.append(0.0);
                 }
             }
@@ -135,12 +135,12 @@ bool YtDlpWorker::handleAria2CommandLine(const QString &line) {
     }
 
     if (mimeValue.startsWith("audio/")) {
-        m_currentTransferStatus = QStringLiteral("Downloading audio stream...");
+        m_currentTransferStatus = tr("Downloading audio stream...");
         if (m_requestedTransferStatuses.size() > 1) {
             m_inferredTransferIndex = qMax(1, m_inferredTransferIndex);
         }
     } else if (mimeValue.startsWith("video/")) {
-        m_currentTransferStatus = QStringLiteral("Downloading video stream...");
+        m_currentTransferStatus = tr("Downloading video stream...");
         if (m_inferredTransferIndex < 0) {
             m_inferredTransferIndex = 0;
         }
@@ -223,15 +223,15 @@ QString YtDlpWorker::inferPrimaryStreamStatusFromPath(const QString &path) const
 
     for (const QString &marker : audioMarkers) {
         if (lowerPath.contains(marker)) {
-            return QStringLiteral("Downloading audio stream...");
+            return tr("Downloading audio stream...");
         }
     }
     for (const QString &marker : videoMarkers) {
         if (lowerPath.contains(marker)) {
             if (requestedAudioExtraction()) {
-                return QStringLiteral("Downloading audio stream...");
+                return tr("Downloading audio stream...");
             }
-            return QStringLiteral("Downloading video stream...");
+            return tr("Downloading video stream...");
         }
     }
     return QString();
@@ -239,7 +239,7 @@ QString YtDlpWorker::inferPrimaryStreamStatusFromPath(const QString &path) const
 
 QString YtDlpWorker::inferPrimaryStreamStatusFromMetadata(int index) const {
     if (m_requestedTransferStatuses.isEmpty()) {
-        return QStringLiteral("Downloading...");
+        return tr("Downloading...");
     }
     const int boundedIndex = qBound(0, index, m_requestedTransferStatuses.size() - 1);
     return m_requestedTransferStatuses.at(boundedIndex);
@@ -270,7 +270,7 @@ void YtDlpWorker::updateInferredTransferStage(double percentage, double download
 
     if (m_inferredTransferIndex < 0) {
         m_inferredTransferIndex = 0;
-        if (m_currentTransferStatus.isEmpty() || m_currentTransferStatus == "Downloading...") {
+        if (m_currentTransferStatus.isEmpty() || m_currentTransferStatus == tr("Downloading...")) {
             m_currentTransferStatus = inferPrimaryStreamStatusFromMetadata(m_inferredTransferIndex);
         }
     }
@@ -305,20 +305,20 @@ bool YtDlpWorker::isAuxiliaryTransferTarget(const QString &path) const {
 }
 
 QString YtDlpWorker::statusForCurrentTransfer() const {
-    return m_currentTransferStatus.isEmpty() ? QStringLiteral("Downloading...") : m_currentTransferStatus;
+    return m_currentTransferStatus.isEmpty() ? tr("Downloading...") : m_currentTransferStatus;
 }
 
 void YtDlpWorker::emitStatusUpdate(const QString &status, int progress) {
     QVariantMap progressData;
-    progressData["status"] = status;
+    progressData[QStringLiteral("status")] = status;
     if (progress != -2) {
-        progressData["progress"] = progress;
+        progressData[QStringLiteral("progress")] = progress;
     }
     if (!m_videoTitle.isEmpty()) {
-        progressData["title"] = m_videoTitle;
+        progressData[QStringLiteral("title")] = m_videoTitle;
     }
     if (!m_thumbnailPath.isEmpty()) {
-        progressData["thumbnail_path"] = m_thumbnailPath;
+        progressData[QStringLiteral("thumbnail_path")] = m_thumbnailPath;
     }
         
         QString currentFile;
@@ -330,30 +330,30 @@ void YtDlpWorker::emitStatusUpdate(const QString &status, int progress) {
             currentFile = m_infoJsonPath;
         }
         if (!currentFile.isEmpty()) {
-            progressData["current_file"] = currentFile;
+            progressData[QStringLiteral("current_file")] = currentFile;
         }
     emit progressUpdated(m_id, progressData);
 }
 
 bool YtDlpWorker::handleLifecycleStatusLine(const QString &line) {
     if (line.startsWith("[Merger]")) {
-        emitStatusUpdate("Merging segments with ffmpeg...", 100);
+        emitStatusUpdate(tr("Merging segments with ffmpeg..."), 100);
         return true;
     }
     if (line.startsWith("[ExtractAudio]")) {
-        emitStatusUpdate("Extracting audio...", 100);
+        emitStatusUpdate(tr("Extracting audio..."), 100);
         return true;
     }
     if (line.startsWith("[VideoConvertor]")) {
-        emitStatusUpdate("Converting video format...", 100);
+        emitStatusUpdate(tr("Converting video format..."), 100);
         return true;
     }
     if (line.startsWith("[Metadata]")) {
-        emitStatusUpdate("Applying metadata...", 100);
+        emitStatusUpdate(tr("Applying metadata..."), 100);
         return true;
     }
     if (line.startsWith("[FixupM3u8]")) {
-        emitStatusUpdate("Fixing stream timestamps...", 100);
+        emitStatusUpdate(tr("Fixing stream timestamps..."), 100);
         return true;
     }
     if (line.startsWith("[youtube]") || line.startsWith("[generic]") || line.startsWith("[info]")) {
@@ -368,7 +368,7 @@ bool YtDlpWorker::handleLifecycleStatusLine(const QString &line) {
             line.contains("Downloading web creator player API JSON", Qt::CaseInsensitive) ||
             line.contains("Downloading ios player API JSON", Qt::CaseInsensitive) ||
             line.contains("Solving JS challenges", Qt::CaseInsensitive)) {
-            emitStatusUpdate("Extracting media information...", -1);
+            emitStatusUpdate(tr("Extracting media information..."), -1);
             return true;
         }
     }

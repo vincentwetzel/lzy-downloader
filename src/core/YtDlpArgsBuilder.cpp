@@ -20,9 +20,12 @@ QString sanitizeSectionFilenameLabel(QString label)
     label.replace('/', '-');
     label.replace('\\', '-');
     label.replace(' ', '_');
-    label.remove(QRegularExpression(R"([<>:"/\\|?*])"));
-    label.replace(QRegularExpression(R"(_{2,})"), "_");
-    label.replace(QRegularExpression(R"(-{2,})"), "-");
+    static const QRegularExpression illegalCharsRe(R"([<>:"/\\|?*])");
+    static const QRegularExpression multipleUnderscoresRe(R"(_{2,})");
+    static const QRegularExpression multipleDashesRe(R"(-{2,})");
+    label.remove(illegalCharsRe);
+    label.replace(multipleUnderscoresRe, "_");
+    label.replace(multipleDashesRe, "-");
     return label.left(90);
 }
 
@@ -313,7 +316,8 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
                 formatSelector = audioQuality.toLower() + "audio";
             } else {
                 // Strip any non-digit characters so "320K" or "128 kbps" safely becomes "320" / "128"
-                formatSelector += QString("[abr<=?%1]").arg(QString(audioQuality).remove(QRegularExpression("[a-zA-Z\\s]")));
+                static const QRegularExpression nonDigitRe("[a-zA-Z\\s]");
+                formatSelector += QString("[abr<=?%1]").arg(QString(audioQuality).remove(nonDigitRe));
             }
             if (audioCodecSetting != "Default") formatSelector += QString("[acodec~='(?i)%1']").arg(acodec);
 
@@ -355,7 +359,7 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
             aria2Args << QString("--referer=%1").arg(referer);
         }
         rawArgs << "--external-downloader" << aria2cPath;
-        rawArgs << "--external-downloader-args" << "aria2c:" + aria2Args.join(' ');
+        rawArgs << "--external-downloader-args" << QStringLiteral("aria2c:%1").arg(aria2Args.join(QLatin1Char(' ')));
         qInfo() << "YtDlpArgsBuilder: Using aria2c as external downloader (" << aria2cPath << ")";
     } else {
         qInfo() << "YtDlpArgsBuilder: Using native yt-dlp downloader";
@@ -429,7 +433,7 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
     }
 
     QString tempPath = configManager->get("Paths", "temporary_downloads_directory").toString();
-    if (tempPath.isEmpty()) tempPath = QStandardPaths::writableLocation(QStandardPaths::TempLocation) + "/LzyDownloader";
+    if (tempPath.isEmpty()) tempPath = QDir(QStandardPaths::writableLocation(QStandardPaths::TempLocation)).filePath("LzyDownloader");
 
     // Isolate the temporary directory per-download to prevent concurrent corruption
     // when multiple independent URLs evaluate to the exact same output filename.
@@ -473,7 +477,7 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
     // --- JS Runtime ---
     ProcessUtils::FoundBinary denoBinary = ProcessUtils::findBinary("deno", configManager);
     if (denoBinary.source != "Not Found") {
-        rawArgs << "--js-runtimes" << "deno:" + denoBinary.path;
+        rawArgs << "--js-runtimes" << QStringLiteral("deno:%1").arg(denoBinary.path);
     }
 
     // --- Filename restrictions ---

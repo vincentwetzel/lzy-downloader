@@ -22,9 +22,9 @@ GalleryDlWorker::GalleryDlWorker(const QString &id, const QStringList &args, Con
 
 void GalleryDlWorker::start()
 {
-    const QString galleryDlPath = resolveExecutablePath("gallery-dl.exe");
+    const QString galleryDlPath = resolveExecutablePath(QStringLiteral("gallery-dl.exe"));
     if (galleryDlPath.isEmpty()) {
-        emit finished(m_id, false, "gallery-dl executable was not found.", QString(), QVariantMap());
+        emit finished(m_id, false, tr("gallery-dl executable was not found."), QString(), QVariantMap());
         return;
     }
 
@@ -33,8 +33,8 @@ void GalleryDlWorker::start()
 
     // Emit initial progress
     emit progressUpdated(m_id, {
-        {"progress", 0},
-        {"status", "Starting gallery-dl..."}
+        {QStringLiteral("progress"), 0},
+        {QStringLiteral("status"), tr("Starting gallery-dl...")}
     });
 
     m_process->setWorkingDirectory(QFileInfo(galleryDlPath).absolutePath());
@@ -43,7 +43,7 @@ void GalleryDlWorker::start()
 
 void GalleryDlWorker::killProcess()
 {
-    if (m_process->state() == QProcess::Running) {
+    if (m_process->state() != QProcess::NotRunning) {
         m_process->disconnect(); // Prevent re-entrant read operations on the dying process buffer
         ProcessUtils::terminateProcessTree(m_process);
         m_process->kill(); // Forcefully kill the QProcess instance as fallback
@@ -67,10 +67,11 @@ void GalleryDlWorker::onReadyReadStandardOutput()
     QByteArray completeData = m_outputBuffer.left(lastDelimiter + 1);
     m_outputBuffer.remove(0, lastDelimiter + 1);
 
-    const QStringList lines = QString::fromUtf8(completeData).split(QRegularExpression("[\\r\\n]"), Qt::SkipEmptyParts);
+    static const QRegularExpression newlineRegex(QStringLiteral("[\\r\\n]"));
+    const QStringList lines = QString::fromUtf8(completeData).split(newlineRegex, Qt::SkipEmptyParts);
 
     // Match file paths on Windows (C:\...), UNC (\\server\...), and Unix (/home/...)
-    QRegularExpression pathRe(R"((?:(?:[A-Za-z]:[/\\])|(?:[/\\]{2}[\w.-]+[/\\])|(?:/[A-Za-z0-9_.-]+?/))[^\n]+\.(?:jpg|jpeg|png|gif|webp|webm|mp4|mkv|avi|mov|pdf|zip|txt|mp3|ogg|flac|wav|svg|bmp|tiff|gifv|mpd|m3u8|vtt|ass|srt|json|xml|html|torrent|cbz|cbr|epub))", QRegularExpression::CaseInsensitiveOption);
+    static const QRegularExpression pathRe(QStringLiteral(R"((?:(?:[A-Za-z]:[/\\])|(?:[/\\]{2}[\w.-]+[/\\])|(?:/[A-Za-z0-9_.-]+?/))[^\n]+\.(?:jpg|jpeg|png|gif|webp|webm|mp4|mkv|avi|mov|pdf|zip|txt|mp3|ogg|flac|wav|svg|bmp|tiff|gifv|mpd|m3u8|vtt|ass|srt|json|xml|html|torrent|cbz|cbr|epub))"), QRegularExpression::CaseInsensitiveOption);
 
     for (const QString &line : lines) {
         QString trimmedLine = line.trimmed();
@@ -87,9 +88,9 @@ void GalleryDlWorker::onReadyReadStandardOutput()
                 QFileInfo fi(m_lastFile);
                 // Emit full progress with "processing" color
                 emit progressUpdated(m_id, {
-                    {"progress", 100},
-                    {"status", "Downloading: " + fi.fileName()},
-                    {"current_file", m_lastFile}
+                    {QStringLiteral("progress"), 100},
+                    {QStringLiteral("status"), tr("Downloading: %1").arg(fi.fileName())},
+                    {QStringLiteral("current_file"), m_lastFile}
                 });
             }
         }
@@ -111,10 +112,15 @@ void GalleryDlWorker::onReadyReadStandardError()
     QByteArray completeData = m_errorBuffer.left(lastDelimiter + 1);
     m_errorBuffer.remove(0, lastDelimiter + 1);
 
-    const QStringList lines = QString::fromUtf8(completeData).split(QRegularExpression("[\\r\\n]"), Qt::SkipEmptyParts);
+    static const QRegularExpression newlineRegex(QStringLiteral("[\\r\\n]"));
+    const QStringList lines = QString::fromUtf8(completeData).split(newlineRegex, Qt::SkipEmptyParts);
 
     for (const QString &line : lines) {
         QString trimmedLine = line.trimmed();
+        
+        QString currentStderr = m_process->property("fullStderr").toString();
+        m_process->setProperty("fullStderr", currentStderr + trimmedLine + "\n");
+        
         if (!trimmedLine.isEmpty()) {
             emit outputReceived(m_id, trimmedLine);
         }
@@ -136,37 +142,37 @@ void GalleryDlWorker::onProcessFinished(int exitCode, QProcess::ExitStatus exitS
     }
 
     if (exitStatus == QProcess::CrashExit || (exitCode != 0 && exitCode != 101)) { // 101 can mean "no images found"
-        QString stderrOutput = QString::fromUtf8(m_process->readAllStandardError());
+        QString stderrOutput = m_process->property("fullStderr").toString().trimmed();
         qWarning() << "GalleryDlWorker failed. Exit code:" << exitCode << "Stderr:" << stderrOutput;
-        emit finished(m_id, false, "gallery-dl failed: " + stderrOutput, QString(), QVariantMap());
+        emit finished(m_id, false, tr("gallery-dl failed: %1").arg(stderrOutput), QString(), QVariantMap());
         return;
     }
 
     // Emit final progress before finishing
     emit progressUpdated(m_id, {
-        {"progress", 100},
-        {"status", "Finalizing..."}
+        {QStringLiteral("progress"), 100},
+        {QStringLiteral("status"), tr("Finalizing...")}
     });
 
     QString outputDirectory;
     for (int i = 0; i < m_args.size(); ++i) {
-        if ((m_args[i] == "--directory" || m_args[i] == "-D") && i + 1 < m_args.size()) {
+        if ((m_args[i] == QStringLiteral("--directory") || m_args[i] == QStringLiteral("-D")) && i + 1 < m_args.size()) {
             outputDirectory = m_args[i + 1];
             break;
         }
     }
 
-    emit finished(m_id, true, "Download completed successfully.", outputDirectory, QVariantMap());
+    emit finished(m_id, true, tr("Download completed successfully."), outputDirectory, QVariantMap());
 }
 
 void GalleryDlWorker::onProcessError(QProcess::ProcessError processError)
 {
     if (processError == QProcess::FailedToStart) {
         qWarning() << "GalleryDlWorker failed to start process:" << m_process->errorString();
-        emit finished(m_id, false, "Failed to start gallery-dl process. Please check if it's installed and in your PATH, or configure the path in settings.", QString(), QVariantMap());
+        emit finished(m_id, false, tr("Failed to start gallery-dl process. Please check if it's installed and in your PATH, or configure the path in settings."), QString(), QVariantMap());
     } else {
         qWarning() << "GalleryDlWorker process error:" << m_process->errorString();
-        emit finished(m_id, false, "An error occurred with the gallery-dl process: " + m_process->errorString(), QString(), QVariantMap());
+        emit finished(m_id, false, tr("An error occurred with the gallery-dl process: %1").arg(m_process->errorString()), QString(), QVariantMap());
     }
 }
 
@@ -174,13 +180,13 @@ QString GalleryDlWorker::resolveExecutablePath(const QString &name) const
 {
     // Remove .exe suffix for ProcessUtils
     QString baseName = name;
-    if (baseName.endsWith(".exe")) {
+    if (baseName.endsWith(QStringLiteral(".exe"))) {
         baseName.chop(4);
     }
     
     ProcessUtils::FoundBinary found = ProcessUtils::findBinary(baseName, m_configManager);
     
-    if (found.source == "Not Found" || found.source == "Invalid Custom") {
+    if (found.source == QStringLiteral("Not Found") || found.source == QStringLiteral("Invalid Custom")) {
         return QString();
     }
     

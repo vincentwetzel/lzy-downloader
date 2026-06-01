@@ -16,9 +16,9 @@ QStringList GalleryDlArgsBuilder::build(const QString &url, const QVariantMap &o
     // Output path - gallery-dl's --directory sets the base download directory
     QString tempPath = m_configManager->get("Paths", "temporary_downloads_directory").toString();
     if (tempPath.isEmpty()) {
-        tempPath = QStandardPaths::writableLocation(QStandardPaths::TempLocation) + "/LzyDownloader";
+        tempPath = QDir(QStandardPaths::writableLocation(QStandardPaths::TempLocation)).filePath("LzyDownloader");
     }
-    tempPath += "/" + options.value("id").toString();
+    tempPath = QDir(tempPath).filePath(options.value("id").toString());
     QDir().mkpath(tempPath);
     args << "--directory" << tempPath;
 

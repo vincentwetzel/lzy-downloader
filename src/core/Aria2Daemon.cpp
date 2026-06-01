@@ -25,24 +25,18 @@ bool Aria2Daemon::start()
     }
 
     QStringList args;
-    args << "--enable-rpc"
-         << "--rpc-listen-all=false"
-         << "--rpc-listen-port=6800"
-         << "--rpc-secret=media-downloader"
-         << "--daemon=false" // We manage it as a child process
-         << "--summary-interval=0"
-         << "--log-level=warn";
+    args << QStringLiteral("--enable-rpc")
+         << QStringLiteral("--rpc-listen-all=false")
+         << QStringLiteral("--rpc-listen-port=6800")
+         << QStringLiteral("--rpc-secret=media-downloader")
+         << QStringLiteral("--daemon=false") // We manage it as a child process
+         << QStringLiteral("--summary-interval=0")
+         << QStringLiteral("--log-level=warn");
 
-    QString program = ProcessUtils::findBinary("aria2c", m_configManager).path;
+    QString program = ProcessUtils::findBinary(QStringLiteral("aria2c"), m_configManager).path;
     m_process->start(program, args);
 
-    if (!m_process->waitForStarted(5000)) {
-        qWarning() << "Aria2c daemon failed to start.";
-        emit error("Failed to start aria2c daemon.");
-        return false;
-    }
-
-    qInfo() << "Aria2c daemon started.";
+    qInfo() << "Aria2c daemon starting...";
     return true;
 }
 
@@ -57,17 +51,17 @@ void Aria2Daemon::stop()
 
 bool Aria2Daemon::isRunning() const
 {
-    return m_process->state() == QProcess::Running;
+    return m_process->state() != QProcess::NotRunning;
 }
 
 void Aria2Daemon::onDaemonError(QProcess::ProcessError processError)
 {
     if (processError == QProcess::FailedToStart) {
         qWarning() << "Aria2Daemon failed to start process:" << m_process->errorString();
-        emit error("Failed to start aria2c process. Please check if it's installed and in your PATH, or configure the path in settings.");
+        emit error(tr("Failed to start aria2c process. Please check if it's installed and in your PATH, or configure the path in settings."));
     } else {
         qWarning() << "Aria2Daemon process error:" << m_process->errorString();
-        emit error("An error occurred with the aria2c process: " + m_process->errorString());
+        emit error(tr("An error occurred with the aria2c process: %1").arg(m_process->errorString()));
     }
 }
 

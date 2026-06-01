@@ -109,11 +109,11 @@ static QString findCommonUserTool(const QString& exeName)
 
     if (!home.isEmpty()) {
         // deno (~/.deno/bin)
-        const QString denoPath = QDir(home).filePath(".deno/bin/" + exeName);
+        const QString denoPath = QDir(home).filePath(QStringLiteral(".deno/bin/%1").arg(exeName));
         if (QFileInfo::exists(denoPath)) return denoPath;
 
         // scoop shims (~\scoop\shims)
-        const QString scoopPath = QDir(home).filePath("scoop/shims/" + exeName);
+        const QString scoopPath = QDir(home).filePath(QStringLiteral("scoop/shims/%1").arg(exeName));
         if (QFileInfo::exists(scoopPath)) return scoopPath;
     }
 
@@ -124,7 +124,7 @@ static QString findCommonUserTool(const QString& exeName)
             QDir pyDir(pythonScriptsDir);
             const QFileInfoList entries = pyDir.entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot);
             for (const QFileInfo &entry : entries) {
-                const QString candidate = entry.filePath() + "/Scripts/" + exeName;
+                const QString candidate = QDir(entry.filePath()).filePath(QStringLiteral("Scripts/%1").arg(exeName));
                 if (QFileInfo::exists(candidate)) return candidate;
             }
         }
@@ -143,14 +143,14 @@ static QString findCommonUserTool(const QString& exeName)
 
     if (!programData.isEmpty()) {
         // Chocolatey (C:\ProgramData\chocolatey\bin)
-        const QString chocoPath = QDir(programData).filePath("chocolatey/bin/" + exeName);
+        const QString chocoPath = QDir(programData).filePath(QStringLiteral("chocolatey/bin/%1").arg(exeName));
         if (QFileInfo::exists(chocoPath)) return chocoPath;
     }
 #else
     const QString home = QProcessEnvironment::systemEnvironment().value("HOME");
     if (!home.isEmpty()) {
         // deno (~/.deno/bin)
-        const QString denoPath = QDir(home).filePath(".deno/bin/" + exeName);
+        const QString denoPath = QDir(home).filePath(QStringLiteral(".deno/bin/%1").arg(exeName));
         if (QFileInfo::exists(denoPath)) return denoPath;
     }
 #endif
@@ -181,7 +181,7 @@ FoundBinary findBinary(const QString& name, ConfigManager* configManager)
 FoundBinary resolveBinary(const QString& name, ConfigManager* configManager)
 {
 #ifdef Q_OS_WIN
-    QString exeName = name + ".exe";
+    QString exeName = QStringLiteral("%1.exe").arg(name);
 #else
     QString exeName = name;
 #endif
@@ -192,22 +192,24 @@ FoundBinary resolveBinary(const QString& name, ConfigManager* configManager)
     qDebug() << "[ProcessUtils] resolveBinary:" << name << "- systemPath:" << systemPath;
 
     // 1. Check config override
-    QString configKey = name + "_path";
-    QString customPath = configManager->get("Binaries", configKey, "").toString().trimmed();
+    if (configManager) {
+        QString configKey = QStringLiteral("%1_path").arg(name);
+        QString customPath = configManager->get(QStringLiteral("Binaries"), configKey, QVariant()).toString().trimmed();
 
-    if (!customPath.isEmpty()) {
-        qDebug() << "[ProcessUtils] Custom path configured for" << name << ":" << customPath;
-        if (!QFileInfo::exists(customPath)) {
-            return {QDir::toNativeSeparators(customPath), "Invalid Custom"};
+        if (!customPath.isEmpty()) {
+            qDebug() << "[ProcessUtils] Custom path configured for" << name << ":" << customPath;
+            if (!QFileInfo::exists(customPath)) {
+                return {QDir::toNativeSeparators(customPath), "Invalid Custom"};
+            }
+
+            QString canonicalCustom = QFileInfo(customPath).canonicalFilePath();
+
+            if (!systemPath.isEmpty() && canonicalCustom == QFileInfo(systemPath).canonicalFilePath()) {
+                return {QDir::toNativeSeparators(systemPath), "System PATH"};
+            }
+
+            return {QDir::toNativeSeparators(customPath), "Custom"};
         }
-
-        QString canonicalCustom = QFileInfo(customPath).canonicalFilePath();
-
-        if (!systemPath.isEmpty() && canonicalCustom == QFileInfo(systemPath).canonicalFilePath()) {
-            return {QDir::toNativeSeparators(systemPath), "System PATH"};
-        }
-
-        return {QDir::toNativeSeparators(customPath), "Custom"};
     }
 
     // 2. Check system PATH first (allows users to provide their own unbundled binaries)
@@ -263,8 +265,8 @@ bool hasCachedBinary(const QString& name) {
 
 void setProcessEnvironment(QProcess &process) {
     QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
-    env.insert("PYTHONUTF8", "1");
-    env.insert("PYTHONIOENCODING", "utf-8");
+    env.insert(QStringLiteral("PYTHONUTF8"), QStringLiteral("1"));
+    env.insert(QStringLiteral("PYTHONIOENCODING"), QStringLiteral("utf-8"));
     process.setProcessEnvironment(env);
 
 #ifdef Q_OS_WIN
@@ -331,14 +333,14 @@ QString fetchFfmpegVersion(const QString& execPath) {
         QString output = process.readAllStandardOutput();
         
         // Match specific clean patterns: YYYY-MM-DD, semantic version (e.g., 6.0, 4.4.1), or N-builds
-        QRegularExpression re("(?:ffmpeg|ffprobe) version ([0-9]{4}-[0-9]{2}-[0-9]{2}|[0-9]+\\.[0-9]+(?:\\.[0-9]+)?|[Nn]-[0-9]+)");
+        static const QRegularExpression re(QStringLiteral("(?:ffmpeg|ffprobe) version ([0-9]{4}-[0-9]{2}-[0-9]{2}|[0-9]+\\.[0-9]+(?:\\.[0-9]+)?|[Nn]-[0-9]+)"));
         QRegularExpressionMatch match = re.match(output);
         if (match.hasMatch()) {
             return match.captured(1);
         }
         
         // Fallback: take the first sequence of characters before a hyphen or space
-        QRegularExpression fallbackRe("(?:ffmpeg|ffprobe) version ([^- ]+)");
+        static const QRegularExpression fallbackRe(QStringLiteral("(?:ffmpeg|ffprobe) version ([^- ]+)"));
         QRegularExpressionMatch fallbackMatch = fallbackRe.match(output);
         if (fallbackMatch.hasMatch()) {
             return fallbackMatch.captured(1);

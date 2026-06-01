@@ -7,12 +7,12 @@
 #include <cmath>
 
 double YtDlpWorker::parseSizeStringToBytes(const QString &sizeString) {
-    const QString normalized = sizeString.trimmed().remove('~');
+    const QString normalized = sizeString.trimmed().remove(QLatin1Char('~'));
     if (normalized.isEmpty() || normalized.startsWith(QStringLiteral("Unknown"), Qt::CaseInsensitive)) {
         return 0.0;
     }
 
-    static const QRegularExpression re(R"(^([\d\.]+)\s*([KMGTPE]?i?B)(?:/s)?$)", QRegularExpression::CaseInsensitiveOption);
+    static const QRegularExpression re(QStringLiteral(R"(^([\d\.]+)\s*([KMGTPE]?i?B)(?:/s)?$)"), QRegularExpression::CaseInsensitiveOption);
     const QRegularExpressionMatch match = re.match(normalized);
     if (!match.hasMatch()) {
         return 0.0;
@@ -42,8 +42,8 @@ double YtDlpWorker::parseSizeStringToBytes(const QString &sizeString) {
 }
 
 QString YtDlpWorker::formatBytes(double bytes) {
-    if (bytes < 0) return "N/A";
-    if (bytes == 0) return "0 B";
+    if (bytes < 0) return tr("N/A");
+    if (bytes == 0) return tr("0 B");
 
     static const char* const units[] = {"B", "KiB", "MiB", "GiB", "TiB"}; // Use MiB units
     int i = 0;
@@ -54,22 +54,22 @@ QString YtDlpWorker::formatBytes(double bytes) {
         i++;
     }
 
-    return QString::number(d_bytes, 'f', (d_bytes < 10 && i > 0) ? 2 : 1) + " " + QLatin1String(units[i]);
+    return QStringLiteral("%1 %2").arg(QString::number(d_bytes, 'f', (d_bytes < 10 && i > 0) ? 2 : 1), QLatin1String(units[i]));
 }
 
 bool YtDlpWorker::parseYtDlpProgressLine(const QString &line) {
     const QString normalized = line.trimmed();
 
-    if (!normalized.contains("[download]")) {
+    if (!normalized.contains(QStringLiteral("[download]"))) {
         return false;
     }
 
     static const QRegularExpression progressRegex(
-        R"(^\[download\]\s+([\d\.]+)%\s+of\s+(?:~\s*)?(.+?)(?=\s+at\s+|\s+ETA\s+|\s+\(frag\s+\d+/\d+\)|$)(?:\s+at\s+(.+?)(?=\s+ETA\s+|\s+\(frag\s+\d+/\d+\)|$))?(?:\s+ETA\s+([^\s]+))?(?:\s+\(frag\s+(\d+)/(\d+)\))?.*$)");
+        QStringLiteral(R"(^\[download\]\s+([\d\.]+)%\s+of\s+(?:~\s*)?(.+?)(?=\s+at\s+|\s+ETA\s+|\s+\(frag\s+\d+/\d+\)|$)(?:\s+at\s+(.+?)(?=\s+ETA\s+|\s+\(frag\s+\d+/\d+\)|$))?(?:\s+ETA\s+([^\s]+))?(?:\s+\(frag\s+(\d+)/(\d+)\))?.*$)"));
     static const QRegularExpression completedRegex(
-        R"(^\[download\]\s+100(?:\.0+)?%\s+of\s+(?:~\s*)?(.+?)(?=\s+in\s+|\s+at\s+|\s+\(frag\s+\d+/\d+\)|$)(?:\s+in\s+([^\s]+))?(?:\s+at\s+(.+?)(?=\s+\(frag\s+\d+/\d+\)|$))?(?:\s+\(frag\s+(\d+)/(\d+)\))?.*$)");
+        QStringLiteral(R"(^\[download\]\s+100(?:\.0+)?%\s+of\s+(?:~\s*)?(.+?)(?=\s+in\s+|\s+at\s+|\s+\(frag\s+\d+/\d+\)|$)(?:\s+in\s+([^\s]+))?(?:\s+at\s+(.+?)(?=\s+\(frag\s+\d+/\d+\)|$))?(?:\s+\(frag\s+(\d+)/(\d+)\))?.*$)"));
     static const QRegularExpression indeterminateRegex(
-        R"(^\[download\]\s+(.+?)\s+at\s+(.+?)\s+\(([^)]+)\).*$)");
+        QStringLiteral(R"(^\[download\]\s+(.+?)\s+at\s+(.+?)\s+\(([^)]+)\).*$)"));
 
     QRegularExpressionMatch match = progressRegex.match(normalized);
     const bool matchedCompletedFormat = !match.hasMatch() && (match = completedRegex.match(normalized)).hasMatch();
@@ -81,13 +81,13 @@ bool YtDlpWorker::parseYtDlpProgressLine(const QString &line) {
 
     if (m_currentTransferIsAuxiliary) {
         QVariantMap progressData;
-        progressData["status"] = statusForCurrentTransfer();
-        progressData["progress"] = -1;
+        progressData[QStringLiteral("status")] = statusForCurrentTransfer();
+        progressData[QStringLiteral("progress")] = -1;
         if (!m_videoTitle.isEmpty()) {
-            progressData["title"] = m_videoTitle;
+            progressData[QStringLiteral("title")] = m_videoTitle;
         }
         if (!m_thumbnailPath.isEmpty()) {
-            progressData["thumbnail_path"] = m_thumbnailPath;
+            progressData[QStringLiteral("thumbnail_path")] = m_thumbnailPath;
         }
         emit progressUpdated(m_id, progressData);
         qDebug() << "yt-dlp: Ignoring auxiliary transfer progress for" << m_currentTransferTarget;
@@ -108,14 +108,14 @@ bool YtDlpWorker::parseYtDlpProgressLine(const QString &line) {
     if (matchedIndeterminate) {
         percentage = -1.0; // Puts the progress bar into indeterminate scrolling mode
         downloadedBytes = parseSizeStringToBytes(match.captured(1));
-        totalString = "Unknown";
+        totalString = tr("Unknown");
         speedString = match.captured(2).trimmed();
         speedBytes = parseSizeStringToBytes(speedString);
         etaString = match.captured(3).trimmed();
-        if (etaString.isEmpty()) etaString = "Unknown";
+        if (etaString.isEmpty()) etaString = tr("Unknown");
 
-        if (etaString.startsWith("frag ")) {
-            static const QRegularExpression fragRegex(R"(frag\s+(\d+)/(\d+))");
+        if (etaString.startsWith(QStringLiteral("frag "))) {
+            static const QRegularExpression fragRegex(QStringLiteral(R"(frag\s+(\d+)/(\d+))"));
             QRegularExpressionMatch fragMatch = fragRegex.match(etaString);
             if (fragMatch.hasMatch()) {
                 QString fragCurrentStr = fragMatch.captured(1);
@@ -124,9 +124,9 @@ bool YtDlpWorker::parseYtDlpProgressLine(const QString &line) {
                 double fragTotal = fragTotalStr.toDouble();
                 if (fragTotal > 0) {
                     percentage = (fragCurrent / fragTotal) * 100.0;
-                    etaString = "Unknown";
-                    customDownloadedSize = fragCurrentStr + " Segs";
-                    customTotalSize = fragTotalStr + " Segs";
+                    etaString = tr("Unknown");
+                    customDownloadedSize = tr("%1 Segs").arg(fragCurrentStr);
+                    customTotalSize = tr("%1 Segs").arg(fragTotalStr);
                     totalBytes = 0.0;
                 }
             }
@@ -152,9 +152,9 @@ bool YtDlpWorker::parseYtDlpProgressLine(const QString &line) {
                 // We override it to display the true overall progress.
                 if (qAbs(printedPercentage - fragPercentage) > 1.0) {
                     percentage = fragPercentage;
-                    customDownloadedSize = fragCurrentStr + " Segs";
-                    customTotalSize = fragTotalStr + " Segs";
-                    totalString = "Unknown"; // so totalBytes becomes 0
+                    customDownloadedSize = tr("%1 Segs").arg(fragCurrentStr);
+                    customTotalSize = tr("%1 Segs").arg(fragTotalStr);
+                    totalString = tr("Unknown"); // so totalBytes becomes 0
                 }
             }
         }
@@ -166,19 +166,19 @@ bool YtDlpWorker::parseYtDlpProgressLine(const QString &line) {
 
     updateInferredTransferStage(percentage, downloadedBytes, totalBytes);
 
-    progressData["progress"] = percentage;
-    progressData["status"] = statusForCurrentTransfer();
-    progressData["downloaded_size"] = !customDownloadedSize.isEmpty() ? customDownloadedSize : (downloadedBytes > 0.0 ? formatBytes(downloadedBytes) : QString("N/A"));
-    progressData["total_size"] = !customTotalSize.isEmpty() ? customTotalSize : (totalBytes > 0.0 ? formatBytes(totalBytes) : totalString);
+    progressData[QStringLiteral("progress")] = percentage;
+    progressData[QStringLiteral("status")] = statusForCurrentTransfer();
+    progressData[QStringLiteral("downloaded_size")] = !customDownloadedSize.isEmpty() ? customDownloadedSize : (downloadedBytes > 0.0 ? formatBytes(downloadedBytes) : tr("N/A"));
+    progressData[QStringLiteral("total_size")] = !customTotalSize.isEmpty() ? customTotalSize : (totalBytes > 0.0 ? formatBytes(totalBytes) : totalString);
     applyOverallPrimaryProgress(progressData, percentage, downloadedBytes, totalBytes);
-    progressData["speed"] = speedBytes > 0.0 ? formatBytes(speedBytes) + "/s" : (speedString.isEmpty() ? QString("Unknown") : speedString);
-    progressData["speed_bytes"] = speedBytes;
-    progressData["eta"] = etaString.isEmpty() ? QString("Unknown") : etaString;
+    progressData[QStringLiteral("speed")] = speedBytes > 0.0 ? QStringLiteral("%1%2").arg(formatBytes(speedBytes), tr("/s")) : (speedString.isEmpty() ? tr("Unknown") : speedString);
+    progressData[QStringLiteral("speed_bytes")] = speedBytes;
+    progressData[QStringLiteral("eta")] = etaString.isEmpty() ? tr("Unknown") : etaString;
     if (!m_videoTitle.isEmpty()) {
-        progressData["title"] = m_videoTitle;
+        progressData[QStringLiteral("title")] = m_videoTitle;
     }
     if (!m_thumbnailPath.isEmpty()) {
-        progressData["thumbnail_path"] = m_thumbnailPath;
+        progressData[QStringLiteral("thumbnail_path")] = m_thumbnailPath;
     }
         
     QString currentFile;
@@ -190,7 +190,7 @@ bool YtDlpWorker::parseYtDlpProgressLine(const QString &line) {
         currentFile = m_infoJsonPath;
     }
     if (!currentFile.isEmpty()) {
-        progressData["current_file"] = currentFile;
+        progressData[QStringLiteral("current_file")] = currentFile;
     }
 
     emit progressUpdated(m_id, progressData);
@@ -202,7 +202,7 @@ bool YtDlpWorker::parseAria2ProgressLine(const QString &line) {
     const QString normalized = line.trimmed();
 
     static const QRegularExpression ariaRegex(
-        R"(^.*\[#\w+\s+([\d\.]+\s*[KMGTPE]?i?B)(?:/([\d\.]+\s*[KMGTPE]?i?B)\(([\d\.]+)%\))?(?:\s+CN:\d+)?(?:\s+DL:((?:[\d\.]+\s*[KMGTPE]?i?B(?:/s)?)|(?:0B(?:/s)?)))?(?:\s+ETA:([\d\w:]+))?\].*$)");
+        QStringLiteral(R"(^.*\[#\w+\s+([\d\.]+\s*[KMGTPE]?i?B)(?:/([\d\.]+\s*[KMGTPE]?i?B)\(([\d\.]+)%\))?(?:\s+CN:\d+)?(?:\s+DL:((?:[\d\.]+\s*[KMGTPE]?i?B(?:/s)?)|(?:0B(?:/s)?)))?(?:\s+ETA:([\d\w:]+))?\].*$)"));
     const QRegularExpressionMatch match = ariaRegex.match(normalized);
     if (!match.hasMatch()) {
         return false;
@@ -216,19 +216,19 @@ bool YtDlpWorker::parseAria2ProgressLine(const QString &line) {
 
     updateInferredTransferStage(percentage, downloadedBytes, totalBytes);
 
-    progressData["progress"] = percentage;
-    progressData["status"] = statusForCurrentTransfer();
-    progressData["downloaded_size"] = formatBytes(downloadedBytes);
-    progressData["total_size"] = formatBytes(totalBytes);
+    progressData[QStringLiteral("progress")] = percentage;
+    progressData[QStringLiteral("status")] = statusForCurrentTransfer();
+    progressData[QStringLiteral("downloaded_size")] = formatBytes(downloadedBytes);
+    progressData[QStringLiteral("total_size")] = formatBytes(totalBytes);
     applyOverallPrimaryProgress(progressData, percentage, downloadedBytes, totalBytes);
-    progressData["speed"] = speedBytes > 0.0 ? formatBytes(speedBytes) + "/s" : QString("0 B/s");
-    progressData["speed_bytes"] = speedBytes;
-    progressData["eta"] = match.captured(5).isEmpty() ? QString("N/A") : match.captured(5);
+    progressData[QStringLiteral("speed")] = speedBytes > 0.0 ? QStringLiteral("%1%2").arg(formatBytes(speedBytes), tr("/s")) : tr("0 B/s");
+    progressData[QStringLiteral("speed_bytes")] = speedBytes;
+    progressData[QStringLiteral("eta")] = match.captured(5).isEmpty() ? tr("N/A") : match.captured(5);
     if (!m_videoTitle.isEmpty()) {
-        progressData["title"] = m_videoTitle;
+        progressData[QStringLiteral("title")] = m_videoTitle;
     }
     if (!m_thumbnailPath.isEmpty()) {
-        progressData["thumbnail_path"] = m_thumbnailPath;
+        progressData[QStringLiteral("thumbnail_path")] = m_thumbnailPath;
     }
         
     QString currentFile;
@@ -240,7 +240,7 @@ bool YtDlpWorker::parseAria2ProgressLine(const QString &line) {
         currentFile = m_infoJsonPath;
     }
     if (!currentFile.isEmpty()) {
-        progressData["current_file"] = currentFile;
+        progressData[QStringLiteral("current_file")] = currentFile;
     }
 
     emit progressUpdated(m_id, progressData);
@@ -279,7 +279,7 @@ void YtDlpWorker::applyOverallPrimaryProgress(QVariantMap &progressData, double 
     const double overallDownloadedBytes = completedBytes + effectiveCurrentDownloaded;
     const double overallPercentage = qBound(0.0, (overallDownloadedBytes / overallTotalBytes) * 100.0, 100.0);
 
-    progressData["overall_progress"] = overallPercentage;
-    progressData["overall_downloaded_size"] = formatBytes(overallDownloadedBytes);
-    progressData["overall_total_size"] = formatBytes(overallTotalBytes);
+    progressData[QStringLiteral("overall_progress")] = overallPercentage;
+    progressData[QStringLiteral("overall_downloaded_size")] = formatBytes(overallDownloadedBytes);
+    progressData[QStringLiteral("overall_total_size")] = formatBytes(overallTotalBytes);
 }

@@ -16,8 +16,10 @@ namespace {
 
 QString normalizedRuleText(const QString &value) {
     QString normalized = value.trimmed().toLower();
-    normalized.replace(QRegularExpression("[^a-z0-9]+"), "_");
-    normalized.remove(QRegularExpression("^_+|_+$"));
+    static const QRegularExpression nonAlphaNumRe(QStringLiteral("[^a-z0-9]+"));
+    static const QRegularExpression trimRe(QStringLiteral("^_+|_+$"));
+    normalized.replace(nonAlphaNumRe, "_");
+    normalized.remove(trimRe);
     return normalized;
 }
 
@@ -92,8 +94,10 @@ bool hasPlaylistContext(const QVariantMap &metadata, const QVariantMap &download
 
 QString SortingManager::normalizedMetadataKey(const QString &key) const {
     QString normalized = key.trimmed().toLower();
-    normalized.replace(QRegularExpression("[^a-z0-9]+"), "_");
-    normalized.remove(QRegularExpression("^_+|_+$"));
+    static const QRegularExpression nonAlphaNumRe(QStringLiteral("[^a-z0-9]+"));
+    static const QRegularExpression trimRe(QStringLiteral("^_+|_+$"));
+    normalized.replace(nonAlphaNumRe, "_");
+    normalized.remove(trimRe);
     return normalized;
 }
 
@@ -195,23 +199,23 @@ QString SortingManager::getSortedDirectory(const QVariantMap &videoMetadata, con
 
     // Rules are stored with flat keys: rule_N_name, rule_N_applies_to, rule_N_target_folder, etc.
     for (int i = 0; i < size; ++i) {
-        QString key = QString("rule_%1").arg(i);
+        QString key = QStringLiteral("rule_%1").arg(i);
         
-        QString ruleName = m_configManager->get("SortingRules", key + "_name").toString();
-        QVariant appliesToVar = m_configManager->get("SortingRules", key + "_applies_to");
+        QString ruleName = m_configManager->get("SortingRules", QStringLiteral("%1_name").arg(key)).toString();
+        QVariant appliesToVar = m_configManager->get("SortingRules", QStringLiteral("%1_applies_to").arg(key));
         QString appliesTo = appliesToVar.isValid() ? appliesToVar.toString() : "All Downloads";
-        QString targetFolder = m_configManager->get("SortingRules", key + "_target_folder").toString();
-        QString subfolderPattern = m_configManager->get("SortingRules", key + "_subfolder_pattern").toString();
+        QString targetFolder = m_configManager->get("SortingRules", QStringLiteral("%1_target_folder").arg(key)).toString();
+        QString subfolderPattern = m_configManager->get("SortingRules", QStringLiteral("%1_subfolder_pattern").arg(key)).toString();
         
         // Load conditions
-        int condSize = m_configManager->get("SortingRules", key + "_conditions_size", 0).toInt();
+        int condSize = m_configManager->get("SortingRules", QStringLiteral("%1_conditions_size").arg(key), 0).toInt();
         QJsonArray conditionsArray;
         for (int j = 0; j < condSize; ++j) {
-            QString condKey = key + QString("_condition_%1").arg(j);
+            QString condKey = QStringLiteral("%1_condition_%2").arg(key).arg(j);
             QJsonObject cond;
-            cond["field"] = m_configManager->get("SortingRules", condKey + "_field").toString();
-            cond["operator"] = m_configManager->get("SortingRules", condKey + "_operator").toString();
-            cond["value"] = m_configManager->get("SortingRules", condKey + "_value").toString();
+            cond["field"] = m_configManager->get("SortingRules", QStringLiteral("%1_field").arg(condKey)).toString();
+            cond["operator"] = m_configManager->get("SortingRules", QStringLiteral("%1_operator").arg(condKey)).toString();
+            cond["value"] = m_configManager->get("SortingRules", QStringLiteral("%1_value").arg(condKey)).toString();
             conditionsArray.append(cond);
         }
         
@@ -354,7 +358,7 @@ QString SortingManager::parseAndReplaceTokens(const QString &pattern, const QVar
     }
 
     // Use regex to find all {token} patterns
-    QRegularExpression re("\\{([^}]+)\\}");
+    static const QRegularExpression re(QStringLiteral("\\{([^}]+)\\}"));
     auto it = re.globalMatch(pattern);
     while (it.hasNext()) {
         QRegularExpressionMatch match = it.next();
@@ -387,6 +391,7 @@ QString SortingManager::parseAndReplaceTokens(const QString &pattern, const QVar
 QString SortingManager::sanitize(const QString &name) {
     QString sanitized = name;
     // Remove illegal characters for Windows/Unix paths
-    sanitized.remove(QRegularExpression("[<>:\"/\\\\|?*]"));
+    static const QRegularExpression illegalCharsRe(QStringLiteral("[<>:\"/\\\\|?*]"));
+    sanitized.remove(illegalCharsRe);
     return sanitized.trimmed();
 }

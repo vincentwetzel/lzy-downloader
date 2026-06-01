@@ -46,7 +46,7 @@ void DownloadManager::cancelDownload(const QString &id) {
 
     if (m_pendingSponsorBlockPreflights.contains(id)) {
         DownloadItem item = m_pendingSponsorBlockPreflights.take(id);
-        item.options["is_stopped"] = true;
+        item.options[QStringLiteral("is_stopped")] = true;
         m_queueManager->m_pausedItems[id] = item;
         m_activeDownloadsCount = qMax(0, m_activeDownloadsCount - 1);
         if (!cancelled) {
@@ -88,7 +88,7 @@ void DownloadManager::cancelDownload(const QString &id) {
         worker->deleteLater();
         m_activeDownloadsCount--;
         
-        item.options["is_stopped"] = true;
+        item.options[QStringLiteral("is_stopped")] = true;
         m_queueManager->m_pausedItems[id] = item;
         
         if (!cancelled) {
@@ -116,7 +116,7 @@ void DownloadManager::cancelDownload(const QString &id) {
         // Deleting the embedder will kill any active QProcess internally
         embedder->deleteLater();
         
-        item.options["is_stopped"] = true;
+        item.options[QStringLiteral("is_stopped")] = true;
         m_queueManager->m_pausedItems[id] = item;
         
         m_activeDownloadsCount--;
@@ -180,9 +180,9 @@ void DownloadManager::restartDownloadWithOptions(const QVariantMap &itemData) {
 
     // 3. Tell the UI to reset its state for the existing item.
     QVariantMap resetData;
-    resetData["id"] = id;
-    resetData["status"] = "Waiting for video...";
-    resetData["progress"] = -1; // Indeterminate progress
+    resetData[QStringLiteral("id")] = id;
+    resetData[QStringLiteral("status")] = tr("Waiting for video...");
+    resetData[QStringLiteral("progress")] = -1; // Indeterminate progress
     emit downloadProgress(id, resetData);
 
     // 4. Create and start a new worker with the same ID and new options.
@@ -243,7 +243,7 @@ void DownloadManager::pauseDownload(const QString &id) {
         paused = true; // Corrected: paused = true
     } else if (!paused && m_pendingSponsorBlockPreflights.contains(id)) {
         DownloadItem item = m_pendingSponsorBlockPreflights.take(id);
-        item.options["is_stopped"] = true;
+        item.options[QStringLiteral("is_stopped")] = true;
         m_queueManager->m_pausedItems[id] = item;
         m_activeDownloadsCount = qMax(0, m_activeDownloadsCount - 1);
         qDebug() << "Paused SponsorBlock preflight download:" << id;
@@ -274,7 +274,7 @@ void DownloadManager::finishDownload(const QString &id) {
         YtDlpWorker *ytDlpWorker = qobject_cast<YtDlpWorker*>(worker);
         if (ytDlpWorker) {
             QVariantMap progressData;
-            progressData["status"] = "Finishing stream & finalizing...";
+            progressData[QStringLiteral("status")] = tr("Finishing stream & finalizing...");
             emit downloadProgress(id, progressData);
             
             ytDlpWorker->finishGracefully();

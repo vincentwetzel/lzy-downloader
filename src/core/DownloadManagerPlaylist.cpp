@@ -8,7 +8,7 @@
 namespace {
 bool isNonInteractiveRequest(const QVariantMap &options)
 {
-    return options.value("non_interactive", false).toBool();
+    return options.value(QStringLiteral("non_interactive"), false).toBool();
 }
 }
 
@@ -19,7 +19,7 @@ void DownloadManager::onPlaylistDetected(const QString &url, int itemCount, cons
         storedOptions = expander->property("options").toMap();
         const QString queueId = expander->property("queueId").toString();
         if (!queueId.isEmpty()) {
-            storedOptions["playlist_placeholder_id"] = queueId;
+            storedOptions[QStringLiteral("playlist_placeholder_id")] = queueId;
         }
         expander->deleteLater();
     }
@@ -43,25 +43,25 @@ void DownloadManager::onPlaylistDetected(const QString &url, int itemCount, cons
 }
 
 void DownloadManager::processPlaylistSelection(const QString &url, const QString &action, const QVariantMap &options, const QList<QVariantMap> &expandedItems) {
-    const QString queueId = options.value("playlist_placeholder_id").toString();
+    const QString queueId = options.value(QStringLiteral("playlist_placeholder_id")).toString();
     QVariantMap queueOptions = options;
-    queueOptions.remove("playlist_placeholder_id");
-    queueOptions["playlist_logic"] = "Download Single (ignore playlist)";
+    queueOptions.remove(QStringLiteral("playlist_placeholder_id"));
+    queueOptions[QStringLiteral("playlist_logic")] = QStringLiteral("Download Single (ignore playlist)");
     QList<QVariantMap> finalItems;
 
-    if (action == "Download All") {
+    if (action == QStringLiteral("Download All")) {
         finalItems = expandedItems;
         bool containsPlaylistItems = false;
         for (const QVariantMap &itemData : finalItems) {
-            if (itemData.value("is_playlist", false).toBool()) {
+            if (itemData.value(QStringLiteral("is_playlist"), false).toBool()) {
                 containsPlaylistItems = true;
                 break;
             }
         }
-        queueOptions["is_playlist"] = containsPlaylistItems;
-    } else if (action == "Download Single Item" && !expandedItems.isEmpty()) {
+        queueOptions[QStringLiteral("is_playlist")] = containsPlaylistItems;
+    } else if (action == QStringLiteral("Download Single Item") && !expandedItems.isEmpty()) {
         finalItems.append(expandedItems.first());
-        queueOptions["is_playlist"] = expandedItems.first().value("is_playlist", false).toBool();
+        queueOptions[QStringLiteral("is_playlist")] = expandedItems.first().value(QStringLiteral("is_playlist"), false).toBool();
     } else {
         if (!queueId.isEmpty()) {
             m_queueManager->removePendingExpansionPlaceholder(queueId);
@@ -77,13 +77,13 @@ void DownloadManager::processPlaylistSelection(const QString &url, const QString
         bool found = false;
         for (DownloadItem &item : m_queueManager->m_downloadQueue) {
             if (item.id == queueId) {
-                item.url = itemData.value("url").toString();
-                item.playlistIndex = itemData.value("playlist_index", -1).toInt();
+                item.url = itemData.value(QStringLiteral("url")).toString();
+                item.playlistIndex = itemData.value(QStringLiteral("playlist_index"), -1).toInt();
                 item.options = queueOptions;
-                item.options["original_playlist_url"] = url;
-                item.options["is_playlist"] = itemData.value("is_playlist", queueOptions.value("is_playlist", false)).toBool();
-                if (itemData.contains("is_live")) {
-                    item.options["is_live"] = itemData.value("is_live").toBool();
+                item.options[QStringLiteral("original_playlist_url")] = url;
+                item.options[QStringLiteral("is_playlist")] = itemData.value(QStringLiteral("is_playlist"), queueOptions.value(QStringLiteral("is_playlist"), false)).toBool();
+                if (itemData.contains(QStringLiteral("is_live"))) {
+                    item.options[QStringLiteral("is_live")] = itemData.value(QStringLiteral("is_live")).toBool();
                 }
                 found = true;
                 break;
@@ -93,17 +93,17 @@ void DownloadManager::processPlaylistSelection(const QString &url, const QString
         if (found) {
             m_queueManager->m_pendingExpansions.remove(queueId);
             QVariantMap progressData;
-            progressData["status"] = "Queued";
-            progressData["progress"] = 0;
-            progressData["url"] = itemData.value("url").toString();
-            progressData["playlistIndex"] = itemData.value("playlist_index", -1).toInt();
-            progressData["options"] = queueOptions;
-            const QString title = itemData.value("title").toString().trimmed();
+            progressData[QStringLiteral("status")] = tr("Queued");
+            progressData[QStringLiteral("progress")] = 0;
+            progressData[QStringLiteral("url")] = itemData.value(QStringLiteral("url")).toString();
+            progressData[QStringLiteral("playlistIndex")] = itemData.value(QStringLiteral("playlist_index"), -1).toInt();
+            progressData[QStringLiteral("options")] = queueOptions;
+            const QString title = itemData.value(QStringLiteral("title")).toString().trimmed();
             if (!title.isEmpty()) {
-                progressData["title"] = title;
+                progressData[QStringLiteral("title")] = title;
             }
             emit downloadProgress(queueId, progressData);
-            QMetaObject::invokeMethod(m_queueManager, [this]() { m_queueManager->saveQueueState(m_activeItems); }, Qt::QueuedConnection);
+            QMetaObject::invokeMethod(this, [this]() { m_queueManager->saveQueueState(m_activeItems); }, Qt::QueuedConnection);
             
             startNextDownload();
             return;
@@ -117,19 +117,22 @@ void DownloadManager::processPlaylistSelection(const QString &url, const QString
     for (const QVariantMap &itemData : finalItems) {
         DownloadItem item;
         item.id = QUuid::createUuid().toString(QUuid::WithoutBraces);
-        item.url = itemData["url"].toString();
+        item.url = itemData.value(QStringLiteral("url")).toString();
         QVariantMap itemOptions = queueOptions;
-        itemOptions["is_playlist"] = itemData.value("is_playlist", queueOptions.value("is_playlist", false)).toBool();
-        if (itemData.contains("is_live")) { // Use 'options' from parameter
-            itemOptions["is_live"] = itemData.value("is_live").toBool();
+        itemOptions[QStringLiteral("is_playlist")] = itemData.value(QStringLiteral("is_playlist"), queueOptions.value(QStringLiteral("is_playlist"), false)).toBool();
+        if (itemData.contains(QStringLiteral("is_live"))) {
+            itemOptions[QStringLiteral("is_live")] = itemData.value(QStringLiteral("is_live")).toBool();
         }
-        const QString title = itemData.value("title").toString().trimmed();
+        const QString title = itemData.value(QStringLiteral("title")).toString().trimmed();
         if (!title.isEmpty()) {
-            itemOptions["initial_title"] = title;
+            itemOptions[QStringLiteral("initial_title")] = title;
         }
-        itemOptions["original_playlist_url"] = url;
+        itemOptions[QStringLiteral("original_playlist_url")] = url;
+        if (itemData.contains(QStringLiteral("playlist_title"))) {
+            itemOptions[QStringLiteral("playlist_title")] = itemData.value(QStringLiteral("playlist_title"));
+        }
         item.options = itemOptions;
-        item.playlistIndex = itemData.value("playlist_index", -1).toInt();
+        item.playlistIndex = itemData.value(QStringLiteral("playlist_index"), -1).toInt();
         m_queueManager->enqueueDownload(item);
     }
 }
@@ -144,83 +147,83 @@ void DownloadManager::onPlaylistExpanded(const QString &originalUrl, const QList
         expander->deleteLater();
     }
 
-        QList<QVariantMap> itemsToProcess = expandedItems;
+    QList<QVariantMap> itemsToProcess = expandedItems;
 
     if (!error.isEmpty()) {
-            bool isKnownVideoError = false;
+        bool isKnownVideoError = false;
 
-            if (error.contains("Premieres in", Qt::CaseInsensitive) ||
-                error.contains("Premiering in", Qt::CaseInsensitive) ||
-                error.contains("Premiere will begin", Qt::CaseInsensitive) ||
-                error.contains("live event will begin", Qt::CaseInsensitive) ||
-                error.contains("is upcoming", Qt::CaseInsensitive) ||
-                error.contains("Offline (expected)", Qt::CaseInsensitive) ||
-                error.contains("Offline expected", Qt::CaseInsensitive) ||
-                error.contains("waiting for premiere", Qt::CaseInsensitive) ||
-                error.contains("waiting for livestream", Qt::CaseInsensitive) ||
-                error.contains("Live in ", Qt::CaseInsensitive) ||
-                error.contains("Starting in ", Qt::CaseInsensitive)) {
-                isKnownVideoError = true;
-            } else if (error.contains("private", Qt::CaseInsensitive)) {
-                isKnownVideoError = true;
-            } else if (error.contains("unavailable", Qt::CaseInsensitive) ||
-                     error.contains("no longer available", Qt::CaseInsensitive) ||
-                     error.contains("does not exist", Qt::CaseInsensitive) ||
-                     error.contains("removed", Qt::CaseInsensitive)) {
-                isKnownVideoError = true;
-            } else if (error.contains("members", Qt::CaseInsensitive) && error.contains("only", Qt::CaseInsensitive)) {
-                isKnownVideoError = true;
-            } else if (error.contains("geo", Qt::CaseInsensitive) || error.contains("country", Qt::CaseInsensitive)) {
-                isKnownVideoError = true;
-            } else if (error.contains("age", Qt::CaseInsensitive)) {
-                isKnownVideoError = true;
+        if (error.contains(QStringLiteral("Premieres in"), Qt::CaseInsensitive) ||
+                error.contains(QStringLiteral("Premiering in"), Qt::CaseInsensitive) ||
+                error.contains(QStringLiteral("Premiere will begin"), Qt::CaseInsensitive) ||
+                error.contains(QStringLiteral("live event will begin"), Qt::CaseInsensitive) ||
+                error.contains(QStringLiteral("is upcoming"), Qt::CaseInsensitive) ||
+                error.contains(QStringLiteral("Offline (expected)"), Qt::CaseInsensitive) ||
+                error.contains(QStringLiteral("Offline expected"), Qt::CaseInsensitive) ||
+                error.contains(QStringLiteral("waiting for premiere"), Qt::CaseInsensitive) ||
+                error.contains(QStringLiteral("waiting for livestream"), Qt::CaseInsensitive) ||
+                error.contains(QStringLiteral("Live in "), Qt::CaseInsensitive) ||
+                error.contains(QStringLiteral("Starting in "), Qt::CaseInsensitive)) {
+            isKnownVideoError = true;
+        } else if (error.contains(QStringLiteral("private"), Qt::CaseInsensitive)) {
+            isKnownVideoError = true;
+        } else if (error.contains(QStringLiteral("unavailable"), Qt::CaseInsensitive) ||
+                     error.contains(QStringLiteral("no longer available"), Qt::CaseInsensitive) ||
+                     error.contains(QStringLiteral("does not exist"), Qt::CaseInsensitive) ||
+                     error.contains(QStringLiteral("removed"), Qt::CaseInsensitive)) {
+            isKnownVideoError = true;
+        } else if (error.contains(QStringLiteral("members"), Qt::CaseInsensitive) && error.contains(QStringLiteral("only"), Qt::CaseInsensitive)) {
+            isKnownVideoError = true;
+        } else if (error.contains(QStringLiteral("geo"), Qt::CaseInsensitive) || error.contains(QStringLiteral("country"), Qt::CaseInsensitive)) {
+            isKnownVideoError = true;
+        } else if (error.contains(QStringLiteral("age"), Qt::CaseInsensitive)) {
+            isKnownVideoError = true;
+        }
+
+        if (isKnownVideoError) {
+            qDebug() << "Playlist expansion hit a known video-level error. Bypassing to let YtDlpWorker handle it. Error:" << error;
+            QVariantMap singleItem;
+            singleItem[QStringLiteral("url")] = originalUrl;
+            singleItem[QStringLiteral("playlist_index")] = -1;
+            itemsToProcess.append(singleItem);
+        } else {
+            qDebug() << "Playlist expansion failed:" << error;
+            // Update the UI item to show error
+            if (!queueId.isEmpty()) {
+                emit downloadProgress(queueId, {{QStringLiteral("status"), tr("Failed to check playlist")}});
+                emit downloadFinished(queueId, false, tr("Playlist expansion failed: %1").arg(error));
+                m_queueManager->m_pendingExpansions.remove(queueId);
+                m_queueManager->cancelQueuedOrPausedDownload(queueId); // Remove placeholder from queue
             }
-
-            if (isKnownVideoError) {
-                qDebug() << "Playlist expansion hit a known video-level error. Bypassing to let YtDlpWorker handle it. Error:" << error;
-                QVariantMap singleItem;
-                singleItem["url"] = originalUrl;
-                singleItem["playlist_index"] = -1;
-                itemsToProcess.append(singleItem);
-            } else {
-                qDebug() << "Playlist expansion failed:" << error;
-                // Update the UI item to show error
-                if (!queueId.isEmpty()) {
-                    emit downloadProgress(queueId, {{"status", "Failed to check playlist"}});
-                    emit downloadFinished(queueId, false, "Playlist expansion failed: " + error);
-                    m_queueManager->m_pendingExpansions.remove(queueId);
-                    m_queueManager->cancelQueuedOrPausedDownload(queueId); // Remove placeholder from queue
-                }
-                return;
+            return;
         }
     }
 
-        emit playlistExpansionFinished(originalUrl, itemsToProcess.count());
+    emit playlistExpansionFinished(originalUrl, itemsToProcess.count());
 
     // If this was a single video (no expansion needed), update the existing UI item
-        if (itemsToProcess.size() == 1 && !queueId.isEmpty()) {
-            QVariantMap itemData = itemsToProcess.first();
+    if (itemsToProcess.size() == 1 && !queueId.isEmpty()) {
+        QVariantMap itemData = itemsToProcess.first();
 
         // Find the placeholder item in the queue and update it in-place.
         // This avoids re-enqueueing and causing a duplicate download.
         bool found = false;
         for (DownloadItem &item : m_queueManager->m_downloadQueue) { // Assumes m_downloadQueue is accessible
             if (item.id == queueId) {
-                item.url = itemData.value("url").toString();
-                item.playlistIndex = itemData.value("playlist_index", -1).toInt();
+                item.url = itemData.value(QStringLiteral("url")).toString();
+                item.playlistIndex = itemData.value(QStringLiteral("playlist_index"), -1).toInt();
                 item.options = options;
-                item.options["original_playlist_url"] = originalUrl;
-                item.options["playlist_logic"] = "Download Single (ignore playlist)";
-                    item.options["is_playlist"] = itemData.value("is_playlist", false).toBool();
-                    if (itemData.contains("playlist_title")) {
-                        item.options["playlist_title"] = itemData.value("playlist_title");
-                    }
-                const QString title = itemData.value("title").toString().trimmed();
-                if (!title.isEmpty()) {
-                    item.options["initial_title"] = title;
+                item.options[QStringLiteral("original_playlist_url")] = originalUrl;
+                item.options[QStringLiteral("playlist_logic")] = QStringLiteral("Download Single (ignore playlist)");
+                item.options[QStringLiteral("is_playlist")] = itemData.value(QStringLiteral("is_playlist"), false).toBool();
+                if (itemData.contains(QStringLiteral("playlist_title"))) {
+                    item.options[QStringLiteral("playlist_title")] = itemData.value(QStringLiteral("playlist_title"));
                 }
-                if (itemData.contains("is_live")) {
-                    item.options["is_live"] = itemData.value("is_live").toBool();
+                const QString title = itemData.value(QStringLiteral("title")).toString().trimmed();
+                if (!title.isEmpty()) {
+                    item.options[QStringLiteral("initial_title")] = title;
+                }
+                if (itemData.contains(QStringLiteral("is_live"))) {
+                    item.options[QStringLiteral("is_live")] = itemData.value(QStringLiteral("is_live")).toBool();
                 }
                 found = true;
                 break;
@@ -230,15 +233,15 @@ void DownloadManager::onPlaylistExpanded(const QString &originalUrl, const QList
         if (found) {
             m_queueManager->m_pendingExpansions.remove(queueId); // Assumes m_pendingExpansions is accessible
             QVariantMap progressData;
-            progressData["status"] = "Queued";
-            progressData["progress"] = 0;
-            const QString title = itemData.value("title").toString().trimmed();
+            progressData[QStringLiteral("status")] = tr("Queued");
+            progressData[QStringLiteral("progress")] = 0;
+            const QString title = itemData.value(QStringLiteral("title")).toString().trimmed();
             if (!title.isEmpty()) {
-                progressData["title"] = title;
+                progressData[QStringLiteral("title")] = title;
             }
             emit downloadProgress(queueId, progressData);
             // Manually save the queue state since we modified an item in-place
-            QMetaObject::invokeMethod(m_queueManager, [this]() { m_queueManager->saveQueueState(m_activeItems); }, Qt::QueuedConnection);
+            QMetaObject::invokeMethod(this, [this]() { m_queueManager->saveQueueState(m_activeItems); }, Qt::QueuedConnection);
             
             startNextDownload();
         }
@@ -251,23 +254,26 @@ void DownloadManager::onPlaylistExpanded(const QString &originalUrl, const QList
         for (const QVariantMap &itemData : itemsToProcess) {
             DownloadItem item;
             item.id = QUuid::createUuid().toString(QUuid::WithoutBraces);
-            item.url = itemData["url"].toString();
+            item.url = itemData.value(QStringLiteral("url")).toString();
             item.options = options; // Use the options from the original enqueue
-            item.options["original_playlist_url"] = originalUrl;
-            item.options["playlist_logic"] = "Download Single (ignore playlist)";
-                item.options["is_playlist"] = true;
-                if (itemData.contains("playlist_title")) {
-                    item.options["playlist_title"] = itemData.value("playlist_title");
-                }
-            const QString title = itemData.value("title").toString().trimmed();
+            item.options[QStringLiteral("original_playlist_url")] = originalUrl;
+            item.options[QStringLiteral("playlist_logic")] = QStringLiteral("Download Single (ignore playlist)");
+            item.options[QStringLiteral("is_playlist")] = true;
+            
+            if (itemData.contains(QStringLiteral("playlist_title"))) {
+                item.options[QStringLiteral("playlist_title")] = itemData.value(QStringLiteral("playlist_title"));
+            }
+            
+            const QString title = itemData.value(QStringLiteral("title")).toString().trimmed();
             if (!title.isEmpty()) {
-                item.options["initial_title"] = title;
+                item.options[QStringLiteral("initial_title")] = title;
             }
-            if (itemData.contains("is_live")) item.options["is_live"] = itemData.value("is_live").toBool();
-            if (itemData.contains("playlist_title")) {
-                item.options["playlist_title"] = itemData.value("playlist_title");
+            
+            if (itemData.contains(QStringLiteral("is_live"))) {
+                item.options[QStringLiteral("is_live")] = itemData.value(QStringLiteral("is_live")).toBool();
             }
-            item.playlistIndex = itemData.value("playlist_index", -1).toInt();
+            
+            item.playlistIndex = itemData.value(QStringLiteral("playlist_index"), -1).toInt();
             m_queueManager->enqueueDownload(item);
         }
     }
@@ -283,5 +289,3 @@ void DownloadManager::onPlaylistExpansionPlaceholderUpdated(const QString &id, c
     // Handle UI update if necessary, e.g., update the placeholder item's status to "Queued"
     emit downloadProgress(id, itemData);
 }
-
-

@@ -25,14 +25,14 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
 
     emit outputReceived(m_id, normalizedLine);
 
-    if (normalizedLine.startsWith("LZY_FINAL_PATH:")) {
+    if (normalizedLine.startsWith(QStringLiteral("LZY_FINAL_PATH:"))) {
         m_finalFilename = normalizedLine.mid(15).trimmed(); // 15 is length of "LZY_FINAL_PATH:"
         qDebug() << "Captured precise Final Path:" << m_finalFilename;
         return; // No need to process this line further
     }
 
     // Parse ERROR: lines from stderr for specific error types
-    if (normalizedLine.startsWith("ERROR:")) {
+    if (normalizedLine.startsWith(QStringLiteral("ERROR:"))) {
         m_errorLines.append(normalizedLine);
         
         auto emitError = [&](const QString& type, const QString& msg) {
@@ -43,63 +43,63 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
         };
 
         // Check for private video error
-        if (normalizedLine.contains("private", Qt::CaseInsensitive) || 
-            normalizedLine.contains("This video is private", Qt::CaseInsensitive)) {
-            emitError("private", "This video is private and cannot be downloaded.");
+        if (normalizedLine.contains(QStringLiteral("private"), Qt::CaseInsensitive) || 
+            normalizedLine.contains(QStringLiteral("This video is private"), Qt::CaseInsensitive)) {
+            emitError(QStringLiteral("private"), tr("This video is private and cannot be downloaded."));
         }
         // Check for unavailable video error
-        else if (normalizedLine.contains("unavailable", Qt::CaseInsensitive) ||
-                 normalizedLine.contains("Video is unavailable", Qt::CaseInsensitive) ||
-                 normalizedLine.contains("This video is no longer available", Qt::CaseInsensitive) ||
-                 normalizedLine.contains("does not exist", Qt::CaseInsensitive)) {
-            emitError("unavailable", "This video is unavailable or has been removed.");
+        else if (normalizedLine.contains(QStringLiteral("unavailable"), Qt::CaseInsensitive) ||
+                 normalizedLine.contains(QStringLiteral("Video is unavailable"), Qt::CaseInsensitive) ||
+                 normalizedLine.contains(QStringLiteral("This video is no longer available"), Qt::CaseInsensitive) ||
+                 normalizedLine.contains(QStringLiteral("does not exist"), Qt::CaseInsensitive)) {
+            emitError(QStringLiteral("unavailable"), tr("This video is unavailable or has been removed."));
         }
         // Check for geo-restriction error
-        else if (normalizedLine.contains("geo", Qt::CaseInsensitive) && 
-                 (normalizedLine.contains("restrict", Qt::CaseInsensitive) ||
-                  normalizedLine.contains("unavailable in your country", Qt::CaseInsensitive))) {
-            emitError("geo_restricted", "This video is not available in your region.");
+        else if (normalizedLine.contains(QStringLiteral("geo"), Qt::CaseInsensitive) && 
+                 (normalizedLine.contains(QStringLiteral("restrict"), Qt::CaseInsensitive) ||
+                  normalizedLine.contains(QStringLiteral("unavailable in your country"), Qt::CaseInsensitive))) {
+            emitError(QStringLiteral("geo_restricted"), tr("This video is not available in your region."));
         }
         // Check for members-only error
-        else if (normalizedLine.contains("members", Qt::CaseInsensitive) &&
-                 normalizedLine.contains("only", Qt::CaseInsensitive)) {
-            emitError("members_only", "This video is exclusive to channel members.");
+        else if (normalizedLine.contains(QStringLiteral("members"), Qt::CaseInsensitive) &&
+                 normalizedLine.contains(QStringLiteral("only"), Qt::CaseInsensitive)) {
+            emitError(QStringLiteral("members_only"), tr("This video is exclusive to channel members."));
         }
         // Check for age-restriction error
-        else if (normalizedLine.contains("age", Qt::CaseInsensitive) &&
-                 (normalizedLine.contains("restrict", Qt::CaseInsensitive) ||
-                  normalizedLine.contains("verify your age", Qt::CaseInsensitive) ||
-                  normalizedLine.contains("confirm your age", Qt::CaseInsensitive))) {
-            emitError("age_restricted", "This video requires age verification. Try enabling cookies from your browser.");
+        else if (normalizedLine.contains(QStringLiteral("age"), Qt::CaseInsensitive) &&
+                 (normalizedLine.contains(QStringLiteral("restrict"), Qt::CaseInsensitive) ||
+                  normalizedLine.contains(QStringLiteral("verify your age"), Qt::CaseInsensitive) ||
+                  normalizedLine.contains(QStringLiteral("confirm your age"), Qt::CaseInsensitive))) {
+            emitError(QStringLiteral("age_restricted"), tr("This video requires age verification. Try enabling cookies from your browser."));
         }
         // Check for content removed/unavailable (e.g., deleted tweet)
-        else if (normalizedLine.contains("Requested tweet is unavailable", Qt::CaseInsensitive) ||
-                 normalizedLine.contains("This content is no longer available", Qt::CaseInsensitive) ||
-                 normalizedLine.contains("The requested content was removed", Qt::CaseInsensitive) ||
-                 normalizedLine.contains("Suspended", Qt::CaseInsensitive)) {
-            emitError("content_removed", "The requested content is unavailable or has been removed by the uploader.");
+        else if (normalizedLine.contains(QStringLiteral("Requested tweet is unavailable"), Qt::CaseInsensitive) ||
+                 normalizedLine.contains(QStringLiteral("This content is no longer available"), Qt::CaseInsensitive) ||
+                 normalizedLine.contains(QStringLiteral("The requested content was removed"), Qt::CaseInsensitive) ||
+                 normalizedLine.contains(QStringLiteral("Suspended"), Qt::CaseInsensitive)) {
+            emitError(QStringLiteral("content_removed"), tr("The requested content is unavailable or has been removed by the uploader."));
         }
         // Check for No video formats found / Ghost IDs
-        else if (normalizedLine.contains("No video formats found", Qt::CaseInsensitive)) {
-            emitError("no_video_formats", "No video formats found for this URL.\n\n"
-                                          "This usually means the site requires authentication, the media is unsupported, or the link is a 'ghost ID' that needs to be redirected.\n\n"
-                                          "Try opening the link in a normal web browser to get the real URL, or check your authentication settings.");
+        else if (normalizedLine.contains(QStringLiteral("No video formats found"), Qt::CaseInsensitive)) {
+            emitError(QStringLiteral("no_video_formats"), tr("No video formats found for this URL.\n\n"
+                                             "This usually means the site requires authentication, the media is unsupported, or the link is a 'ghost ID' that needs to be redirected.\n\n"
+                                             "Try opening the link in a normal web browser to get the real URL, or check your authentication settings."));
         }
         // Check for scheduled livestream/premiere
-        else if (normalizedLine.contains("Premieres in", Qt::CaseInsensitive) ||
-                 normalizedLine.contains("Premiering in", Qt::CaseInsensitive) ||
-                 normalizedLine.contains("Premiere will begin", Qt::CaseInsensitive) ||
-                 normalizedLine.contains("live event will begin", Qt::CaseInsensitive) ||
-                 normalizedLine.contains("is upcoming", Qt::CaseInsensitive) ||
-                 normalizedLine.contains("Offline (expected)", Qt::CaseInsensitive) ||
-                 normalizedLine.contains("Offline expected", Qt::CaseInsensitive) ||
-                 normalizedLine.contains("waiting for premiere", Qt::CaseInsensitive) ||
-                 normalizedLine.contains("waiting for livestream", Qt::CaseInsensitive) ||
-                 normalizedLine.contains("Live in ", Qt::CaseInsensitive) ||
-                 normalizedLine.contains("Starting in ", Qt::CaseInsensitive)) {
-            emitError("scheduled_livestream", 
-                "This video is a scheduled livestream or premiere that has not started yet.\n\n"
-                "Would you like to wait for the video to begin and download it automatically?");
+        else if (normalizedLine.contains(QStringLiteral("Premieres in"), Qt::CaseInsensitive) ||
+                 normalizedLine.contains(QStringLiteral("Premiering in"), Qt::CaseInsensitive) ||
+                 normalizedLine.contains(QStringLiteral("Premiere will begin"), Qt::CaseInsensitive) ||
+                 normalizedLine.contains(QStringLiteral("live event will begin"), Qt::CaseInsensitive) ||
+                 normalizedLine.contains(QStringLiteral("is upcoming"), Qt::CaseInsensitive) ||
+                 normalizedLine.contains(QStringLiteral("Offline (expected)"), Qt::CaseInsensitive) ||
+                 normalizedLine.contains(QStringLiteral("Offline expected"), Qt::CaseInsensitive) ||
+                 normalizedLine.contains(QStringLiteral("waiting for premiere"), Qt::CaseInsensitive) ||
+                 normalizedLine.contains(QStringLiteral("waiting for livestream"), Qt::CaseInsensitive) ||
+                 normalizedLine.contains(QStringLiteral("Live in "), Qt::CaseInsensitive) ||
+                 normalizedLine.contains(QStringLiteral("Starting in "), Qt::CaseInsensitive)) {
+            emitError(QStringLiteral("scheduled_livestream"), 
+                tr("This video is a scheduled livestream or premiere that has not started yet.\n\n"
+                   "Would you like to wait for the video to begin and download it automatically?"));
         }
     }
 
@@ -108,7 +108,7 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
         return;
     }
 
-    static const QRegularExpression formatListRegex(R"(^\[info\].*Downloading\s+\d+\s+format\(s\):\s+(.+)$)");
+    static const QRegularExpression formatListRegex(QStringLiteral(R"(^\[info\].*Downloading\s+\d+\s+format\(s\):\s+(.+)$)"));
     const QRegularExpressionMatch formatListMatch = formatListRegex.match(normalizedLine);
     if (formatListMatch.hasMatch()) {
         inferRequestedTransfersFromFormatList(formatListMatch.captured(1).trimmed());
@@ -120,7 +120,7 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
 
     // If we are waiting for a scheduled livestream, fetch metadata in the background so the UI 
     // can show the title and thumbnail instead of just the URL during the long wait.
-    if (normalizedLine.startsWith("[wait]", Qt::CaseInsensitive) || normalizedLine.startsWith("[download] Waiting for video", Qt::CaseInsensitive)) {
+    if (normalizedLine.startsWith(QStringLiteral("[wait]"), Qt::CaseInsensitive) || normalizedLine.startsWith(QStringLiteral("[download] Waiting for video"), Qt::CaseInsensitive)) {
         if (m_videoTitle.isEmpty() && !property("fetchingPreWaitMetadata").toBool()) {
             setProperty("fetchingPreWaitMetadata", true);
             
@@ -128,13 +128,15 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
                 QNetworkAccessManager *manager = new QNetworkAccessManager(this);
                 QNetworkRequest request((QUrl(thumbUrl)));
                 request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
+                request.setHeader(QNetworkRequest::UserAgentHeader, QStringLiteral("LzyDownloader"));
+                request.setTransferTimeout(15000);
                 QNetworkReply *reply = manager->get(request);
                 connect(reply, &QNetworkReply::finished, this, [this, reply, manager]() {
                     if (reply->error() == QNetworkReply::NoError) {
-                        QString tempDir = m_configManager->get("Paths", "temporary_downloads_directory").toString();
+                        QString tempDir = m_configManager->get(QStringLiteral("Paths"), QStringLiteral("temporary_downloads_directory")).toString();
                         QDir().mkpath(tempDir);
-                        QString ext = reply->url().toString().contains(".webp", Qt::CaseInsensitive) ? ".webp" : ".jpg";
-                        QString newThumbPath = QDir(tempDir).filePath(m_id + "_wait_thumbnail" + ext);
+                        QString ext = reply->url().toString().contains(QStringLiteral(".webp"), Qt::CaseInsensitive) ? QStringLiteral(".webp") : QStringLiteral(".jpg");
+                        QString newThumbPath = QDir(tempDir).filePath(QStringLiteral("%1_wait_thumbnail%2").arg(m_id, ext));
                         QFile file(newThumbPath);
                         if (file.open(QIODevice::WriteOnly)) {
                             QByteArray data = reply->readAll();
@@ -145,10 +147,10 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
                                 qDebug() << "[YtDlpWorker] Pre-wait thumbnail downloaded to:" << m_thumbnailPath;
 
                                 QVariantMap pd;
-                                pd["progress"] = -1;
-                                pd["status"] = "Waiting for livestream to start...";
-                                pd["title"] = m_videoTitle;
-                                pd["thumbnail_path"] = m_thumbnailPath;
+                                pd[QStringLiteral("progress")] = -1;
+                                pd[QStringLiteral("status")] = tr("Waiting for livestream to start...");
+                                pd[QStringLiteral("title")] = m_videoTitle;
+                                pd[QStringLiteral("thumbnail_path")] = m_thumbnailPath;
                                 emit progressUpdated(m_id, pd);
                             } else {
                                 file.close();
@@ -165,40 +167,43 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
 
             QString url;
             for (const QString &arg : m_args) {
-                if (arg.startsWith("http")) { url = arg; break; }
+                if (arg.startsWith(QStringLiteral("http"))) { url = arg; break; }
             }
             if (url.isEmpty()) {
                 for (const QString &arg : m_args) {
                     // Grab the first non-flag argument as a fallback URL
-                    if (!arg.startsWith("-")) { url = arg; break; }
+                    if (!arg.startsWith(QLatin1Char('-'))) { url = arg; break; }
                 }
             }
             
             // Fast-path: YouTube oEmbed API avoids spawning a yt-dlp process and bypassing 
             // the ExtractorError completely for upcoming livestreams.
-            if (url.contains("youtube.com") || url.contains("youtu.be")) {
+            if (url.contains(QStringLiteral("youtube.com")) || url.contains(QStringLiteral("youtu.be"))) {
                 qDebug() << "[YtDlpWorker] Detected [wait] state. Using YouTube oEmbed API for pre-wait metadata...";
                 QNetworkAccessManager *manager = new QNetworkAccessManager(this);
-                QUrl oembedUrl("https://www.youtube.com/oembed?url=" + url + "&format=json");
+                QUrl oembedUrl(QStringLiteral("https://www.youtube.com/oembed?url=%1&format=json").arg(url));
                 QNetworkRequest request(oembedUrl);
                 request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
+                request.setHeader(QNetworkRequest::UserAgentHeader, QStringLiteral("LzyDownloader"));
+                request.setTransferTimeout(15000);
                 QNetworkReply *reply = manager->get(request);
                 connect(reply, &QNetworkReply::finished, this, [this, reply, manager, fetchThumbnail]() {
                     if (reply->error() == QNetworkReply::NoError) {
-                        QJsonDocument doc = QJsonDocument::fromJson(reply->readAll());
-                        if (doc.isObject()) {
+                        QJsonParseError parseError;
+                        QJsonDocument doc = QJsonDocument::fromJson(reply->readAll(), &parseError);
+                        if (parseError.error == QJsonParseError::NoError && doc.isObject()) {
                             QJsonObject obj = doc.object();
-                            m_videoTitle = obj.value("title").toString();
-                            QString thumbUrl = obj.value("thumbnail_url").toString();
+                            m_videoTitle = obj.value(QStringLiteral("title")).toString();
+                            QString thumbUrl = obj.value(QStringLiteral("thumbnail_url")).toString();
                             
                             qDebug() << "[YtDlpWorker] oEmbed title:" << m_videoTitle << "thumb:" << thumbUrl;
                             
                             QVariantMap progressData;
-                            progressData["progress"] = -1;
-                            progressData["status"] = "Waiting for livestream to start...";
-                            progressData["title"] = m_videoTitle;
+                            progressData[QStringLiteral("progress")] = -1;
+                            progressData[QStringLiteral("status")] = tr("Waiting for livestream to start...");
+                            progressData[QStringLiteral("title")] = m_videoTitle;
                             if (!m_thumbnailPath.isEmpty()) {
-                                progressData["thumbnail_path"] = m_thumbnailPath;
+                                progressData[QStringLiteral("thumbnail_path")] = m_thumbnailPath;
                             }
                             emit progressUpdated(m_id, progressData);
 
@@ -223,45 +228,46 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
             QProcess *fetchProcess = new QProcess(this);
             ProcessUtils::setProcessEnvironment(*fetchProcess);
             
-            QString ytDlpPath = ProcessUtils::findBinary("yt-dlp", m_configManager).path;
+            QString ytDlpPath = ProcessUtils::findBinary(QStringLiteral("yt-dlp"), m_configManager).path;
             QStringList fetchArgs;
             
-            fetchArgs << "--dump-single-json" << "--flat-playlist" << "--ignore-errors" << url;
-            int cookieIdx = m_args.indexOf("--cookies-from-browser");
+            fetchArgs << QStringLiteral("--dump-single-json") << QStringLiteral("--flat-playlist") << QStringLiteral("--ignore-errors") << url;
+            int cookieIdx = m_args.indexOf(QStringLiteral("--cookies-from-browser"));
             if (cookieIdx != -1 && cookieIdx + 1 < m_args.size()) {
-                fetchArgs << "--cookies-from-browser" << m_args[cookieIdx + 1];
+                fetchArgs << QStringLiteral("--cookies-from-browser") << m_args[cookieIdx + 1];
             }
 
             qDebug() << "[YtDlpWorker] Pre-wait fetch command:" << ytDlpPath << fetchArgs;
             connect(fetchProcess, &QProcess::finished, this, [this, fetchProcess, fetchThumbnail](int exitCode, QProcess::ExitStatus) {
                     QByteArray jsonData = fetchProcess->readAllStandardOutput();
-                    QJsonDocument doc = QJsonDocument::fromJson(jsonData);
-                    if (doc.isObject()) {
+                    QJsonParseError parseError;
+                    QJsonDocument doc = QJsonDocument::fromJson(jsonData, &parseError);
+                    if (parseError.error == QJsonParseError::NoError && doc.isObject()) {
                         QJsonObject obj = doc.object();
                         m_fullMetadata = obj.toVariantMap();
-                        if (obj.contains("title") && obj["title"].isString()) {
-                            m_videoTitle = obj["title"].toString();
+                        if (obj.contains(QStringLiteral("title")) && obj.value(QStringLiteral("title")).isString()) {
+                            m_videoTitle = obj.value(QStringLiteral("title")).toString();
                             qDebug() << "[YtDlpWorker] Pre-wait title fetched:" << m_videoTitle;
                             
                             // Immediately update the UI with the title before we wait for the thumbnail
                             QVariantMap progressData;
-                            progressData["progress"] = -1;
-                            progressData["status"] = "Waiting for livestream to start...";
-                            progressData["title"] = m_videoTitle;
+                            progressData[QStringLiteral("progress")] = -1;
+                            progressData[QStringLiteral("status")] = tr("Waiting for livestream to start...");
+                            progressData[QStringLiteral("title")] = m_videoTitle;
                             if (!m_thumbnailPath.isEmpty()) {
-                                progressData["thumbnail_path"] = m_thumbnailPath;
+                                progressData[QStringLiteral("thumbnail_path")] = m_thumbnailPath;
                             }
                             emit progressUpdated(m_id, progressData);
                         }
                         
                         QString thumbUrl;
-                        if (obj.contains("thumbnails") && obj["thumbnails"].isArray()) {
-                            QJsonArray thumbs = obj["thumbnails"].toArray();
+                        if (obj.contains(QStringLiteral("thumbnails")) && obj.value(QStringLiteral("thumbnails")).isArray()) {
+                            QJsonArray thumbs = obj.value(QStringLiteral("thumbnails")).toArray();
                             if (!thumbs.isEmpty()) {
-                                thumbUrl = thumbs.last().toObject().value("url").toString();
+                                thumbUrl = thumbs.last().toObject().value(QStringLiteral("url")).toString();
                             }
-                        } else if (obj.contains("thumbnail")) {
-                            thumbUrl = obj.value("thumbnail").toString();
+                        } else if (obj.contains(QStringLiteral("thumbnail"))) {
+                            thumbUrl = obj.value(QStringLiteral("thumbnail")).toString();
                         }
 
                         if (!thumbUrl.isEmpty()) {
@@ -275,53 +281,59 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
                 fetchProcess->deleteLater();
             });
             
+            connect(fetchProcess, &QProcess::errorOccurred, this, [fetchProcess](QProcess::ProcessError error) {
+                if (error == QProcess::FailedToStart) {
+                    fetchProcess->deleteLater();
+                }
+            });
+
             fetchProcess->start(ytDlpPath, fetchArgs);
         }
     }
 
-    if (normalizedLine.startsWith("[wait] Remaining time until next attempt:")) {
-        const QString prefix = "[wait] Remaining time until next attempt: ";
+    if (normalizedLine.startsWith(QStringLiteral("[wait] Remaining time until next attempt:"))) {
+        const QString prefix = QStringLiteral("[wait] Remaining time until next attempt: ");
         QString time = normalizedLine.mid(prefix.length()).trimmed();
         QVariantMap progressData;
-        progressData["progress"] = -1; // Indeterminate state
-        progressData["status"] = QString("Next check in %1").arg(time);
+        progressData[QStringLiteral("progress")] = -1; // Indeterminate state
+        progressData[QStringLiteral("status")] = tr("Next check in %1").arg(time);
         if (!m_videoTitle.isEmpty()) {
-            progressData["title"] = m_videoTitle;
+            progressData[QStringLiteral("title")] = m_videoTitle;
         }
         if (!m_thumbnailPath.isEmpty()) {
-            progressData["thumbnail_path"] = m_thumbnailPath;
+            progressData[QStringLiteral("thumbnail_path")] = m_thumbnailPath;
         }
         emit progressUpdated(m_id, progressData);
         return; // This line is handled, no further processing needed.
     }
 
-    if (normalizedLine.startsWith("[download] Waiting for video", Qt::CaseInsensitive) || normalizedLine.startsWith("[wait]", Qt::CaseInsensitive)) {
+    if (normalizedLine.startsWith(QStringLiteral("[download] Waiting for video"), Qt::CaseInsensitive) || normalizedLine.startsWith(QStringLiteral("[wait]"), Qt::CaseInsensitive)) {
         QVariantMap progressData;
-        progressData["progress"] = -1; // Indeterminate state
-        progressData["status"] = "Waiting for livestream to start...";
+        progressData[QStringLiteral("progress")] = -1; // Indeterminate state
+        progressData[QStringLiteral("status")] = tr("Waiting for livestream to start...");
         if (!m_videoTitle.isEmpty()) {
-            progressData["title"] = m_videoTitle;
+            progressData[QStringLiteral("title")] = m_videoTitle;
         }
         if (!m_thumbnailPath.isEmpty()) {
-            progressData["thumbnail_path"] = m_thumbnailPath;
+            progressData[QStringLiteral("thumbnail_path")] = m_thumbnailPath;
         }
         emit progressUpdated(m_id, progressData);
         return;
     }
 
-    static QRegularExpression thumbnailRegex("\\[ThumbnailsConvertor\\] Converting thumbnail \"([^\"]+)\" to jpg");
+    static const QRegularExpression thumbnailRegex(QStringLiteral("\\[ThumbnailsConvertor\\] Converting thumbnail \"([^\"]+)\" to jpg"));
     QRegularExpressionMatch thumbnailMatch = thumbnailRegex.match(normalizedLine);
     if (thumbnailMatch.hasMatch()) {
         QString webpPath = thumbnailMatch.captured(1);
-        m_thumbnailPath = QDir::toNativeSeparators(webpPath.replace(".webp", ".jpg"));
+        m_thumbnailPath = QDir::toNativeSeparators(webpPath.replace(QStringLiteral(".webp"), QStringLiteral(".jpg")));
         QVariantMap updateData;
-        updateData["thumbnail_path"] = m_thumbnailPath;
+        updateData[QStringLiteral("thumbnail_path")] = m_thumbnailPath;
         qDebug() << "[LOG] YtDlpWorker: Found converted thumbnail path for" << m_id << ":" << m_thumbnailPath;
         emit progressUpdated(m_id, updateData);
     }
 
     // 1. Capture the info.json file path and store it, then initiate retry mechanism
-    static QRegularExpression infoJsonRegex(R"(\[info\] (?:Writing video metadata as JSON to|Video metadata is already present in|Video description metadata is already present in):\s*(.*\.info\.json))");
+    static const QRegularExpression infoJsonRegex(QStringLiteral(R"(\[info\] (?:Writing video metadata as JSON to|Video metadata is already present in|Video description metadata is already present in):\s*(.*\.info\.json))"));
     QRegularExpressionMatch infoJsonMatch = infoJsonRegex.match(normalizedLine);
     if (infoJsonMatch.hasMatch()) {
         m_infoJsonPath = infoJsonMatch.captured(1).trimmed();
@@ -334,7 +346,7 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
     }
 
     // Capture subtitle sidecar paths so they are tracked for cleanup
-    static const QRegularExpression subtitleRegex(R"(\[info\] (?:Writing video subtitles to|Video subtitles are already present in):\s+(.+)$)");
+    static const QRegularExpression subtitleRegex(QStringLiteral(R"(\[info\] (?:Writing video subtitles to|Video subtitles are already present in):\s+(.+)$)"));
     QRegularExpressionMatch subtitleMatch = subtitleRegex.match(normalizedLine);
     if (subtitleMatch.hasMatch()) {
         QString subtitlePath = subtitleMatch.captured(1).trimmed();
@@ -342,7 +354,7 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
         emitStatusUpdate(statusForCurrentTransfer());
     }
 
-    static const QRegularExpression ariaFileRegex(R"(^FILE:\s+(.+)$)");
+    static const QRegularExpression ariaFileRegex(QStringLiteral(R"(^FILE:\s+(.+)$)"));
     const QRegularExpressionMatch ariaFileMatch = ariaFileRegex.match(normalizedLine);
     if (ariaFileMatch.hasMatch()) {
         const QString previousTarget = m_currentTransferTarget;
@@ -355,7 +367,7 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
         return;
     }
 
-    static const QRegularExpression destinationRegex(R"(^\[download\]\s+Destination:\s+(.+)$)");
+    static const QRegularExpression destinationRegex(QStringLiteral(R"(^\[download\]\s+Destination:\s+(.+)$)"));
     const QRegularExpressionMatch destinationMatch = destinationRegex.match(normalizedLine);
     if (destinationMatch.hasMatch()) {
         const QString filename = destinationMatch.captured(1).trimmed();
@@ -366,18 +378,18 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
         }
     }
 
-    static const QRegularExpression totalFragmentsRegex(R"(^\[download\]\s+Total fragments:\s+(\d+).*$)");
+    static const QRegularExpression totalFragmentsRegex(QStringLiteral(R"(^\[download\]\s+Total fragments:\s+(\d+).*$)"));
     const QRegularExpressionMatch totalFragmentsMatch = totalFragmentsRegex.match(normalizedLine);
     if (totalFragmentsMatch.hasMatch()) {
         const QString segmentCount = totalFragmentsMatch.captured(1);
         const QString transferStatus = statusForCurrentTransfer();
         QString segmentStatus;
         if (transferStatus.contains("audio", Qt::CaseInsensitive)) {
-            segmentStatus = QString("Downloading %1 audio segment(s)...").arg(segmentCount);
+            segmentStatus = tr("Downloading %1 audio segment(s)...").arg(segmentCount);
         } else if (transferStatus.contains("video", Qt::CaseInsensitive)) {
-            segmentStatus = QString("Downloading %1 video segment(s)...").arg(segmentCount);
+            segmentStatus = tr("Downloading %1 video segment(s)...").arg(segmentCount);
         } else {
-            segmentStatus = QString("Downloading %1 segment(s)...").arg(segmentCount);
+            segmentStatus = tr("Downloading %1 segment(s)...").arg(segmentCount);
         }
         emitStatusUpdate(segmentStatus);
         return;
@@ -390,7 +402,7 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
 
 QString YtDlpWorker::normalizeConsoleLine(const QString &line) const {
     QString normalized = line;
-    static const QRegularExpression ansiRegex(R"(\x1B\[[0-9;]*[A-Za-z])");
+    static const QRegularExpression ansiRegex(QStringLiteral(R"(\x1B\[[0-9;]*[A-Za-z])"));
     normalized.remove(ansiRegex);
     return normalized.trimmed();
 }

@@ -5,6 +5,7 @@
 #include <QJsonDocument>
 #include <QJsonArray>
 #include <QJsonObject>
+#include <QSaveFile>
 #include <QDebug>
 #include <QCoreApplication>
 
@@ -12,11 +13,11 @@ DownloadQueueState::DownloadQueueState(QObject *parent)
     : QObject(parent)
 {
     QString configDir = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation);
-    if (QCoreApplication::arguments().contains("--headless") || QCoreApplication::arguments().contains("--server")) {
-        configDir = QDir(configDir).filePath("Server");
+    if (QCoreApplication::arguments().contains(QStringLiteral("--headless")) || QCoreApplication::arguments().contains(QStringLiteral("--server")) || QCoreApplication::arguments().contains(QStringLiteral("--background"))) {
+        configDir = QDir(configDir).filePath(QStringLiteral("Server"));
     }
     QDir().mkpath(configDir);
-    m_backupPath = QDir(configDir).filePath("downloads_backup.json");
+    m_backupPath = QDir(configDir).filePath(QStringLiteral("downloads_backup.json"));
 }
 
 QJsonArray DownloadQueueState::load()
@@ -29,11 +30,14 @@ QJsonArray DownloadQueueState::load()
     if (file.open(QIODevice::ReadOnly)) {
         QByteArray data = file.readAll();
         file.close();
-        QJsonDocument doc = QJsonDocument::fromJson(data);
-        if (doc.isArray() && !doc.array().isEmpty()) {
+        QJsonParseError parseError;
+        QJsonDocument doc = QJsonDocument::fromJson(data, &parseError);
+        if (parseError.error == QJsonParseError::NoError && doc.isArray() && !doc.array().isEmpty()) {
             QJsonArray arr = doc.array();
             emit resumeDownloadsRequested(arr);
             return arr;
+        } else if (parseError.error != QJsonParseError::NoError && !data.isEmpty()) {
+            qWarning() << "Failed to parse download queue backup file:" << parseError.errorString();
         }
     }
     return QJsonArray();
@@ -44,54 +48,56 @@ void DownloadQueueState::save(const QList<DownloadItem>& activeItems, const QMap
     QJsonArray queueArray;
     for (const DownloadItem &item : activeItems) {
         QJsonObject obj;
-        obj["id"] = item.id;
-        obj["url"] = item.url;
-        obj["options"] = QJsonObject::fromVariantMap(item.options);
-        obj["metadata"] = QJsonObject::fromVariantMap(item.metadata);
-        obj["status"] = "queued"; // Active items revert to queued on app start
-        obj["playlistIndex"] = item.playlistIndex;
-        obj["tempFilePath"] = item.tempFilePath;
-        obj["originalDownloadedFilePath"] = item.originalDownloadedFilePath;
+        obj[QStringLiteral("id")] = item.id;
+        obj[QStringLiteral("url")] = item.url;
+        obj[QStringLiteral("options")] = QJsonObject::fromVariantMap(item.options);
+        obj[QStringLiteral("metadata")] = QJsonObject::fromVariantMap(item.metadata);
+        obj[QStringLiteral("status")] = QStringLiteral("queued"); // Active items revert to queued on app start
+        obj[QStringLiteral("playlistIndex")] = item.playlistIndex;
+        obj[QStringLiteral("tempFilePath")] = item.tempFilePath;
+        obj[QStringLiteral("originalDownloadedFilePath")] = item.originalDownloadedFilePath;
         queueArray.append(obj);
     }
     for (const DownloadItem &item : pausedItems) {
         QJsonObject obj;
-        obj["id"] = item.id;
-        obj["url"] = item.url;
-        obj["options"] = QJsonObject::fromVariantMap(item.options);
-        obj["metadata"] = QJsonObject::fromVariantMap(item.metadata);
+        obj[QStringLiteral("id")] = item.id;
+        obj[QStringLiteral("url")] = item.url;
+        obj[QStringLiteral("options")] = QJsonObject::fromVariantMap(item.options);
+        obj[QStringLiteral("metadata")] = QJsonObject::fromVariantMap(item.metadata);
         if (item.options.value("is_stopped").toBool() || item.options.value("is_failed").toBool()) {
-            obj["status"] = "stopped";
+            obj[QStringLiteral("status")] = QStringLiteral("stopped");
         } else {
-            obj["status"] = "paused";
+            obj[QStringLiteral("status")] = QStringLiteral("paused");
         }
-        obj["playlistIndex"] = item.playlistIndex;
-        obj["tempFilePath"] = item.tempFilePath;
-        obj["originalDownloadedFilePath"] = item.originalDownloadedFilePath;
+        obj[QStringLiteral("playlistIndex")] = item.playlistIndex;
+        obj[QStringLiteral("tempFilePath")] = item.tempFilePath;
+        obj[QStringLiteral("originalDownloadedFilePath")] = item.originalDownloadedFilePath;
         queueArray.append(obj);
     }
     for (const auto& item : downloadQueue) {
         QJsonObject obj;
-        obj["id"] = item.id;
-        obj["url"] = item.url;
-        obj["options"] = QJsonObject::fromVariantMap(item.options);
-        obj["metadata"] = QJsonObject::fromVariantMap(item.metadata);
-        obj["status"] = "queued";
-        obj["playlistIndex"] = item.playlistIndex;
-        obj["tempFilePath"] = item.tempFilePath;
-        obj["originalDownloadedFilePath"] = item.originalDownloadedFilePath;
+        obj[QStringLiteral("id")] = item.id;
+        obj[QStringLiteral("url")] = item.url;
+        obj[QStringLiteral("options")] = QJsonObject::fromVariantMap(item.options);
+        obj[QStringLiteral("metadata")] = QJsonObject::fromVariantMap(item.metadata);
+        obj[QStringLiteral("status")] = QStringLiteral("queued");
+        obj[QStringLiteral("playlistIndex")] = item.playlistIndex;
+        obj[QStringLiteral("tempFilePath")] = item.tempFilePath;
+        obj[QStringLiteral("originalDownloadedFilePath")] = item.originalDownloadedFilePath;
         queueArray.append(obj);
     }
 
     if (queueArray.isEmpty()) {
         QFile::remove(m_backupPath);
     } else {
-        QFile file(m_backupPath);
+        QSaveFile file(m_backupPath);
         if (file.open(QIODevice::WriteOnly)) {
             file.write(QJsonDocument(queueArray).toJson());
-            file.close();
+            if (!file.commit()) {
+                qWarning() << "Failed to commit download queue backup file:" << file.errorString();
+            }
         } else {
-            qWarning() << "Failed to open download queue backup file for writing:" << m_backupPath;
+            qWarning() << "Failed to open download queue backup file for writing:" << file.errorString();
         }
     }
 }

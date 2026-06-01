@@ -1,0 +1,83 @@
+# Coding Standards
+
+When acting as an AI coding assistant modifying this repository, you must adhere strictly to the following technical constraints to maintain application stability, performance, code quality, and cross-platform compatibility.
+
+## 1. Core Principles
+- **DRY (Don't Repeat Yourself):** Extract repeated boilerplate logic into helper methods or utility classes. Prevent bugs by ensuring logic is updated in a single place.
+- **Separation of Concerns (SoC):** Keep the UI layer (`src/ui/`) strictly decoupled from the business logic (`src/core/`). UI components should react to signals and must not contain heavy processing logic.
+- **Zero Backward Compatibility for Obsolete Code:** When replacing legacy components, do not write legacy fallbacks for obsolete settings or data structures unless explicitly requested for migration.
+- **Documentation-Driven Changes:** Feature changes, bug fixes, and architecture changes must be reflected in the relevant markdown files before completion (`ARCHITECTURE.md`, `SPEC.md`, `SETTINGS.md`, etc.).
+
+## 2. C++ & Qt Style and Conventions
+- **Naming:** Follow idiomatic Qt/C++ naming. Use `PascalCase` for classes, `camelCase` for functions and local variables, and `UPPER_SNAKE_CASE` for constants. Prefix class member variables with `m_` (e.g., `m_downloadQueue`).
+- **Const Correctness:** Prefer immutable variables (`const`) and mark member functions `const` if they do not modify the object state. Always pass non-primitive types by const reference (e.g., `const QString &`) unless taking ownership.
+- **Memory Management:** Use RAII (Resource Acquisition Is Initialization). Rely on Qt's `QObject` parent-child ownership tree for UI and core components, or use smart pointers (`std::unique_ptr`, `std::shared_ptr`) for non-QObject types. Avoid manual `new`/`delete` where possible.
+- **Magic Numbers & Strings:** Do not hardcode arbitrary numbers or system strings deep within business logic. Extract them into named constants, `constexpr`, or `#define`s where appropriate.
+- **Signals and Slots:** Always use the Qt 5/6 pointer-to-member-function syntax for `QObject::connect` (e.g., `connect(sender, &Sender::signal, receiver, &Receiver::slot)`), avoiding the old `SIGNAL()` and `SLOT()` macros to ensure compile-time type safety.
+- **Safe QObject Deletion:** When destroying `QObject` instances that process events or receive signals across threads (e.g., workers or network replies), ALWAYS use `deleteLater()` instead of `delete` to prevent access violations.
+- **Safe Lambda Captures:** When connecting signals to lambda functions, ALWAYS provide a context `QObject` (e.g., `connect(sender, &Sender::signal, contextObject, = { ... });`). This ensures the connection is safely destroyed if the context object is deleted, preventing use-after-free crashes.
+- **Modern C++20 Usage & `auto`:** Leverage modern C++20 features (`<ranges>`, structured bindings). Use `auto` judiciously—only when the type is explicitly clear from the right-hand side (e.g., `auto* obj = new Object();` or `auto it = map.find();`) to maintain readability. Strictly avoid C-style casts and raw C-style arrays.
+- **Explicit Return Value Checks:** Mark functions that return important status codes, error variants, or allocated resources with `[[nodiscard]]` so the compiler warns if the caller ignores the result.
+- **Explicit Constructors:** Always mark single-argument constructors as `explicit` to prevent unintended implicit type conversions.
+- **String Formatting:** Never use `+` concatenation for user-facing text, as it breaks localization grammar. Always use `QString::arg()` or C++20 `std::format` to inject variables into strings.
+- **String Allocations:** Use `QStringLiteral("...")` for hardcoded strings instead of `QString("...")` or implicit `const char*` conversions. This prevents unnecessary runtime memory allocations and deep copies by resolving the string data at compile time.
+- **Forward Declarations:** Prefer forward declarations (e.g., `class QNetworkReply;`) in header files over `#include` directives to reduce compilation times and circular dependencies. Include the actual headers only in the `.cpp` files.
+- **Include Organization:** Order `#include` directives logically: Local header (e.g., `MyClass.h`), followed by Qt headers (`<QString>`), then external libraries (`<nlohmann/json.hpp>`), and finally C++ standard libraries (`<vector>`). This ensures local headers are entirely self-contained.
+- **Compiler Warnings:** Strive for zero-warning builds. Treat compiler warnings as potential bugs. Do not ignore implicit conversion warnings, unused variables, or deprecation notices.
+- **Exception Safety:** Since the Qt event loop is largely not exception-safe, avoid throwing exceptions in core business logic. Prefer returning error codes, `std::optional`, or boolean success flags, and mark non-throwing functions `noexcept`.
+- **No Not-Null Assertions:** Always verify pointers are valid before dereferencing them. Prevent null pointer crashes with early returns (Fail Fast).
+- **Translation Readiness (i18n):** All user-facing strings in the UI must be wrapped in `tr()` or `QObject::tr()` (e.g., `tr("Download Complete")`) to support future localization as defined in `LANGUAGES.md`.
+- **Header Guards:** Always use `#pragma once` at the top of all C++ header files to prevent double inclusion.
+- **Regex Performance:** When using `QRegularExpression` for parsing frequent data (e.g., `yt-dlp` or `aria2c` progress output lines), declare them as `static const` or class members to avoid recompiling the regex pattern on every function call.
+
+- **Doxygen for Public APIs:** All public classes, methods, and complex functions in the `src/core/` and `src/utils/` libraries must be documented using Doxygen-style comments (`/** ... */` or `///`). Document the *why* and the contract (pre-conditions, post-conditions), not just a restatement of the function signature.
+- **Modern CMake Practices:** Always use modern CMake target-based commands (e.g., `target_include_directories`, `target_link_libraries`, `target_compile_definitions`). Avoid legacy directory-scoped commands (`include_directories`, `link_directories`) to ensure dependencies are properly encapsulated per-target.
+
+## 3. Concurrency & UI Thread
+- **Never Block the Main Thread:** All network requests, file system scanning, long database operations, and external process executions (`yt-dlp`, `gallery-dl`, `ffmpeg`) MUST occur asynchronously or off the main GUI thread.
+- **Strict GUI Thread Affinity:** NEVER create, modify, or delete `QWidget` subclasses or UI elements from a background thread. All UI updates must strictly reside on the main GUI thread.
+- **Cross-Thread Communication:** Always use Qt's signal/slot mechanism or `QMetaObject::invokeMethod` with `Qt::QueuedConnection` to pass data from worker threads/processes back to the main UI thread. Do not attempt direct UI updates from background threads.
+- **RAII Synchronization:** Never call `lock()` and `unlock()` manually on mutexes. Always use `QMutexLocker`, `std::lock_guard`, or `std::unique_lock` to guarantee thread locks are released if an early return or exception occurs. **Never hold a mutex lock while emitting a Qt signal**, as this can cause cross-thread deadlocks.
+- **Weak Pointers:** When holding a reference to a `QObject` whose lifecycle is managed elsewhere (e.g., a background task referencing a UI widget), use `QPointer<T>` to automatically track deletion and prevent dangling pointer crashes.
+- **Shared Memory Recovery:** Qt's `QSharedMemory` (used for single-instance enforcement) can prevent the app from launching if a previous crash left the memory segment attached. Always attempt an `attach()` followed by a `detach()` before calling `create()` to ensure dangling memory segments are cleared.
+- **Process Management:** Use `QProcess` safely. Always use the argument list signature `start(program, QStringList)` rather than the single-string signature to prevent command injection and parsing errors with spaces. 
+- **Safe Process I/O Streaming:** When reading output from `QProcess` via `readyReadStandardOutput`, be aware that multi-byte UTF-8 characters can be split across buffer chunks. Always buffer raw bytes and decode full lines (`readLine()`) rather than blindly converting raw chunks to strings.
+- **Process Hang Prevention:** External binaries (`yt-dlp`, `gallery-dl`, `ffmpeg`) can freeze or wait for input indefinitely. Always implement a watchdog `QTimer` or explicit timeout mechanism to kill processes that hang without emitting output.
+- **Process Cleanup:** Properly manage process lifecycles. Ensure transient background tools are placed in job objects (on Windows) or explicitly terminated on application exit so orphaned processes do not survive.
+
+## 4. File, Data, & Media Handling
+- **Cross-Platform Paths:** Always use `QDir`, `QFileInfo`, and `QStandardPaths` for file system operations. Do not use hardcoded Windows slashes (`\`) or Unix slashes (`/`) manually when building paths.
+- **Unicode Safety:** Ensure file and process I/O uses UTF-8. Force `PYTHONUTF8=1` and `PYTHONIOENCODING=utf-8` in process environments for external Python tools to preserve Unicode output text.
+- **Atomic File Operations:** When writing to critical state files like `downloads_backup.json`, always use Qt's `QSaveFile` instead of `QFile`. `QSaveFile` writes to a temporary file and renames it atomically upon `commit()`, preventing file corruption if the app crashes or loses power mid-write.
+- **Database Safety:** All SQLite queries (`ArchiveManager`) must use prepared statements (`QSqlQuery::prepare` and `bindValue`) to prevent SQL injection vulnerabilities. Do not concatenate strings to build SQL queries.
+- **SQLite Threading Rules:** Qt's `QSqlDatabase` connections are strictly thread-bound. NEVER share a single `QSqlDatabase` connection across multiple threads. If a background thread needs database access, it must call `QSqlDatabase::addDatabase()` with a unique connection name.
+- **Settings Manager:** Read and write configuration via `ConfigManager` which wraps `QSettings`. Always provide safe fallbacks/defaults when reading configuration values, and avoid placing blocking file I/O calls in performance-critical paths.
+- **Safe JSON Parsing:** Always check `QJsonParseError` when parsing JSON documents (e.g., `info.json` or `downloads_backup.json`). Validate key existence (`contains()`) and type (`isString()`, `isObject()`, etc.) before extracting values to prevent unexpected empty states or crashes.
+
+## 5. Security & Privacy
+- **Command Injection Prevention:** When passing user-provided data (like URLs or custom arguments) to external binaries, strictly validate and sanitize the input. 
+- **Path Traversal Prevention:** Never blindly trust external metadata (like video titles, uploader names, or playlist titles) when constructing file paths. Always sanitize metadata to prevent directory traversal (`../`) and illegal character injection.
+- **Binary Integrity (Supply Chain):** In-app updaters (e.g., `YtDlpUpdater`) must enforce strict HTTPS. Where upstream hashes are published, verify the cryptographic hash (e.g., SHA-256) of downloaded binaries before executing or replacing them.
+- **Dependency Pinning:** Ensure external C++ dependencies (e.g., defined in `vcpkg.json`) are pinned to specific versions or baseline commits to prevent upstream breaking changes or supply chain attacks from silently affecting the build.
+- **File Permissions:** Ensure sensitive local files like `api_token.txt` are created with restrictive file permissions (e.g., `QFileDevice::ReadOwner | QFileDevice::WriteOwner`), preventing unauthorized local users from accessing the localhost API.
+- **IPC Payload Validation:** When receiving data over the `QLocalSocket` (used for single-instance URL handoffs), strictly validate the payload size, encoding, and format to prevent local Denial of Service (DoS) or buffer over-reads by malicious local processes.
+- **CORS & Origin Validation:** The `LocalApiServer` (`127.0.0.1:8765`) MUST explicitly reject unauthorized cross-origin requests (CORS preflight) and validate `Origin` / `Host` headers to prevent malicious external websites from pivoting through the browser to attack the local app.
+- **Network Security & Timeouts:** All remote internet traffic (e.g., app updates via `QNetworkAccessManager`) must use HTTPS. OpenSSL runtime libraries must be deployed properly on Windows for TLS backend initialization. Furthermore, all network requests must have explicit timeouts configured to prevent permanent memory leaks if a server hangs.
+- **Data Leakage & Logging:** Do not log sensitive user data, API tokens, full cookie dumps, or URLs with embedded credentials (e.g., `https://user:pass@...`). Sanitize logs and CLI argument previews. Release builds should avoid overly verbose debug diagnostics.
+- **Telemetry & Analytics:** The app acts as a local client. All cached user data, histories, and settings must remain strictly on-device. No telemetry is permitted.
+- **Secure Randomness:** Use secure methods (e.g., `QUuid::createUuid()`) for generating authentication tokens or unique download IDs.
+- **Local API Security:** The localhost API (`127.0.0.1:8765`) MUST require a Bearer token (`api_token.txt`) for all sensitive endpoints to prevent CSRF or unauthorized execution by random local web pages.
+- **Actionable Logging Levels:** Differentiate log severity using Qt's logging macros. Use `qDebug()` for development diagnostics, `qInfo()` for major state changes (e.g., download started), `qWarning()` for recoverable errors (e.g., info.json parse fail), and `qCritical()` for unrecoverable failures.
+- **Version Control & Secrets:** Never commit sensitive files, dynamically generated tokens (`api_token.txt`), or user databases (`download_archive.db`, `settings.ini`) to version control. Always enforce this exclusion via `.gitignore`.
+
+## 6. Testing & Quality Assurance
+- **Test-Driven Modifications:** When changing core logic, command arguments building (`YtDlpArgsBuilder`), progress parsing, or file sorting, write or update corresponding Qt tests (`QTest`). 
+- **Isolated Testing:** Tests must never write to the user's actual `settings.ini` or `download_archive.db`. Always use isolated temporary paths and mock configurations (e.g., via `BaseTest` fixtures).
+- **Testability by Design:** Do not force tests to parse UI presentation layers (e.g., extracting colors from stylesheets). Expose internal state cleanly via `Q_PROPERTY` or explicit public getter methods so UI tests can verify semantic states rather than visual representations.
+- **Static Analysis:** Augment compiler warnings by integrating static analysis tools (e.g., Clang-Tidy, and Clazy for Qt-specific checks) to catch memory leaks, dangling string views, and performance anti-patterns before runtime.
+
+## 7. UI & UX Conventions
+- **Theme Compatibility:** Never hardcode specific colors (e.g., `"#FF0000"` or `Qt::red`) in UI logic or stylesheets unless explicitly required for a specific state (like a green completion progress bar). Always use the application's `QPalette` (e.g., `palette().color(QPalette::WindowText)`) to ensure components adapt automatically to both Light and Dark themes.
+- **Standard Dialog Button Roles:** For dialogs with standard actions (e.g., OK/Cancel, Save/Discard), use `QDialogButtonBox` and assign standard roles (`QDialogButtonBox::AcceptRole`, `QDialogButtonBox::RejectRole`, `QDialogButtonBox::ApplyRole`). This ensures consistent button placement and keyboard shortcuts (e.g., `Enter` for accept, `Esc` for reject) across different platforms and themes.
+- **High-DPI & Responsive Layouts:** Avoid hardcoding fixed pixel dimensions (`setFixedSize()`, `setFixedHeight()`) for windows and widgets unless absolutely necessary. Rely on Qt's layout system (`QVBoxLayout`, `QSizePolicy`, `setMinimumSize()`) so the UI scales correctly on High-DPI displays and respects the user's OS font size preferences.
+- **Accessibility (a11y):** Ensure all custom interactive widgets provide appropriate `AccessibleName` and `AccessibleDescription` properties to support screen readers and OS-level accessibility tools.

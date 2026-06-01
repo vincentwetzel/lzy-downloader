@@ -11,12 +11,12 @@
 namespace {
 bool shouldNormalizeSectionContainer(const DownloadItem &item)
 {
-    if (item.options.value("download_sections").toString().isEmpty()) {
+    if (item.options.value(QStringLiteral("download_sections")).toString().isEmpty()) {
         return false;
     }
 
     const QString suffix = QFileInfo(item.tempFilePath).suffix().toLower();
-    return suffix == "mp4" || suffix == "m4v" || suffix == "mov" || suffix == "m4a";
+    return suffix == QStringLiteral("mp4") || suffix == QStringLiteral("m4v") || suffix == QStringLiteral("mov") || suffix == QStringLiteral("m4a");
 }
 
 bool isMetadataSidecarPath(const QString &path)
@@ -31,10 +31,10 @@ void appendCleanupCandidate(QVariantMap &options, const QString &path)
         return;
     }
 
-    QStringList cleanupCandidates = options.value("cleanup_candidates").toStringList();
+    QStringList cleanupCandidates = options.value(QStringLiteral("cleanup_candidates")).toStringList();
     if (!cleanupCandidates.contains(normalizedPath, Qt::CaseInsensitive)) {
         cleanupCandidates.append(normalizedPath);
-        options["cleanup_candidates"] = cleanupCandidates;
+        options[QStringLiteral("cleanup_candidates")] = cleanupCandidates;
     }
 }
 }
@@ -42,7 +42,7 @@ void appendCleanupCandidate(QVariantMap &options, const QString &path)
 void DownloadManager::onWorkerProgress(const QString &id, const QVariantMap &progressData) {
     if (m_activeItems.contains(id)) {
         DownloadItem &item = m_activeItems[id];
-        const QString currentFile = progressData.value("current_file").toString().trimmed();
+        const QString currentFile = progressData.value(QStringLiteral("current_file")).toString().trimmed();
         if (!currentFile.isEmpty()) {
             const QString normalizedCurrentFile = QDir::fromNativeSeparators(currentFile);
             item.tempFilePath = normalizedCurrentFile;
@@ -52,13 +52,13 @@ void DownloadManager::onWorkerProgress(const QString &id, const QVariantMap &pro
             }
         }
 
-        const QString thumbnailPath = progressData.value("thumbnail_path").toString().trimmed();
+        const QString thumbnailPath = progressData.value(QStringLiteral("thumbnail_path")).toString().trimmed();
         if (!thumbnailPath.isEmpty()) {
             appendCleanupCandidate(item.options, thumbnailPath);
         }
     }
 
-    m_workerSpeeds[id] = progressData.value("speed_bytes", 0.0).toDouble();
+    m_workerSpeeds[id] = progressData.value(QStringLiteral("speed_bytes"), 0.0).toDouble();
     updateTotalSpeed();
     emit downloadProgress(id, progressData);
 }
@@ -71,10 +71,10 @@ void DownloadManager::onWorkerOutputReceived(const QString &id, const QString &o
 
 QString DownloadManager::effectivePlaylistTitle(const DownloadItem &item) const {
     auto isUsable = [](const QString &value) {
-        return !value.isEmpty() && value.compare("unknown", Qt::CaseInsensitive) != 0;
+        return !value.isEmpty() && value.compare(QStringLiteral("unknown"), Qt::CaseInsensitive) != 0;
     };
 
-    const QStringList playlistKeys = {"playlist_title", "playlist"};
+    const QStringList playlistKeys = {QStringLiteral("playlist_title"), QStringLiteral("playlist")};
     for (const QString &key : playlistKeys) {
         const QString value = item.metadata.value(key).toString().trimmed();
         if (isUsable(value)) {
@@ -88,11 +88,11 @@ QString DownloadManager::effectivePlaylistTitle(const DownloadItem &item) const 
         }
     }
 
-    const QString metadataAlbum = item.metadata.value("album").toString().trimmed();
+    const QString metadataAlbum = item.metadata.value(QStringLiteral("album")).toString().trimmed();
     if (isUsable(metadataAlbum)) {
         return metadataAlbum;
     }
-    const QString optionsAlbum = item.options.value("album").toString().trimmed();
+    const QString optionsAlbum = item.options.value(QStringLiteral("album")).toString().trimmed();
     if (isUsable(optionsAlbum)) {
         return optionsAlbum;
     }
@@ -101,7 +101,7 @@ QString DownloadManager::effectivePlaylistTitle(const DownloadItem &item) const 
 }
 
 void DownloadManager::applyAudioPlaylistAlbumMetadata(DownloadItem &item) const {
-    if (item.options.value("type").toString() != "audio" || item.playlistIndex <= 0) {
+    if (item.options.value(QStringLiteral("type")).toString() != QStringLiteral("audio") || item.playlistIndex <= 0) {
         return;
     }
 
@@ -110,16 +110,16 @@ void DownloadManager::applyAudioPlaylistAlbumMetadata(DownloadItem &item) const 
         return;
     }
 
-    if (item.metadata.value("playlist_title").toString().trimmed().isEmpty()) {
-        item.metadata["playlist_title"] = playlistTitle;
+    if (item.metadata.value(QStringLiteral("playlist_title")).toString().trimmed().isEmpty()) {
+        item.metadata[QStringLiteral("playlist_title")] = playlistTitle;
     }
-    if (item.options.value("playlist_title").toString().trimmed().isEmpty()) {
-        item.options["playlist_title"] = playlistTitle;
+    if (item.options.value(QStringLiteral("playlist_title")).toString().trimmed().isEmpty()) {
+        item.options[QStringLiteral("playlist_title")] = playlistTitle;
     }
 
-    if (m_configManager->get("Metadata", "force_playlist_as_album", false).toBool()) {
-        item.metadata["album"] = playlistTitle;
-        item.metadata["album_artist"] = "Various Artists";
+    if (m_configManager->get(QStringLiteral("Metadata"), QStringLiteral("force_playlist_as_album"), false).toBool()) {
+        item.metadata[QStringLiteral("album")] = playlistTitle;
+        item.metadata[QStringLiteral("album_artist")] = QStringLiteral("Various Artists");
     }
 }
 
@@ -136,7 +136,7 @@ void DownloadManager::onWorkerFinished(const QString &id, bool success, const QS
 
     if (!success) {
         DownloadItem item = m_activeItems.take(id);
-        item.options["is_failed"] = true;
+        item.options[QStringLiteral("is_failed")] = true;
         m_queueManager->m_pausedItems[id] = item;
         
         m_errorDownloadsCount++;
@@ -149,10 +149,10 @@ void DownloadManager::onWorkerFinished(const QString &id, bool success, const QS
         return;
     }
 
-    if (metadata.contains("height") && metadata["height"].toInt() < 480) {
+    if (metadata.contains(QStringLiteral("height")) && metadata.value(QStringLiteral("height")).toInt() < 480) {
         QString url = item.url;
         QMetaObject::invokeMethod(this, [this, url]() {
-            emit videoQualityWarning(url, "Downloaded video quality is below 480p.");
+            emit videoQualityWarning(url, tr("Downloaded video quality is below 480p."));
         }, Qt::QueuedConnection);
     }
 
@@ -162,35 +162,35 @@ void DownloadManager::onWorkerFinished(const QString &id, bool success, const QS
     item.tempFilePath = normalizedFinal.isEmpty() ? normalizedOriginal : normalizedFinal;
     item.originalDownloadedFilePath = normalizedOriginal;
     item.metadata = metadata;
-    if (metadata.contains("postprocessor_warning")) {
-        item.options["completion_warning"] = metadata.value("postprocessor_warning").toString();
-        emit downloadProgress(id, {{"status", "Completed with post-processing warning"}});
+    if (metadata.contains(QStringLiteral("postprocessor_warning"))) {
+        item.options[QStringLiteral("completion_warning")] = metadata.value(QStringLiteral("postprocessor_warning")).toString();
+        emit downloadProgress(id, {{QStringLiteral("status"), tr("Completed with post-processing warning")}});
     }
 
     // Inject playlist_index into metadata for sorting manager
     if (item.playlistIndex != -1) {
-        item.metadata["playlist_index"] = item.playlistIndex;
+        item.metadata[QStringLiteral("playlist_index")] = item.playlistIndex;
         qDebug() << "Injected playlist_index" << item.playlistIndex << "into metadata for sorting.";
     }
-    if (item.options.value("is_playlist").toBool()) {
-        item.metadata["is_playlist"] = true;
+    if (item.options.value(QStringLiteral("is_playlist")).toBool()) {
+        item.metadata[QStringLiteral("is_playlist")] = true;
     }
-    if (item.options.contains("playlist_title") && !item.metadata.contains("playlist_title")) {
-        item.metadata["playlist_title"] = item.options.value("playlist_title");
+    if (item.options.contains(QStringLiteral("playlist_title")) && !item.metadata.contains(QStringLiteral("playlist_title"))) {
+        item.metadata[QStringLiteral("playlist_title")] = item.options.value(QStringLiteral("playlist_title"));
     }
     applyAudioPlaylistAlbumMetadata(item);
 
-    const bool needsTrackEmbedding = (item.options.value("type").toString() == "audio" && item.playlistIndex > 0);
+    const bool needsTrackEmbedding = (item.options.value(QStringLiteral("type")).toString() == QStringLiteral("audio") && item.playlistIndex > 0);
     const bool needsSectionNormalization = shouldNormalizeSectionContainer(item);
-    const QString thumbnailPath = item.metadata.value("thumbnail_path").toString();
-    const bool wantsEmbed = m_configManager->get("Metadata", "embed_thumbnail", true).toBool();
+    const QString thumbnailPath = item.metadata.value(QStringLiteral("thumbnail_path")).toString();
+    const bool wantsEmbed = m_configManager->get(QStringLiteral("Metadata"), QStringLiteral("embed_thumbnail"), true).toBool();
     const bool hasAbandonedThumb = wantsEmbed && !thumbnailPath.isEmpty() && QFile::exists(thumbnailPath);
 
     if (needsTrackEmbedding || needsSectionNormalization || hasAbandonedThumb) {
         QVariantMap progressData;
-        progressData["status"] = needsSectionNormalization
-            ? "Normalizing clip container metadata..."
-            : (hasAbandonedThumb && !needsTrackEmbedding ? "Embedding thumbnail..." : "Embedding metadata...");
+        progressData[QStringLiteral("status")] = needsSectionNormalization
+            ? tr("Normalizing clip container metadata...")
+            : (hasAbandonedThumb && !needsTrackEmbedding ? tr("Embedding thumbnail...") : tr("Embedding metadata..."));
         emit downloadProgress(id, progressData);
 
         MetadataEmbedder *embedder = new MetadataEmbedder(m_configManager, this);
@@ -202,12 +202,12 @@ void DownloadManager::onWorkerFinished(const QString &id, bool success, const QS
             embedder->setProperty("thumbnail_path", thumbnailPath);
         }
         QVariantMap extraMetadata;
-        if (item.options.value("type").toString() == "audio" && item.playlistIndex > 0
-            && m_configManager->get("Metadata", "force_playlist_as_album", false).toBool()) {
+        if (item.options.value(QStringLiteral("type")).toString() == QStringLiteral("audio") && item.playlistIndex > 0
+            && m_configManager->get(QStringLiteral("Metadata"), QStringLiteral("force_playlist_as_album"), false).toBool()) {
             const QString playlistTitle = effectivePlaylistTitle(item);
             if (!playlistTitle.isEmpty()) {
-                extraMetadata["album"] = playlistTitle;
-                extraMetadata["album_artist"] = "Various Artists";
+                extraMetadata[QStringLiteral("album")] = playlistTitle;
+                extraMetadata[QStringLiteral("album_artist")] = QStringLiteral("Various Artists");
             }
         }
         if (!extraMetadata.isEmpty()) {
@@ -233,7 +233,7 @@ void DownloadManager::onGalleryDlWorkerFinished(const QString &id, bool success,
 
     if (!success) {
         DownloadItem item = m_activeItems.take(id);
-        item.options["is_failed"] = true;
+        item.options[QStringLiteral("is_failed")] = true;
         m_queueManager->m_pausedItems[id] = item;
         
         m_errorDownloadsCount++;
@@ -262,11 +262,11 @@ void DownloadManager::onYtDlpErrorDetected(const QString &id, const QString &err
 
     // Pass the item data to the UI to allow for actions like retrying or opening the URL.
     QVariantMap itemData;
-    const DownloadItem& item = m_activeItems.value(id);
-    itemData["id"] = item.id;
-    itemData["url"] = item.url;
-    itemData["options"] = item.options;
-    itemData["playlistIndex"] = item.playlistIndex;
+    const DownloadItem &item = m_activeItems.value(id);
+    itemData[QStringLiteral("id")] = item.id;
+    itemData[QStringLiteral("url")] = item.url;
+    itemData[QStringLiteral("options")] = item.options;
+    itemData[QStringLiteral("playlistIndex")] = item.playlistIndex;
 
     // Forward to UI for popup display
     QMetaObject::invokeMethod(this, [this, id, errorType, userMessage, rawError, itemData]() {
@@ -286,11 +286,11 @@ void DownloadManager::onMetadataEmbedded(const QString &id, bool success, const 
         m_finalizer->finalize(id, item);
     } else {
         DownloadItem item = m_activeItems.take(id);
-        item.options["is_failed"] = true;
+        item.options[QStringLiteral("is_failed")] = true;
         m_queueManager->m_pausedItems[id] = item;
         
         m_errorDownloadsCount++;
-        emit downloadFinished(id, false, "Metadata embedding failed: " + error); // This will trigger emitDownloadStats()
+        emit downloadFinished(id, false, tr("Metadata embedding failed: %1").arg(error)); // This will trigger emitDownloadStats()
         emitDownloadStats();
         m_queueManager->saveQueueState(m_activeItems);
         QMetaObject::invokeMethod(this, [this]() {
@@ -302,9 +302,9 @@ void DownloadManager::onMetadataEmbedded(const QString &id, bool success, const 
 void DownloadManager::onFinalizationComplete(const QString &id, bool success, const QString &message) {
     QString finalMessage = message;
     if (success && m_activeItems.contains(id)) {
-        const QString warning = m_activeItems.value(id).options.value("completion_warning").toString();
+        const QString warning = m_activeItems.value(id).options.value(QStringLiteral("completion_warning")).toString();
         if (!warning.isEmpty()) {
-            finalMessage += "\n" + warning;
+            finalMessage = QStringLiteral("%1\n%2").arg(finalMessage, warning);
         }
     }
 
@@ -351,7 +351,7 @@ void DownloadManager::checkQueueFinished() {
     bool hasActivelyPausedItems = false;
     if (m_queueManager) {
         for (const DownloadItem &item : m_queueManager->m_pausedItems) {
-            if (!item.options.value("is_stopped").toBool() && !item.options.value("is_failed").toBool()) {
+            if (!item.options.value(QStringLiteral("is_stopped")).toBool() && !item.options.value(QStringLiteral("is_failed")).toBool()) {
                 hasActivelyPausedItems = true;
                 break;
             }

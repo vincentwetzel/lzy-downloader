@@ -223,7 +223,7 @@ bool ConfigManager::set(const QString &section, const QString &key, const QVaria
 }
 
 void ConfigManager::remove(const QString &section, const QString &key) {
-    QString fullKey = section + "/" + key;
+    QString fullKey = QStringLiteral("%1/%2").arg(section, key);
     if (m_settings->contains(fullKey)) {
         m_settings->remove(fullKey);
         emit settingChanged(section, key, QVariant());
