@@ -195,7 +195,7 @@ void YtDlpUpdater::onDownloadFinished() {
 
     QString newVersion = reply->property("newVersion").toString();
 
-    ProcessUtils::FoundBinary binary = ProcessUtils::resolveBinary("yt-dlp", m_configManager);
+    ProcessUtils::FoundBinary binary = ProcessUtils::resolveBinary(QStringLiteral("yt-dlp"), m_configManager);
     QString targetPath = binary.path;
 
     // Prevent corruption of package-managed system environments

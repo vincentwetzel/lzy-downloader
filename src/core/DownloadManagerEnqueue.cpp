@@ -82,7 +82,7 @@ void DownloadManager::enqueueDownload(const QString &url, const QVariantMap &opt
         }
     }
 
-    if (needsRuntimeSelection && !isNonInteractiveRequest(effectiveOptions) && !effectiveOptions.value("runtime_format_selected", false).toBool()) {
+    if (needsRuntimeSelection && !isNonInteractiveRequest(effectiveOptions) && !effectiveOptions.value(QStringLiteral("runtime_format_selected"), false).toBool()) {
         fetchFormatsForSelection(url, effectiveOptions);
         return;
     }

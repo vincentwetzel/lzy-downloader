@@ -1,40 +1,62 @@
 #include "TestArchiveManager.h"
-#include <QUrl>
+#include <QtConcurrent/QtConcurrent>
+#include <QFuture>
+#include <QDir>
 
-void TestArchiveManager::testUrlNormalization_data() {
-    QTest::addColumn<QString>("inputUrl");
-    QTest::addColumn<QString>("expectedNormalizedUrl");
+void TestArchiveManager::init() {
+    BaseTest::init();
+    // Use a physical temp file because SQLite :memory: databases are thread-specific
+    // and cannot be easily shared across threads for concurrency testing.
+    m_dbPath = QDir(getTempDir()).filePath(QStringLiteral("test_archive.db"));
+    m_archiveManager = new ArchiveManager(getConfigManager(), m_dbPath, false, this);
+}
 
-    // YouTube URLs
-    QTest::newRow("YouTube short URL") << "https://youtu.be/dQw4w9WgXcQ" << "youtu.be/dqw4w9wgxcq";
-    QTest::newRow("YouTube watch URL") << "https://www.youtube.com/watch?v=dQw4w9WgXcQ" << "www.youtube.com/watch?v=dqw4w9wgxcq";
-    QTest::newRow("YouTube watch URL with playlist") << "https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=PLMC9KNkIncK_bBHBwQfLkYzzu-DGgSg9" << "www.youtube.com/watch?list=plmc9knkinck_bbhbwqflkyzzu-dggsg9&v=dqw4w9wgxcq";
-    QTest::newRow("YouTube watch URL with other params") << "https://www.youtube.com/watch?v=dQw4w9WgXcQ&feature=share&utm_source=some" << "www.youtube.com/watch?v=dqw4w9wgxcq";
-    QTest::newRow("YouTube playlist URL") << "https://www.youtube.com/playlist?list=PLMC9KNkIncK_bBHBwQfLkYzzu-DGgSg9" << "www.youtube.com/playlist?list=plmc9knkinck_bbhbwqflkyzzu-dggsg9";
-
-    // SoundCloud URLs (example, no specific query param filtering, so all are stripped)
-    QTest::newRow("SoundCloud track URL with params") << "https://soundcloud.com/user-832168923/track-title?in=playlist-name" << "soundcloud.com/user-832168923/track-title";
-    QTest::newRow("SoundCloud track URL clean") << "https://soundcloud.com/user-832168923/track-title" << "soundcloud.com/user-832168923/track-title";
-
-    // Generic URLs (expect all query params and scheme removed)
-    QTest::newRow("Generic HTTP URL") << "http://example.com/path/to/resource.html?param=value&another=test" << "example.com/path/to/resource.html";
-    QTest::newRow("Generic HTTPS URL") << "https://example.com/path/to/resource.html?param=value" << "example.com/path/to/resource.html";
-    QTest::newRow("URL with trailing slash") << "https://example.com/path/" << "example.com/path";
-    QTest::newRow("URL without trailing slash") << "https://example.com/path" << "example.com/path";
-    QTest::newRow("URL with fragment") << "https://example.com/path#fragment" << "example.com/path";
-    QTest::newRow("URL with fragment only") << "#fragment" << "";
-    QTest::newRow("Empty URL") << "" << "";
-    QTest::newRow("Invalid URL string") << "this is not a url" << "";
+void TestArchiveManager::cleanup() {
+    if (m_archiveManager) {
+        delete m_archiveManager;
+        m_archiveManager = nullptr;
+    }
+    BaseTest::cleanup();
 }
 
 void TestArchiveManager::testUrlNormalization() {
-    QFETCH(QString, inputUrl);
-    QFETCH(QString, expectedNormalizedUrl);
-
-    QString result = m_archiveManager->normalizeUrl(inputUrl);
-    QCOMPARE(result, expectedNormalizedUrl);
+    // Add a standard YouTube URL
+    m_archiveManager->addToArchive(QStringLiteral("https://www.youtube.com/watch?v=dQw4w9WgXcQ"));
+    
+    // Check alternate formats that should automatically resolve to the same video ID
+    QVERIFY(m_archiveManager->isInArchive(QStringLiteral("https://youtu.be/dQw4w9WgXcQ")));
+    QVERIFY(m_archiveManager->isInArchive(QStringLiteral("https://www.youtube.com/embed/dQw4w9WgXcQ")));
+    QVERIFY(m_archiveManager->isInArchive(QStringLiteral("https://music.youtube.com/watch?v=dQw4w9WgXcQ")));
+    
+    // Add a non-YouTube URL with trailing query parameters
+    m_archiveManager->addToArchive(QStringLiteral("https://vimeo.com/123456?autoplay=1"));
+    
+    // Ensure query parameters are aggressively stripped when checking the archive
+    QVERIFY(m_archiveManager->isInArchive(QStringLiteral("https://vimeo.com/123456")));
 }
 
-QTEST_MAIN(TestArchiveManager)
+void TestArchiveManager::testConcurrentAccess() {
+    // Test that multiple threads can safely interact with the database
+    const int numThreads = 10;
+    QList<QFuture<void>> futures;
+    
+    for (int i = 0; i < numThreads; ++i) {
+        futures.append(QtConcurrent::run([this, i]() {
+            QString url = QStringLiteral("https://example.com/video/%1").arg(i);
+            m_archiveManager->addToArchive(url);
+            QVERIFY(m_archiveManager->isInArchive(url));
+        }));
+    }
+    
+    for (QFuture<void> &future : futures) {
+        future.waitForFinished();
+    }
+    
+    // Verify all items were successfully committed and are readable
+    for (int i = 0; i < numThreads; ++i) {
+        QString url = QStringLiteral("https://example.com/video/%1").arg(i);
+        QVERIFY(m_archiveManager->isInArchive(url));
+    }
+}
 
-#include "TestArchiveManager.moc"
+QTEST_GUILESS_MAIN(TestArchiveManager)

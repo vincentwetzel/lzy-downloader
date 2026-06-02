@@ -43,15 +43,15 @@ ConfigManager::ConfigManager(const QString &fileName, QObject *parent)
 ConfigManager::ConfigManager(const QString &customPath, bool forTesting, QObject *parent)
     : QObject(parent) {
     if (forTesting) {
-        if (customPath == ":memory:") {
-            m_settings = new QSettings("", QSettings::IniFormat, this); // In-memory
+        if (customPath == QStringLiteral(":memory:")) {
+            m_settings = new QSettings(QString(), QSettings::IniFormat, this); // In-memory
             qDebug() << "ConfigManager using in-memory settings for testing.";
         } else if (!customPath.isEmpty()) {
             m_settings = new QSettings(customPath, QSettings::IniFormat, this); // Temporary file path
             qDebug() << "ConfigManager using custom test path:" << customPath;
         } else {
             // Fallback for empty customPath in test mode, default to in-memory
-            m_settings = new QSettings("", QSettings::IniFormat, this);
+            m_settings = new QSettings(QString(), QSettings::IniFormat, this);
             qWarning() << "ConfigManager test constructor called with empty customPath. Using in-memory settings.";
         }
     } else {
@@ -63,7 +63,7 @@ ConfigManager::ConfigManager(const QString &customPath, bool forTesting, QObject
             QString configDir = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation);
             QDir dir(configDir);
             if (!dir.exists()) { dir.mkpath("."); }
-            QString defaultPath = dir.filePath("settings.ini");
+            QString defaultPath = dir.filePath(QStringLiteral("settings.ini"));
             m_settings = new QSettings(defaultPath, QSettings::IniFormat, this);
         } else {
             m_settings = new QSettings(customPath, QSettings::IniFormat, this);

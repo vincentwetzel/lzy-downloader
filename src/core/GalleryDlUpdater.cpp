@@ -182,7 +182,7 @@ void GalleryDlUpdater::onDownloadFinished() {
 
     QString newVersion = reply->property("newVersion").toString();
 
-    ProcessUtils::FoundBinary binary = ProcessUtils::resolveBinary("gallery-dl", m_configManager);
+    ProcessUtils::FoundBinary binary = ProcessUtils::resolveBinary(QStringLiteral("gallery-dl"), m_configManager);
     QString targetPath = binary.path;
 
     // Prevent corruption of package-managed system environments

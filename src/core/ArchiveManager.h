@@ -8,6 +8,7 @@
 
 class ArchiveManager : public QObject {
     Q_OBJECT
+    friend class TestArchiveManager;
 
 public:
     explicit ArchiveManager(ConfigManager *configManager, QObject *parent = nullptr);

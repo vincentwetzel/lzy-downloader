@@ -13,6 +13,7 @@ class TestYtDlpArgsBuilder : public BaseTest { // Inherit from BaseTest
 private slots:
     void testBasicVideoArguments();
     void testSponsorBlockArguments();
+    void testLivestreamArguments();
 };
 
 #endif // TESTYTDLPARGSBUILDER_H

@@ -119,7 +119,7 @@ void GalleryDlWorker::onReadyReadStandardError()
         QString trimmedLine = line.trimmed();
         
         QString currentStderr = m_process->property("fullStderr").toString();
-        m_process->setProperty("fullStderr", currentStderr + trimmedLine + "\n");
+        m_process->setProperty("fullStderr", QStringLiteral("%1%2\n").arg(currentStderr, trimmedLine));
         
         if (!trimmedLine.isEmpty()) {
             emit outputReceived(m_id, trimmedLine);

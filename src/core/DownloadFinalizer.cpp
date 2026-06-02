@@ -133,7 +133,7 @@ void cleanupTempFiles(const DownloadItem &item, const QDir &tempDir, const QStri
     }
 
     if (!playlistId.isEmpty()) {
-        QStringList potentialFiles = tempDir.entryList(QStringList() << "*.info.json", QDir::Files);
+        QStringList potentialFiles = tempDir.entryList(QStringList() << QStringLiteral("*.info.json"), QDir::Files);
         for (const QString &fileName : potentialFiles) {
             // Check if the filename contains the playlist ID, typically formatted as "[<playlist_id>]"
             // by yt-dlp's default playlist output template. This is more reliable than parsing JSON content.
@@ -199,7 +199,7 @@ void DownloadFinalizer::finalize(const QString &id, DownloadItem item) {
     if (item.options.value(QStringLiteral("type")).toString() != QStringLiteral("gallery") && !item.metadata.contains(QStringLiteral("id"))) {
         qWarning() << "Metadata is missing core fields in finalize for id:" << id << ", attempting to read from disk.";
         QFileInfo fi(item.tempFilePath);
-        QString jsonPath = fi.absoluteDir().filePath(fi.completeBaseName() + QStringLiteral(".info.json"));
+        QString jsonPath = fi.absoluteDir().filePath(QStringLiteral("%1.info.json").arg(fi.completeBaseName()));
 
         QFile jsonFile(jsonPath);
         if (jsonFile.open(QIODevice::ReadOnly)) {
@@ -250,9 +250,9 @@ void DownloadFinalizer::finalize(const QString &id, DownloadItem item) {
     bool autoNumber = m_configManager->get(QStringLiteral("DownloadOptions"), QStringLiteral("prefix_playlist_indices"), isAudio).toBool();
 
     if (autoNumber && item.playlistIndex > 0) {
-        QString paddedIndex = QString("%1").arg(item.playlistIndex, 2, 10, QChar('0'));
+        QString paddedIndex = QString::number(item.playlistIndex).rightJustified(2, QLatin1Char('0'));
         // Prevent double-numbering if the user's yt-dlp output template already includes the playlist index
-        if (!finalName.startsWith(paddedIndex + QStringLiteral(" - "))) {
+        if (!finalName.startsWith(QStringLiteral("%1 - ").arg(paddedIndex))) {
             finalName = QStringLiteral("%1 - %2").arg(paddedIndex, finalName);
         }
     }

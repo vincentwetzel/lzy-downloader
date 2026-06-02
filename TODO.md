@@ -8,6 +8,12 @@
 
 ## Completed
 
+### Phase 21: Headless Test and Reliability Coverage
+- Expanded CMake-registered Qt tests for configuration defaults/reset cleanup, Local API auth/enqueue behavior, ProcessUtils cache behavior, URL validation, archive normalization, sorting sanitization, yt-dlp argument construction, progress parsing, UI widgets, and the local end-to-end fixture.
+- Added headless test automation helpers/workflows for building and running CTest with Qt's offscreen platform in non-interactive Windows environments.
+- Hardened scheduled livestream wait-state progress so upcoming/offline waits emit immediate indeterminate status and do not prematurely fail while waiting for user response.
+- Improved sorting path sanitization by replacing illegal path characters with safe separators and collapsing repeated spaces.
+
 ### Phase 20: Settings and Tooling Reliability
 - Hardened External Tools install/update flows with cancellable process-tree cleanup, package-manager-aware update commands, quoted command previews, fresh binary cache invalidation, and clearer permission-denied failures.
 - Improved output-template handling so video/audio templates inherit the shared default when blank and are validated with `yt-dlp` before saving.

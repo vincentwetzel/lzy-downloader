@@ -121,6 +121,25 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
     // If we are waiting for a scheduled livestream, fetch metadata in the background so the UI 
     // can show the title and thumbnail instead of just the URL during the long wait.
     if (normalizedLine.startsWith(QStringLiteral("[wait]"), Qt::CaseInsensitive) || normalizedLine.startsWith(QStringLiteral("[download] Waiting for video"), Qt::CaseInsensitive)) {
+        
+        QString statusText = tr("Waiting for livestream to start...");
+        if (normalizedLine.startsWith(QStringLiteral("[wait] Remaining time until next attempt:"), Qt::CaseInsensitive)) {
+            const QString prefix = QStringLiteral("[wait] Remaining time until next attempt: ");
+            statusText = tr("Next check in %1").arg(normalizedLine.mid(prefix.length()).trimmed());
+        }
+
+        // Ensure indeterminate progress is emitted before metadata routines potentially return early
+        QVariantMap initialProgressData;
+        initialProgressData[QStringLiteral("progress")] = -1; // Indeterminate state
+        initialProgressData[QStringLiteral("status")] = statusText;
+        if (!m_videoTitle.isEmpty()) {
+            initialProgressData[QStringLiteral("title")] = m_videoTitle;
+        }
+        if (!m_thumbnailPath.isEmpty()) {
+            initialProgressData[QStringLiteral("thumbnail_path")] = m_thumbnailPath;
+        }
+        emit progressUpdated(m_id, initialProgressData);
+
         if (m_videoTitle.isEmpty() && !property("fetchingPreWaitMetadata").toBool()) {
             setProperty("fetchingPreWaitMetadata", true);
             
@@ -289,36 +308,7 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
 
             fetchProcess->start(ytDlpPath, fetchArgs);
         }
-    }
-
-    if (normalizedLine.startsWith(QStringLiteral("[wait] Remaining time until next attempt:"))) {
-        const QString prefix = QStringLiteral("[wait] Remaining time until next attempt: ");
-        QString time = normalizedLine.mid(prefix.length()).trimmed();
-        QVariantMap progressData;
-        progressData[QStringLiteral("progress")] = -1; // Indeterminate state
-        progressData[QStringLiteral("status")] = tr("Next check in %1").arg(time);
-        if (!m_videoTitle.isEmpty()) {
-            progressData[QStringLiteral("title")] = m_videoTitle;
-        }
-        if (!m_thumbnailPath.isEmpty()) {
-            progressData[QStringLiteral("thumbnail_path")] = m_thumbnailPath;
-        }
-        emit progressUpdated(m_id, progressData);
-        return; // This line is handled, no further processing needed.
-    }
-
-    if (normalizedLine.startsWith(QStringLiteral("[download] Waiting for video"), Qt::CaseInsensitive) || normalizedLine.startsWith(QStringLiteral("[wait]"), Qt::CaseInsensitive)) {
-        QVariantMap progressData;
-        progressData[QStringLiteral("progress")] = -1; // Indeterminate state
-        progressData[QStringLiteral("status")] = tr("Waiting for livestream to start...");
-        if (!m_videoTitle.isEmpty()) {
-            progressData[QStringLiteral("title")] = m_videoTitle;
-        }
-        if (!m_thumbnailPath.isEmpty()) {
-            progressData[QStringLiteral("thumbnail_path")] = m_thumbnailPath;
-        }
-        emit progressUpdated(m_id, progressData);
-        return;
+    return;
     }
 
     static const QRegularExpression thumbnailRegex(QStringLiteral("\\[ThumbnailsConvertor\\] Converting thumbnail \"([^\"]+)\" to jpg"));
@@ -384,9 +374,9 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
         const QString segmentCount = totalFragmentsMatch.captured(1);
         const QString transferStatus = statusForCurrentTransfer();
         QString segmentStatus;
-        if (transferStatus.contains("audio", Qt::CaseInsensitive)) {
+        if (transferStatus.contains(QStringLiteral("audio"), Qt::CaseInsensitive)) {
             segmentStatus = tr("Downloading %1 audio segment(s)...").arg(segmentCount);
-        } else if (transferStatus.contains("video", Qt::CaseInsensitive)) {
+        } else if (transferStatus.contains(QStringLiteral("video"), Qt::CaseInsensitive)) {
             segmentStatus = tr("Downloading %1 video segment(s)...").arg(segmentCount);
         } else {
             segmentStatus = tr("Downloading %1 segment(s)...").arg(segmentCount);

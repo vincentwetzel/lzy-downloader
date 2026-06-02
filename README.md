@@ -56,6 +56,16 @@ cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=E:/vcpkg/script
 cmake --build build --config Release
 ```
 
+### Testing
+
+Qt test executables are registered through CMake and can be run with CTest. For headless Windows/CI runs, the helper script builds the configured tree and sets `QT_QPA_PLATFORM=offscreen` before running tests:
+
+```bash
+python run_headless_tests.py --build-dir build --config Release
+```
+
+Current coverage includes argument construction, progress parsing, archive normalization, configuration defaults/reset cleanup, Local API auth/enqueue behavior, process binary-resolution caching, URL validation, sorting sanitization, UI progress widgets, and a local end-to-end download fixture.
+
 ### Release Checklist
 
 Before building a release, keep all release metadata in sync:

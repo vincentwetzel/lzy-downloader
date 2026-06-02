@@ -48,8 +48,19 @@ void TestEndToEnd::init() {
     }
 
     // 2. Start Python HTTP server
-    const QString sourcePythonScriptPath = QDir(QCoreApplication::applicationDirPath()).absoluteFilePath("../../../src/tests/" + TEST_SERVER_SCRIPT);
-    if (!QFile::exists(sourcePythonScriptPath)) {
+    QString sourcePythonScriptPath;
+    const QStringList searchPaths = {
+        "../../src/tests/" + TEST_SERVER_SCRIPT, // MSBuild (build/Release/)
+        "../src/tests/" + TEST_SERVER_SCRIPT     // Ninja/Makefiles (build/)
+    };
+    for (const QString &relPath : searchPaths) {
+        QString absPath = QDir(QCoreApplication::applicationDirPath()).absoluteFilePath(relPath);
+        if (QFile::exists(absPath)) {
+            sourcePythonScriptPath = absPath;
+            break;
+        }
+    }
+    if (sourcePythonScriptPath.isEmpty()) {
         QFAIL(qPrintable(QString("%1 not found. Ensure it's in the correct test data path.").arg(TEST_SERVER_SCRIPT)));
     }
     const QString destPythonScriptPath = QDir(getTempDir()).filePath(TEST_SERVER_SCRIPT);
@@ -107,12 +118,8 @@ void TestEndToEnd::init() {
 
 void TestEndToEnd::cleanup() {
     if (m_httpServerProcess && m_httpServerProcess->state() == QProcess::Running) {
-        ProcessUtils::terminateProcessTree(m_serverProcessId);
+        ProcessUtils::terminateProcessTree(m_httpServerProcess);
         qDebug() << "Terminated test HTTP server process with PID:" << m_serverProcessId;
-    } else if (m_serverProcessId != 0) {
-        // Fallback for detached process if any part of the test failed to properly manage m_httpServerProcess
-        ProcessUtils::terminateProcessTree(m_serverProcessId);
-        qDebug() << "Terminated test HTTP server fallback process with PID:" << m_serverProcessId;
     }
     m_serverProcessId = 0; // Reset PID
     BaseTest::cleanup();

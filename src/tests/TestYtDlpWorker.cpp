@@ -34,6 +34,7 @@ private slots:
     void testAria2AdvancedProgressParsing();
     void testYtDlpProgressStalledParsing();
     void testLifecycleStatusParsing();
+    void testLivestreamWaitParsing();
 };
 
 void TestYtDlpWorker::init() {
@@ -94,6 +95,13 @@ void TestYtDlpWorker::testYtDlpErrorParsing() {
     worker.callHandleOutputLine(errorLine);
     QCOMPARE(errorSpy.count(), 1); // Should emit again after reset
     QCOMPARE(errorSpy.takeFirst().at(1).toString(), "unavailable");
+
+    // Simulate a scheduled livestream error
+    errorLine = "ERROR: Premieres in 2 hours";
+    worker.resetErrorEmitted(); // Reset internal flag as if it's a new error
+    worker.callHandleOutputLine(errorLine);
+    QCOMPARE(errorSpy.count(), 1);
+    QCOMPARE(errorSpy.takeFirst().at(1).toString(), "scheduled_livestream");
 }
 
 void TestYtDlpWorker::testAria2ProgressParsing() {
@@ -162,6 +170,33 @@ void TestYtDlpWorker::testYtDlpProgressStalledParsing() {
     QVariantMap progressData = progressSpy.last().at(1).toMap();
     QCOMPARE(progressData["progress"].toInt(), 0);
     QCOMPARE(progressData["status"].toString(), "Downloading video stream...");
+}
+
+void TestYtDlpWorker::testLivestreamWaitParsing() {
+    ConfigManager *config = getConfigManager();
+    TestableYtDlpWorker worker("testLiveId", {}, config, this);
+    QSignalSpy progressSpy(&worker, &YtDlpWorker::progressUpdated);
+
+    // Test generic wait for video
+    worker.callHandleOutputLine("[wait] Waiting for 01:00:00 - Press Ctrl+C to try now");
+    QCOMPARE(progressSpy.count(), 1);
+    QVariantMap progressData = progressSpy.takeFirst().at(1).toMap();
+    QCOMPARE(progressData["progress"].toInt(), -1);
+    QCOMPARE(progressData["status"].toString(), "Waiting for livestream to start...");
+
+    // Test precise wait remaining time countdown
+    worker.callHandleOutputLine("[wait] Remaining time until next attempt: 00:04:45");
+    QCOMPARE(progressSpy.count(), 1);
+    progressData = progressSpy.takeFirst().at(1).toMap();
+    QCOMPARE(progressData["progress"].toInt(), -1);
+    QCOMPARE(progressData["status"].toString(), "Next check in 00:04:45");
+
+    // Test generic wait prefix
+    worker.callHandleOutputLine("[wait] Some other wait reason");
+    QCOMPARE(progressSpy.count(), 1);
+    progressData = progressSpy.takeFirst().at(1).toMap();
+    QCOMPARE(progressData["progress"].toInt(), -1);
+    QCOMPARE(progressData["status"].toString(), "Waiting for livestream to start...");
 }
 
 // Generates the main() function for the test executable

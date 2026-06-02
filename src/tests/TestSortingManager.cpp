@@ -70,5 +70,3 @@ void TestSortingManager::testSanitizeSpecificChars() {
 
 
 QTEST_MAIN(TestSortingManager)
-
-#include "TestSortingManager.moc"

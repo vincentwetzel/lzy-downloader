@@ -40,9 +40,9 @@ QString appendSectionLabelToTemplate(const QString &outputTemplate, const QStrin
     const QString extToken = QStringLiteral(".%(ext)s");
     const int extIndex = outputTemplate.lastIndexOf(extToken);
     if (extIndex >= 0) {
-        return outputTemplate.left(extIndex) + suffix + outputTemplate.mid(extIndex);
+        return QStringLiteral("%1%2%3").arg(outputTemplate.left(extIndex), suffix, outputTemplate.mid(extIndex));
     }
-    return outputTemplate + suffix;
+    return QStringLiteral("%1%2").arg(outputTemplate, suffix);
 }
 
 QString canonicalizeCodecSetting(QString codecName)
@@ -200,12 +200,12 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
     rawArgs << QStringLiteral("--force-overwrites");
     rawArgs << QStringLiteral("--ignore-errors"); // Continue on non-fatal errors (like subtitle failures)
 
-    QString downloadType = options.value("type").toString();
+    QString downloadType = options.value(QStringLiteral("type")).toString();
     QString finalOutputExtension;
     bool forceKeyframesAtCuts = false;
 
     // --- Format Selection ---
-    bool isLivestream = options.value("is_live", false).toBool() || options.value("wait_for_video", false).toBool();
+    bool isLivestream = options.value(QStringLiteral("is_live"), false).toBool() || options.value(QStringLiteral("wait_for_video"), false).toBool();
 
     if (isLivestream) {
         QString quality = configManager->get(QStringLiteral("Livestream"), QStringLiteral("quality"), QStringLiteral("best")).toString();
@@ -235,11 +235,11 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
         if (configManager->get(QStringLiteral("Livestream"), QStringLiteral("live_from_start"), false).toBool()) rawArgs << QStringLiteral("--live-from-start");
         else rawArgs << QStringLiteral("--no-live-from-start");
 
-        if (configManager->get(QStringLiteral("Livestream"), QStringLiteral("wait_for_video"), true).toBool() || options.value("wait_for_video", false).toBool()) {
-            int minWait = options.value("livestream_wait_min", configManager->get(QStringLiteral("Livestream"), QStringLiteral("wait_for_video_min"))).toInt();
-            int maxWait = options.value("livestream_wait_max", configManager->get(QStringLiteral("Livestream"), QStringLiteral("wait_for_video_max"))).toInt();
+        if (configManager->get(QStringLiteral("Livestream"), QStringLiteral("wait_for_video"), true).toBool() || options.value(QStringLiteral("wait_for_video"), false).toBool()) {
+            int minWait = options.value(QStringLiteral("livestream_wait_min"), configManager->get(QStringLiteral("Livestream"), QStringLiteral("wait_for_video_min"))).toInt();
+            int maxWait = options.value(QStringLiteral("livestream_wait_max"), configManager->get(QStringLiteral("Livestream"), QStringLiteral("wait_for_video_max"))).toInt();
 
-            rawArgs << QString("--wait-for-video=%1-%2")
+            rawArgs << QStringLiteral("--wait-for-video=%1-%2")
                        .arg(minWait)
                        .arg(maxWait);
         } else {
@@ -250,14 +250,14 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
         else rawArgs << QStringLiteral("--no-part");
 
     } else if (downloadType == QLatin1String("video")) {
-        QString videoQuality = options.contains("video_quality") ? options.value("video_quality").toString() : configManager->get(QStringLiteral("Video"), QStringLiteral("video_quality"), QStringLiteral("1080p (HD)")).toString();
-        QString videoCodecSetting = options.contains("video_codec") ? options.value("video_codec").toString() : configManager->get(QStringLiteral("Video"), QStringLiteral("video_codec"), QStringLiteral("Default")).toString();
-        QString audioCodecSetting = options.contains("video_audio_codec") ? options.value("video_audio_codec").toString() : configManager->get(QStringLiteral("Video"), QStringLiteral("video_audio_codec"), QStringLiteral("Default")).toString();
+        QString videoQuality = options.contains(QStringLiteral("video_quality")) ? options.value(QStringLiteral("video_quality")).toString() : configManager->get(QStringLiteral("Video"), QStringLiteral("video_quality"), QStringLiteral("1080p (HD)")).toString();
+        QString videoCodecSetting = options.contains(QStringLiteral("video_codec")) ? options.value(QStringLiteral("video_codec")).toString() : configManager->get(QStringLiteral("Video"), QStringLiteral("video_codec"), QStringLiteral("Default")).toString();
+        QString audioCodecSetting = options.contains(QStringLiteral("video_audio_codec")) ? options.value(QStringLiteral("video_audio_codec")).toString() : configManager->get(QStringLiteral("Video"), QStringLiteral("video_audio_codec"), QStringLiteral("Default")).toString();
         QString requestedExtension = configManager->get(QStringLiteral("Video"), QStringLiteral("video_extension"), QStringLiteral("mp4")).toString();
         finalOutputExtension = requestedExtension;
-        const QString directFormatOverride = options.value("format").toString().trimmed();
-        const QString runtimeVideoFormat = options.value("runtime_video_format").toString().trimmed();
-        const QString runtimeAudioFormat = options.value("runtime_audio_format").toString().trimmed();
+        const QString directFormatOverride = options.value(QStringLiteral("format")).toString().trimmed();
+        const QString runtimeVideoFormat = options.value(QStringLiteral("runtime_video_format")).toString().trimmed();
+        const QString runtimeAudioFormat = options.value(QStringLiteral("runtime_audio_format")).toString().trimmed();
 
         if (videoQuality == QLatin1String("Select at Runtime")) videoQuality = QStringLiteral("best");
         videoCodecSetting = canonicalizeCodecSetting(videoCodecSetting);
@@ -270,14 +270,14 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
         QString videoFormatSelector = QStringLiteral("bestvideo");
 
         if (videoQuality.toLower() == QLatin1String("best") || videoQuality.toLower() == QLatin1String("worst")) {
-            videoFormatSelector = videoQuality.toLower() + "video";
+            videoFormatSelector = QStringLiteral("%1video").arg(videoQuality.toLower());
         } else {
-            videoFormatSelector += QString("[height<=?%1]").arg(videoQuality.split(' ').first().remove('p'));
+            videoFormatSelector += QStringLiteral("[height<=?%1]").arg(videoQuality.split(' ').first().remove('p'));
         }
-        if (videoCodecSetting != QLatin1String("Default")) videoFormatSelector += QString("[vcodec~='(?i)%1']").arg(vcodec);
+        if (videoCodecSetting != QLatin1String("Default")) videoFormatSelector += QStringLiteral("[vcodec~='(?i)%1']").arg(vcodec);
 
         QString audioFormatSelector = QStringLiteral("bestaudio");
-        if (audioCodecSetting != QLatin1String("Default")) audioFormatSelector += QString("[acodec~='(?i)%1']").arg(acodec);
+        if (audioCodecSetting != QLatin1String("Default")) audioFormatSelector += QStringLiteral("[acodec~='(?i)%1']").arg(acodec);
 
         if (!directFormatOverride.isEmpty()) {
             rawArgs << QStringLiteral("-f") << directFormatOverride;
@@ -293,11 +293,11 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
         }
 
     } else if (downloadType == QLatin1String("audio")) {
-        QString audioQuality = options.contains("audio_quality") ? options.value("audio_quality").toString() : configManager->get(QStringLiteral("Audio"), QStringLiteral("audio_quality"), QStringLiteral("Best")).toString();
-        QString audioCodecSetting = options.contains("audio_codec") ? options.value("audio_codec").toString() : configManager->get(QStringLiteral("Audio"), QStringLiteral("audio_codec"), QStringLiteral("Default")).toString();
+        QString audioQuality = options.contains(QStringLiteral("audio_quality")) ? options.value(QStringLiteral("audio_quality")).toString() : configManager->get(QStringLiteral("Audio"), QStringLiteral("audio_quality"), QStringLiteral("Best")).toString();
+        QString audioCodecSetting = options.contains(QStringLiteral("audio_codec")) ? options.value(QStringLiteral("audio_codec")).toString() : configManager->get(QStringLiteral("Audio"), QStringLiteral("audio_codec"), QStringLiteral("Default")).toString();
         finalOutputExtension = configManager->get(QStringLiteral("Audio"), QStringLiteral("audio_extension"), QStringLiteral("mp3")).toString();
-        const QString directFormatOverride = options.value("format").toString().trimmed();
-        const QString runtimeAudioFormat = options.value("runtime_audio_format").toString().trimmed();
+        const QString directFormatOverride = options.value(QStringLiteral("format")).toString().trimmed();
+        const QString runtimeAudioFormat = options.value(QStringLiteral("runtime_audio_format")).toString().trimmed();
 
         if (audioQuality == QLatin1String("Select at Runtime")) audioQuality = QStringLiteral("best");
         audioCodecSetting = canonicalizeCodecSetting(audioCodecSetting);
@@ -312,15 +312,15 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
             QString formatSelector = QStringLiteral("bestaudio");
 
             if (audioQuality.toLower() == QLatin1String("best") || audioQuality.toLower() == QLatin1String("worst")) {
-                formatSelector = audioQuality.toLower() + "audio";
+                formatSelector = QStringLiteral("%1audio").arg(audioQuality.toLower());
             } else {
                 // Strip any non-digit characters so "320K" or "128 kbps" safely becomes "320" / "128"
                 static const QRegularExpression nonDigitRe(QStringLiteral("[a-zA-Z\\s]"));
-                formatSelector += QString("[abr<=?%1]").arg(QString(audioQuality).remove(nonDigitRe));
+                formatSelector += QStringLiteral("[abr<=?%1]").arg(QString(audioQuality).remove(nonDigitRe));
             }
-            if (audioCodecSetting != QLatin1String("Default")) formatSelector += QString("[acodec~='(?i)%1']").arg(acodec);
+            if (audioCodecSetting != QLatin1String("Default")) formatSelector += QStringLiteral("[acodec~='(?i)%1']").arg(acodec);
 
-            rawArgs << QStringLiteral("-f") << formatSelector + "/bestaudio/best";
+            rawArgs << QStringLiteral("-f") << QStringLiteral("%1/bestaudio/best").arg(formatSelector);
         }
         rawArgs << QStringLiteral("-x");
         if (audioCodecSetting != QLatin1String("Default")) rawArgs << QStringLiteral("--audio-format") << finalOutputExtension;
@@ -328,19 +328,19 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
     }
 
     // --- Playlist Logic ---
-    QString playlistLogic = options.value("playlist_logic", "Ask").toString(); // "Ask" is fine, it's a UI string
+    QString playlistLogic = options.value(QStringLiteral("playlist_logic"), QStringLiteral("Ask")).toString(); // "Ask" is fine, it's a UI string
     if (playlistLogic == QLatin1String("Download All (no prompt)")) rawArgs << QStringLiteral("--yes-playlist");
     else if (playlistLogic == QLatin1String("Download Single (ignore playlist)")) rawArgs << QStringLiteral("--no-playlist");
 
     // --- Duplicate Check Override ---
-    if (options.value("override_archive", false).toBool()) rawArgs << QStringLiteral("--force-download");
+    if (options.value(QStringLiteral("override_archive"), false).toBool()) rawArgs << QStringLiteral("--force-download");
 
     // --- General Options ---
     if (configManager->get(QStringLiteral("General"), QStringLiteral("sponsorblock"), false).toBool()) {
         rawArgs << QStringLiteral("--sponsorblock-remove") << QStringLiteral("all");
         if (downloadType == "video" || isLivestream) {
-            const bool sponsorBlockSegmentsChecked = options.value("sponsorblock_segments_checked", false).toBool();
-            const bool sponsorBlockHasSegments = options.value("sponsorblock_has_segments", false).toBool();
+            const bool sponsorBlockSegmentsChecked = options.value(QStringLiteral("sponsorblock_segments_checked"), false).toBool();
+            const bool sponsorBlockHasSegments = options.value(QStringLiteral("sponsorblock_has_segments"), false).toBool();
             if (!sponsorBlockSegmentsChecked || sponsorBlockHasSegments) {
                 forceKeyframesAtCuts = true;
             } else {
@@ -355,7 +355,7 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
         aria2Args << QStringLiteral("--summary-interval=1");
         const QString referer = siteSpecificReferer(url);
         if (!referer.isEmpty()) {
-            aria2Args << QString("--referer=%1").arg(referer);
+            aria2Args << QStringLiteral("--referer=%1").arg(referer);
         }
         rawArgs << QStringLiteral("--external-downloader") << aria2cPath;
         rawArgs << QStringLiteral("--external-downloader-args") << QStringLiteral("aria2c:%1").arg(aria2Args.join(QLatin1Char(' ')));
@@ -376,14 +376,14 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
     // Inject LzyDownloader's internal ID into yt-dlp's metadata engine.
     // This gives users a %(lzy_id)s token for their output templates, guaranteeing
     // unique filenames for independent URLs from "dumb" sites where autonumber fails.
-    QString internalId = options.value("id").toString();
+    QString internalId = options.value(QStringLiteral("id")).toString();
     if (!internalId.isEmpty()) {
         rawArgs << QStringLiteral("--parse-metadata") << QStringLiteral("%1:%(lzy_id)s").arg(internalId);
     }
 
-    bool forceSingleAlbum = (downloadType == QLatin1String("audio") && configManager->get(QStringLiteral("Metadata"), QStringLiteral("force_playlist_as_album"), false).toBool() && options.value("playlist_index", -1).toInt() > 0);
+    bool forceSingleAlbum = (downloadType == QLatin1String("audio") && configManager->get(QStringLiteral("Metadata"), QStringLiteral("force_playlist_as_album"), false).toBool() && options.value(QStringLiteral("playlist_index"), -1).toInt() > 0);
     if (forceSingleAlbum) {
-        const QString playlistTitle = options.value("playlist_title").toString().trimmed();
+        const QString playlistTitle = options.value(QStringLiteral("playlist_title")).toString().trimmed();
         if (!playlistTitle.isEmpty()) {
             rawArgs << QStringLiteral("--parse-metadata") << QStringLiteral("%1:%(album)s").arg(playlistTitle);
         } else {
@@ -395,7 +395,7 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
     const QStringList supportedThumbnailExts = {QStringLiteral("mp3"), QStringLiteral("mkv"), QStringLiteral("mka"), QStringLiteral("ogg"), QStringLiteral("opus"), QStringLiteral("flac"), QStringLiteral("m4a"), QStringLiteral("mp4"), QStringLiteral("m4v"), QStringLiteral("mov")};
     
     bool embedThumb = configManager->get(QStringLiteral("Metadata"), QStringLiteral("embed_thumbnail"), true).toBool();
-    bool genFolderJpg = (downloadType == QLatin1String("audio") && configManager->get(QStringLiteral("Metadata"), QStringLiteral("generate_folder_jpg"), false).toBool() && options.value("playlist_index", -1).toInt() > 0);
+    bool genFolderJpg = (downloadType == QLatin1String("audio") && configManager->get(QStringLiteral("Metadata"), QStringLiteral("generate_folder_jpg"), false).toBool() && options.value(QStringLiteral("playlist_index"), -1).toInt() > 0);
 
     bool canEmbed = embedThumb && supportedThumbnailExts.contains(finalOutputExtension, Qt::CaseInsensitive);
     // We want to write a thumbnail for the UI even if we can't embed it.
@@ -419,7 +419,7 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
         }
 
         if (!ppaArgs.isEmpty()) {
-            rawArgs << QStringLiteral("--ppa") << QString("ThumbnailsConvertor+ffmpeg_o:%1").arg(ppaArgs.join(QLatin1Char(' ')));
+            rawArgs << QStringLiteral("--ppa") << QStringLiteral("ThumbnailsConvertor+ffmpeg_o:%1").arg(ppaArgs.join(QLatin1Char(' ')));
         }
 
         QString convertThumb = configManager->get(QStringLiteral("Metadata"), QStringLiteral("convert_thumbnail_to"), QStringLiteral("jpg")).toString();
@@ -442,7 +442,7 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
 
     if (genFolderJpg) {
         rawArgs << QStringLiteral("--write-thumbnail");
-        rawArgs << QStringLiteral("-o") << QString("thumbnail:%1").arg(QDir(tempPath).filePath(options.value("id").toString() + "_folder.%(ext)s"));
+        rawArgs << QStringLiteral("-o") << QStringLiteral("thumbnail:%1").arg(QDir(tempPath).filePath(QStringLiteral("%1_folder.%(ext)s").arg(options.value(QStringLiteral("id")).toString())));
     }
 
     // --- Subtitles ---
@@ -453,8 +453,8 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
         QStringList subLangsList = subLangsRaw.split(QLatin1Char(','), Qt::SkipEmptyParts);
         subLangsList.removeAll(QStringLiteral("runtime")); // Exclude 'runtime' from being passed to yt-dlp
 
-        if (options.contains("runtime_subtitles")) {
-            subLangsList.append(options.value("runtime_subtitles").toString().split(',', Qt::SkipEmptyParts));
+        if (options.contains(QStringLiteral("runtime_subtitles"))) {
+            subLangsList.append(options.value(QStringLiteral("runtime_subtitles")).toString().split(QLatin1Char(','), Qt::SkipEmptyParts));
             subLangsList.removeDuplicates();
         }
 
@@ -494,7 +494,7 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
     }
 
     // --- Download Sections ---
-    QString downloadSections = options.value("download_sections").toString();
+    QString downloadSections = options.value(QStringLiteral("download_sections")).toString();
     if (!downloadSections.isEmpty()) {
         rawArgs << QStringLiteral("--download-sections") << downloadSections;
 
@@ -510,13 +510,13 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
         appendForcedKeyframeCutArgs(rawArgs, configManager);
     }
     // --- Rate Limit ---
-    QString rateLimit = options.value("rate_limit", "Unlimited").toString(); // "Unlimited" is a UI string
+    QString rateLimit = options.value(QStringLiteral("rate_limit"), QStringLiteral("Unlimited")).toString(); // "Unlimited" is a UI string
     if (rateLimit != QLatin1String("Unlimited")) {
-        rawArgs << QStringLiteral("--limit-rate") << QString(rateLimit).replace(QLatin1String(" MB/s"), QLatin1String("M")).replace(QLatin1String(" KB/s"), QLatin1String("K")).replace(QLatin1Char(' '), QString());
+        rawArgs << QStringLiteral("--limit-rate") << rateLimit.replace(QLatin1String(" MB/s"), QLatin1String("M")).replace(QLatin1String(" KB/s"), QLatin1String("K")).replace(QLatin1Char(' '), QString());
     }
 
     // --- Output paths ---
-    if (!options.value("skip_dir_creation", false).toBool()) {
+    if (!options.value(QStringLiteral("skip_dir_creation"), false).toBool()) {
         QDir().mkpath(tempPath);
     }
     
@@ -534,7 +534,7 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
 
     if (outputTemplate.isEmpty()) outputTemplate = QStringLiteral("%(title)s [%(uploader)s][%(upload_date>%m-%d-%Y)s][%(id)s].%(ext)s");
 
-    QString sectionFilenameLabel = options.value("download_sections_label").toString();
+    QString sectionFilenameLabel = options.value(QStringLiteral("download_sections_label")).toString();
     if (sectionFilenameLabel.isEmpty() && !downloadSections.isEmpty()) {
         sectionFilenameLabel = downloadSections;
     }

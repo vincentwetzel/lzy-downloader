@@ -119,7 +119,7 @@ static QString findCommonUserTool(const QString& exeName)
 
     if (!localAppData.isEmpty()) {
         // pip-installed Python scripts (%LOCALAPPDATA%\Programs\Python\Python*\Scripts\)
-        const QString pythonScriptsDir = QDir(localAppData).filePath("Programs/Python");
+        const QString pythonScriptsDir = QDir(localAppData).filePath(QStringLiteral("Programs/Python"));
         if (QFileInfo::exists(pythonScriptsDir)) {
             QDir pyDir(pythonScriptsDir);
             const QFileInfoList entries = pyDir.entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot);
@@ -134,7 +134,7 @@ static QString findCommonUserTool(const QString& exeName)
         // We still return the path here — the caller (BinariesPage) detects 0-byte
         // stubs and handles them by prepending WindowsApps to PATH instead of
         // invoking the stub directly.
-        const QString windowsAppsDir = QDir(localAppData).filePath("Microsoft/WindowsApps");
+        const QString windowsAppsDir = QDir(localAppData).filePath(QStringLiteral("Microsoft/WindowsApps"));
         if (QFileInfo::exists(windowsAppsDir)) {
             const QString aliasPath = QDir(windowsAppsDir).filePath(exeName);
             if (QFileInfo::exists(aliasPath)) return aliasPath;

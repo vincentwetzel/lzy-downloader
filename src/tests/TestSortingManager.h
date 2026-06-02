@@ -19,13 +19,13 @@ private slots:
 private:
     SortingManager *m_sortingManager;
 
-protected:
-    void init() override {
+private slots:
+    void init() {
         BaseTest::init();
         m_sortingManager = new SortingManager(getConfigManager(), this);
     }
 
-    void cleanup() override {
+    void cleanup() {
         delete m_sortingManager;
         m_sortingManager = nullptr;
         BaseTest::cleanup();

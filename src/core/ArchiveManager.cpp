@@ -80,36 +80,36 @@ void ArchiveManager::ensureSchema() {
     QSqlQuery query(db);
 
     // Create table if not exists
-    if (!query.exec("CREATE TABLE IF NOT EXISTS downloads ("
+    if (!query.exec(QStringLiteral("CREATE TABLE IF NOT EXISTS downloads ("
                     "url TEXT PRIMARY KEY, "
                     "normalized_url TEXT, "
                     "provider TEXT, "
                     "media_id TEXT, "
-                    "timestamp REAL)")) {
+                    "timestamp REAL)"))) {
         qCritical() << "Failed to create downloads table:" << query.lastError().text();
         return;
     }
 
     // Check for missing columns and add them if necessary
-    QSqlRecord record = db.record("downloads");
-    if (!record.contains("normalized_url")) {
-        query.exec("ALTER TABLE downloads ADD COLUMN normalized_url TEXT");
+    QSqlRecord record = db.record(QStringLiteral("downloads"));
+    if (!record.contains(QStringLiteral("normalized_url"))) {
+        query.exec(QStringLiteral("ALTER TABLE downloads ADD COLUMN normalized_url TEXT"));
     }
-    if (!record.contains("provider")) {
-        query.exec("ALTER TABLE downloads ADD COLUMN provider TEXT");
+    if (!record.contains(QStringLiteral("provider"))) {
+        query.exec(QStringLiteral("ALTER TABLE downloads ADD COLUMN provider TEXT"));
     }
-    if (!record.contains("media_id")) {
-        query.exec("ALTER TABLE downloads ADD COLUMN media_id TEXT");
+    if (!record.contains(QStringLiteral("media_id"))) {
+        query.exec(QStringLiteral("ALTER TABLE downloads ADD COLUMN media_id TEXT"));
     }
-    if (!record.contains("timestamp")) {
-        query.exec("ALTER TABLE downloads ADD COLUMN timestamp REAL");
+    if (!record.contains(QStringLiteral("timestamp"))) {
+        query.exec(QStringLiteral("ALTER TABLE downloads ADD COLUMN timestamp REAL"));
     }
 
     backfillIdentityColumns();
 
     // Create indices
-    query.exec("CREATE INDEX IF NOT EXISTS idx_downloads_norm ON downloads(normalized_url)");
-    query.exec("CREATE INDEX IF NOT EXISTS idx_downloads_provider_media ON downloads(provider, media_id)");
+    query.exec(QStringLiteral("CREATE INDEX IF NOT EXISTS idx_downloads_norm ON downloads(normalized_url)"));
+    query.exec(QStringLiteral("CREATE INDEX IF NOT EXISTS idx_downloads_provider_media ON downloads(provider, media_id)"));
 }
 
 void ArchiveManager::backfillIdentityColumns() {
@@ -117,10 +117,10 @@ void ArchiveManager::backfillIdentityColumns() {
     if (!db.isOpen()) return;
 
     QSqlQuery query(db);
-    query.exec("SELECT url, normalized_url, provider, media_id FROM downloads "
+    query.exec(QStringLiteral("SELECT url, normalized_url, provider, media_id FROM downloads "
                "WHERE normalized_url IS NULL OR normalized_url = '' "
                "OR provider IS NULL OR provider = '' "
-               "OR (provider = 'youtube' AND (media_id IS NULL OR media_id = ''))");
+               "OR (provider = 'youtube' AND (media_id IS NULL OR media_id = ''))"));
 
     while (query.next()) {
         QString url = query.value(0).toString();

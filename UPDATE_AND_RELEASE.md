@@ -55,6 +55,16 @@ This script:
 - Builds `LzyDownloader.exe`
 - Runs `makensis` against `LzyDownloader.nsi` with `/DAPP_VERSION=<version from CMakeLists.txt>`
 
+### Step 3b: Run Headless Tests
+
+Before packaging or publishing, run the Qt test suite through the headless helper:
+
+```powershell
+python .\run_headless_tests.py --build-dir build --config Release
+```
+
+The helper builds the selected configuration and runs `ctest` with `QT_QPA_PLATFORM=offscreen`, covering core argument building, archive/config/API/process utilities, URL validation, sorting, UI progress widgets, and the local end-to-end fixture.
+
 ### Step 4: Manual Build Steps
 
 If you are not using `build_release.ps1`, run the equivalent commands manually:
@@ -97,6 +107,7 @@ Navigate to https://github.com/vincentwetzel/lzy-downloader/releases and:
 - [ ] `CHANGELOG.md` has the release notes under the matching dated version
 - [ ] Installer was rebuilt from the current `CMakeLists.txt` version (`build_release.ps1` or `makensis /DAPP_VERSION=...`), not manually renamed afterward
 - [ ] Release build completed (`build_release.ps1` or equivalent manual steps)
+- [ ] Headless Qt tests passed (`python .\run_headless_tests.py --build-dir build --config Release`)
 - [ ] NSIS installer tested (install/uninstall preserves `%LOCALAPPDATA%\LzyDownloader\settings.ini`, `download_archive.db`, `downloads_backup.json`, and log files)
 - [ ] Clean Windows install tested for HTTPS update checks (Qt TLS backend loads with `libcrypto-3-x64.dll` and `libssl-3-x64.dll` beside `LzyDownloader.exe`)
 - [ ] Timestamped logging verified (`%LOCALAPPDATA%\LzyDownloader\LzyDownloader_YYYY-MM-dd_HH-mm-ss.log`)

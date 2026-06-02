@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **AI contributor coding standards**: Added `CODING_STANDARDS.md` as the canonical C++/Qt quality, security, threading, file-safety, testing, and UI guidance for future automated code changes.
+- **Expanded headless test coverage**: Added CMake-registered tests for configuration defaults/reset cleanup, Local API auth/enqueue behavior, ProcessUtils cache behavior, and URL validation, plus headless CTest helper/workflow files for non-interactive Windows test runs.
 
 ### Changed
 - **Core reliability hardening**: Core download, updater, queue, process, and parsing paths now consistently use localized user-facing strings, `QStringLiteral`, static regular expressions for hot parsers, validated JSON parsing, safer path construction, and atomic `QSaveFile` writes for critical state and downloaded tools.
@@ -20,6 +21,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Local API hardening**: Generated API tokens are written atomically with owner-only permissions, oversized requests are rejected, and Host/Origin validation blocks unauthorized browser-origin access to the localhost API.
 - **Finalizer responsiveness**: File move/copy and related finalization work is pushed off the GUI thread while preserving progress/status updates, keeping the UI responsive during large completed-download moves.
 - **Finalizer callback safety**: Gallery and media finalization now guards queued self-references before emitting progress or copying directories, avoiding stale-object access during shutdown or cancellation.
+- **Livestream wait-state feedback**: Scheduled livestream and upcoming-premiere waits now emit immediate indeterminate status, show next-check countdowns, and delay terminal failure while waiting for a user response.
+- **Sorting path readability**: Sorting token sanitization now replaces illegal path characters with hyphens and collapses repeated spaces instead of silently merging metadata words together.
 
 ## [1.1.46] - 2026-05-29
 

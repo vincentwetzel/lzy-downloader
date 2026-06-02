@@ -392,6 +392,11 @@ QString SortingManager::sanitize(const QString &name) {
     QString sanitized = name;
     // Remove illegal characters for Windows/Unix paths
     static const QRegularExpression illegalCharsRe(QStringLiteral("[<>:\"/\\\\|?*]"));
-    sanitized.remove(illegalCharsRe);
+    sanitized.replace(illegalCharsRe, QStringLiteral("-"));
+
+    // Collapse multiple spaces into a single space
+    static const QRegularExpression multipleSpacesRe(QStringLiteral(" {2,}"));
+    sanitized.replace(multipleSpacesRe, QStringLiteral(" "));
+
     return sanitized.trimmed();
 }

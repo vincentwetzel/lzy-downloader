@@ -114,6 +114,7 @@ This document outlines the specifications for the C++ port of the LzyDownloader 
   - Destination-aware native stages, including fragment downloads and auxiliary-file transfers. For HLS streams, the parser must intercept `(frag X/Y)` tags to calculate and display the true overall progress percentage and segment counts, preventing the progress bar from repeatedly snapping to 0%.
   - Primary-stream handoff detection must correctly switch the label from video to audio when multi-stream downloads restart progress on the next requested format, even if the temporary filename ends in `.part` or yt-dlp omits a fresh destination line
   - Stream labeling should prefer yt-dlp `format_id` clues from temp filenames such as `.f251.webm.part` before falling back to container extensions, since extensions like `.webm` can represent either audio-only or video streams
+  - Scheduled livestream and upcoming-premiere wait output must immediately emit indeterminate progress with a human-readable status. Countdown lines should show "Next check in ..."; generic wait lines should show "Waiting for livestream to start..."; upcoming/offline prompt-like process exits should delay terminal failure while waiting for the user's response.
   - **Download Sections Dialog**: When section downloads are enabled, the application presents a dialog. This dialog must include a visible instruction indicating how users can disable the "Download Sections" prompt in the Advanced Settings tab if they no longer wish to use it.
 - If `info.json` does not include `requested_downloads`, stream labeling should fall back to yt-dlp's announced format list (for example `Downloading 1 format(s): 399+251-13`) and aria2 command-line URL metadata such as `itag=251` and `mime=audio/webm` before relying on ambiguous extensions or progress-reset heuristics
 - If stream order was already inferred from stderr/stdout and `info.json` later arrives without `requested_downloads`, the worker must preserve the inferred order rather than clearing it and regressing the visible stage label
@@ -170,6 +171,7 @@ This document outlines the specifications for the C++ port of the LzyDownloader 
     - Final file movement must be Unicode-safe and shell-independent (use Qt file APIs with copy/remove fallback for cross-volume moves).
 - **Audio Playlist Tagging**: For audio downloads from a playlist, `ffmpeg` must be used as a post-processing step to embed the `track` number metadata into the completed file.
 - **Filename Prefixing**: Audio files from playlists must have their filenames prefixed with a zero-padded track number (e.g., `01 - Title.mp3`).
+- **Sorting Path Sanitization**: Sorting destination tokens must replace illegal filesystem characters with safe separators and collapse repeated spaces so metadata such as titles, album names, and uploader fields remain readable while still preventing path traversal or invalid paths.
 
 ### 2.7. Updaters & Deployment
 - **Application Updater**: Checks GitHub for new application releases and provides a download/install mechanism.
@@ -198,3 +200,9 @@ This document outlines the specifications for the C++ port of the LzyDownloader 
 - **Qt SDK Discovery**: CMake must honor explicit `Qt6_DIR`/`CMAKE_PREFIX_PATH` configuration and also auto-check common Windows Qt install prefixes (for example `C:\Qt\6.*\msvc2022_64`) so IDE-driven configure steps can find Qt without manual edits on typical developer machines.
 - **Database**: SQLite (via Qt SQL module)
 - **Process Management**: `QProcess`
+
+## 4. Test Requirements
+- CMake must register new single-source Qt test executables through `lzy_add_test(...)`.
+- The test suite must remain runnable through `ctest -C <config> --output-on-failure`.
+- `run_headless_tests.py` is the canonical helper for non-interactive Windows test runs; it builds the requested configuration and sets `QT_QPA_PLATFORM=offscreen`.
+- Current required coverage includes yt-dlp argument generation/progress parsing, archive normalization, configuration defaults/reset and legacy cleanup, Local API token/auth/enqueue behavior, process binary-resolution cache behavior, URL validation, sorting sanitization, UI progress widgets, and the local end-to-end download fixture.

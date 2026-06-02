@@ -12,12 +12,12 @@ private slots:
     void testProgressLabelBarFilling();
     void testDownloadItemWidgetFinishedState();
 
-protected:
-    void init() override {
+private slots:
+    void init() {
         BaseTest::init();
     }
 
-    void cleanup() override {
+    void cleanup() {
         BaseTest::cleanup();
     }
 };

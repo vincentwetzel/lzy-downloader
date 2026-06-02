@@ -67,5 +67,3 @@ void TestUIWidgets::testDownloadItemWidgetFinishedState() {
 }
 
 QTEST_MAIN(TestUIWidgets)
-
-#include "TestUIWidgets.moc"

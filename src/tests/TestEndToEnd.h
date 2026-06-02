@@ -13,7 +13,6 @@ class TestEndToEnd : public BaseTest {
 private slots:
     void testSingleVideoDownload();
 
-protected:
     void init();
     void cleanup();
 

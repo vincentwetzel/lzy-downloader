@@ -117,7 +117,7 @@ void YtDlpWorker::killProcess() {
     }
 
     // Clean up orphaned wait thumbnail if the process is killed by the user
-    if (!m_thumbnailPath.isEmpty() && QFileInfo(m_thumbnailPath).fileName().startsWith(m_id + QStringLiteral("_wait_thumbnail"))) {
+    if (!m_thumbnailPath.isEmpty() && QFileInfo(m_thumbnailPath).fileName().startsWith(QStringLiteral("%1_wait_thumbnail").arg(m_id))) {
         QFile::remove(m_thumbnailPath);
         m_thumbnailPath.clear();
     }

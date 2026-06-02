@@ -41,10 +41,49 @@ void YtDlpWorker::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatu
     QString message = success ? tr("Download completed successfully.") : tr("Download failed.");
     QString postprocessorWarning;
 
+    // Check if we are waiting for a user prompt (scheduled livestream)
+    if (!success && m_errorEmitted && !property("promptDelayActive").toBool()) {
+        QString errorStr = m_errorLines.join(QStringLiteral(" "));
+        if (errorStr.contains(QStringLiteral("Premieres in"), Qt::CaseInsensitive) ||
+            errorStr.contains(QStringLiteral("Premiering in"), Qt::CaseInsensitive) ||
+            errorStr.contains(QStringLiteral("Premiere will begin"), Qt::CaseInsensitive) ||
+            errorStr.contains(QStringLiteral("live event will begin"), Qt::CaseInsensitive) ||
+            errorStr.contains(QStringLiteral("is upcoming"), Qt::CaseInsensitive) ||
+            errorStr.contains(QStringLiteral("Offline (expected)"), Qt::CaseInsensitive) ||
+            errorStr.contains(QStringLiteral("Offline expected"), Qt::CaseInsensitive) ||
+            errorStr.contains(QStringLiteral("waiting for premiere"), Qt::CaseInsensitive) ||
+            errorStr.contains(QStringLiteral("waiting for livestream"), Qt::CaseInsensitive) ||
+            errorStr.contains(QStringLiteral("Live in "), Qt::CaseInsensitive) ||
+            errorStr.contains(QStringLiteral("Starting in "), Qt::CaseInsensitive)) {
+            
+            setProperty("promptDelayActive", true);
+            qDebug() << "[YtDlpWorker] Delaying finished signal to wait for user prompt response.";
+            
+            QVariantMap progressData;
+            progressData[QStringLiteral("status")] = tr("Waiting for user response...");
+            progressData[QStringLiteral("progress")] = -1;
+            if (!m_videoTitle.isEmpty()) {
+                progressData[QStringLiteral("title")] = m_videoTitle;
+            }
+            if (!m_thumbnailPath.isEmpty()) {
+                progressData[QStringLiteral("thumbnail_path")] = m_thumbnailPath;
+            }
+            emit progressUpdated(m_id, progressData);
+
+            QTimer::singleShot(300000, this, [this, exitCode, exitStatus]() {
+                if (!m_finishEmitted) {
+                    qDebug() << "[YtDlpWorker] User prompt timeout reached. Emitting finished signal.";
+                    onProcessFinished(exitCode, exitStatus);
+                }
+            });
+            return;
+        }
+    }
+
     if (recoveredFromPostProcessorFailure) {
         message = tr("Download completed, but thumbnail/post-processing reported a warning.");
         if (!m_errorLines.isEmpty()) {
-            message = QString("%1\n%2").arg(message, m_errorLines.join("\n").left(200));
+            message = QStringLiteral("%1\n%2").arg(message, m_errorLines.join(QStringLiteral("\n")).left(200));
         }
         postprocessorWarning = message;
         qWarning() << "yt-dlp exited with code" << exitCode
@@ -57,14 +96,14 @@ void YtDlpWorker::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatu
     } else {
         qWarning() << "Could not determine final filename. Download may have failed or produced no output.";
         if (exitCode == 0 && exitStatus == QProcess::NormalExit) {
-            message = QString("%1\n%2").arg(message, tr("Could not determine final filename."));
+            message = QStringLiteral("%1\n%2").arg(message, tr("Could not determine final filename."));
         }
     }
 
     QVariantMap metadata;
     if (success) {
         // Move wait thumbnail inside UUID folder so DownloadFinalizer cleans it up automatically
-        if (!m_thumbnailPath.isEmpty() && QFileInfo(m_thumbnailPath).fileName().startsWith(m_id + QStringLiteral("_wait_thumbnail")) && m_configManager) {
+        if (!m_thumbnailPath.isEmpty() && QFileInfo(m_thumbnailPath).fileName().startsWith(QStringLiteral("%1_wait_thumbnail").arg(m_id)) && m_configManager) {
             QString tempDir = m_configManager->get(QStringLiteral("Paths"), QStringLiteral("temporary_downloads_directory")).toString();
             if (tempDir.isEmpty()) {
                 QString completedDir = m_configManager->get(QStringLiteral("Paths"), QStringLiteral("completed_downloads_directory")).toString();
@@ -139,16 +178,16 @@ void YtDlpWorker::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatu
 
     if (!success) {
         if (!m_errorLines.isEmpty()) {
-            message = QString("%1\n%2").arg(message, m_errorLines.join("\n").left(200));
+            message = QStringLiteral("%1\n%2").arg(message, m_errorLines.join(QStringLiteral("\n")).left(200));
         } else {
             // Fallback: Use the last few lines of general output if no ERROR: lines were captured
             if (!m_allOutputLines.isEmpty()) {
-                message = QString("%1\n%2").arg(message, m_allOutputLines.mid(qMax(0, m_allOutputLines.size() - 5)).join("\n").left(200));
+                message = QStringLiteral("%1\n%2").arg(message, m_allOutputLines.mid(qMax(0, m_allOutputLines.size() - 5)).join(QStringLiteral("\n")).left(200));
             }
         }
         
         // Clean up orphaned wait thumbnail on failure
-        if (!m_thumbnailPath.isEmpty() && QFileInfo(m_thumbnailPath).fileName().startsWith(m_id + QStringLiteral("_wait_thumbnail"))) {
+        if (!m_thumbnailPath.isEmpty() && QFileInfo(m_thumbnailPath).fileName().startsWith(QStringLiteral("%1_wait_thumbnail").arg(m_id))) {
             QFile::remove(m_thumbnailPath);
             m_thumbnailPath.clear();
         }
@@ -340,7 +379,7 @@ void YtDlpWorker::readInfoJsonWithRetry() {
     }
     
     // Extract thumbnail path if available from the info.json
-    bool hasWaitThumbnail = !m_thumbnailPath.isEmpty() && QFileInfo(m_thumbnailPath).fileName().startsWith(m_id + QStringLiteral("_wait_thumbnail"));
+    bool hasWaitThumbnail = !m_thumbnailPath.isEmpty() && QFileInfo(m_thumbnailPath).fileName().startsWith(QStringLiteral("%1_wait_thumbnail").arg(m_id));
     if ((m_thumbnailPath.isEmpty() || hasWaitThumbnail) && obj.contains(QStringLiteral("thumbnails")) && obj[QStringLiteral("thumbnails")].isArray()) {
         QJsonArray thumbnails = obj[QStringLiteral("thumbnails")].toArray();
         // yt-dlp adds a "filepath" key to the thumbnail entry it downloaded.

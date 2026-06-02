@@ -7,6 +7,7 @@
 
 class SortingManager : public QObject {
     Q_OBJECT
+    friend class TestSortingManager;
 
 public:
     explicit SortingManager(ConfigManager *configManager, QObject *parent = nullptr);

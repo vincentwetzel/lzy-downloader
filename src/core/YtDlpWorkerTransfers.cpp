@@ -32,9 +32,9 @@ void YtDlpWorker::updateTransferTarget(const QString &path) {
             const QString inferredStatus = inferPrimaryStreamStatusFromPath(m_currentTransferTarget);
             if (!inferredStatus.isEmpty()) {
                 m_currentTransferStatus = inferredStatus;
-                if (m_currentTransferStatus.contains("video", Qt::CaseInsensitive)) {
+                if (m_currentTransferStatus.contains(QStringLiteral("video"), Qt::CaseInsensitive)) {
                     m_inferredTransferIndex = 0;
-                } else if (m_currentTransferStatus.contains("audio", Qt::CaseInsensitive) && m_requestedTransferStatuses.size() > 1) {
+                } else if (m_currentTransferStatus.contains(QStringLiteral("audio"), Qt::CaseInsensitive) && m_requestedTransferStatuses.size() > 1) {
                     m_inferredTransferIndex = 1;
                 }
             } else {
@@ -49,11 +49,11 @@ void YtDlpWorker::updateTransferTarget(const QString &path) {
 }
 
 double YtDlpWorker::inferPrimaryStreamSizeBytes(const QVariantMap &requestMap) const {
-    const double exactSize = requestMap.value("filesize").toDouble();
+    const double exactSize = requestMap.value(QStringLiteral("filesize")).toDouble();
     if (exactSize > 0.0) {
         return exactSize;
     }
-    const double approxSize = requestMap.value("filesize_approx").toDouble();
+    const double approxSize = requestMap.value(QStringLiteral("filesize_approx")).toDouble();
     if (approxSize > 0.0) {
         return approxSize;
     }
@@ -127,7 +127,7 @@ bool YtDlpWorker::handleAria2CommandLine(const QString &line) {
     }
 
     if (!formatId.isEmpty()) {
-        const int pathIndex = inferPrimaryStreamIndexFromPath(QString("dummy.f%1.part").arg(formatId));
+        const int pathIndex = inferPrimaryStreamIndexFromPath(QStringLiteral("dummy.f%1.part").arg(formatId));
         if (pathIndex >= 0 && pathIndex < m_requestedTransferStatuses.size()) {
             m_inferredTransferIndex = pathIndex;
             m_currentTransferStatus = m_requestedTransferStatuses.at(pathIndex);
@@ -336,38 +336,38 @@ void YtDlpWorker::emitStatusUpdate(const QString &status, int progress) {
 }
 
 bool YtDlpWorker::handleLifecycleStatusLine(const QString &line) {
-    if (line.startsWith("[Merger]")) {
+    if (line.startsWith(QStringLiteral("[Merger]"))) {
         emitStatusUpdate(tr("Merging segments with ffmpeg..."), 100);
         return true;
     }
-    if (line.startsWith("[ExtractAudio]")) {
+    if (line.startsWith(QStringLiteral("[ExtractAudio]"))) {
         emitStatusUpdate(tr("Extracting audio..."), 100);
         return true;
     }
-    if (line.startsWith("[VideoConvertor]")) {
+    if (line.startsWith(QStringLiteral("[VideoConvertor]"))) {
         emitStatusUpdate(tr("Converting video format..."), 100);
         return true;
     }
-    if (line.startsWith("[Metadata]")) {
+    if (line.startsWith(QStringLiteral("[Metadata]"))) {
         emitStatusUpdate(tr("Applying metadata..."), 100);
         return true;
     }
-    if (line.startsWith("[FixupM3u8]")) {
+    if (line.startsWith(QStringLiteral("[FixupM3u8]"))) {
         emitStatusUpdate(tr("Fixing stream timestamps..."), 100);
         return true;
     }
-    if (line.startsWith("[youtube]") || line.startsWith("[generic]") || line.startsWith("[info]")) {
-        if (line.contains("Extracting URL", Qt::CaseInsensitive) ||
-            line.contains("Downloading webpage", Qt::CaseInsensitive) ||
-            line.contains("Downloading android", Qt::CaseInsensitive) ||
-            line.contains("Downloading player", Qt::CaseInsensitive) ||
-            line.contains("Downloading m3u8", Qt::CaseInsensitive) ||
-            line.contains("Downloading API JSON", Qt::CaseInsensitive) ||
-            line.contains("Downloading initial data API JSON", Qt::CaseInsensitive) ||
-            line.contains("Downloading tv client config", Qt::CaseInsensitive) ||
-            line.contains("Downloading web creator player API JSON", Qt::CaseInsensitive) ||
-            line.contains("Downloading ios player API JSON", Qt::CaseInsensitive) ||
-            line.contains("Solving JS challenges", Qt::CaseInsensitive)) {
+    if (line.startsWith(QStringLiteral("[youtube]")) || line.startsWith(QStringLiteral("[generic]")) || line.startsWith(QStringLiteral("[info]"))) {
+        if (line.contains(QStringLiteral("Extracting URL"), Qt::CaseInsensitive) ||
+            line.contains(QStringLiteral("Downloading webpage"), Qt::CaseInsensitive) ||
+            line.contains(QStringLiteral("Downloading android"), Qt::CaseInsensitive) ||
+            line.contains(QStringLiteral("Downloading player"), Qt::CaseInsensitive) ||
+            line.contains(QStringLiteral("Downloading m3u8"), Qt::CaseInsensitive) ||
+            line.contains(QStringLiteral("Downloading API JSON"), Qt::CaseInsensitive) ||
+            line.contains(QStringLiteral("Downloading initial data API JSON"), Qt::CaseInsensitive) ||
+            line.contains(QStringLiteral("Downloading tv client config"), Qt::CaseInsensitive) ||
+            line.contains(QStringLiteral("Downloading web creator player API JSON"), Qt::CaseInsensitive) ||
+            line.contains(QStringLiteral("Downloading ios player API JSON"), Qt::CaseInsensitive) ||
+            line.contains(QStringLiteral("Solving JS challenges"), Qt::CaseInsensitive)) {
             emitStatusUpdate(tr("Extracting media information..."), -1);
             return true;
         }
