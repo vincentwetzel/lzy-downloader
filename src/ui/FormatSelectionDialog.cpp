@@ -10,11 +10,11 @@
 
 FormatSelectionDialog::FormatSelectionDialog(const QVariantMap &infoDict, const QVariantMap &options, QWidget *parent)
     : QDialog(parent) {
-    setWindowTitle("Select Format");
+    setWindowTitle(tr("Select Format"));
     resize(800, 400);
 
     setupUI();
-    populateTable(infoDict, options.value("type", "video").toString());
+    populateTable(infoDict, options.value(QStringLiteral("type"), QStringLiteral("video")).toString());
 }
 
 FormatSelectionDialog::~FormatSelectionDialog() {}
@@ -22,12 +22,12 @@ FormatSelectionDialog::~FormatSelectionDialog() {}
 void FormatSelectionDialog::setupUI() {
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
 
-    QLabel *hintLabel = new QLabel("Check every format you want to download, then click OK to enqueue them all.", this);
-    hintLabel->setToolTip("Each selected format will be added to the queue as its own download.");
+    QLabel *hintLabel = new QLabel(tr("Check every format you want to download, then click OK to enqueue them all."), this);
+    hintLabel->setToolTip(tr("Each selected format will be added to the queue as its own download."));
     mainLayout->addWidget(hintLabel);
 
     m_table = new QTableWidget(0, 8, this);
-    m_table->setHorizontalHeaderLabels({"Download", "ID", "Ext", "Resolution", "FPS", "Video Codec", "Audio Codec", "Size"});
+    m_table->setHorizontalHeaderLabels({tr("Download"), tr("ID"), tr("Ext"), tr("Resolution"), tr("FPS"), tr("Video Codec"), tr("Audio Codec"), tr("Size")});
     m_table->horizontalHeader()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
     for (int column = 1; column < 7; ++column) {
         m_table->horizontalHeader()->setSectionResizeMode(column, QHeaderView::ResizeToContents);
@@ -36,18 +36,18 @@ void FormatSelectionDialog::setupUI() {
     m_table->setSelectionBehavior(QAbstractItemView::SelectRows);
     m_table->setSelectionMode(QAbstractItemView::NoSelection);
     m_table->setEditTriggers(QAbstractItemView::NoEditTriggers);
-    m_table->setToolTip("Choose every format you want to download. Each selected row will be enqueued separately.");
+    m_table->setToolTip(tr("Choose every format you want to download. Each selected row will be enqueued separately."));
     mainLayout->addWidget(m_table);
 
-    m_selectionSummary = new QLabel("0 formats selected", this);
-    m_selectionSummary->setToolTip("Shows how many formats will be queued when you click OK.");
+    m_selectionSummary = new QLabel(tr("0 formats selected"), this);
+    m_selectionSummary->setToolTip(tr("Shows how many formats will be queued when you click OK."));
     mainLayout->addWidget(m_selectionSummary);
 
     QHBoxLayout *buttonLayout = new QHBoxLayout();
-    QPushButton *okButton = new QPushButton("OK", this);
-    QPushButton *cancelButton = new QPushButton("Cancel", this);
-    okButton->setToolTip("Queue the selected formats.");
-    cancelButton->setToolTip("Close this window without adding any formats.");
+    QPushButton *okButton = new QPushButton(tr("OK"), this);
+    QPushButton *cancelButton = new QPushButton(tr("Cancel"), this);
+    okButton->setToolTip(tr("Queue the selected formats."));
+    cancelButton->setToolTip(tr("Close this window without adding any formats."));
     buttonLayout->addStretch();
     buttonLayout->addWidget(okButton);
     buttonLayout->addWidget(cancelButton);
@@ -129,7 +129,7 @@ void FormatSelectionDialog::populateTable(const QVariantMap &infoDict, const QSt
 
 void FormatSelectionDialog::onSelectionChanged() {
     const int selectedCount = getSelectedFormatIds().size();
-    m_selectionSummary->setText(QString("%1 format%2 selected").arg(selectedCount).arg(selectedCount == 1 ? "" : "s"));
+    m_selectionSummary->setText(tr("%n format(s) selected", "", selectedCount));
 }
 
 QStringList FormatSelectionDialog::getSelectedFormatIds() const {

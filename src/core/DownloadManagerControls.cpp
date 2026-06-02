@@ -140,7 +140,7 @@ void DownloadManager::retryDownload(const QVariantMap &itemData) {
 }
 
 void DownloadManager::restartDownloadWithOptions(const QVariantMap &itemData) {
-    QString id = itemData.value("id").toString();
+    QString id = itemData.value(QStringLiteral("id")).toString();
 
     if (!m_activeItems.contains(id)) {
         // Fallback for non-active items, just treat as a normal retry
@@ -176,7 +176,7 @@ void DownloadManager::restartDownloadWithOptions(const QVariantMap &itemData) {
 
     // 2. The item is still in m_activeItems. We will reuse it.
     DownloadItem &item = m_activeItems[id];
-    item.options = itemData.value("options").toMap(); // Update options
+    item.options = itemData.value(QStringLiteral("options")).toMap(); // Update options
 
     // 3. Tell the UI to reset its state for the existing item.
     QVariantMap resetData;

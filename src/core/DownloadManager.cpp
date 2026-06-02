@@ -20,7 +20,7 @@ DownloadManager::DownloadManager(ConfigManager *configManager, QObject *parent) 
     m_sortingManager = new SortingManager(m_configManager, this);
     m_archiveManager = new ArchiveManager(m_configManager, this);
 
-    applyMaxConcurrentSetting(m_configManager->get("General", "max_threads", "4").toString());
+    applyMaxConcurrentSetting(m_configManager->get(QStringLiteral("General"), QStringLiteral("max_threads"), QStringLiteral("4")).toString());
 
     m_sleepTimer = new QTimer(this);
     m_sleepTimer->setSingleShot(true);
@@ -111,7 +111,7 @@ void DownloadManager::onQueueCountsChanged(int queued, int paused) {
 }
 
 void DownloadManager::onConfigSettingChanged(const QString &section, const QString &key, const QVariant &value) {
-    if (section != "General" || key != "max_threads") {
+    if (section != QStringLiteral("General") || key != QStringLiteral("max_threads")) {
         return;
     }
 

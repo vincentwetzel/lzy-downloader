@@ -39,7 +39,7 @@ void MetadataEmbedder::processFile(const QString &filePath, int trackNumber, boo
     QFileInfo fileInfo(filePath);
     const QString suffix = fileInfo.suffix().toLower();
 
-    if (!normalizeContainerTimestamps && suffix == "opus" && trackNumber > 0 && m_extraMetadata.isEmpty()) {
+    if (!normalizeContainerTimestamps && suffix == QStringLiteral("opus") && trackNumber > 0 && m_extraMetadata.isEmpty()) {
         qDebug() << "Skipping metadata embedding for .opus file to preserve album art.";
         emit finished(true, "");
         return;
@@ -55,7 +55,7 @@ void MetadataEmbedder::processFile(const QString &filePath, int trackNumber, boo
     m_targetDurationSeconds = 0.0;
     m_processOutputTail.clear();
     m_normalizeContainerTimestamps = normalizeContainerTimestamps &&
-        (suffix == "mp4" || suffix == "m4v" || suffix == "mov" || suffix == "m4a");
+        (suffix == QStringLiteral("mp4") || suffix == QStringLiteral("m4v") || suffix == QStringLiteral("mov") || suffix == QStringLiteral("m4a"));
 
     if (m_normalizeContainerTimestamps) {
         startDurationProbe();
@@ -65,17 +65,17 @@ void MetadataEmbedder::processFile(const QString &filePath, int trackNumber, boo
 }
 
 void MetadataEmbedder::startDurationProbe() {
-    const QString ffprobePath = ProcessUtils::findBinary("ffprobe", m_configManager).path;
-    if (ffprobePath.isEmpty() || ffprobePath == "ffprobe") {
+    const QString ffprobePath = ProcessUtils::findBinary(QStringLiteral("ffprobe"), m_configManager).path;
+    if (ffprobePath.isEmpty() || ffprobePath == QStringLiteral("ffprobe")) {
         qWarning() << "MetadataEmbedder: ffprobe not found; continuing without hard clip-duration trim.";
         startRewrite();
         return;
     }
 
     QStringList args;
-    args << "-v" << "error"
-         << "-show_entries" << "format=duration"
-         << "-of" << "default=noprint_wrappers=1:nokey=1"
+    args << QStringLiteral("-v") << QStringLiteral("error")
+         << QStringLiteral("-show_entries") << QStringLiteral("format=duration")
+         << QStringLiteral("-of") << QStringLiteral("default=noprint_wrappers=1:nokey=1")
          << m_originalFilePath;
 
     m_stage = Stage::ProbingDuration;
@@ -86,44 +86,44 @@ void MetadataEmbedder::startDurationProbe() {
 void MetadataEmbedder::startRewrite() {
     QStringList args;
     if (m_normalizeContainerTimestamps) {
-        args << "-fflags" << "+genpts";
-        args << "-ignore_editlist" << "1";
-        args << "-fix_sub_duration";
+        args << QStringLiteral("-fflags") << QStringLiteral("+genpts");
+        args << QStringLiteral("-ignore_editlist") << QStringLiteral("1");
+        args << QStringLiteral("-fix_sub_duration");
     }
 
-    args << "-nostdin";
-    args << "-i" << m_originalFilePath;
-    args << "-map" << "0";
-    args << "-c" << "copy";
+    args << QStringLiteral("-nostdin");
+    args << QStringLiteral("-i") << m_originalFilePath;
+    args << QStringLiteral("-map") << QStringLiteral("0");
+    args << QStringLiteral("-c") << QStringLiteral("copy");
 
     if (m_normalizeContainerTimestamps) {
         // Regenerate subtitle packets against the clipped container timeline.
-        args << "-c:s" << "mov_text";
+        args << QStringLiteral("-c:s") << QStringLiteral("mov_text");
     }
 
     if (m_pendingTrackNumber > 0) {
-        args << "-metadata" << QString("track=%1").arg(m_pendingTrackNumber);
+        args << QStringLiteral("-metadata") << QStringLiteral("track=%1").arg(m_pendingTrackNumber);
     }
 
     for (auto it = m_extraMetadata.constBegin(); it != m_extraMetadata.constEnd(); ++it) {
         const QString value = it.value().toString().trimmed();
         if (!it.key().trimmed().isEmpty() && !value.isEmpty()) {
-            args << "-metadata" << QString("%1=%2").arg(it.key(), value);
+            args << QStringLiteral("-metadata") << QStringLiteral("%1=%2").arg(it.key(), value);
         }
     }
 
     if (m_normalizeContainerTimestamps) {
         if (m_targetDurationSeconds > 0.0) {
-            args << "-t" << QString::number(m_targetDurationSeconds, 'f', 3);
+            args << QStringLiteral("-t") << QString::number(m_targetDurationSeconds, 'f', 3);
         }
-        args << "-shortest";
+        args << QStringLiteral("-shortest");
         qDebug() << "MetadataEmbedder: normalizing section clip metadata with hard duration limit" << m_targetDurationSeconds << "for" << m_originalFilePath;
     }
 
-    args << "-y";
+    args << QStringLiteral("-y");
     args << m_tempFilePath;
 
-    const QString ffmpegPath = ProcessUtils::findBinary("ffmpeg", m_configManager).path;
+    const QString ffmpegPath = ProcessUtils::findBinary(QStringLiteral("ffmpeg"), m_configManager).path;
     m_stage = Stage::RewritingFile;
     qDebug() << "MetadataEmbedder: starting ffmpeg with args" << args;
     m_process->start(ffmpegPath, args);

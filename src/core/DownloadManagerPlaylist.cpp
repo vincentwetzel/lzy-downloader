@@ -31,7 +31,7 @@ void DownloadManager::onPlaylistDetected(const QString &url, int itemCount, cons
             qInfo() << "Non-interactive playlist detected; queueing all items without prompting:" << url << "count:" << itemCount;
         }
         QMetaObject::invokeMethod(this, [this, url, storedOptions, expandedItems]() {
-            processPlaylistSelection(url, "Download All", storedOptions, expandedItems);
+            processPlaylistSelection(url, QStringLiteral("Download All"), storedOptions, expandedItems);
         }, Qt::QueuedConnection);
         return;
     }

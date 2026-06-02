@@ -50,7 +50,7 @@ void YtDlpJsonExtractor::onProcessFinished(int exitCode, QProcess::ExitStatus ex
     if (exitStatus == QProcess::CrashExit || exitCode != 0) {
         QString stderrOutput = m_process->readAllStandardError();
         qWarning() << "YtDlpJsonExtractor failed. Exit code:" << exitCode << "Stderr:" << stderrOutput;
-        QString cleanError = "Unknown error";
+        QString cleanError = QStringLiteral("Unknown error");
         int errIdx = stderrOutput.indexOf(QStringLiteral("ERROR:"));
         if (errIdx != -1) {
             int endIdx = stderrOutput.indexOf('\n', errIdx);

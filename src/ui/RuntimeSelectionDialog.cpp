@@ -17,11 +17,11 @@ RuntimeSelectionDialog::RuntimeSelectionDialog(const QVariantMap &info, bool sel
 }
 
 void RuntimeSelectionDialog::setupUi() {
-    setWindowTitle("Select Streams & Subtitles");
+    setWindowTitle(tr("Select Streams & Subtitles"));
     setMinimumSize(600, 400);
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
 
-    QString title = m_info.value("title").toString();
+    QString title = m_info.value(QStringLiteral("title")).toString();
     if (!title.isEmpty()) {
         QLabel *titleLabel = new QLabel(QString("<b>%1</b>").arg(title), this);
         titleLabel->setWordWrap(true);
@@ -31,7 +31,7 @@ void RuntimeSelectionDialog::setupUi() {
     QHBoxLayout *listsLayout = new QHBoxLayout();
 
     if (m_selectVideo) {
-        QGroupBox *videoGroup = new QGroupBox("Video Streams", this);
+        QGroupBox *videoGroup = new QGroupBox(tr("Video Streams"), this);
         QVBoxLayout *vl = new QVBoxLayout(videoGroup);
         m_videoList = new QListWidget(this);
         vl->addWidget(m_videoList);
@@ -39,7 +39,7 @@ void RuntimeSelectionDialog::setupUi() {
     }
 
     if (m_selectAudio) {
-        QGroupBox *audioGroup = new QGroupBox("Audio Streams", this);
+        QGroupBox *audioGroup = new QGroupBox(tr("Audio Streams"), this);
         QVBoxLayout *al = new QVBoxLayout(audioGroup);
         m_audioList = new QListWidget(this);
         al->addWidget(m_audioList);
@@ -47,7 +47,7 @@ void RuntimeSelectionDialog::setupUi() {
     }
 
     if (m_selectSubs) {
-        QGroupBox *subsGroup = new QGroupBox("Subtitles", this);
+        QGroupBox *subsGroup = new QGroupBox(tr("Subtitles"), this);
         QVBoxLayout *sl = new QVBoxLayout(subsGroup);
         m_subsList = new QListWidget(this);
         sl->addWidget(m_subsList);
@@ -63,37 +63,37 @@ void RuntimeSelectionDialog::setupUi() {
 }
 
 void RuntimeSelectionDialog::populateData() {
-    QVariantList formats = m_info.value("formats").toList();
-    QVariantMap subtitles = m_info.value("subtitles").toMap();
-    QVariantMap automatic_captions = m_info.value("automatic_captions").toMap();
+    QVariantList formats = m_info.value(QStringLiteral("formats")).toList();
+    QVariantMap subtitles = m_info.value(QStringLiteral("subtitles")).toMap();
+    QVariantMap automatic_captions = m_info.value(QStringLiteral("automatic_captions")).toMap();
 
     if (m_selectVideo && m_videoList) {
-        m_videoList->addItem("Default (Use Settings)");
+        m_videoList->addItem(tr("Default (Use Settings)"));
         m_videoList->item(0)->setData(Qt::UserRole, "");
         m_videoList->setCurrentRow(0);
         for (const QVariant &f : formats) {
             QVariantMap fmt = f.toMap();
-            QString vcodec = fmt.value("vcodec").toString();
-            if (vcodec != "none" && !vcodec.isEmpty()) {
-                QString label = QString("[%1] %2x%3 (%4fps) - %5").arg(fmt.value("format_id").toString()).arg(fmt.value("width").toInt()).arg(fmt.value("height").toInt()).arg(fmt.value("fps").toDouble(), 0, 'f', 1).arg(vcodec);
+            QString vcodec = fmt.value(QStringLiteral("vcodec")).toString();
+            if (vcodec != QStringLiteral("none") && !vcodec.isEmpty()) {
+                QString label = QStringLiteral("[%1] %2x%3 (%4fps) - %5").arg(fmt.value(QStringLiteral("format_id")).toString()).arg(fmt.value(QStringLiteral("width")).toInt()).arg(fmt.value(QStringLiteral("height")).toInt()).arg(fmt.value(QStringLiteral("fps")).toDouble(), 0, 'f', 1).arg(vcodec);
                 QListWidgetItem *item = new QListWidgetItem(label);
-                item->setData(Qt::UserRole, fmt.value("format_id").toString());
+                item->setData(Qt::UserRole, fmt.value(QStringLiteral("format_id")).toString());
                 m_videoList->addItem(item);
             }
         }
     }
 
     if (m_selectAudio && m_audioList) {
-        m_audioList->addItem("Default (Use Settings)");
+        m_audioList->addItem(tr("Default (Use Settings)"));
         m_audioList->item(0)->setData(Qt::UserRole, "");
         m_audioList->setCurrentRow(0);
         for (const QVariant &f : formats) {
             QVariantMap fmt = f.toMap();
-            QString acodec = fmt.value("acodec").toString();
-            if (acodec != "none" && !acodec.isEmpty()) {
-                QString label = QString("[%1] %2Hz - %3").arg(fmt.value("format_id").toString()).arg(fmt.value("asr").toInt()).arg(acodec);
+            QString acodec = fmt.value(QStringLiteral("acodec")).toString();
+            if (acodec != QStringLiteral("none") && !acodec.isEmpty()) {
+                QString label = QStringLiteral("[%1] %2Hz - %3").arg(fmt.value(QStringLiteral("format_id")).toString()).arg(fmt.value(QStringLiteral("asr")).toInt()).arg(acodec);
                 QListWidgetItem *item = new QListWidgetItem(label);
-                item->setData(Qt::UserRole, fmt.value("format_id").toString());
+                item->setData(Qt::UserRole, fmt.value(QStringLiteral("format_id")).toString());
                 m_audioList->addItem(item);
             }
         }
@@ -104,7 +104,7 @@ void RuntimeSelectionDialog::populateData() {
         for (const QString& k : automatic_captions.keys()) if (!allLangs.contains(k)) allLangs.append(k);
         allLangs.sort();
         for (const QString &lang : allLangs) {
-            QString label = lang + (automatic_captions.contains(lang) && !subtitles.contains(lang) ? " (Auto-generated)" : "");
+            QString label = lang + (automatic_captions.contains(lang) && !subtitles.contains(lang) ? tr(" (Auto-generated)") : QString());
             QListWidgetItem *item = new QListWidgetItem(label);
             item->setData(Qt::UserRole, lang);
             item->setFlags(item->flags() | Qt::ItemIsUserCheckable);

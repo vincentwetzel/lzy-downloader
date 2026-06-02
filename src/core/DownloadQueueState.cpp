@@ -64,7 +64,7 @@ void DownloadQueueState::save(const QList<DownloadItem>& activeItems, const QMap
         obj[QStringLiteral("url")] = item.url;
         obj[QStringLiteral("options")] = QJsonObject::fromVariantMap(item.options);
         obj[QStringLiteral("metadata")] = QJsonObject::fromVariantMap(item.metadata);
-        if (item.options.value("is_stopped").toBool() || item.options.value("is_failed").toBool()) {
+        if (item.options.value(QStringLiteral("is_stopped")).toBool() || item.options.value(QStringLiteral("is_failed")).toBool()) {
             obj[QStringLiteral("status")] = QStringLiteral("stopped");
         } else {
             obj[QStringLiteral("status")] = QStringLiteral("paused");

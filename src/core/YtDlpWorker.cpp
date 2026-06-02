@@ -34,10 +34,10 @@ void YtDlpWorker::start() {
     m_lastPrimaryProgress = -1.0;
     m_lastPrimaryTotalBytes = 0.0;
 
-    const ProcessUtils::FoundBinary ytDlpBinary = ProcessUtils::findBinary("yt-dlp", m_configManager);
-    if (ytDlpBinary.source == "Not Found" || ytDlpBinary.path.isEmpty()) {
-        const QString message = "Download failed.\n"
-                                "yt-dlp could not be found. Configure it in Advanced Settings -> External Tools.";
+    const ProcessUtils::FoundBinary ytDlpBinary = ProcessUtils::findBinary(QStringLiteral("yt-dlp"), m_configManager);
+    if (ytDlpBinary.source == QStringLiteral("Not Found") || ytDlpBinary.path.isEmpty()) {
+        const QString message = tr("Download failed.\n"
+                                   "yt-dlp could not be found. Configure it in Advanced Settings -> External Tools.");
         qWarning() << message;
         if (!m_finishEmitted) {
             m_finishEmitted = true;
@@ -55,15 +55,15 @@ void YtDlpWorker::start() {
     // Force yt-dlp to emit its native progress lines even when it is not attached
     // to a TTY. If an older caller still passed a custom progress template, drop
     // it so the worker can consistently parse yt-dlp's default output.
-    int pt_index = m_args.indexOf("--progress-template");
+    int pt_index = m_args.indexOf(QStringLiteral("--progress-template"));
     if (pt_index != -1) {
         m_args.removeAt(pt_index); // remove flag
         if (pt_index < m_args.size()) {
             m_args.removeAt(pt_index); // remove value
         }
     }
-    if (!m_args.contains("--progress")) {
-        m_args.prepend("--progress");
+    if (!m_args.contains(QStringLiteral("--progress"))) {
+        m_args.prepend(QStringLiteral("--progress"));
     }
 
     emitStatusUpdate(tr("Extracting media information..."), -1);
@@ -117,18 +117,18 @@ void YtDlpWorker::killProcess() {
     }
 
     // Clean up orphaned wait thumbnail if the process is killed by the user
-    if (!m_thumbnailPath.isEmpty() && QFileInfo(m_thumbnailPath).fileName().startsWith(m_id + "_wait_thumbnail")) {
+    if (!m_thumbnailPath.isEmpty() && QFileInfo(m_thumbnailPath).fileName().startsWith(m_id + QStringLiteral("_wait_thumbnail"))) {
         QFile::remove(m_thumbnailPath);
         m_thumbnailPath.clear();
     }
     
     // Attempt to remove the UUID directory if it's completely empty
     if (m_configManager) {
-        QString tempDir = m_configManager->get("Paths", "temporary_downloads_directory").toString();
+        QString tempDir = m_configManager->get(QStringLiteral("Paths"), QStringLiteral("temporary_downloads_directory")).toString();
         if (tempDir.isEmpty()) {
-            QString completedDir = m_configManager->get("Paths", "completed_downloads_directory").toString();
+            QString completedDir = m_configManager->get(QStringLiteral("Paths"), QStringLiteral("completed_downloads_directory")).toString();
             if (!completedDir.isEmpty()) {
-                tempDir = QDir(completedDir).filePath("temp_downloads");
+                tempDir = QDir(completedDir).filePath(QStringLiteral("temp_downloads"));
             }
         }
         if (!tempDir.isEmpty()) {

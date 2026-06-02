@@ -22,17 +22,17 @@ double YtDlpWorker::parseSizeStringToBytes(const QString &sizeString) {
     const QString unit = match.captured(2).toUpper();
 
     static const QMap<QString, double> multipliers = {
-        {"B", 1.0},
-        {"KB", 1000.0},
-        {"MB", 1000.0 * 1000.0},
-        {"GB", 1000.0 * 1000.0 * 1000.0},
-        {"TB", 1000.0 * 1000.0 * 1000.0 * 1000.0},
-        {"PB", 1000.0 * 1000.0 * 1000.0 * 1000.0 * 1000.0},
-        {"KIB", 1024.0},
-        {"MIB", 1024.0 * 1024.0},
-        {"GIB", 1024.0 * 1024.0 * 1024.0},
-        {"TIB", 1024.0 * 1024.0 * 1024.0 * 1024.0},
-        {"PIB", 1024.0 * 1024.0 * 1024.0 * 1024.0 * 1024.0}
+        {QStringLiteral("B"), 1.0},
+        {QStringLiteral("KB"), 1000.0},
+        {QStringLiteral("MB"), 1000.0 * 1000.0},
+        {QStringLiteral("GB"), 1000.0 * 1000.0 * 1000.0},
+        {QStringLiteral("TB"), 1000.0 * 1000.0 * 1000.0 * 1000.0},
+        {QStringLiteral("PB"), 1000.0 * 1000.0 * 1000.0 * 1000.0 * 1000.0},
+        {QStringLiteral("KIB"), 1024.0},
+        {QStringLiteral("MIB"), 1024.0 * 1024.0},
+        {QStringLiteral("GIB"), 1024.0 * 1024.0 * 1024.0},
+        {QStringLiteral("TIB"), 1024.0 * 1024.0 * 1024.0 * 1024.0},
+        {QStringLiteral("PIB"), 1024.0 * 1024.0 * 1024.0 * 1024.0 * 1024.0}
     };
 
     const double multiplier = multipliers.value(unit, 0.0);

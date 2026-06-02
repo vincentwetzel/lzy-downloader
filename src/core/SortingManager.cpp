@@ -18,38 +18,38 @@ QString normalizedRuleText(const QString &value) {
     QString normalized = value.trimmed().toLower();
     static const QRegularExpression nonAlphaNumRe(QStringLiteral("[^a-z0-9]+"));
     static const QRegularExpression trimRe(QStringLiteral("^_+|_+$"));
-    normalized.replace(nonAlphaNumRe, "_");
+    normalized.replace(nonAlphaNumRe, QStringLiteral("_"));
     normalized.remove(trimRe);
     return normalized;
 }
 
 bool isDurationField(const QString &field) {
     const QString normalizedField = normalizedRuleText(field);
-    return normalizedField == "duration" || normalizedField == "duration_seconds";
+    return normalizedField == QStringLiteral("duration") || normalizedField == QStringLiteral("duration_seconds");
 }
 
 QString canonicalOperator(const QString &op) {
     const QString normalized = normalizedRuleText(op);
-    if (normalized == "equals") {
-        return "is";
+    if (normalized == QStringLiteral("equals")) {
+        return QStringLiteral("is");
     }
-    if (normalized == "is_one_of") {
-        return "is_one_of";
+    if (normalized == QStringLiteral("is_one_of")) {
+        return QStringLiteral("is_one_of");
     }
-    if (normalized == "starts_with") {
-        return "starts_with";
+    if (normalized == QStringLiteral("starts_with")) {
+        return QStringLiteral("starts_with");
     }
-    if (normalized == "ends_with") {
-        return "ends_with";
+    if (normalized == QStringLiteral("ends_with")) {
+        return QStringLiteral("ends_with");
     }
-    if (normalized == "greater_than") {
-        return "greater_than";
+    if (normalized == QStringLiteral("greater_than")) {
+        return QStringLiteral("greater_than");
     }
-    if (normalized == "less_than") {
-        return "less_than";
+    if (normalized == QStringLiteral("less_than")) {
+        return QStringLiteral("less_than");
     }
-    if (normalized == "contains") {
-        return "contains";
+    if (normalized == QStringLiteral("contains")) {
+        return QStringLiteral("contains");
     }
     return normalized;
 }
@@ -60,20 +60,20 @@ QVariantMap mergedSortingMetadata(const QVariantMap &metadata, const QVariantMap
         combined.insert(it.key(), it.value());
     }
 
-    QString metaPlaylistTitle = combined.value("playlist_title").toString().trimmed();
-    if (metaPlaylistTitle.isEmpty() || metaPlaylistTitle.toLower() == "null" || metaPlaylistTitle == "NA") {
-        const QString optionsPlaylistTitle = downloadOptions.value("playlist_title").toString().trimmed();
-        if (!optionsPlaylistTitle.isEmpty() && optionsPlaylistTitle.toLower() != "null" && optionsPlaylistTitle != "NA") {
-            combined.insert("playlist_title", optionsPlaylistTitle);
+    QString metaPlaylistTitle = combined.value(QStringLiteral("playlist_title")).toString().trimmed();
+    if (metaPlaylistTitle.isEmpty() || metaPlaylistTitle.toLower() == QStringLiteral("null") || metaPlaylistTitle == QStringLiteral("NA")) {
+        const QString optionsPlaylistTitle = downloadOptions.value(QStringLiteral("playlist_title")).toString().trimmed();
+        if (!optionsPlaylistTitle.isEmpty() && optionsPlaylistTitle.toLower() != QStringLiteral("null") && optionsPlaylistTitle != QStringLiteral("NA")) {
+            combined.insert(QStringLiteral("playlist_title"), optionsPlaylistTitle);
         }
     }
 
-    if (!combined.contains("is_playlist")) {
-        combined.insert("is_playlist", downloadOptions.value("is_playlist", false).toBool());
+    if (!combined.contains(QStringLiteral("is_playlist"))) {
+        combined.insert(QStringLiteral("is_playlist"), downloadOptions.value(QStringLiteral("is_playlist"), false).toBool());
     }
 
-    if (!combined.contains("playlist_index") && downloadOptions.contains("playlist_index")) {
-        combined.insert("playlist_index", downloadOptions.value("playlist_index"));
+    if (!combined.contains(QStringLiteral("playlist_index")) && downloadOptions.contains(QStringLiteral("playlist_index"))) {
+        combined.insert(QStringLiteral("playlist_index"), downloadOptions.value(QStringLiteral("playlist_index")));
     }
 
     return combined;
@@ -96,7 +96,7 @@ QString SortingManager::normalizedMetadataKey(const QString &key) const {
     QString normalized = key.trimmed().toLower();
     static const QRegularExpression nonAlphaNumRe(QStringLiteral("[^a-z0-9]+"));
     static const QRegularExpression trimRe(QStringLiteral("^_+|_+$"));
-    normalized.replace(nonAlphaNumRe, "_");
+    normalized.replace(nonAlphaNumRe, QStringLiteral("_"));
     normalized.remove(trimRe);
     return normalized;
 }
@@ -123,50 +123,50 @@ QVariant SortingManager::metadataValueForKey(const QString &key, const QVariantM
 QVariant SortingManager::metadataValueForField(const QString &field, const QVariantMap &metadata) const {
     const QString normalizedField = normalizedMetadataKey(field);
 
-    if (normalizedField == "duration_seconds") {
-        return metadataValueForKey("duration", metadata);
+    if (normalizedField == QStringLiteral("duration_seconds")) {
+        return metadataValueForKey(QStringLiteral("duration"), metadata);
     }
 
-    if (normalizedField == "playlist_title" || normalizedField == "playlist") {
-        const QVariant playlistTitle = metadataValueForKey("playlist_title", metadata);
+    if (normalizedField == QStringLiteral("playlist_title") || normalizedField == QStringLiteral("playlist")) {
+        const QVariant playlistTitle = metadataValueForKey(QStringLiteral("playlist_title"), metadata);
         if (playlistTitle.isValid() && !playlistTitle.toString().trimmed().isEmpty() && 
-            playlistTitle.toString().trimmed().toLower() != "null" && playlistTitle.toString().trimmed() != "NA") {
+            playlistTitle.toString().trimmed().toLower() != QStringLiteral("null") && playlistTitle.toString().trimmed() != QStringLiteral("NA")) {
             return playlistTitle;
         }
-        const QVariant playlist = metadataValueForKey("playlist", metadata);
+        const QVariant playlist = metadataValueForKey(QStringLiteral("playlist"), metadata);
         if (playlist.isValid() && !playlist.toString().trimmed().isEmpty() && 
-            playlist.toString().trimmed().toLower() != "null" && playlist.toString().trimmed() != "NA") {
+            playlist.toString().trimmed().toLower() != QStringLiteral("null") && playlist.toString().trimmed() != QStringLiteral("NA")) {
             return playlist;
         }
         return QVariant();
     }
 
-    if (normalizedField == "album") {
-        const QVariant album = metadataValueForKey("album", metadata);
+    if (normalizedField == QStringLiteral("album")) {
+        const QVariant album = metadataValueForKey(QStringLiteral("album"), metadata);
         if (album.isValid() && !album.toString().trimmed().isEmpty() && 
-            album.toString().trimmed().toLower() != "null" && album.toString().trimmed() != "NA") {
+            album.toString().trimmed().toLower() != QStringLiteral("null") && album.toString().trimmed() != QStringLiteral("NA")) {
             return album;
         }
 
-        const QVariant playlistTitle = metadataValueForField("playlist_title", metadata);
+        const QVariant playlistTitle = metadataValueForField(QStringLiteral("playlist_title"), metadata);
         if (playlistTitle.isValid() && !playlistTitle.toString().trimmed().isEmpty() && 
-            playlistTitle.toString().trimmed().toLower() != "null" && playlistTitle.toString().trimmed() != "NA") {
+            playlistTitle.toString().trimmed().toLower() != QStringLiteral("null") && playlistTitle.toString().trimmed() != QStringLiteral("NA")) {
             return playlistTitle;
         }
         return QVariant();
     }
 
     static const QHash<QString, QStringList> aliases = {
-        {"uploader", {"uploader", "channel", "artist", "album_artist", "creator"}},
-        {"title", {"title", "track", "alt_title"}},
-        {"id", {"id", "display_id"}}
+        {QStringLiteral("uploader"), {QStringLiteral("uploader"), QStringLiteral("channel"), QStringLiteral("artist"), QStringLiteral("album_artist"), QStringLiteral("creator")}},
+        {QStringLiteral("title"), {QStringLiteral("title"), QStringLiteral("track"), QStringLiteral("alt_title")}},
+        {QStringLiteral("id"), {QStringLiteral("id"), QStringLiteral("display_id")}}
     };
 
     const QStringList aliasCandidates = aliases.value(normalizedField, {normalizedField});
     for (const QString &candidate : aliasCandidates) {
         const QVariant value = metadataValueForKey(candidate, metadata);
-        if (value.isValid() && !value.toString().trimmed().isEmpty() && 
-            value.toString().trimmed().toLower() != "null" && value.toString().trimmed() != "NA") {
+        if (value.isValid() && !value.toString().trimmed().isEmpty() &&
+            value.toString().trimmed().toLower() != QStringLiteral("null") && value.toString().trimmed() != QStringLiteral("NA")) {
             return value;
         }
     }
@@ -184,13 +184,13 @@ QString SortingManager::getSortedDirectory(const QVariantMap &videoMetadata, con
     } else {
         qDebug() << "  uploader key NOT FOUND in metadata!";
     }
-    qDebug() << "  downloadOptions type:" << downloadOptions.value("type", "video").toString();
+    qDebug() << "  downloadOptions type:" << downloadOptions.value(QStringLiteral("type"), QStringLiteral("video")).toString();
 
-    int size = m_configManager->get("SortingRules", "size", 0).toInt();
+    int size = m_configManager->get(QStringLiteral("SortingRules"), QStringLiteral("size"), 0).toInt();
     qDebug() << "  SortingRules size:" << size;
     if (size == 0) {
         // No rules to process, return default directory
-        QString baseDir = m_configManager->get("Paths", "completed_downloads_directory").toString();
+        QString baseDir = m_configManager->get(QStringLiteral("Paths"), QStringLiteral("completed_downloads_directory")).toString();
         if (baseDir.isEmpty()) {
             baseDir = QStandardPaths::writableLocation(QStandardPaths::DownloadLocation);
         }
@@ -201,21 +201,21 @@ QString SortingManager::getSortedDirectory(const QVariantMap &videoMetadata, con
     for (int i = 0; i < size; ++i) {
         QString key = QStringLiteral("rule_%1").arg(i);
         
-        QString ruleName = m_configManager->get("SortingRules", QStringLiteral("%1_name").arg(key)).toString();
-        QVariant appliesToVar = m_configManager->get("SortingRules", QStringLiteral("%1_applies_to").arg(key));
-        QString appliesTo = appliesToVar.isValid() ? appliesToVar.toString() : "All Downloads";
-        QString targetFolder = m_configManager->get("SortingRules", QStringLiteral("%1_target_folder").arg(key)).toString();
-        QString subfolderPattern = m_configManager->get("SortingRules", QStringLiteral("%1_subfolder_pattern").arg(key)).toString();
+        QString ruleName = m_configManager->get(QStringLiteral("SortingRules"), QStringLiteral("%1_name").arg(key)).toString();
+        QVariant appliesToVar = m_configManager->get(QStringLiteral("SortingRules"), QStringLiteral("%1_applies_to").arg(key));
+        QString appliesTo = appliesToVar.isValid() ? appliesToVar.toString() : QStringLiteral("All Downloads");
+        QString targetFolder = m_configManager->get(QStringLiteral("SortingRules"), QStringLiteral("%1_target_folder").arg(key)).toString();
+        QString subfolderPattern = m_configManager->get(QStringLiteral("SortingRules"), QStringLiteral("%1_subfolder_pattern").arg(key)).toString();
         
         // Load conditions
-        int condSize = m_configManager->get("SortingRules", QStringLiteral("%1_conditions_size").arg(key), 0).toInt();
+        int condSize = m_configManager->get(QStringLiteral("SortingRules"), QStringLiteral("%1_conditions_size").arg(key), 0).toInt();
         QJsonArray conditionsArray;
         for (int j = 0; j < condSize; ++j) {
             QString condKey = QStringLiteral("%1_condition_%2").arg(key).arg(j);
             QJsonObject cond;
-            cond["field"] = m_configManager->get("SortingRules", QStringLiteral("%1_field").arg(condKey)).toString();
-            cond["operator"] = m_configManager->get("SortingRules", QStringLiteral("%1_operator").arg(condKey)).toString();
-            cond["value"] = m_configManager->get("SortingRules", QStringLiteral("%1_value").arg(condKey)).toString();
+            cond[QStringLiteral("field")] = m_configManager->get(QStringLiteral("SortingRules"), QStringLiteral("%1_field").arg(condKey)).toString();
+            cond[QStringLiteral("operator")] = m_configManager->get(QStringLiteral("SortingRules"), QStringLiteral("%1_operator").arg(condKey)).toString();
+            cond[QStringLiteral("value")] = m_configManager->get(QStringLiteral("SortingRules"), QStringLiteral("%1_value").arg(condKey)).toString();
             conditionsArray.append(cond);
         }
         
@@ -228,22 +228,22 @@ QString SortingManager::getSortedDirectory(const QVariantMap &videoMetadata, con
         qDebug() << "  Checking rule" << i << "(" << ruleName << "), appliesTo:" << appliesTo << "targetFolder:" << targetFolder << "conditions:" << condSize;
 
         // 1. Check if the rule applies to this download type
-        QString downloadType = downloadOptions.value("type", "video").toString();
+        const QString downloadType = downloadOptions.value(QStringLiteral("type"), QStringLiteral("video")).toString();
         const bool isPlaylist = hasPlaylistContext(sortingMetadata, downloadOptions);
 
         bool typeMatch = false;
         const QString normalizedAppliesTo = normalizedRuleText(appliesTo);
-        if (normalizedAppliesTo == "any" || normalizedAppliesTo == "all" || normalizedAppliesTo == "all_downloads") {
+        if (normalizedAppliesTo == QStringLiteral("any") || normalizedAppliesTo == QStringLiteral("all") || normalizedAppliesTo == QStringLiteral("all_downloads")) {
             typeMatch = true;
-        } else if ((normalizedAppliesTo == "video" || normalizedAppliesTo == "video_downloads") && downloadType == "video" && !isPlaylist) {
+        } else if ((normalizedAppliesTo == QStringLiteral("video") || normalizedAppliesTo == QStringLiteral("video_downloads")) && downloadType == QStringLiteral("video") && !isPlaylist) {
             typeMatch = true;
-        } else if ((normalizedAppliesTo == "audio" || normalizedAppliesTo == "audio_downloads") && downloadType == "audio" && !isPlaylist) {
+        } else if ((normalizedAppliesTo == QStringLiteral("audio") || normalizedAppliesTo == QStringLiteral("audio_downloads")) && downloadType == QStringLiteral("audio") && !isPlaylist) {
             typeMatch = true;
-        } else if ((normalizedAppliesTo == "gallery" || normalizedAppliesTo == "gallery_downloads") && downloadType == "gallery") {
+        } else if ((normalizedAppliesTo == QStringLiteral("gallery") || normalizedAppliesTo == QStringLiteral("gallery_downloads")) && downloadType == QStringLiteral("gallery")) {
             typeMatch = true;
-        } else if ((normalizedAppliesTo == "video_playlist" || normalizedAppliesTo == "video_playlist_downloads") && downloadType == "video" && isPlaylist) {
+        } else if ((normalizedAppliesTo == QStringLiteral("video_playlist") || normalizedAppliesTo == QStringLiteral("video_playlist_downloads")) && downloadType == QStringLiteral("video") && isPlaylist) {
             typeMatch = true;
-        } else if ((normalizedAppliesTo == "audio_playlist" || normalizedAppliesTo == "audio_playlist_downloads") && downloadType == "audio" && isPlaylist) {
+        } else if ((normalizedAppliesTo == QStringLiteral("audio_playlist") || normalizedAppliesTo == QStringLiteral("audio_playlist_downloads")) && downloadType == QStringLiteral("audio") && isPlaylist) {
             typeMatch = true;
         }
 
@@ -256,9 +256,9 @@ QString SortingManager::getSortedDirectory(const QVariantMap &videoMetadata, con
         bool allConditionsMatch = true;
         for (int c = 0; c < conditionsArray.size(); ++c) {
             QJsonObject condition = conditionsArray[c].toObject();
-            QString field = condition["field"].toString();
-            QString op = condition["operator"].toString();
-            QString value = condition["value"].toString();
+            QString field = condition[QStringLiteral("field")].toString();
+            QString op = condition[QStringLiteral("operator")].toString();
+            QString value = condition[QStringLiteral("value")].toString();
 
             const QString normalizedOperator = canonicalOperator(op);
             QVariant metadataValue = metadataValueForField(field, sortingMetadata);
@@ -273,25 +273,25 @@ QString SortingManager::getSortedDirectory(const QVariantMap &videoMetadata, con
                 const qlonglong durationValue = metadataValue.toLongLong();
                 const qlonglong conditionValue = value.toLongLong(&ok);
                 if (ok) {
-                    if (normalizedOperator == "is") {
+                    if (normalizedOperator == QStringLiteral("is")) {
                         match = (durationValue == conditionValue);
-                    } else if (normalizedOperator == "greater_than") {
+                    } else if (normalizedOperator == QStringLiteral("greater_than")) {
                         match = (durationValue > conditionValue);
-                    } else if (normalizedOperator == "less_than") {
+                    } else if (normalizedOperator == QStringLiteral("less_than")) {
                         match = (durationValue < conditionValue);
                     }
                 }
             } else {
-                if (normalizedOperator == "contains") {
+                if (normalizedOperator == QStringLiteral("contains")) {
                     match = metadataValue.toString().contains(value, Qt::CaseInsensitive);
-                } else if (normalizedOperator == "is") {
+                } else if (normalizedOperator == QStringLiteral("is")) {
                     match = metadataValue.toString().compare(value, Qt::CaseInsensitive) == 0;
-                } else if (normalizedOperator == "starts_with") {
+                } else if (normalizedOperator == QStringLiteral("starts_with")) {
                     match = metadataValue.toString().startsWith(value, Qt::CaseInsensitive);
-                } else if (normalizedOperator == "ends_with") {
+                } else if (normalizedOperator == QStringLiteral("ends_with")) {
                     match = metadataValue.toString().endsWith(value, Qt::CaseInsensitive);
-                } else if (normalizedOperator == "is_one_of") {
-                    QStringList values = value.split('\n', Qt::SkipEmptyParts);
+                } else if (normalizedOperator == QStringLiteral("is_one_of")) {
+                    QStringList values = value.split(QLatin1Char('\n'), Qt::SkipEmptyParts);
                     qDebug() << "      Is One Of has" << values.size() << "values. First 5:" << values.mid(0, 5);
                     for (const QString &v : values) {
                         if (metadataValue.toString().compare(v.trimmed(), Qt::CaseInsensitive) == 0) {
@@ -330,7 +330,7 @@ QString SortingManager::getSortedDirectory(const QVariantMap &videoMetadata, con
 
     // No rule matched, return default directory
     qDebug() << "  No sorting rule matched. Returning default directory.";
-    QString baseDir = m_configManager->get("Paths", "completed_downloads_directory").toString();
+    QString baseDir = m_configManager->get(QStringLiteral("Paths"), QStringLiteral("completed_downloads_directory")).toString();
     if (baseDir.isEmpty()) {
         baseDir = QStandardPaths::writableLocation(QStandardPaths::DownloadLocation);
     }
@@ -342,19 +342,19 @@ QString SortingManager::parseAndReplaceTokens(const QString &pattern, const QVar
     QString result = pattern;
 
     // Handle special date tokens first
-    QString dateStr = metadataValueForKey("release_date", metadata).toString();
+    QString dateStr = metadataValueForKey(QStringLiteral("release_date"), metadata).toString();
     if (dateStr.isEmpty() || dateStr.length() != 8) {
-        dateStr = metadataValueForKey("upload_date", metadata).toString();
+        dateStr = metadataValueForKey(QStringLiteral("upload_date"), metadata).toString();
     }
     
     if (dateStr.length() == 8) {
-        result.replace("{upload_year}", dateStr.left(4), Qt::CaseInsensitive);
-        result.replace("{upload_month}", dateStr.mid(4, 2), Qt::CaseInsensitive);
-        result.replace("{upload_day}", dateStr.right(2), Qt::CaseInsensitive);
+        result.replace(QStringLiteral("{upload_year}"), dateStr.left(4), Qt::CaseInsensitive);
+        result.replace(QStringLiteral("{upload_month}"), dateStr.mid(4, 2), Qt::CaseInsensitive);
+        result.replace(QStringLiteral("{upload_day}"), dateStr.right(2), Qt::CaseInsensitive);
     } else {
-        result.replace("{upload_year}", "Unknown Year", Qt::CaseInsensitive);
-        result.replace("{upload_month}", "Unknown Month", Qt::CaseInsensitive);
-        result.replace("{upload_day}", "Unknown Day", Qt::CaseInsensitive);
+        result.replace(QStringLiteral("{upload_year}"), QStringLiteral("Unknown Year"), Qt::CaseInsensitive);
+        result.replace(QStringLiteral("{upload_month}"), QStringLiteral("Unknown Month"), Qt::CaseInsensitive);
+        result.replace(QStringLiteral("{upload_day}"), QStringLiteral("Unknown Day"), Qt::CaseInsensitive);
     }
 
     // Use regex to find all {token} patterns
@@ -365,23 +365,23 @@ QString SortingManager::parseAndReplaceTokens(const QString &pattern, const QVar
         QString token = match.captured(0); // e.g., "{title}"
         QString key = match.captured(1);   // e.g., "title"
 
-        if (key.compare("upload_year", Qt::CaseInsensitive) == 0 ||
-            key.compare("upload_month", Qt::CaseInsensitive) == 0 ||
-            key.compare("upload_day", Qt::CaseInsensitive) == 0) {
+        if (key.compare(QStringLiteral("upload_year"), Qt::CaseInsensitive) == 0 ||
+            key.compare(QStringLiteral("upload_month"), Qt::CaseInsensitive) == 0 ||
+            key.compare(QStringLiteral("upload_day"), Qt::CaseInsensitive) == 0) {
             continue;
         }
 
         QVariant value = metadataValueForField(key, metadata);
         if (!value.isValid() || value.toString().trimmed().isEmpty() || 
-            value.toString().trimmed().toLower() == "null" || value.toString().trimmed() == "NA") {
+            value.toString().trimmed().toLower() == QStringLiteral("null") || value.toString().trimmed() == QStringLiteral("NA")) {
             value = metadataValueForKey(key, metadata);
         }
 
         if (value.isValid() && !value.toString().trimmed().isEmpty() && 
-            value.toString().trimmed().toLower() != "null" && value.toString().trimmed() != "NA") {
+            value.toString().trimmed().toLower() != QStringLiteral("null") && value.toString().trimmed() != QStringLiteral("NA")) {
             result.replace(token, sanitize(value.toString()), Qt::CaseInsensitive);
         } else {
-            result.replace(token, "Unknown", Qt::CaseInsensitive);
+            result.replace(token, QLatin1String("Unknown"), Qt::CaseInsensitive);
         }
     }
 

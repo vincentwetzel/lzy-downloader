@@ -10,49 +10,49 @@ GalleryDlArgsBuilder::GalleryDlArgsBuilder(ConfigManager *configManager)
 
 QStringList GalleryDlArgsBuilder::build(const QString &url, const QVariantMap &options) {
     QStringList args;
-    args << "--verbose";
+    args << QStringLiteral("--verbose");
     args << url;
 
     // Output path - gallery-dl's --directory sets the base download directory
-    QString tempPath = m_configManager->get("Paths", "temporary_downloads_directory").toString();
+    QString tempPath = m_configManager->get(QStringLiteral("Paths"), QStringLiteral("temporary_downloads_directory")).toString();
     if (tempPath.isEmpty()) {
-        tempPath = QDir(QStandardPaths::writableLocation(QStandardPaths::TempLocation)).filePath("LzyDownloader");
+        tempPath = QDir(QStandardPaths::writableLocation(QStandardPaths::TempLocation)).filePath(QStringLiteral("LzyDownloader"));
     }
-    tempPath = QDir(tempPath).filePath(options.value("id").toString());
+    tempPath = QDir(tempPath).filePath(options.value(QStringLiteral("id")).toString());
     QDir().mkpath(tempPath);
-    args << "--directory" << tempPath;
+    args << QStringLiteral("--directory") << tempPath;
 
     // Filename template - gallery-dl's -f supports full path templates with '/'
     // It creates subdirectories relative to --directory automatically
-    QString filenameTemplate = m_configManager->get("General", "gallery_output_template", "{category}/{subcategory}/{id}_{filename}.{extension}").toString();
-    args << "-f" << filenameTemplate;
+    QString filenameTemplate = m_configManager->get(QStringLiteral("General"), QStringLiteral("gallery_output_template"), QStringLiteral("{category}/{subcategory}/{id}_{filename}.{extension}")).toString();
+    args << QStringLiteral("-f") << filenameTemplate;
 
     // Cookies
-    QString cookiesBrowser = m_configManager->get("General", "gallery_cookies_from_browser", "None").toString();
-    if (cookiesBrowser != "None") {
-        args << "--cookies-from-browser" << cookiesBrowser.toLower();
+    QString cookiesBrowser = m_configManager->get(QStringLiteral("General"), QStringLiteral("gallery_cookies_from_browser"), QStringLiteral("None")).toString();
+    if (cookiesBrowser != QStringLiteral("None")) {
+        args << QStringLiteral("--cookies-from-browser") << cookiesBrowser.toLower();
     }
 
     // External Downloader
-    if (m_configManager->get("Metadata", "use_aria2c", false).toBool()
-        && ProcessUtils::findBinary("aria2c", m_configManager).source != "Not Found") {
-        args << "-o" << "downloader.program=aria2c";
+    if (m_configManager->get(QStringLiteral("Metadata"), QStringLiteral("use_aria2c"), false).toBool()
+        && ProcessUtils::findBinary(QStringLiteral("aria2c"), m_configManager).source != QStringLiteral("Not Found")) {
+        args << QStringLiteral("-o") << QStringLiteral("downloader.program=aria2c");
     }
 
     // Rate Limit
-    QString rateLimit = m_configManager->get("General", "rate_limit", "Unlimited").toString();
-    if (rateLimit != "Unlimited") {
-        args << "--limit-rate" << rateLimit.split(' ').first();
+    QString rateLimit = m_configManager->get(QStringLiteral("General"), QStringLiteral("rate_limit"), QStringLiteral("Unlimited")).toString();
+    if (rateLimit != QStringLiteral("Unlimited")) {
+        args << QStringLiteral("--limit-rate") << rateLimit.split(QLatin1Char(' ')).first();
     }
 
     // Override duplicate download check
-    if (options.value("override_archive", false).toBool()) {
-        args << "--no-skip";
+    if (options.value(QStringLiteral("override_archive"), false).toBool()) {
+        args << QStringLiteral("--no-skip");
     }
 
     // Restrict filenames
-    if (m_configManager->get("General", "restrict_filenames", false).toBool()) {
-        args << "--windows-filenames";
+    if (m_configManager->get(QStringLiteral("General"), QStringLiteral("restrict_filenames"), false).toBool()) {
+        args << QStringLiteral("--windows-filenames");
     }
 
     return args;

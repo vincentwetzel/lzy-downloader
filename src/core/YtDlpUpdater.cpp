@@ -19,7 +19,7 @@
 
 YtDlpUpdater::YtDlpUpdater(ConfigManager *configManager, QObject *parent) : QObject(parent), m_configManager(configManager), m_process(nullptr) {
     m_networkManager = new QNetworkAccessManager(this);
-    m_currentLocalVersion = "0.0.0";
+    m_currentLocalVersion = QStringLiteral("0.0.0");
     m_cachedVersion = loadStoredVersion();
 }
 
@@ -59,7 +59,7 @@ void YtDlpUpdater::fetchVersion() {
     connect(m_process, &QProcess::finished, this, &YtDlpUpdater::onVersionFetchFinished);
     connect(m_process, &QProcess::errorOccurred, this, [this](QProcess::ProcessError error) {
         if (error == QProcess::FailedToStart) {
-            emit versionFetched("Not Found");
+            emit versionFetched(QStringLiteral("Not Found"));
             emit updateFinished(Updater::UpdateStatus::Error, tr("Failed to start yt-dlp to check version."));
             if (m_process) {
                 m_process->deleteLater();
@@ -70,9 +70,9 @@ void YtDlpUpdater::fetchVersion() {
     // Ensure the process deletes itself when it's done.
     connect(m_process, &QProcess::finished, m_process, &QObject::deleteLater);
 
-    ProcessUtils::FoundBinary binary = ProcessUtils::resolveBinary("yt-dlp", m_configManager);
-    if (binary.path.isEmpty() || binary.source == "Not Found" || binary.source == "Invalid Custom") {
-        emit versionFetched("Not Found");
+    ProcessUtils::FoundBinary binary = ProcessUtils::resolveBinary(QStringLiteral("yt-dlp"), m_configManager);
+    if (binary.path.isEmpty() || binary.source == QStringLiteral("Not Found") || binary.source == QStringLiteral("Invalid Custom")) {
+        emit versionFetched(QStringLiteral("Not Found"));
         emit updateFinished(Updater::UpdateStatus::Error, tr("yt-dlp executable not found."));
         m_process->deleteLater();
         m_process = nullptr;
@@ -91,7 +91,7 @@ void YtDlpUpdater::fetchVersion() {
     });
     watchdog->start(10000); // 10 seconds
 
-    m_process->start(binary.path, {"--version"});
+    m_process->start(binary.path, QStringList{QStringLiteral("--version")});
 }
 
 void YtDlpUpdater::onReleaseCheckFinished() {
@@ -124,13 +124,13 @@ void YtDlpUpdater::onReleaseCheckFinished() {
 
     QJsonObject release = doc.object();
 
-    if (!release.contains("tag_name") || !release["tag_name"].isString()) {
+    if (!release.contains(QStringLiteral("tag_name")) || !release[QStringLiteral("tag_name")].isString()) {
         emit updateFinished(Updater::UpdateStatus::Error, tr("Invalid release JSON format: missing tag_name."));
         reply->deleteLater();
         return;
     }
 
-    QString remoteVersionTag = release["tag_name"].toString();
+    QString remoteVersionTag = release[QStringLiteral("tag_name")].toString();
     QString normalizedRemoteVersion = normalizeVersion(remoteVersionTag);
     QString comparisonVersion = m_cachedVersion.isEmpty() ? m_currentLocalVersion : m_cachedVersion;
     QString normalizedComparisonVersion = normalizeVersion(comparisonVersion);
@@ -141,18 +141,18 @@ void YtDlpUpdater::onReleaseCheckFinished() {
         return;
     }
 
-    if (!release.contains("assets") || !release["assets"].isArray()) {
+    if (!release.contains(QStringLiteral("assets")) || !release[QStringLiteral("assets")].isArray()) {
         emit updateFinished(Updater::UpdateStatus::Error, tr("Invalid release JSON format: missing assets."));
         reply->deleteLater();
         return;
     }
 
-    QJsonArray assets = release["assets"].toArray();
+    QJsonArray assets = release[QStringLiteral("assets")].toArray();
     QUrl downloadUrl;
     for (const QJsonValue &value : assets) {
         QJsonObject asset = value.toObject();
-        if (asset["name"].toString() == "yt-dlp.exe") {
-            downloadUrl = QUrl(asset["browser_download_url"].toString());
+        if (asset[QStringLiteral("name")].toString() == QStringLiteral("yt-dlp.exe")) {
+            downloadUrl = QUrl(asset[QStringLiteral("browser_download_url")].toString());
             break;
         }
     }
@@ -160,7 +160,7 @@ void YtDlpUpdater::onReleaseCheckFinished() {
     if (downloadUrl.isValid()) {
         QNetworkRequest request(downloadUrl);
         request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
-        request.setHeader(QNetworkRequest::UserAgentHeader, "LzyDownloader");
+        request.setHeader(QNetworkRequest::UserAgentHeader, QStringLiteral("LzyDownloader"));
         request.setTransferTimeout(60000);
         QNetworkReply *dlReply = m_networkManager->get(request);
         dlReply->setProperty("newVersion", remoteVersionTag);
@@ -199,14 +199,14 @@ void YtDlpUpdater::onDownloadFinished() {
     QString targetPath = binary.path;
 
     // Prevent corruption of package-managed system environments
-    if (binary.source != "Custom" && binary.source != "App Directory" && binary.source != "Not Found") {
+    if (binary.source != QStringLiteral("Custom") && binary.source != QStringLiteral("App Directory") && binary.source != QStringLiteral("Not Found")) {
         emit updateFinished(Updater::UpdateStatus::Error, 
             tr("yt-dlp is managed by %1. Please update it using your package manager or Advanced Settings -> External Tools.").arg(binary.source));
         reply->deleteLater();
         return;
     }
 
-    if (targetPath.isEmpty() || binary.source == "Not Found") {
+    if (targetPath.isEmpty() || binary.source == QStringLiteral("Not Found")) {
         QString appDir = QCoreApplication::applicationDirPath();
 #ifdef Q_OS_WIN
         targetPath = QDir(appDir).filePath(QStringLiteral("yt-dlp.exe"));
@@ -246,7 +246,7 @@ void YtDlpUpdater::onVersionFetchFinished(int exitCode, QProcess::ExitStatus exi
     QProcess *process = qobject_cast<QProcess*>(sender());
 
     if (exitStatus == QProcess::CrashExit || exitCode != 0) {
-        emit versionFetched("Error");
+        emit versionFetched(QStringLiteral("Error"));
         qWarning() << "Failed to fetch yt-dlp version:" << (process ? process->readAllStandardError() : QByteArray());
         emit updateFinished(Updater::UpdateStatus::Error, tr("Failed to determine local yt-dlp version."));
         m_process = nullptr;
@@ -254,17 +254,17 @@ void YtDlpUpdater::onVersionFetchFinished(int exitCode, QProcess::ExitStatus exi
     }
 
     if (exitCode == 0) {
-        QString versionOutput = process->readAllStandardOutput().trimmed();
+        QString versionOutput = QString::fromUtf8(process->readAllStandardOutput()).trimmed();
         m_currentLocalVersion = versionOutput;
         m_cachedVersion = m_currentLocalVersion;
         saveStoredVersion(m_currentLocalVersion);
         emit versionFetched(m_currentLocalVersion);
 
-        QString repo = "yt-dlp/yt-dlp-nightly-builds";
-        QUrl url("https://api.github.com/repos/" + repo + "/releases/latest");
+        QString repo = QStringLiteral("yt-dlp/yt-dlp-nightly-builds");
+        QUrl url(QStringLiteral("https://api.github.com/repos/%1/releases/latest").arg(repo));
         QNetworkRequest request(url);
         request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
-        request.setHeader(QNetworkRequest::UserAgentHeader, "LzyDownloader");
+        request.setHeader(QNetworkRequest::UserAgentHeader, QStringLiteral("LzyDownloader"));
         request.setTransferTimeout(15000);
         QNetworkReply *reply = m_networkManager->get(request);
         connect(reply, &QNetworkReply::finished, this, &YtDlpUpdater::onReleaseCheckFinished);
@@ -275,14 +275,14 @@ void YtDlpUpdater::onVersionFetchFinished(int exitCode, QProcess::ExitStatus exi
 QString YtDlpUpdater::normalizeVersion(const QString &version) const {
     QString trimmed = version.trimmed();
     if (trimmed.isEmpty()) return QString();
-    static const QRegularExpression regex(R"(\d+(?:\.\d+)*)");
+    static const QRegularExpression regex(QStringLiteral(R"(\d+(?:\.\d+)*)"));
     QRegularExpressionMatch match = regex.match(trimmed);
     return match.hasMatch() ? match.captured(0) : trimmed;
 }
 
 bool YtDlpUpdater::isVersionNewer(const QString &localVersion, const QString &remoteVersion) const {
-    QStringList localParts = localVersion.split('.', Qt::SkipEmptyParts);
-    QStringList remoteParts = remoteVersion.split('.', Qt::SkipEmptyParts);
+    QStringList localParts = localVersion.split(QLatin1Char('.'), Qt::SkipEmptyParts);
+    QStringList remoteParts = remoteVersion.split(QLatin1Char('.'), Qt::SkipEmptyParts);
     for (qsizetype i = 0; i < std::min(localParts.size(), remoteParts.size()); ++i) {
         int localNum = localParts[i].toInt();
         int remoteNum = remoteParts[i].toInt();
@@ -293,7 +293,7 @@ bool YtDlpUpdater::isVersionNewer(const QString &localVersion, const QString &re
 }
 
 QString YtDlpUpdater::storedVersionPath() const {
-    return QDir(QCoreApplication::applicationDirPath()).filePath("yt-dlp.version");
+    return QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral("yt-dlp.version"));
 }
 
 QString YtDlpUpdater::loadStoredVersion() const {

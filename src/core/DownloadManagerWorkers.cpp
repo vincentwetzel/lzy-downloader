@@ -21,7 +21,7 @@ bool shouldNormalizeSectionContainer(const DownloadItem &item)
 
 bool isMetadataSidecarPath(const QString &path)
 {
-    return path.endsWith(".info.json", Qt::CaseInsensitive);
+    return path.endsWith(QStringLiteral(".info.json"), Qt::CaseInsensitive);
 }
 
 void appendCleanupCandidate(QVariantMap &options, const QString &path)
@@ -132,13 +132,13 @@ void DownloadManager::onWorkerFinished(const QString &id, bool success, const QS
     updateTotalSpeed();
     workerObj->deleteLater();
 
-    m_activeDownloadsCount--;
 
     if (!success) {
         DownloadItem item = m_activeItems.take(id);
         item.options[QStringLiteral("is_failed")] = true;
         m_queueManager->m_pausedItems[id] = item;
         
+        m_activeDownloadsCount--;
         m_errorDownloadsCount++;
         emit downloadFinished(id, false, message); // This will trigger emitDownloadStats()
         emitDownloadStats();
@@ -229,13 +229,13 @@ void DownloadManager::onGalleryDlWorkerFinished(const QString &id, bool success,
     updateTotalSpeed();
     workerObj->deleteLater();
 
-    m_activeDownloadsCount--;
 
     if (!success) {
         DownloadItem item = m_activeItems.take(id);
         item.options[QStringLiteral("is_failed")] = true;
         m_queueManager->m_pausedItems[id] = item;
         
+        m_activeDownloadsCount--;
         m_errorDownloadsCount++;
         emit downloadFinished(id, false, message); // This will trigger emitDownloadStats()
         emitDownloadStats();
@@ -289,6 +289,7 @@ void DownloadManager::onMetadataEmbedded(const QString &id, bool success, const 
         item.options[QStringLiteral("is_failed")] = true;
         m_queueManager->m_pausedItems[id] = item;
         
+        m_activeDownloadsCount--;
         m_errorDownloadsCount++;
         emit downloadFinished(id, false, tr("Metadata embedding failed: %1").arg(error)); // This will trigger emitDownloadStats()
         emitDownloadStats();
@@ -314,6 +315,7 @@ void DownloadManager::onFinalizationComplete(const QString &id, bool success, co
         m_errorDownloadsCount++;
     }
     
+    m_activeDownloadsCount--;
     emit downloadFinished(id, success, finalMessage);
     m_activeItems.remove(id);
 

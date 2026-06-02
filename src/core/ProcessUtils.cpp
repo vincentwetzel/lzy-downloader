@@ -103,9 +103,9 @@ static QMutex s_binaryCacheMutex;
 static QString findCommonUserTool(const QString& exeName)
 {
 #ifdef Q_OS_WIN
-    const QString home = QProcessEnvironment::systemEnvironment().value("USERPROFILE");
-    const QString localAppData = QProcessEnvironment::systemEnvironment().value("LOCALAPPDATA");
-    const QString programData = QProcessEnvironment::systemEnvironment().value("ProgramData");
+    const QString home = QProcessEnvironment::systemEnvironment().value(QStringLiteral("USERPROFILE"));
+    const QString localAppData = QProcessEnvironment::systemEnvironment().value(QStringLiteral("LOCALAPPDATA"));
+    const QString programData = QProcessEnvironment::systemEnvironment().value(QStringLiteral("ProgramData"));
 
     if (!home.isEmpty()) {
         // deno (~/.deno/bin)
@@ -147,7 +147,7 @@ static QString findCommonUserTool(const QString& exeName)
         if (QFileInfo::exists(chocoPath)) return chocoPath;
     }
 #else
-    const QString home = QProcessEnvironment::systemEnvironment().value("HOME");
+    const QString home = QProcessEnvironment::systemEnvironment().value(QStringLiteral("HOME"));
     if (!home.isEmpty()) {
         // deno (~/.deno/bin)
         const QString denoPath = QDir(home).filePath(QStringLiteral(".deno/bin/%1").arg(exeName));
@@ -199,23 +199,23 @@ FoundBinary resolveBinary(const QString& name, ConfigManager* configManager)
         if (!customPath.isEmpty()) {
             qDebug() << "[ProcessUtils] Custom path configured for" << name << ":" << customPath;
             if (!QFileInfo::exists(customPath)) {
-                return {QDir::toNativeSeparators(customPath), "Invalid Custom"};
+                return {QDir::toNativeSeparators(customPath), QStringLiteral("Invalid Custom")};
             }
 
             QString canonicalCustom = QFileInfo(customPath).canonicalFilePath();
 
             if (!systemPath.isEmpty() && canonicalCustom == QFileInfo(systemPath).canonicalFilePath()) {
-                return {QDir::toNativeSeparators(systemPath), "System PATH"};
+                return {QDir::toNativeSeparators(systemPath), QStringLiteral("System PATH")};
             }
 
-            return {QDir::toNativeSeparators(customPath), "Custom"};
+            return {QDir::toNativeSeparators(customPath), QStringLiteral("Custom")};
         }
     }
 
     // 2. Check system PATH first (allows users to provide their own unbundled binaries)
     if (!systemPath.isEmpty()) {
         qDebug() << "[ProcessUtils] Found" << name << "in System PATH:" << systemPath;
-        return {QDir::toNativeSeparators(systemPath), "System PATH"};
+        return {QDir::toNativeSeparators(systemPath), QStringLiteral("System PATH")};
     }
 
     // 2b. Check common per-user tool locations (deno at ~/.deno/bin, etc.)
@@ -223,24 +223,24 @@ FoundBinary resolveBinary(const QString& name, ConfigManager* configManager)
     QString userToolPath = findCommonUserTool(exeName);
     if (!userToolPath.isEmpty()) {
         qDebug() << "[ProcessUtils] Found" << name << "in User Local:" << userToolPath;
-        return {QDir::toNativeSeparators(userToolPath), "User Local"};
+        return {QDir::toNativeSeparators(userToolPath), QStringLiteral("User Local")};
     }
 
     qDebug() << "[ProcessUtils]" << name << "NOT FOUND - searching all PATH directories for" << exeName;
     
     // Final diagnostic: manually search PATH
-    QString pathEnv = QProcessEnvironment::systemEnvironment().value("PATH");
+    QString pathEnv = QProcessEnvironment::systemEnvironment().value(QStringLiteral("PATH"));
     QStringList pathDirs = pathEnv.split(QDir::listSeparator(), Qt::SkipEmptyParts);
     qDebug() << "[ProcessUtils] PATH contains" << pathDirs.size() << "directories";
     for (const QString& dir : pathDirs) {
         QString candidate = QDir(dir).filePath(exeName);
         if (QFileInfo::exists(candidate)) {
             qDebug() << "[ProcessUtils] FOUND" << name << "at" << candidate << "(in PATH dir:" << dir << ")";
-            return {QDir::toNativeSeparators(candidate), "System PATH"};
+            return {QDir::toNativeSeparators(candidate), QStringLiteral("System PATH")};
         }
     }
     
-    return {name, "Not Found"};
+    return {name, QStringLiteral("Not Found")};
 }
 
 void clearCache() {
@@ -294,7 +294,7 @@ void terminateProcessTree(QProcess *process, int gracefulTimeoutMs) {
 
 #ifdef Q_OS_WIN
     if (pid > 0) {
-        QProcess::startDetached("taskkill.exe", {"/PID", QString::number(pid), "/T", "/F"});
+        QProcess::startDetached(QStringLiteral("taskkill.exe"), {QStringLiteral("/PID"), QString::number(pid), QStringLiteral("/T"), QStringLiteral("/F")});
     }
     
     // Force immediate kill without waiting if we are aborting
@@ -324,11 +324,11 @@ void sendGracefulInterrupt(qint64 pid) {
 
 QString fetchFfmpegVersion(const QString& execPath) {
     if (execPath.isEmpty() || !QFileInfo::exists(execPath)) {
-        return "Not Found";
+        return QStringLiteral("Not Found");
     }
 
     QProcess process;
-    process.start(execPath, {"-version"});
+    process.start(execPath, QStringList{QStringLiteral("-version")});
     if (process.waitForFinished(3000)) {
         QString output = process.readAllStandardOutput();
         
@@ -346,7 +346,7 @@ QString fetchFfmpegVersion(const QString& execPath) {
             return fallbackMatch.captured(1);
         }
     }
-    return "Unknown";
+    return QStringLiteral("Unknown");
 }
 
 } // namespace ProcessUtils

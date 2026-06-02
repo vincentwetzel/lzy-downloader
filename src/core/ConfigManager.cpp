@@ -19,7 +19,7 @@ ConfigManager::ConfigManager(const QString &fileName, QObject *parent)
     // Server/headless mode used to store user preferences under Server/settings.ini.
     // Preferences now have one source of truth in the main app-local settings file;
     // keep Server/ for runtime state only.
-    QString obsoleteServerPath = QDir(dir.filePath("Server")).filePath(fileName);
+    QString obsoleteServerPath = QDir(dir.filePath(QStringLiteral("Server"))).filePath(fileName);
     if (!QFile::exists(actualConfigPath) && QFile::exists(obsoleteServerPath)) {
         if (QFile::copy(obsoleteServerPath, actualConfigPath)) {
             qInfo() << "Migrated obsolete server settings file to shared settings file:" << actualConfigPath;
@@ -78,85 +78,85 @@ void ConfigManager::commonInitialization() {
     cleanUpLegacyKeys();
 
     // Enforce max concurrency cap of 4 on startup to prevent accidental aggressive spam
-    QString maxThreads = m_settings->value("General/max_threads", "4").toString();
+    QString maxThreads = m_settings->value(QStringLiteral("General/max_threads"), QStringLiteral("4")).toString();
     bool isInt;
     int threads = maxThreads.toInt(&isInt);
     if (isInt && threads > 4) {
-        m_settings->setValue("General/max_threads", "4");
+        m_settings->setValue(QStringLiteral("General/max_threads"), QStringLiteral("4"));
         m_settings->sync();
     }
 
     // Always reset 'exit_after' to false on startup
-    if (m_settings->value("General/exit_after", false).toBool()) {
-        m_settings->setValue("General/exit_after", false);
+    if (m_settings->value(QStringLiteral("General/exit_after"), false).toBool()) {
+        m_settings->setValue(QStringLiteral("General/exit_after"), false);
         m_settings->sync();
     }
 }
 
 void ConfigManager::initializeDefaultSettings() {
-    m_defaultSettings["General"]["output_template"] = "%(title)s [%(uploader)s][%(upload_date>%Y-%m-%d)s][%(id)s].%(ext)s";
-    m_defaultSettings["General"]["output_template_video"] = "%(title)s [%(uploader)s][%(upload_date>%Y-%m-%d)s][%(id)s].%(ext)s";
-    m_defaultSettings["General"]["output_template_audio"] = "%(title)s [%(uploader)s][%(upload_date>%Y-%m-%d)s][%(id)s].%(ext)s";
-    m_defaultSettings["General"]["gallery_output_template"] = "{category}/{id}_{filename}.{extension}";
-    m_defaultSettings["General"]["theme"] = "System";
-    m_defaultSettings["General"]["cookies_from_browser"] = "None";
-    m_defaultSettings["General"]["gallery_cookies_from_browser"] = "None";
-    m_defaultSettings["General"]["sponsorblock"] = false;
-    m_defaultSettings["General"]["auto_paste_mode"] = 0; // Changed from auto_paste_on_focus (bool) to auto_paste_mode (int)
-    m_defaultSettings["General"]["single_line_preview"] = false;
-    m_defaultSettings["General"]["restrict_filenames"] = false;
-    m_defaultSettings["General"]["max_threads"] = "4";
-    m_defaultSettings["General"]["playlist_logic"] = "Ask";
-    m_defaultSettings["General"]["rate_limit"] = "Unlimited";
-    m_defaultSettings["General"]["override_archive"] = false;
-    m_defaultSettings["General"]["exit_after"] = false;
-    m_defaultSettings["General"]["language"] = "🇺🇸 English";
-    m_defaultSettings["General"]["show_debug_console"] = false;
-    m_defaultSettings["General"]["warn_stable_yt_dlp"] = true;
-    m_defaultSettings["General"]["enable_local_api"] = false;
-    m_defaultSettings["General"]["enable_local_api_server"] = false; // Fallback for UI naming differences
-    m_defaultSettings["Video"]["video_quality"] = "best";
-    m_defaultSettings["Video"]["video_codec"] = "H.264 (AVC)";
-    m_defaultSettings["Video"]["video_extension"] = "mp4";
-    m_defaultSettings["Video"]["video_audio_codec"] = "AAC";
-    m_defaultSettings["Video"]["video_multistreams"] = "Default Stream";
-    m_defaultSettings["Audio"]["audio_quality"] = "best";
-    m_defaultSettings["Audio"]["audio_codec"] = "Opus";
-    m_defaultSettings["Audio"]["audio_extension"] = "opus";
-    m_defaultSettings["Audio"]["audio_multistreams"] = "Default Stream";
-    m_defaultSettings["Metadata"]["use_aria2c"] = false;
-    m_defaultSettings["Metadata"]["embed_chapters"] = true;
-    m_defaultSettings["Metadata"]["embed_metadata"] = true;
-    m_defaultSettings["Metadata"]["embed_thumbnail"] = true;
-    m_defaultSettings["Metadata"]["high_quality_thumbnail"] = true;
-    m_defaultSettings["Metadata"]["convert_thumbnail_to"] = "jpg";
-    m_defaultSettings["Metadata"]["crop_artwork_to_square"] = true;
-    m_defaultSettings["Metadata"]["generate_folder_jpg"] = false;
-    m_defaultSettings["Subtitles"]["languages"] = "en";
-    m_defaultSettings["Subtitles"]["embed_subtitles"] = true;
-    m_defaultSettings["Subtitles"]["write_subtitles"] = false;
-    m_defaultSettings["Subtitles"]["write_auto_subtitles"] = true;
-    m_defaultSettings["Subtitles"]["format"] = "srt";
-    m_defaultSettings["DownloadOptions"]["split_chapters"] = false;
-    m_defaultSettings["DownloadOptions"]["download_sections_enabled"] = false;
-    m_defaultSettings["DownloadOptions"]["ffmpeg_cut_encoder"] = "cpu";
-    m_defaultSettings["DownloadOptions"]["ffmpeg_cut_custom_args"] = "";
-    m_defaultSettings["DownloadOptions"]["auto_clear_completed"] = false;
-    m_defaultSettings["DownloadOptions"]["geo_verification_proxy"] = "";
-    m_defaultSettings["DownloadOptions"]["prefix_playlist_indices"] = false;
-    m_defaultSettings["Livestream"]["live_from_start"] = false;
-    m_defaultSettings["Livestream"]["wait_for_video"] = true; // Wait for scheduled streams by default
-    m_defaultSettings["Livestream"]["wait_for_video_min"] = 60; // Wait at least 1 minute between checks
-    m_defaultSettings["Livestream"]["wait_for_video_max"] = 300; // Wait at most 5 minutes between checks
-    m_defaultSettings["Livestream"]["use_part"] = true;
-    m_defaultSettings["Livestream"]["download_as"] = "MPEG-TS";
-    m_defaultSettings["Livestream"]["quality"] = "best";
-    m_defaultSettings["Livestream"]["convert_to"] = "None";
+    m_defaultSettings[QStringLiteral("General")][QStringLiteral("output_template")] = QStringLiteral("%(title)s [%(uploader)s][%(upload_date>%Y-%m-%d)s][%(id)s].%(ext)s");
+    m_defaultSettings[QStringLiteral("General")][QStringLiteral("output_template_video")] = QStringLiteral("%(title)s [%(uploader)s][%(upload_date>%Y-%m-%d)s][%(id)s].%(ext)s");
+    m_defaultSettings[QStringLiteral("General")][QStringLiteral("output_template_audio")] = QStringLiteral("%(title)s [%(uploader)s][%(upload_date>%Y-%m-%d)s][%(id)s].%(ext)s");
+    m_defaultSettings[QStringLiteral("General")][QStringLiteral("gallery_output_template")] = QStringLiteral("{category}/{id}_{filename}.{extension}");
+    m_defaultSettings[QStringLiteral("General")][QStringLiteral("theme")] = QStringLiteral("System");
+    m_defaultSettings[QStringLiteral("General")][QStringLiteral("cookies_from_browser")] = QStringLiteral("None");
+    m_defaultSettings[QStringLiteral("General")][QStringLiteral("gallery_cookies_from_browser")] = QStringLiteral("None");
+    m_defaultSettings[QStringLiteral("General")][QStringLiteral("sponsorblock")] = false;
+    m_defaultSettings[QStringLiteral("General")][QStringLiteral("auto_paste_mode")] = 0; // Changed from auto_paste_on_focus (bool) to auto_paste_mode (int)
+    m_defaultSettings[QStringLiteral("General")][QStringLiteral("single_line_preview")] = false;
+    m_defaultSettings[QStringLiteral("General")][QStringLiteral("restrict_filenames")] = false;
+    m_defaultSettings[QStringLiteral("General")][QStringLiteral("max_threads")] = QStringLiteral("4");
+    m_defaultSettings[QStringLiteral("General")][QStringLiteral("playlist_logic")] = QStringLiteral("Ask");
+    m_defaultSettings[QStringLiteral("General")][QStringLiteral("rate_limit")] = QStringLiteral("Unlimited");
+    m_defaultSettings[QStringLiteral("General")][QStringLiteral("override_archive")] = false;
+    m_defaultSettings[QStringLiteral("General")][QStringLiteral("exit_after")] = false;
+    m_defaultSettings[QStringLiteral("General")][QStringLiteral("language")] = QStringLiteral("🇺🇸 English");
+    m_defaultSettings[QStringLiteral("General")][QStringLiteral("show_debug_console")] = false;
+    m_defaultSettings[QStringLiteral("General")][QStringLiteral("warn_stable_yt_dlp")] = true;
+    m_defaultSettings[QStringLiteral("General")][QStringLiteral("enable_local_api")] = false;
+    m_defaultSettings[QStringLiteral("General")][QStringLiteral("enable_local_api_server")] = false; // Fallback for UI naming differences
+    m_defaultSettings[QStringLiteral("Video")][QStringLiteral("video_quality")] = QStringLiteral("best");
+    m_defaultSettings[QStringLiteral("Video")][QStringLiteral("video_codec")] = QStringLiteral("H.264 (AVC)");
+    m_defaultSettings[QStringLiteral("Video")][QStringLiteral("video_extension")] = QStringLiteral("mp4");
+    m_defaultSettings[QStringLiteral("Video")][QStringLiteral("video_audio_codec")] = QStringLiteral("AAC");
+    m_defaultSettings[QStringLiteral("Video")][QStringLiteral("video_multistreams")] = QStringLiteral("Default Stream");
+    m_defaultSettings[QStringLiteral("Audio")][QStringLiteral("audio_quality")] = QStringLiteral("best");
+    m_defaultSettings[QStringLiteral("Audio")][QStringLiteral("audio_codec")] = QStringLiteral("Opus");
+    m_defaultSettings[QStringLiteral("Audio")][QStringLiteral("audio_extension")] = QStringLiteral("opus");
+    m_defaultSettings[QStringLiteral("Audio")][QStringLiteral("audio_multistreams")] = QStringLiteral("Default Stream");
+    m_defaultSettings[QStringLiteral("Metadata")][QStringLiteral("use_aria2c")] = false;
+    m_defaultSettings[QStringLiteral("Metadata")][QStringLiteral("embed_chapters")] = true;
+    m_defaultSettings[QStringLiteral("Metadata")][QStringLiteral("embed_metadata")] = true;
+    m_defaultSettings[QStringLiteral("Metadata")][QStringLiteral("embed_thumbnail")] = true;
+    m_defaultSettings[QStringLiteral("Metadata")][QStringLiteral("high_quality_thumbnail")] = true;
+    m_defaultSettings[QStringLiteral("Metadata")][QStringLiteral("convert_thumbnail_to")] = QStringLiteral("jpg");
+    m_defaultSettings[QStringLiteral("Metadata")][QStringLiteral("crop_artwork_to_square")] = true;
+    m_defaultSettings[QStringLiteral("Metadata")][QStringLiteral("generate_folder_jpg")] = false;
+    m_defaultSettings[QStringLiteral("Subtitles")][QStringLiteral("languages")] = QStringLiteral("en");
+    m_defaultSettings[QStringLiteral("Subtitles")][QStringLiteral("embed_subtitles")] = true;
+    m_defaultSettings[QStringLiteral("Subtitles")][QStringLiteral("write_subtitles")] = false;
+    m_defaultSettings[QStringLiteral("Subtitles")][QStringLiteral("write_auto_subtitles")] = true;
+    m_defaultSettings[QStringLiteral("Subtitles")][QStringLiteral("format")] = QStringLiteral("srt");
+    m_defaultSettings[QStringLiteral("DownloadOptions")][QStringLiteral("split_chapters")] = false;
+    m_defaultSettings[QStringLiteral("DownloadOptions")][QStringLiteral("download_sections_enabled")] = false;
+    m_defaultSettings[QStringLiteral("DownloadOptions")][QStringLiteral("ffmpeg_cut_encoder")] = QStringLiteral("cpu");
+    m_defaultSettings[QStringLiteral("DownloadOptions")][QStringLiteral("ffmpeg_cut_custom_args")] = QString();
+    m_defaultSettings[QStringLiteral("DownloadOptions")][QStringLiteral("auto_clear_completed")] = false;
+    m_defaultSettings[QStringLiteral("DownloadOptions")][QStringLiteral("geo_verification_proxy")] = QString();
+    m_defaultSettings[QStringLiteral("DownloadOptions")][QStringLiteral("prefix_playlist_indices")] = false;
+    m_defaultSettings[QStringLiteral("Livestream")][QStringLiteral("live_from_start")] = false;
+    m_defaultSettings[QStringLiteral("Livestream")][QStringLiteral("wait_for_video")] = true; // Wait for scheduled streams by default
+    m_defaultSettings[QStringLiteral("Livestream")][QStringLiteral("wait_for_video_min")] = 60; // Wait at least 1 minute between checks
+    m_defaultSettings[QStringLiteral("Livestream")][QStringLiteral("wait_for_video_max")] = 300; // Wait at most 5 minutes between checks
+    m_defaultSettings[QStringLiteral("Livestream")][QStringLiteral("use_part")] = true;
+    m_defaultSettings[QStringLiteral("Livestream")][QStringLiteral("download_as")] = QStringLiteral("MPEG-TS");
+    m_defaultSettings[QStringLiteral("Livestream")][QStringLiteral("quality")] = QStringLiteral("best");
+    m_defaultSettings[QStringLiteral("Livestream")][QStringLiteral("convert_to")] = QStringLiteral("None");
 }
 
 void ConfigManager::cleanUpLegacyKeys() {
     // These top-level sections are allowed to have dynamic/user-defined keys
-    const QStringList dynamicGroups = {"SortingRules", "MainWindow", "UI", "Geometry", "Paths", "Binaries", "LocalApi"};
+    const QStringList dynamicGroups = {QStringLiteral("SortingRules"), QStringLiteral("MainWindow"), QStringLiteral("UI"), QStringLiteral("Geometry"), QStringLiteral("Paths"), QStringLiteral("Binaries"), QStringLiteral("LocalApi")};
     
     QStringList allKeys = m_settings->allKeys();
     bool keysRemoved = false;
@@ -209,11 +209,11 @@ QVariant ConfigManager::get(const QString &section, const QString &key, const QV
     // which in turn can have a fallback to the function's default parameter.
     QVariant appDefault = getDefault(section, key);
     QVariant finalFallback = appDefault.isValid() ? appDefault : defaultValue;
-    return m_settings->value(section + "/" + key, finalFallback);
+    return m_settings->value(QStringLiteral("%1/%2").arg(section, key), finalFallback);
 }
 
 bool ConfigManager::set(const QString &section, const QString &key, const QVariant &value) {
-    QString fullKey = section + "/" + key;
+    QString fullKey = QStringLiteral("%1/%2").arg(section, key);
     if (m_settings->contains(fullKey) && m_settings->value(fullKey) == value) {
         return true;
     }
@@ -253,28 +253,28 @@ QVariant ConfigManager::getDefault(const QString &section, const QString &key) {
 void ConfigManager::resetToDefaults() {
     // --- 1. Define what to preserve ---
     const QList<QPair<QString, QString>> keysToPreserve = {
-        {"Paths", "completed_downloads_directory"},
-        {"Paths", "temporary_downloads_directory"},
-        {"General", "theme"},
-        {"General", "output_template"},
-        {"General", "output_template_video"},
-        {"General", "output_template_audio"},
-        {"General", "gallery_output_template"},
-        {"Binaries", "yt-dlp_path"},
-        {"Binaries", "ffmpeg_path"},
-        {"Binaries", "ffprobe_path"},
-        {"Binaries", "gallery-dl_path"},
-        {"Binaries", "aria2c_path"},
-        {"Binaries", "deno_path"}
+        {QStringLiteral("Paths"), QStringLiteral("completed_downloads_directory")},
+        {QStringLiteral("Paths"), QStringLiteral("temporary_downloads_directory")},
+        {QStringLiteral("General"), QStringLiteral("theme")},
+        {QStringLiteral("General"), QStringLiteral("output_template")},
+        {QStringLiteral("General"), QStringLiteral("output_template_video")},
+        {QStringLiteral("General"), QStringLiteral("output_template_audio")},
+        {QStringLiteral("General"), QStringLiteral("gallery_output_template")},
+        {QStringLiteral("Binaries"), QStringLiteral("yt-dlp_path")},
+        {QStringLiteral("Binaries"), QStringLiteral("ffmpeg_path")},
+        {QStringLiteral("Binaries"), QStringLiteral("ffprobe_path")},
+        {QStringLiteral("Binaries"), QStringLiteral("gallery-dl_path")},
+        {QStringLiteral("Binaries"), QStringLiteral("aria2c_path")},
+        {QStringLiteral("Binaries"), QStringLiteral("deno_path")}
     };
-    const QStringList groupsToPreserve = {"SortingRules", "MainWindow", "UI", "Geometry"};
+    const QStringList groupsToPreserve = {QStringLiteral("SortingRules"), QStringLiteral("MainWindow"), QStringLiteral("UI"), QStringLiteral("Geometry")};
 
     // --- 2. Preserve individual keys ---
     QMap<QString, QVariant> preservedValues;
     for (const auto& keyPair : keysToPreserve) {
         QVariant value = get(keyPair.first, keyPair.second);
         if (!value.isNull() && !value.toString().isEmpty()) {
-            preservedValues.insert(keyPair.first + "/" + keyPair.second, value);
+            preservedValues.insert(QStringLiteral("%1/%2").arg(keyPair.first, keyPair.second), value);
         }
     }
 

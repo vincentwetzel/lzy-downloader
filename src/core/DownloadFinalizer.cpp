@@ -69,7 +69,7 @@ bool hasCleanupStemBoundary(const QString &fileName, const QString &stem)
 
 void cleanupTempFiles(const DownloadItem &item, const QDir &tempDir, const QString &mediaInfoJsonPath)
 {
-    if (item.options.value("type").toString() == "gallery") {
+    if (item.options.value(QStringLiteral("type")).toString() == QStringLiteral("gallery")) {
         return;
     }
 
@@ -78,7 +78,7 @@ void cleanupTempFiles(const DownloadItem &item, const QDir &tempDir, const QStri
     qDebug() << "Attempted to clean up media info.json:" << mediaInfoJsonPath;
 
     // 2. Clean up any explicitly tracked temporary files (like _wait_thumbnail.jpg)
-    QStringList candidates = item.options.value("cleanup_candidates").toStringList();
+    QStringList candidates = item.options.value(QStringLiteral("cleanup_candidates")).toStringList();
     for (const QString &candidate : candidates) {
         QFileInfo candidateInfo(candidate);
         if (candidateInfo.exists() && candidateInfo.isFile()) {
@@ -116,19 +116,19 @@ void cleanupTempFiles(const DownloadItem &item, const QDir &tempDir, const QStri
     QString playlistId;
 
     // Strategy 1: Get playlist_id from the original playlist URL stored in options. This is the most reliable.
-    if (item.options.contains("original_playlist_url")) {
-        QUrl url(item.options.value("original_playlist_url").toString());
+    if (item.options.contains(QStringLiteral("original_playlist_url"))) {
+        QUrl url(item.options.value(QStringLiteral("original_playlist_url")).toString());
         if (url.hasQuery()) {
             QUrlQuery query(url);
-            if (query.hasQueryItem("list")) {
-                playlistId = query.queryItemValue("list");
+            if (query.hasQueryItem(QStringLiteral("list"))) {
+                playlistId = query.queryItemValue(QStringLiteral("list"));
             }
         }
     }
 
     // Strategy 2: Fallback to metadata if the original URL wasn't available for some reason.
-    if (playlistId.isEmpty() && item.metadata.contains("playlist_id")) {
-        playlistId = item.metadata.value("playlist_id").toString();
+    if (playlistId.isEmpty() && item.metadata.contains(QStringLiteral("playlist_id"))) {
+        playlistId = item.metadata.value(QStringLiteral("playlist_id")).toString();
         qDebug() << "Using playlist_id from metadata as fallback for cleanup:" << playlistId;
     }
 
@@ -228,7 +228,7 @@ void DownloadFinalizer::finalize(const QString &id, DownloadItem item) {
 
     QFileInfo fileInfo(item.tempFilePath);
     if (!fileInfo.exists()) {
-        emit finalizationComplete(id, false, "Downloaded file not found.");
+        emit finalizationComplete(id, false, tr("Downloaded file not found."));
         return;
     }
 
@@ -293,7 +293,7 @@ void DownloadFinalizer::finalize(const QString &id, DownloadItem item) {
             QString tempPath = QDir::fromNativeSeparators(item.tempFilePath);
             QDir galleryTempDir(tempPath);
             if (!galleryTempDir.exists()) {
-                message = tr("Gallery download failed: temp directory missing.");
+                message = DownloadFinalizer::tr("Gallery download failed: temp directory missing.");
                 QMetaObject::invokeMethod(self, [self, id, message]() {
                     if (self) emit self->finalizationComplete(id, false, message);
                 }, Qt::QueuedConnection);
@@ -309,33 +309,33 @@ void DownloadFinalizer::finalize(const QString &id, DownloadItem item) {
                     if (QFile::rename(entry.absoluteFilePath(), newDestPath) || (QFile::copy(entry.absoluteFilePath(), newDestPath) && QFile::remove(entry.absoluteFilePath()))) {
                         finalPath = newDestPath;
                         success = true;
-                        message = tr("Gallery download completed → %1").arg(QDir::toNativeSeparators(finalDir));
+                        message = DownloadFinalizer::tr("Gallery download completed → %1").arg(QDir::toNativeSeparators(finalDir));
                     } else {
-                        message = tr("Gallery download completed, but failed to move file to final destination.");
+                        message = DownloadFinalizer::tr("Gallery download completed, but failed to move file to final destination.");
                     }
                 } else {
-                    if (QDir().rename(entry.absoluteFilePath(), newDestPath) || (self->copyDirectoryRecursively(entry.absoluteFilePath(), newDestPath) && QDir(entry.absoluteFilePath()).removeRecursively())) {
+                    if (QDir().rename(entry.absoluteFilePath(), newDestPath) || (self && self->copyDirectoryRecursively(entry.absoluteFilePath(), newDestPath) && QDir(entry.absoluteFilePath()).removeRecursively())) {
                         finalPath = newDestPath;
                         success = true;
-                        message = tr("Gallery download completed → %1").arg(QDir::toNativeSeparators(finalDir));
+                        message = DownloadFinalizer::tr("Gallery download completed → %1").arg(QDir::toNativeSeparators(finalDir));
                     } else {
-                        message = tr("Gallery download completed, but failed to move directory.");
+                        message = DownloadFinalizer::tr("Gallery download completed, but failed to move directory.");
                     }
                 }
             } else {
-                if (QDir().rename(item.tempFilePath, destPath) || (self->copyDirectoryRecursively(item.tempFilePath, destPath) && QDir(item.tempFilePath).removeRecursively())) {
+                if (QDir().rename(item.tempFilePath, destPath) || (self && self->copyDirectoryRecursively(item.tempFilePath, destPath) && QDir(item.tempFilePath).removeRecursively())) {
                     finalPath = destPath;
                     success = true;
-                    message = tr("Gallery download completed → %1").arg(QDir::toNativeSeparators(finalDir));
+                    message = DownloadFinalizer::tr("Gallery download completed → %1").arg(QDir::toNativeSeparators(finalDir));
                 } else {
-                    message = tr("Gallery download completed, but failed to move directory.");
+                    message = DownloadFinalizer::tr("Gallery download completed, but failed to move directory.");
                 }
             }
         } else {
-            emit progressUpdated(id, {{QStringLiteral("status"), tr("Moving to final destination...")}});
+            if (self) emit self->progressUpdated(id, {{QStringLiteral("status"), DownloadFinalizer::tr("Moving to final destination...")}});
 
             if (QFile::exists(destPath) && !QFile::remove(destPath)) {
-                message = tr("Download completed, but failed to replace existing file.");
+                message = DownloadFinalizer::tr("Download completed, but failed to replace existing file.");
                 QMetaObject::invokeMethod(self, [self, id, message]() {
                     if (self) emit self->finalizationComplete(id, false, message);
                 }, Qt::QueuedConnection);
@@ -344,7 +344,7 @@ void DownloadFinalizer::finalize(const QString &id, DownloadItem item) {
 
             bool moved = QFile::rename(item.tempFilePath, destPath);
             if (!moved) {
-                if (self) emit self->progressUpdated(id, {{QStringLiteral("status"), tr("Copying file to destination...")}});
+                if (self) emit self->progressUpdated(id, {{QStringLiteral("status"), DownloadFinalizer::tr("Copying file to destination...")}});
                 if ((moved = QFile::copy(item.tempFilePath, destPath))) {
                     QFile::remove(item.tempFilePath);
                 }
@@ -353,12 +353,12 @@ void DownloadFinalizer::finalize(const QString &id, DownloadItem item) {
             if (moved) {
                 success = true;
                 finalPath = destPath;
-                message = tr("Download completed → %1").arg(QDir::toNativeSeparators(finalDir));
+                message = DownloadFinalizer::tr("Download completed → %1").arg(QDir::toNativeSeparators(finalDir));
                 if (!item.originalDownloadedFilePath.isEmpty() && item.originalDownloadedFilePath != item.tempFilePath) {
                     QFile::remove(item.originalDownloadedFilePath);
                 }
             } else {
-                message = tr("Download completed, but failed to move file.");
+                message = DownloadFinalizer::tr("Download completed, but failed to move file.");
             }
         }
 
@@ -367,9 +367,9 @@ void DownloadFinalizer::finalize(const QString &id, DownloadItem item) {
 
         // Because yt-dlp downloads are now isolated into their own UUID subfolders
         // to prevent naming collisions, we must delete the UUID folder afterward.
-        if (item.options.value("type").toString() != "gallery") {
+        if (item.options.value(QStringLiteral("type")).toString() != QStringLiteral("gallery")) {
             if (tempDir.dirName() == id) {
-                tempDir.removeRecursively();
+                QDir(tempDir).removeRecursively();
             }
         } else {
             QDir galleryTempDir(item.tempFilePath);

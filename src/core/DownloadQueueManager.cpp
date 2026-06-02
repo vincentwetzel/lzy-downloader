@@ -19,23 +19,25 @@ QString normalizeCleanupStem(QString fileName)
         return fileName;
     }
 
-    if (fileName.endsWith(".part", Qt::CaseInsensitive)) {
+    if (fileName.endsWith(QStringLiteral(".part"), Qt::CaseInsensitive)) {
         fileName.chop(5);
     }
-    if (fileName.endsWith(".ytdl", Qt::CaseInsensitive)) {
+    if (fileName.endsWith(QStringLiteral(".ytdl"), Qt::CaseInsensitive)) {
         fileName.chop(5);
     }
-    if (fileName.endsWith(".aria2", Qt::CaseInsensitive)) {
+    if (fileName.endsWith(QStringLiteral(".aria2"), Qt::CaseInsensitive)) {
         fileName.chop(6);
     }
 
-    if (fileName.endsWith(".info.json", Qt::CaseInsensitive)) {
+    if (fileName.endsWith(QStringLiteral(".info.json"), Qt::CaseInsensitive)) {
         fileName.chop(10);
     } else {
         static const QSet<QString> knownExts = {
-            "mp4", "mkv", "webm", "m4a", "mp3", "opus", "ogg", "ts",
-            "mov", "avi", "flac", "wav", "jpg", "jpeg", "png", "webp",
-            "srt", "vtt", "ass", "lrc"
+                QStringLiteral("mp4"), QStringLiteral("mkv"), QStringLiteral("webm"), QStringLiteral("m4a"),
+                QStringLiteral("mp3"), QStringLiteral("opus"), QStringLiteral("ogg"), QStringLiteral("ts"),
+                QStringLiteral("mov"), QStringLiteral("avi"), QStringLiteral("flac"), QStringLiteral("wav"),
+                QStringLiteral("jpg"), QStringLiteral("jpeg"), QStringLiteral("png"), QStringLiteral("webp"),
+                QStringLiteral("srt"), QStringLiteral("vtt"), QStringLiteral("ass"), QStringLiteral("lrc")
         };
         const QString ext = QFileInfo(fileName).suffix().toLower();
         if (knownExts.contains(ext)) {
@@ -43,7 +45,7 @@ QString normalizeCleanupStem(QString fileName)
         }
     }
 
-    static const QRegularExpression formatIdRe("\\.f[a-zA-Z0-9_-]+$");
+        static const QRegularExpression formatIdRe(QStringLiteral("\\.f[a-zA-Z0-9_-]+$"));
     const QRegularExpressionMatch match = formatIdRe.match(fileName);
     if (match.hasMatch()) {
         fileName.chop(match.capturedLength());
@@ -73,11 +75,11 @@ bool shouldDeleteCleanupCandidate(const QFileInfo &entry, const QFileInfo &ancho
         return true;
     }
 
-    if (fileName.endsWith(".part", Qt::CaseInsensitive) ||
-        fileName.endsWith(".ytdl", Qt::CaseInsensitive) ||
-        fileName.endsWith(".info.json", Qt::CaseInsensitive) ||
-        fileName.endsWith(".aria2", Qt::CaseInsensitive) ||
-        fileName.contains(".part-Frag", Qt::CaseInsensitive)) {
+    if (fileName.endsWith(QStringLiteral(".part"), Qt::CaseInsensitive) ||
+        fileName.endsWith(QStringLiteral(".ytdl"), Qt::CaseInsensitive) ||
+        fileName.endsWith(QStringLiteral(".info.json"), Qt::CaseInsensitive) ||
+        fileName.endsWith(QStringLiteral(".aria2"), Qt::CaseInsensitive) ||
+        fileName.contains(QStringLiteral(".part-Frag"), Qt::CaseInsensitive)) {
         for (const QString &stem : stems) {
             if (hasCleanupStemBoundary(fileName, stem)) {
                 return true;
@@ -86,9 +88,11 @@ bool shouldDeleteCleanupCandidate(const QFileInfo &entry, const QFileInfo &ancho
     }
 
     static const QSet<QString> knownExts = {
-        "mp4", "mkv", "webm", "m4a", "mp3", "opus", "ogg", "ts",
-        "mov", "avi", "flac", "wav", "jpg", "jpeg", "png", "webp",
-        "srt", "vtt", "ass", "lrc"
+        QStringLiteral("mp4"), QStringLiteral("mkv"), QStringLiteral("webm"), QStringLiteral("m4a"),
+        QStringLiteral("mp3"), QStringLiteral("opus"), QStringLiteral("ogg"), QStringLiteral("ts"),
+        QStringLiteral("mov"), QStringLiteral("avi"), QStringLiteral("flac"), QStringLiteral("wav"),
+        QStringLiteral("jpg"), QStringLiteral("jpeg"), QStringLiteral("png"), QStringLiteral("webp"),
+        QStringLiteral("srt"), QStringLiteral("vtt"), QStringLiteral("ass"), QStringLiteral("lrc")
     };
     const QString ext = entry.suffix().toLower();
     if (knownExts.contains(ext)) {
@@ -374,18 +378,18 @@ void DownloadQueueManager::processResumeDownloadsSelection(const QJsonArray &arr
         QVariantMap uiData;
         uiData[QStringLiteral("id")] = item.id;
         uiData[QStringLiteral("url")] = item.url;
-        uiData[QStringLiteral("status")] = (status == "paused") ? tr("Paused") : tr("Queued");
+        uiData[QStringLiteral("status")] = (status == QStringLiteral("paused")) ? tr("Paused") : tr("Queued");
         uiData[QStringLiteral("progress")] = 0;
         uiData[QStringLiteral("options")] = item.options;
 
-        if (status == "paused") {
+        if (status == QStringLiteral("paused")) {
             m_pausedItems[item.id] = item;
             emit downloadAddedToQueue(uiData);
             emit downloadPaused(item.id);
-        } else if (status == "stopped") {
+        } else if (status == QStringLiteral("stopped")) {
             uiData[QStringLiteral("status")] = tr("Stopped");
             uiData[QStringLiteral("progress")] = 0;
-        item.options[QStringLiteral("is_stopped")] = true;
+            item.options[QStringLiteral("is_stopped")] = true;
             m_pausedItems[item.id] = item;
             emit downloadAddedToQueue(uiData);
             emit downloadCancelled(item.id); // Triggers "Stopped" visuals in the UI

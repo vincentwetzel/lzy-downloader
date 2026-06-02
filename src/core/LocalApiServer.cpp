@@ -136,12 +136,12 @@ void LocalApiServer::onReadyRead()
 
     // Prevent memory exhaustion if headers are extremely large or missing \r\n\r\n
     if (buffer.size() > 5 * 1024 * 1024) {
-        socket->write("HTTP/1.1 413 Payload Too Large\r\n\r\n");
+        socket->write(QByteArrayLiteral("HTTP/1.1 413 Payload Too Large\r\n\r\n"));
         socket->disconnectFromHost();
         return;
     }
 
-    int headerEnd = buffer.indexOf("\r\n\r\n");
+    int headerEnd = buffer.indexOf(QByteArrayLiteral("\r\n\r\n"));
     if (headerEnd != -1) {
         int contentLength = 0;
         
@@ -156,7 +156,7 @@ void LocalApiServer::onReadyRead()
         bool expect100 = headersStr.contains(QStringLiteral("Expect: 100-continue"), Qt::CaseInsensitive);
 
         if (expect100 && !socket->property("100sent").toBool()) {
-            socket->write("HTTP/1.1 100 Continue\r\n\r\n");
+            socket->write(QByteArrayLiteral("HTTP/1.1 100 Continue\r\n\r\n"));
             socket->setProperty("100sent", true);
         }
 
@@ -173,15 +173,15 @@ void LocalApiServer::onReadyRead()
 
 void LocalApiServer::handleRequest(QTcpSocket *socket, const QByteArray &requestData)
 {
-    int bodyIndex = requestData.indexOf("\r\n\r\n");
+    int bodyIndex = requestData.indexOf(QByteArrayLiteral("\r\n\r\n"));
     QByteArray headersData = (bodyIndex != -1) ? requestData.left(bodyIndex) : requestData;
     QByteArray bodyData = (bodyIndex != -1) ? requestData.mid(bodyIndex + 4) : QByteArray();
 
     QString requestStr = QString::fromUtf8(headersData);
-    QStringList lines = requestStr.split("\r\n");
+    QStringList lines = requestStr.split(QStringLiteral("\r\n"));
     if (lines.isEmpty()) return;
 
-    QStringList requestParts = lines.first().split(" ");
+    QStringList requestParts = lines.first().split(QLatin1Char(' '));
     if (requestParts.size() < 2) return;
 
     QString method = requestParts[0];
@@ -212,7 +212,7 @@ void LocalApiServer::handleRequest(QTcpSocket *socket, const QByteArray &request
     }
 
     if (!validHost) {
-        sendHttpResponse(socket, 403, QStringLiteral("Forbidden"), "{\"error\": \"Invalid Host header.\"}");
+        sendHttpResponse(socket, 403, QStringLiteral("Forbidden"), QByteArrayLiteral("{\"error\": \"Invalid Host header.\"}"));
         return;
     }
 
@@ -222,19 +222,19 @@ void LocalApiServer::handleRequest(QTcpSocket *socket, const QByteArray &request
         if (originHost != QStringLiteral("127.0.0.1") && originHost != QStringLiteral("localhost") && 
             !originUrl.scheme().startsWith(QStringLiteral("chrome-extension")) && 
             !originUrl.scheme().startsWith(QStringLiteral("moz-extension"))) {
-            sendHttpResponse(socket, 403, QStringLiteral("Forbidden"), "{\"error\": \"Unauthorized cross-origin request.\"}");
+            sendHttpResponse(socket, 403, QStringLiteral("Forbidden"), QByteArrayLiteral("{\"error\": \"Unauthorized cross-origin request.\"}"));
             return;
         }
     }
 
     if (method == QStringLiteral("OPTIONS")) {
         // Explicitly reject CORS preflight
-        sendHttpResponse(socket, 403, QStringLiteral("Forbidden"), "{\"error\": \"CORS preflight rejected.\"}");
+        sendHttpResponse(socket, 403, QStringLiteral("Forbidden"), QByteArrayLiteral("{\"error\": \"CORS preflight rejected.\"}"));
         return;
     }
 
     if (!authorized) {
-        sendHttpResponse(socket, 401, QStringLiteral("Unauthorized"), "{\"error\": \"Unauthorized. Invalid API Key.\"}");
+        sendHttpResponse(socket, 401, QStringLiteral("Unauthorized"), QByteArrayLiteral("{\"error\": \"Unauthorized. Invalid API Key.\"}"));
         return;
     }
 
@@ -291,7 +291,7 @@ void LocalApiServer::handleRequest(QTcpSocket *socket, const QByteArray &request
         QByteArray responseBytes = QJsonDocument(responseObj).toJson(QJsonDocument::Compact);
         sendHttpResponse(socket, 200, QStringLiteral("OK"), responseBytes);
     } else {
-        sendHttpResponse(socket, 404, QStringLiteral("Not Found"), "{\"error\": \"Endpoint Not Found\"}");
+        sendHttpResponse(socket, 404, QStringLiteral("Not Found"), QByteArrayLiteral("{\"error\": \"Endpoint Not Found\"}"));
     }
 }
 
@@ -299,8 +299,8 @@ void LocalApiServer::sendHttpResponse(QTcpSocket *socket, int statusCode, const 
 {
     QByteArray response;
     response.append(QStringLiteral("HTTP/1.1 %1 %2\r\n").arg(statusCode).arg(statusText).toUtf8());
-    response.append("Content-Type: application/json\r\n");
-    response.append("Connection: close\r\n");
+    response.append(QByteArrayLiteral("Content-Type: application/json\r\n"));
+    response.append(QByteArrayLiteral("Connection: close\r\n"));
     response.append(QStringLiteral("Content-Length: %1\r\n\r\n").arg(body.size()).toUtf8());
     response.append(body);
     socket->write(response);

@@ -51,11 +51,11 @@ QUrl selectInstallerAsset(const QJsonArray &assets)
         const QString assetName = asset["name"].toString();
         const QUrl downloadUrl(asset["browser_download_url"].toString());
 
-        if (!assetName.endsWith(".exe", Qt::CaseInsensitive) || !downloadUrl.isValid()) {
+        if (!assetName.endsWith(QStringLiteral(".exe"), Qt::CaseInsensitive) || !downloadUrl.isValid()) {
             continue;
         }
 
-        if (assetName.startsWith("LzyDownloader-Setup-", Qt::CaseInsensitive)) {
+        if (assetName.startsWith(QStringLiteral("LzyDownloader-Setup-"), Qt::CaseInsensitive)) {
             return downloadUrl;
         }
 
@@ -86,10 +86,10 @@ void AppUpdater::fetchNextUrl() {
         return;
     }
 
-    QUrl url(m_repoUrls[m_currentUrlIndex] + "/releases/latest");
+    QUrl url(QStringLiteral("%1/releases/latest").arg(m_repoUrls[m_currentUrlIndex]));
     QNetworkRequest request(url);
     request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
-    request.setHeader(QNetworkRequest::UserAgentHeader, "LzyDownloader");
+    request.setHeader(QNetworkRequest::UserAgentHeader, QStringLiteral("LzyDownloader"));
     request.setTransferTimeout(15000);
     QNetworkReply *reply = m_networkManager->get(request);
     connect(reply, &QNetworkReply::finished, this, [this, reply](){
@@ -154,7 +154,7 @@ void AppUpdater::onCheckFinished(QNetworkReply *reply) {
 void AppUpdater::downloadAndInstall(const QUrl &downloadUrl) {
     QNetworkRequest request(downloadUrl);
     request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
-    request.setHeader(QNetworkRequest::UserAgentHeader, "LzyDownloader");
+    request.setHeader(QNetworkRequest::UserAgentHeader, QStringLiteral("LzyDownloader"));
     request.setTransferTimeout(300000); // 5 minutes for installer payload
     QNetworkReply *reply = m_networkManager->get(request);
 
