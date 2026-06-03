@@ -4,6 +4,7 @@
 #include "StartTab.h"
 #include "ActiveDownloadsTab.h"
 #include "AdvancedSettingsTab.h"
+#include "DownloadHistoryTab.h"
 #include "FormatSelectionDialog.h"
 
 #include "core/version.h"
@@ -19,6 +20,7 @@
 #include <QDateTime>
 #include <QDesktopServices>
 #include <QDir>
+#include <QFileInfo>
 #include <QFileDialog>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -258,10 +260,131 @@ void MainWindow::connectDownloadManagerSignals()
         }
     });
 
-    connect(m_downloadManager, &DownloadManager::downloadAddedToQueue,
-            m_activeDownloadsTab, &ActiveDownloadsTab::addDownloadItem);
-    connect(m_downloadManager, &DownloadManager::downloadProgress,
-            m_activeDownloadsTab, &ActiveDownloadsTab::updateDownloadProgress);
+    // Download History tracking
+    QSharedPointer<QMap<QString, HistoryItemData>> historyStates = QSharedPointer<QMap<QString, HistoryItemData>>::create();
+
+    auto cacheThumbnail = [this](const QString &id, const QString &originalPath) -> QString {
+        if (originalPath.isEmpty() || originalPath.startsWith(QStringLiteral("http://")) || originalPath.startsWith(QStringLiteral("https://"))) {
+            return originalPath;
+        }
+        QString cacheDir = QDir(m_configManager->getConfigDir()).filePath(QStringLiteral("thumbnails"));
+        QDir().mkpath(cacheDir);
+        QString cachedPath = QDir(cacheDir).filePath(QStringLiteral("%1_%2").arg(id, QFileInfo(originalPath).fileName()));
+        if (!QFile::exists(cachedPath) && QFile::exists(originalPath)) {
+            QFile::copy(originalPath, cachedPath);
+        }
+        return QFile::exists(cachedPath) ? cachedPath : originalPath;
+    };
+
+    connect(m_downloadManager, &DownloadManager::downloadAddedToQueue, this, [this, historyStates, cacheThumbnail](const QVariantMap &itemData) {
+        QString id = itemData.value(QStringLiteral("id")).toString();
+        HistoryItemData data;
+        data.id = id;
+        data.url = itemData.value(QStringLiteral("url")).toString();
+        data.title = itemData.value(QStringLiteral("title")).toString();
+        data.timestamp = QDateTime::currentDateTime().toString(QStringLiteral("yyyy-MM-dd hh:mm AP"));
+
+        if (itemData.contains(QStringLiteral("duration"))) {
+            int durationSecs = itemData.value(QStringLiteral("duration")).toInt();
+            if (durationSecs > 0) {
+                int hours = durationSecs / 3600;
+                int minutes = (durationSecs % 3600) / 60;
+                int seconds = durationSecs % 60;
+                if (hours > 0) {
+                    data.duration = QStringLiteral("%1:%2:%3").arg(hours).arg(minutes, 2, 10, QLatin1Char('0')).arg(seconds, 2, 10, QLatin1Char('0'));
+                } else {
+                    data.duration = QStringLiteral("%1:%2").arg(minutes).arg(seconds, 2, 10, QLatin1Char('0'));
+                }
+            }
+        } else if (itemData.contains(QStringLiteral("duration_string"))) {
+            QString durStr = itemData.value(QStringLiteral("duration_string")).toString();
+            if (!durStr.isEmpty() && !durStr.contains(QLatin1Char(':'))) {
+                data.duration = QStringLiteral("0:%1").arg(durStr.toInt(), 2, 10, QLatin1Char('0'));
+            } else {
+                data.duration = durStr;
+            }
+        }
+
+        QVariantMap updatedItemData = itemData;
+        if (itemData.contains(QStringLiteral("thumbnail_path"))) {
+            QString originalPath = itemData.value(QStringLiteral("thumbnail_path")).toString();
+            QString finalPath = cacheThumbnail(id, originalPath);
+            data.thumbnailPath = finalPath;
+            updatedItemData[QStringLiteral("thumbnail_path")] = finalPath;
+        }
+
+        (*historyStates)[id] = data;
+        m_activeDownloadsTab->addDownloadItem(updatedItemData);
+    });
+
+    connect(m_downloadManager, &DownloadManager::downloadProgress, this, [this, historyStates, cacheThumbnail](const QString &id, const QVariantMap &progressData) {
+        QVariantMap updatedProgress = progressData;
+        if (historyStates->contains(id)) {
+            if (progressData.contains(QStringLiteral("title"))) {
+                (*historyStates)[id].title = progressData.value(QStringLiteral("title")).toString().trimmed();
+            }
+            if (progressData.contains(QStringLiteral("thumbnail_path"))) {
+                QString originalPath = progressData.value(QStringLiteral("thumbnail_path")).toString();
+                QString finalPath = cacheThumbnail(id, originalPath);
+                (*historyStates)[id].thumbnailPath = finalPath;
+                updatedProgress[QStringLiteral("thumbnail_path")] = finalPath;
+            }
+            if (progressData.contains(QStringLiteral("total_bytes"))) {
+                (*historyStates)[id].totalBytes = progressData.value(QStringLiteral("total_bytes")).toLongLong();
+            } else if (progressData.contains(QStringLiteral("total_size")) && (*historyStates)[id].totalBytes == 0) {
+                QString sizeStr = progressData.value(QStringLiteral("total_size")).toString().remove(QLatin1Char('~'));
+                if (sizeStr.endsWith(QStringLiteral("MiB"))) {
+                    (*historyStates)[id].totalBytes = static_cast<qint64>(sizeStr.remove(QStringLiteral("MiB")).trimmed().toDouble() * 1024 * 1024);
+                } else if (sizeStr.endsWith(QStringLiteral("KiB"))) {
+                    (*historyStates)[id].totalBytes = static_cast<qint64>(sizeStr.remove(QStringLiteral("KiB")).trimmed().toDouble() * 1024);
+                } else if (sizeStr.endsWith(QStringLiteral("GiB"))) {
+                    (*historyStates)[id].totalBytes = static_cast<qint64>(sizeStr.remove(QStringLiteral("GiB")).trimmed().toDouble() * 1024 * 1024 * 1024);
+                }
+            }
+            if (progressData.contains(QStringLiteral("duration")) && (*historyStates)[id].duration.isEmpty()) {
+                int durationSecs = progressData.value(QStringLiteral("duration")).toInt();
+                if (durationSecs > 0) {
+                    int hours = durationSecs / 3600;
+                    int minutes = (durationSecs % 3600) / 60;
+                    int seconds = durationSecs % 60;
+                    if (hours > 0) {
+                        (*historyStates)[id].duration = QStringLiteral("%1:%2:%3").arg(hours).arg(minutes, 2, 10, QLatin1Char('0')).arg(seconds, 2, 10, QLatin1Char('0'));
+                    } else {
+                        (*historyStates)[id].duration = QStringLiteral("%1:%2").arg(minutes).arg(seconds, 2, 10, QLatin1Char('0'));
+                    }
+                }
+            } else if (progressData.contains(QStringLiteral("duration_string")) && (*historyStates)[id].duration.isEmpty()) {
+                QString durStr = progressData.value(QStringLiteral("duration_string")).toString();
+                if (!durStr.isEmpty() && !durStr.contains(QLatin1Char(':'))) {
+                    (*historyStates)[id].duration = QStringLiteral("0:%1").arg(durStr.toInt(), 2, 10, QLatin1Char('0'));
+                } else {
+                    (*historyStates)[id].duration = durStr;
+                }
+            }
+        }
+        m_activeDownloadsTab->updateDownloadProgress(id, updatedProgress);
+    });
+
+    connect(m_downloadManager, &DownloadManager::downloadFinalPathReady, this, [historyStates](const QString &id, const QString &path) {
+        if (historyStates->contains(id)) {
+            (*historyStates)[id].filePath = path;
+        }
+    });
+
+    connect(m_downloadManager, &DownloadManager::downloadFinished, this, [this, historyStates](const QString &id, bool success, const QString &message) {
+        Q_UNUSED(message);
+        if (success && historyStates->contains(id)) {
+            if (auto *historyTab = findChild<DownloadHistoryTab*>(QStringLiteral("downloadHistoryTab"))) {
+                historyTab->addHistoryItem((*historyStates)[id]);
+            }
+        }
+        historyStates->remove(id);
+    });
+    
+    connect(m_downloadManager, &DownloadManager::downloadCancelled, this, [historyStates](const QString &id) {
+        historyStates->remove(id);
+    });
+
     connect(m_downloadManager, &DownloadManager::downloadFinished,
             m_activeDownloadsTab, &ActiveDownloadsTab::onDownloadFinished);
     connect(m_downloadManager, &DownloadManager::downloadCancelled,

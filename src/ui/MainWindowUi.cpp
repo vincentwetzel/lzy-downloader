@@ -3,6 +3,7 @@
 #include "StartTab.h"
 #include "ActiveDownloadsTab.h"
 #include "AdvancedSettingsTab.h"
+#include "DownloadHistoryTab.h"
 #include "SortingTab.h"
 #include "ToggleSwitch.h"
 #include "ui/advanced_settings/BinariesPage.h"
@@ -49,10 +50,13 @@ void MainWindow::setupUI()
 
     m_startTab = new StartTab(m_configManager, m_extractorJsonParser, this);
     m_activeDownloadsTab = new ActiveDownloadsTab(m_configManager, this);
+    DownloadHistoryTab *downloadHistoryTab = new DownloadHistoryTab(this);
+    downloadHistoryTab->setObjectName(QStringLiteral("downloadHistoryTab"));
+    downloadHistoryTab->loadHistory(QDir(m_configManager->getConfigDir()).filePath(QStringLiteral("download_history.json")));
     m_advancedSettingsTab = new AdvancedSettingsTab(m_configManager, this);
     SortingTab *sortingTab = new SortingTab(m_configManager, this);
 
-    m_uiBuilder->build(this, mainLayout, m_startTab, m_activeDownloadsTab, m_advancedSettingsTab, sortingTab);
+    m_uiBuilder->build(this, mainLayout, m_startTab, m_activeDownloadsTab, downloadHistoryTab, m_advancedSettingsTab, sortingTab);
 
     connect(m_uiBuilder->exitAfterSwitch(), &ToggleSwitch::toggled, this, [this](bool checked) {
         m_configManager->set(QStringLiteral("General"), QStringLiteral("exit_after"), checked);

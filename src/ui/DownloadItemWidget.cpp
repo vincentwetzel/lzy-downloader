@@ -174,6 +174,10 @@ void DownloadItemWidget::setupUi() {
     });
     connect(m_moveUpButton, &QPushButton::clicked, this, &DownloadItemWidget::onMoveUpClicked);
     connect(m_moveDownButton, &QPushButton::clicked, this, &DownloadItemWidget::onMoveDownClicked);
+
+    if (m_itemData.contains(QStringLiteral("thumbnail_path"))) {
+        setThumbnail(m_itemData.value(QStringLiteral("thumbnail_path")).toString());
+    }
 }
 
 void DownloadItemWidget::updateProgress(const QVariantMap &progressData) {

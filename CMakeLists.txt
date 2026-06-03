@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(LzyDownloader VERSION 1.1.51 LANGUAGES CXX)
+project(LzyDownloader VERSION 1.1.52 LANGUAGES CXX)
 enable_testing()
 
 set(_qt_search_prefixes "")
@@ -166,6 +166,7 @@ add_library(LzyAppLib STATIC
     src/utils/LogManager.cpp
     src/ui/ActiveDownloadsTab.cpp
     src/ui/AdvancedSettingsTab.cpp
+    src/ui/DownloadHistoryTab.cpp
     src/ui/DownloadItemWidget.cpp
     src/ui/DownloadSectionsDialog.cpp
     src/ui/FormatSelectionDialog.cpp

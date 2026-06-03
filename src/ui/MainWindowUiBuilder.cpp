@@ -3,6 +3,7 @@
 #include "StartTab.h"
 #include "ActiveDownloadsTab.h"
 #include "AdvancedSettingsTab.h"
+#include "DownloadHistoryTab.h"
 #include "SortingTab.h"
 #include "ToggleSwitch.h"
 
@@ -34,7 +35,7 @@ MainWindowUiBuilder::MainWindowUiBuilder(ConfigManager *configManager, QObject *
 {
 }
 
-void MainWindowUiBuilder::build(QMainWindow *mainWindow, QVBoxLayout *mainLayout, StartTab *startTab, ActiveDownloadsTab *activeDownloadsTab, AdvancedSettingsTab *advancedSettingsTab, SortingTab *sortingTab)
+void MainWindowUiBuilder::build(QMainWindow *mainWindow, QVBoxLayout *mainLayout, StartTab *startTab, ActiveDownloadsTab *activeDownloadsTab, DownloadHistoryTab *downloadHistoryTab, AdvancedSettingsTab *advancedSettingsTab, SortingTab *sortingTab)
 {
     mainWindow->setMinimumWidth(850);
     mainWindow->resize(850, 600);
@@ -67,6 +68,7 @@ void MainWindowUiBuilder::build(QMainWindow *mainWindow, QVBoxLayout *mainLayout
 
     m_tabWidget->addTab(startTab, tr("Start Download"));
     m_tabWidget->addTab(activeDownloadsTab, tr("Active Downloads"));
+    m_tabWidget->addTab(downloadHistoryTab, tr("Download History"));
     m_tabWidget->addTab(sortingTab, tr("Sorting Rules"));
     m_tabWidget->addTab(advancedSettingsTab, tr("Advanced Settings"));
 

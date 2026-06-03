@@ -377,6 +377,12 @@ void YtDlpWorker::readInfoJsonWithRetry() {
         updateData[QStringLiteral("title")] = m_videoTitle;
         qDebug() << "Extracted title from info.json:" << m_videoTitle;
     }
+
+    if (obj.contains(QStringLiteral("duration"))) {
+        updateData[QStringLiteral("duration")] = obj[QStringLiteral("duration")].toVariant().toInt();
+    } else if (obj.contains(QStringLiteral("duration_string")) && obj[QStringLiteral("duration_string")].isString()) {
+        updateData[QStringLiteral("duration_string")] = obj[QStringLiteral("duration_string")].toString();
+    }
     
     // Extract thumbnail path if available from the info.json
     bool hasWaitThumbnail = !m_thumbnailPath.isEmpty() && QFileInfo(m_thumbnailPath).fileName().startsWith(QStringLiteral("%1_wait_thumbnail").arg(m_id));
