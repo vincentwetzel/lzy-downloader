@@ -133,7 +133,7 @@ void cleanupTempFiles(const DownloadItem &item, const QDir &tempDir, const QStri
     }
 
     if (!playlistId.isEmpty()) {
-        QStringList potentialFiles = tempDir.entryList(QStringList() << QStringLiteral("*.info.json"), QDir::Files);
+        QStringList potentialFiles = tempDir.entryList(QStringList{QStringLiteral("*.info.json")}, QDir::Files);
         for (const QString &fileName : potentialFiles) {
             // Check if the filename contains the playlist ID, typically formatted as "[<playlist_id>]"
             // by yt-dlp's default playlist output template. This is more reliable than parsing JSON content.
@@ -152,13 +152,7 @@ void cleanupTempFiles(const DownloadItem &item, const QDir &tempDir, const QStri
     }
 }
 
-} // namespace
-
-DownloadFinalizer::DownloadFinalizer(ConfigManager *configManager, SortingManager *sortingManager, ArchiveManager *archiveManager, QObject *parent)
-    : QObject(parent), m_configManager(configManager), m_sortingManager(sortingManager), m_archiveManager(archiveManager) {
-}
-
-bool DownloadFinalizer::copyDirectoryRecursively(const QString &sourceDir, const QString &destDir) {
+bool copyDirectoryRecursivelyInternal(const QString &sourceDir, const QString &destDir) {
     QDir source(sourceDir);
     if (!source.exists()) {
         qWarning() << "copyDirectoryRecursively: source does not exist:" << sourceDir;
@@ -177,7 +171,7 @@ bool DownloadFinalizer::copyDirectoryRecursively(const QString &sourceDir, const
         QString srcPath = entry.absoluteFilePath();
         QString dstPath = dest.absoluteFilePath(entry.fileName());
         if (entry.isDir()) {
-            success &= copyDirectoryRecursively(srcPath, dstPath);
+            success &= copyDirectoryRecursivelyInternal(srcPath, dstPath);
         } else {
             if (QFile::exists(dstPath)) {
                 if (!QFile::remove(dstPath)) {
@@ -191,6 +185,16 @@ bool DownloadFinalizer::copyDirectoryRecursively(const QString &sourceDir, const
         }
     }
     return success;
+}
+
+} // namespace
+
+DownloadFinalizer::DownloadFinalizer(ConfigManager *configManager, SortingManager *sortingManager, ArchiveManager *archiveManager, QObject *parent)
+    : QObject(parent), m_configManager(configManager), m_sortingManager(sortingManager), m_archiveManager(archiveManager) {
+}
+
+bool DownloadFinalizer::copyDirectoryRecursively(const QString &sourceDir, const QString &destDir) {
+    return copyDirectoryRecursivelyInternal(sourceDir, destDir);
 }
 
 void DownloadFinalizer::finalize(const QString &id, DownloadItem item) {
@@ -223,6 +227,24 @@ void DownloadFinalizer::finalize(const QString &id, DownloadItem item) {
         if (item.metadata.isEmpty()) {
             qWarning() << "Continuing finalization without metadata for id:" << id
                        << "- sorting rules may fall back to the default directory.";
+        }
+    }
+
+    // Extract the real gallery ID from the filenames if missing, so {id} sorting tokens work
+    if (item.options.value(QStringLiteral("type")).toString() == QStringLiteral("gallery") && !item.metadata.contains(QStringLiteral("id"))) {
+        QDir galleryTempDir(QDir::fromNativeSeparators(item.tempFilePath));
+        if (galleryTempDir.exists()) {
+            QFileInfoList entries = galleryTempDir.entryInfoList(QDir::NoDotAndDotDot | QDir::Files);
+            if (!entries.isEmpty()) {
+                QString firstFile = entries.first().fileName();
+                // Extract typical gallery-dl ID patterns (e.g., tiktok_7646992089099586847_...)
+                static const QRegularExpression idRe(QStringLiteral(R"(_(\d{10,25})_)"));
+                QRegularExpressionMatch match = idRe.match(firstFile);
+                if (match.hasMatch()) {
+                    item.metadata[QStringLiteral("id")] = match.captured(1);
+                    qDebug() << "Extracted real gallery ID for sorting:" << match.captured(1);
+                }
+            }
         }
     }
 
@@ -266,8 +288,12 @@ void DownloadFinalizer::finalize(const QString &id, DownloadItem item) {
 
     QPointer<DownloadFinalizer> self(this);
     QThread *thread = QThread::create([self, id, item, finalDir, destPath, tempDir, mediaInfoJsonPath]() {
-        if (!self) return;
-        
+        auto sendProgress = [self, id](const QString &statusMsg) {
+            QMetaObject::invokeMethod(QCoreApplication::instance(), [self, id, statusMsg]() {
+                if (self) emit self->progressUpdated(id, {{QStringLiteral("status"), statusMsg}});
+            }, Qt::QueuedConnection);
+        };
+
         bool success = false;
         QString message;
         QString finalPath = destPath;
@@ -294,9 +320,9 @@ void DownloadFinalizer::finalize(const QString &id, DownloadItem item) {
             QDir galleryTempDir(tempPath);
             if (!galleryTempDir.exists()) {
                 message = DownloadFinalizer::tr("Gallery download failed: temp directory missing.");
-                QMetaObject::invokeMethod(self, [self, id, message]() {
-                    if (self) emit self->finalizationComplete(id, false, message);
-                }, Qt::QueuedConnection);
+            QMetaObject::invokeMethod(QCoreApplication::instance(), [self, id, message]() {
+                if (self) emit self->finalizationComplete(id, false, message);
+            }, Qt::QueuedConnection);
                 return;
             }
 
@@ -314,7 +340,7 @@ void DownloadFinalizer::finalize(const QString &id, DownloadItem item) {
                         message = DownloadFinalizer::tr("Gallery download completed, but failed to move file to final destination.");
                     }
                 } else {
-                    if (QDir().rename(entry.absoluteFilePath(), newDestPath) || (self && self->copyDirectoryRecursively(entry.absoluteFilePath(), newDestPath) && QDir(entry.absoluteFilePath()).removeRecursively())) {
+                    if (QDir().rename(entry.absoluteFilePath(), newDestPath) || (copyDirectoryRecursivelyInternal(entry.absoluteFilePath(), newDestPath) && QDir(entry.absoluteFilePath()).removeRecursively())) {
                         finalPath = newDestPath;
                         success = true;
                         message = DownloadFinalizer::tr("Gallery download completed → %1").arg(QDir::toNativeSeparators(finalDir));
@@ -323,20 +349,40 @@ void DownloadFinalizer::finalize(const QString &id, DownloadItem item) {
                     }
                 }
             } else {
-                if (QDir().rename(item.tempFilePath, destPath) || (self && self->copyDirectoryRecursively(item.tempFilePath, destPath) && QDir(item.tempFilePath).removeRecursively())) {
-                    finalPath = destPath;
+                // The temp directory contains multiple files or directories at its root.
+                // Move its contents directly into finalDir rather than keeping the UUID folder.
+                bool allMoved = true;
+                QDir().mkpath(finalDir);
+                for (const QFileInfo &entry : entries) {
+                    QString dstPath = QDir(finalDir).filePath(entry.fileName());
+                    
+                    if (entry.isFile() && QFile::exists(dstPath)) {
+                        QFile::remove(dstPath);
+                    }
+                    
+                    if (!QDir().rename(entry.absoluteFilePath(), dstPath)) {
+                        if (entry.isDir()) {
+                            if (!copyDirectoryRecursivelyInternal(entry.absoluteFilePath(), dstPath) || !QDir(entry.absoluteFilePath()).removeRecursively()) allMoved = false;
+                        } else {
+                            if (!QFile::copy(entry.absoluteFilePath(), dstPath) || !QFile::remove(entry.absoluteFilePath())) allMoved = false;
+                        }
+                    }
+                }
+
+                if (allMoved) {
+                    finalPath = finalDir;
                     success = true;
                     message = DownloadFinalizer::tr("Gallery download completed → %1").arg(QDir::toNativeSeparators(finalDir));
                 } else {
-                    message = DownloadFinalizer::tr("Gallery download completed, but failed to move directory.");
+                    message = DownloadFinalizer::tr("Gallery download completed, but failed to move directory contents.");
                 }
             }
         } else {
-            if (self) emit self->progressUpdated(id, {{QStringLiteral("status"), DownloadFinalizer::tr("Moving to final destination...")}});
+            sendProgress(DownloadFinalizer::tr("Moving to final destination..."));
 
             if (QFile::exists(destPath) && !QFile::remove(destPath)) {
                 message = DownloadFinalizer::tr("Download completed, but failed to replace existing file.");
-                QMetaObject::invokeMethod(self, [self, id, message]() {
+                QMetaObject::invokeMethod(QCoreApplication::instance(), [self, id, message]() {
                     if (self) emit self->finalizationComplete(id, false, message);
                 }, Qt::QueuedConnection);
                 return;
@@ -344,7 +390,7 @@ void DownloadFinalizer::finalize(const QString &id, DownloadItem item) {
 
             bool moved = QFile::rename(item.tempFilePath, destPath);
             if (!moved) {
-                if (self) emit self->progressUpdated(id, {{QStringLiteral("status"), DownloadFinalizer::tr("Copying file to destination...")}});
+                sendProgress(DownloadFinalizer::tr("Copying file to destination..."));
                 if ((moved = QFile::copy(item.tempFilePath, destPath))) {
                     QFile::remove(item.tempFilePath);
                 }
@@ -378,7 +424,7 @@ void DownloadFinalizer::finalize(const QString &id, DownloadItem item) {
             }
         }
 
-        QMetaObject::invokeMethod(self, [self, id, item, success, message, finalPath]() {
+        QMetaObject::invokeMethod(QCoreApplication::instance(), [self, id, item, success, message, finalPath]() {
             if (!self) return;
             if (success) {
                 if (self->m_archiveManager) {

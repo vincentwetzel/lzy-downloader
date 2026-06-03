@@ -267,6 +267,7 @@ void setProcessEnvironment(QProcess &process) {
     QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
     env.insert(QStringLiteral("PYTHONUTF8"), QStringLiteral("1"));
     env.insert(QStringLiteral("PYTHONIOENCODING"), QStringLiteral("utf-8"));
+    env.insert(QStringLiteral("PYTHONUNBUFFERED"), QStringLiteral("1"));
     process.setProcessEnvironment(env);
 
 #ifdef Q_OS_WIN

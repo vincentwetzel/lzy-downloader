@@ -20,12 +20,12 @@ DownloadManager::DownloadManager(ConfigManager *configManager, QObject *parent) 
     m_sortingManager = new SortingManager(m_configManager, this);
     m_archiveManager = new ArchiveManager(m_configManager, this);
 
-    applyMaxConcurrentSetting(m_configManager->get(QStringLiteral("General"), QStringLiteral("max_threads"), QStringLiteral("4")).toString());
-
     m_sleepTimer = new QTimer(this);
     m_sleepTimer->setSingleShot(true);
     connect(m_sleepTimer, &QTimer::timeout, this, &DownloadManager::onSleepTimerTimeout);
     connect(m_configManager, &ConfigManager::settingChanged, this, &DownloadManager::onConfigSettingChanged);
+
+    applyMaxConcurrentSetting(m_configManager->get(QStringLiteral("General"), QStringLiteral("max_threads"), QStringLiteral("4")).toString());
 
     m_finalizer = new DownloadFinalizer(m_configManager, m_sortingManager, m_archiveManager, this);
     connect(m_finalizer, &DownloadFinalizer::progressUpdated, this, [this](const QString &id, const QVariantMap &data) {
@@ -63,6 +63,10 @@ void DownloadManager::shutdown() {
 
     if (m_queueManager) {
         m_queueManager->saveQueueState(m_activeItems);
+    }
+
+    if (m_sleepTimer && m_sleepTimer->isActive()) {
+        m_sleepTimer->stop();
     }
 
     const QList<QProcess*> descendantProcesses = findChildren<QProcess*>();
@@ -108,6 +112,19 @@ void DownloadManager::onQueueCountsChanged(int queued, int paused) {
             m_queueManager->saveQueueState(m_activeItems);
         }
     }, Qt::QueuedConnection);
+
+    // Update queue position statuses
+    if (m_queueManager) {
+        int position = 1;
+        for (const DownloadItem &item : m_queueManager->m_downloadQueue) {
+            if (!m_queueManager->m_pendingExpansions.contains(item.id)) {
+                QVariantMap progressData;
+                progressData[QStringLiteral("status")] = tr("Queued (Position %1)").arg(position);
+                emit downloadProgress(item.id, progressData);
+                position++;
+            }
+        }
+    }
 }
 
 void DownloadManager::onConfigSettingChanged(const QString &section, const QString &key, const QVariant &value) {

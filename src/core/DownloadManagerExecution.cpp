@@ -16,6 +16,8 @@
 #include <QTimer>
 #include <QUrl>
 #include <QUrlQuery>
+#include <QDateTime>
+#include <chrono>
 
 namespace {
 QString youtubeVideoIdFromUrl(const QString &urlString)
@@ -175,6 +177,7 @@ void DownloadManager::startSponsorBlockPreflight(const DownloadItem &item) {
     }
 
     m_pendingSponsorBlockPreflights[item.id] = item;
+    m_activeItems[item.id] = item; // Track as active so it saves to the queue backup
 
     QVariantMap progressData;
     progressData[QStringLiteral("status")] = tr("Checking SponsorBlock segments...");
@@ -186,7 +189,7 @@ void DownloadManager::startSponsorBlockPreflight(const DownloadItem &item) {
     request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
     request.setHeader(QNetworkRequest::UserAgentHeader, QStringLiteral("LzyDownloader"));
     QNetworkReply *reply = networkManager->get(request);
-    QTimer::singleShot(8000, reply, [reply]() {
+    QTimer::singleShot(std::chrono::seconds(8), reply, [reply]() {
         if (reply->isRunning()) {
             reply->abort();
         }
@@ -233,6 +236,8 @@ void DownloadManager::startSponsorBlockPreflight(const DownloadItem &item) {
 }
 
 void DownloadManager::applyMaxConcurrentSetting(const QString &maxThreadsStr) {
+    SleepMode oldSleepMode = m_sleepMode;
+
     if (maxThreadsStr == QStringLiteral("1 (short sleep)")) {
         m_maxConcurrentDownloads = 1;
         m_sleepMode = ShortSleep;
@@ -243,29 +248,39 @@ void DownloadManager::applyMaxConcurrentSetting(const QString &maxThreadsStr) {
         m_maxConcurrentDownloads = qMax(1, maxThreadsStr.toInt());
         m_sleepMode = NoSleep;
     }
+
+    if (oldSleepMode != m_sleepMode && m_sleepTimer && m_sleepTimer->isActive()) {
+        m_sleepTimer->stop();
+    }
 }
 
 void DownloadManager::startDownloadsToCapacity() {
     if (m_sleepTimer->isActive()) {
+        if (!m_queueManager->hasQueuedDownloads()) {
+            m_sleepTimer->stop();
+            checkQueueFinished();
+        }
         return;
     }
 
-    if (m_sleepMode != NoSleep && m_maxConcurrentDownloads == 1 && property("needsSleep").toBool()) {
-        setProperty("needsSleep", false);
-        int sleepDuration = (m_sleepMode == ShortSleep) ? 5000 : 30000;
-        qDebug() << "Starting sleep timer for" << sleepDuration << "ms.";
-        m_sleepTimer->start(sleepDuration);
-        return;
+    if (m_sleepMode != NoSleep && m_maxConcurrentDownloads == 1 && 
+        m_queueManager->hasQueuedDownloads() && 
+        (m_activeWorkers.count() + m_pendingSponsorBlockPreflights.count()) < m_maxConcurrentDownloads) {
+        
+        qint64 now = QDateTime::currentMSecsSinceEpoch();
+        qint64 sleepDuration = (m_sleepMode == ShortSleep) ? 5000 : 30000;
+        qint64 timeSinceLastFinish = now - m_lastDownloadFinishTime;
+
+        if (m_lastDownloadFinishTime > 0 && timeSinceLastFinish < sleepDuration) {
+            int remainingSleep = static_cast<int>(sleepDuration - qMax(Q_INT64_C(0), timeSinceLastFinish));
+            qDebug() << "Starting sleep timer for remaining" << remainingSleep << "ms.";
+            m_sleepTimer->start(std::chrono::milliseconds(remainingSleep));
+            return;
+        }
     }
 
-    bool started = false;
     while ((m_activeWorkers.count() + m_pendingSponsorBlockPreflights.count()) < m_maxConcurrentDownloads && m_queueManager->hasQueuedDownloads()) {
         proceedWithDownload();
-        started = true;
-    }
-
-    if (started && m_sleepMode != NoSleep && m_maxConcurrentDownloads == 1) {
-        setProperty("needsSleep", true);
     }
 
     checkQueueFinished();
@@ -276,6 +291,7 @@ void DownloadManager::startNextDownload() {
 }
 
 void DownloadManager::onSleepTimerTimeout() {
+    m_sleepTimer->stop();
     qDebug() << "Sleep timer timed out. Attempting to start next download.";
     startNextDownload();
 }

@@ -8,6 +8,7 @@
 #include <QJsonObject>
 #include <QMetaObject>
 #include <QProcess>
+#include <chrono>
 
 namespace {
 bool isNonInteractiveRequest(const QVariantMap &options)
@@ -141,6 +142,10 @@ void DownloadManager::fetchInfoForSections(const QString &url, const QVariantMap
     }
 
     connect(process, &QProcess::finished, this, [this, process, url, options](int exitCode, QProcess::ExitStatus exitStatus) {
+        if (process->property("timed_out").toBool()) {
+            process->deleteLater();
+            return; // Handled by watchdog
+        }
         if (exitStatus == QProcess::NormalExit && exitCode == 0) {
             QByteArray output = process->readAllStandardOutput();
             QJsonParseError parseError;
@@ -176,6 +181,22 @@ void DownloadManager::fetchInfoForSections(const QString &url, const QVariantMap
     });
 
     process->start(ytDlpPath, args);
+
+    QTimer *watchdog = new QTimer(process);
+    watchdog->setSingleShot(true);
+    connect(watchdog, &QTimer::timeout, this, [this, process, url, options]() {
+        qWarning() << "yt-dlp --dump-json for sections timed out. Killing process and enqueuing without them.";
+        if (process->state() != QProcess::NotRunning) {
+            process->setProperty("timed_out", true);
+            ProcessUtils::terminateProcessTree(process);
+            process->kill();
+            
+            QVariantMap newOptions = options;
+            newOptions[QStringLiteral("download_sections_set")] = true; // Prevent re-triggering
+            enqueueDownload(url, newOptions);
+        }
+    });
+    watchdog->start(std::chrono::seconds(30)); // 30 seconds
 }
 
 void DownloadManager::fetchFormatsForSelection(const QString &url, const QVariantMap &options) {
@@ -191,6 +212,10 @@ void DownloadManager::fetchFormatsForSelection(const QString &url, const QVarian
     }
     
     connect(process, &QProcess::finished, this, [this, process, url, options](int exitCode, QProcess::ExitStatus exitStatus) {
+        if (process->property("timed_out").toBool()) {
+            process->deleteLater();
+            return; // Handled by watchdog
+        }
         if (exitStatus == QProcess::NormalExit && exitCode == 0) {
             QByteArray output = process->readAllStandardOutput();
             QJsonParseError parseError;
@@ -233,6 +258,21 @@ void DownloadManager::fetchFormatsForSelection(const QString &url, const QVarian
     });
 
     process->start(ytDlpPath, args);
+
+    QTimer *watchdog = new QTimer(process);
+    watchdog->setSingleShot(true);
+    connect(watchdog, &QTimer::timeout, this, [this, process, url]() {
+        qWarning() << "yt-dlp --dump-json for formats timed out. Killing process.";
+        if (process->state() != QProcess::NotRunning) {
+            process->setProperty("timed_out", true);
+            ProcessUtils::terminateProcessTree(process);
+            process->kill();
+            QMetaObject::invokeMethod(this, [this, url]() {
+                emit formatSelectionFailed(url, tr("Format selection timed out after 30 seconds."));
+            }, Qt::QueuedConnection);
+        }
+    });
+    watchdog->start(std::chrono::seconds(30)); // 30 seconds
 }
 
 void DownloadManager::resumeDownloadWithFormat(const QString &url, const QVariantMap &options, const QString &formatId) {

@@ -20,8 +20,8 @@
 #include <QThread>
 
 const QStringList REPO_URLS = {
-    "https://api.github.com/repos/vincentwetzel/lzy-downloader",
-    "https://api.github.com/repos/vincentwetzel/MediaDownloader"
+    QStringLiteral("https://api.github.com/repos/vincentwetzel/lzy-downloader"),
+    QStringLiteral("https://api.github.com/repos/vincentwetzel/MediaDownloader")
 };
 
 MainWindow::MainWindow(ExtractorJsonParser *extractorJsonParser, QWidget *parent)
@@ -39,14 +39,14 @@ MainWindow::MainWindow(ExtractorJsonParser *extractorJsonParser, QWidget *parent
     }
 
     // Initialize core components
-    m_configManager = new ConfigManager("settings.ini", this);
-    qInfo() << "Using settings file at:" << QDir(m_configManager->getConfigDir()).filePath("settings.ini");
+    m_configManager = new ConfigManager(QStringLiteral("settings.ini"), this);
+    qInfo() << "Using settings file at:" << QDir(m_configManager->getConfigDir()).filePath(QStringLiteral("settings.ini"));
 
     // Apply CLI overrides and ensure exit_after resets to false on normal launches
     if (QCoreApplication::arguments().contains("--exit-after")) {
-        m_configManager->set("General", "exit_after", true);
+        m_configManager->set(QStringLiteral("General"), QStringLiteral("exit_after"), true);
     } else {
-        m_configManager->set("General", "exit_after", false);
+        m_configManager->set(QStringLiteral("General"), QStringLiteral("exit_after"), false);
     }
     m_configManager->save();
 
@@ -59,12 +59,12 @@ MainWindow::MainWindow(ExtractorJsonParser *extractorJsonParser, QWidget *parent
     // --- Dynamic Binary Discovery ---
     QMap<QString, QString> foundBinaries = BinaryFinder::findAllBinaries();
     for (auto it = foundBinaries.constBegin(); it != foundBinaries.constEnd(); ++it) {
-        QString configKey = it.key() + "_path";
-        QString currentPath = m_configManager->get("Binaries", configKey).toString();
+        QString configKey = it.key() + QStringLiteral("_path");
+        QString currentPath = m_configManager->get(QStringLiteral("Binaries"), configKey).toString();
         // If current path is empty or invalid, update it
         if (currentPath.isEmpty() || !QFile::exists(currentPath)) {
             if (!it.value().isEmpty()) {
-                m_configManager->set("Binaries", configKey, it.value());
+                m_configManager->set(QStringLiteral("Binaries"), configKey, it.value());
             }
         }
     }
@@ -83,14 +83,14 @@ MainWindow::MainWindow(ExtractorJsonParser *extractorJsonParser, QWidget *parent
 
     // Apply theme before UI setup
     m_uiBuilder = new MainWindowUiBuilder(m_configManager, this); // Initialize UI builder
-    applyTheme(m_configManager->get("General", "theme", "System").toString());
+    applyTheme(m_configManager->get(QStringLiteral("General"), QStringLiteral("theme"), QStringLiteral("System")).toString());
 
     setupLocalApiServer();
     setupWindowsDebugConsole();
 
     // Dynamically reschedule queue if the user increases Max Concurrent
     connect(m_configManager, &ConfigManager::settingChanged, this, [this](const QString &section, const QString &key, const QVariant &/*value*/) {
-        if (section == "General" && key == "max_threads") {
+        if (section == QStringLiteral("General") && key == QStringLiteral("max_threads")) {
             if (m_downloadManager) {
                 QMetaObject::invokeMethod(m_downloadManager, "startNextDownload", Qt::QueuedConnection);
             }
@@ -116,4 +116,3 @@ MainWindow::~MainWindow() {
         m_startupThread->wait();
     }
 }
-

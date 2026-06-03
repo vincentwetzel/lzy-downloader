@@ -24,31 +24,31 @@ MissingBinariesDialog::MissingBinariesDialog(const QStringList &binaryNames,
       m_binariesPage(binariesPage),
       m_doneButton(nullptr)
 {
-    setWindowTitle("Set Up Required Tools");
+    setWindowTitle(tr("Set Up Required Tools"));
     setMinimumWidth(640);
     setModal(true);
 
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
 
     QLabel *introLabel = new QLabel(
-        "LzyDownloader needs a few external tools before downloads can run. "
-        "Install a missing tool or browse to an existing executable, then refresh the checklist.",
+        tr("LzyDownloader needs a few external tools before downloads can run. "
+        "Install a missing tool or browse to an existing executable, then refresh the checklist."),
         this);
     introLabel->setWordWrap(true);
-    introLabel->setToolTip("Explains why this setup dialog is being shown.");
+    introLabel->setToolTip(tr("Explains why this setup dialog is being shown."));
     mainLayout->addWidget(introLabel);
 
-    QGroupBox *toolsGroup = new QGroupBox("Missing tools", this);
-    toolsGroup->setToolTip("Tools that were not found or have invalid configured paths.");
+    QGroupBox *toolsGroup = new QGroupBox(tr("Missing tools"), this);
+    toolsGroup->setToolTip(tr("Tools that were not found or have invalid configured paths."));
     QGridLayout *grid = new QGridLayout(toolsGroup);
     grid->setColumnStretch(1, 1);
 
-    QLabel *toolHeader = new QLabel("Tool", toolsGroup);
-    toolHeader->setToolTip("Name of the required external executable.");
-    QLabel *statusHeader = new QLabel("Status", toolsGroup);
-    statusHeader->setToolTip("Whether the executable was found after the latest scan.");
-    QLabel *actionsHeader = new QLabel("Actions", toolsGroup);
-    actionsHeader->setToolTip("Ways to install the tool or point LzyDownloader to an existing copy.");
+    QLabel *toolHeader = new QLabel(tr("Tool"), toolsGroup);
+    toolHeader->setToolTip(tr("Name of the required external executable."));
+    QLabel *statusHeader = new QLabel(tr("Status"), toolsGroup);
+    statusHeader->setToolTip(tr("Whether the executable was found after the latest scan."));
+    QLabel *actionsHeader = new QLabel(tr("Actions"), toolsGroup);
+    actionsHeader->setToolTip(tr("Ways to install the tool or point LzyDownloader to an existing copy."));
     grid->addWidget(toolHeader, 0, 0);
     grid->addWidget(statusHeader, 0, 1);
     grid->addWidget(actionsHeader, 0, 2);
@@ -56,19 +56,19 @@ MissingBinariesDialog::MissingBinariesDialog(const QStringList &binaryNames,
     int row = 1;
     for (const QString &binaryName : m_binaryNames) {
         QLabel *nameLabel = new QLabel(binaryName, toolsGroup);
-        nameLabel->setToolTip(QString("External executable: %1").arg(binaryName));
+        nameLabel->setToolTip(tr("External executable: %1").arg(binaryName));
 
-        QLabel *statusLabel = new QLabel("Checking...", toolsGroup);
+        QLabel *statusLabel = new QLabel(tr("Checking..."), toolsGroup);
         statusLabel->setWordWrap(true);
         statusLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
-        statusLabel->setToolTip(QString("Current detection status for %1.").arg(binaryName));
+        statusLabel->setToolTip(tr("Current detection status for %1.").arg(binaryName));
 
-        QPushButton *installButton = new QPushButton("Install...", toolsGroup);
-        installButton->setToolTip(QString("Open installer options for %1.").arg(binaryName));
+        QPushButton *installButton = new QPushButton(tr("Install..."), toolsGroup);
+        installButton->setToolTip(tr("Open installer options for %1.").arg(binaryName));
         installButton->setEnabled(m_binariesPage != nullptr);
 
-        QPushButton *browseButton = new QPushButton("Browse...", toolsGroup);
-        browseButton->setToolTip(QString("Select an existing %1 executable from disk.").arg(binaryName));
+        QPushButton *browseButton = new QPushButton(tr("Browse..."), toolsGroup);
+        browseButton->setToolTip(tr("Select an existing %1 executable from disk.").arg(binaryName));
         browseButton->setEnabled(m_binariesPage != nullptr);
 
         QHBoxLayout *actionsLayout = new QHBoxLayout();
@@ -106,17 +106,17 @@ MissingBinariesDialog::MissingBinariesDialog(const QStringList &binaryNames,
     QHBoxLayout *utilityLayout = new QHBoxLayout();
     utilityLayout->addStretch();
 
-    QPushButton *refreshButton = new QPushButton("Refresh", this);
-    refreshButton->setToolTip("Re-scan configured paths and auto-detected binaries.");
+    QPushButton *refreshButton = new QPushButton(tr("Refresh"), this);
+    refreshButton->setToolTip(tr("Re-scan configured paths and auto-detected binaries."));
     utilityLayout->addWidget(refreshButton);
     mainLayout->addLayout(utilityLayout);
     connect(refreshButton, &QPushButton::clicked, this, &MissingBinariesDialog::refreshStatuses);
 
     QDialogButtonBox *buttonBox = new QDialogButtonBox(this);
-    m_doneButton = buttonBox->addButton("Done", QDialogButtonBox::AcceptRole);
-    QPushButton *laterButton = buttonBox->addButton("Later", QDialogButtonBox::RejectRole);
-    m_doneButton->setToolTip("Continue once all listed tools are available.");
-    laterButton->setToolTip("Close setup for now.");
+    m_doneButton = buttonBox->addButton(tr("Done"), QDialogButtonBox::AcceptRole);
+    QPushButton *laterButton = buttonBox->addButton(tr("Later"), QDialogButtonBox::RejectRole);
+    m_doneButton->setToolTip(tr("Continue once all listed tools are available."));
+    laterButton->setToolTip(tr("Close setup for now."));
     mainLayout->addWidget(buttonBox);
 
     connect(buttonBox, &QDialogButtonBox::accepted, this, &QDialog::accept);
@@ -141,21 +141,21 @@ void MissingBinariesDialog::refreshStatuses()
         }
 
         const ProcessUtils::FoundBinary foundBinary = ProcessUtils::resolveBinary(binaryName, m_configManager);
-        const bool resolved = foundBinary.source != "Not Found" && foundBinary.source != "Invalid Custom";
+        const bool resolved = foundBinary.source != QStringLiteral("Not Found") && foundBinary.source != QStringLiteral("Invalid Custom");
 
         if (resolved) {
-            row.statusLabel->setText(QString("Found via %1\n%2")
+            row.statusLabel->setText(tr("Found via %1\n%2")
                                          .arg(foundBinary.source, QFileInfo(foundBinary.path).absoluteFilePath()));
             if (row.installButton) {
                 row.installButton->setVisible(false);
             }
-        } else if (foundBinary.source == "Invalid Custom") {
-            row.statusLabel->setText(QString("Invalid manual path\n%1").arg(foundBinary.path));
+        } else if (foundBinary.source == QStringLiteral("Invalid Custom")) {
+            row.statusLabel->setText(tr("Invalid manual path\n%1").arg(foundBinary.path));
             if (row.installButton) {
                 row.installButton->setVisible(true);
             }
         } else {
-            row.statusLabel->setText("Missing");
+            row.statusLabel->setText(tr("Missing"));
             if (row.installButton) {
                 row.installButton->setVisible(true);
             }
@@ -169,7 +169,7 @@ void MissingBinariesDialog::refreshStatuses()
     if (m_doneButton) {
         const bool resolved = allBinariesResolved();
         m_doneButton->setEnabled(resolved);
-        m_doneButton->setText(resolved ? "Done" : "Resolve Missing Tools");
+        m_doneButton->setText(resolved ? tr("Done") : tr("Resolve Missing Tools"));
     }
 }
 
@@ -178,7 +178,7 @@ QStringList MissingBinariesDialog::unresolvedBinaries() const
     QStringList unresolved;
     for (const QString &binaryName : m_binaryNames) {
         const ProcessUtils::FoundBinary foundBinary = ProcessUtils::resolveBinary(binaryName, m_configManager);
-        if (foundBinary.source == "Not Found" || foundBinary.source == "Invalid Custom") {
+            if (foundBinary.source == QStringLiteral("Not Found") || foundBinary.source == QStringLiteral("Invalid Custom")) {
             unresolved << binaryName;
         }
     }

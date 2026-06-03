@@ -6,6 +6,7 @@
 #include <QJsonArray>
 #include <QCoreApplication>
 #include <QLabel>
+#include <QDir>
 
 SupportedSitesDialog::SupportedSitesDialog(QWidget* parent)
     : QDialog(parent) {
@@ -40,18 +41,19 @@ SupportedSitesDialog::SupportedSitesDialog(QWidget* parent)
 
 void SupportedSitesDialog::loadExtractors() {
     auto parseFile = [this](const QString& fileName, int flag) {
-        QFile file(QCoreApplication::applicationDirPath() + "/" + fileName);
+        QFile file(QDir(QCoreApplication::applicationDirPath()).filePath(fileName));
         if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
             return;
         }
-        QJsonDocument doc = QJsonDocument::fromJson(file.readAll());
-        if (doc.isObject()) {
+        QJsonParseError parseError;
+        QJsonDocument doc = QJsonDocument::fromJson(file.readAll(), &parseError);
+        if (parseError.error == QJsonParseError::NoError && doc.isObject()) {
             QJsonObject root = doc.object();
             for (auto it = root.begin(); it != root.end(); ++it) {
                 if (it.value().isObject()) {
                     QJsonObject extObj = it.value().toObject();
-                    if (extObj.contains("domains") && extObj["domains"].isArray()) {
-                        for (const QJsonValue& val : extObj["domains"].toArray()) {
+                    if (extObj.contains(QStringLiteral("domains")) && extObj[QStringLiteral("domains")].isArray()) {
+                        for (const QJsonValue& val : extObj[QStringLiteral("domains")].toArray()) {
                             if (val.isString()) {
                                 m_domainMap[val.toString()] |= flag; // Automatically alphabetized by QMap
                             }
@@ -62,8 +64,8 @@ void SupportedSitesDialog::loadExtractors() {
         }
     };
 
-    parseFile("extractors_yt-dlp.json", 1);
-    parseFile("extractors_gallery-dl.json", 2);
+    parseFile(QStringLiteral("extractors_yt-dlp.json"), 1);
+    parseFile(QStringLiteral("extractors_gallery-dl.json"), 2);
 }
 
 void SupportedSitesDialog::populateTable() {

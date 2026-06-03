@@ -11,6 +11,8 @@
 #include <QRegularExpression>
 #include <QDebug>
 #include <QCoreApplication>
+#include <chrono>
+#include <QTimer>
 
 LocalApiServer::LocalApiServer(ConfigManager *configManager, QObject *parent)
     : QObject(parent), m_configManager(configManager), m_server(new QTcpServer(this))
@@ -122,6 +124,12 @@ void LocalApiServer::onDownloadRemoved(const QString &id)
 void LocalApiServer::onNewConnection()
 {
     QTcpSocket *socket = m_server->nextPendingConnection();
+    
+    QTimer *timeoutTimer = new QTimer(socket);
+    timeoutTimer->setSingleShot(true);
+    connect(timeoutTimer, &QTimer::timeout, socket, &QTcpSocket::disconnectFromHost);
+    timeoutTimer->start(std::chrono::seconds(15)); // 15 seconds limit to receive full request payload
+    
     connect(socket, &QTcpSocket::readyRead, this, &LocalApiServer::onReadyRead);
     connect(socket, &QTcpSocket::disconnected, socket, &QObject::deleteLater);
 }
@@ -240,15 +248,16 @@ void LocalApiServer::handleRequest(QTcpSocket *socket, const QByteArray &request
 
     // Route Endpoints
     if (method == QStringLiteral("POST") && path == QStringLiteral("/enqueue")) {
-        QString bodyStr;
+        QJsonParseError parseError;
+        QJsonDocument doc;
+
         if (bodyData.size() >= 2 && static_cast<unsigned char>(bodyData.at(0)) == 0xFF && static_cast<unsigned char>(bodyData.at(1)) == 0xFE) {
-            bodyStr = QString::fromUtf16(reinterpret_cast<const char16_t*>(bodyData.constData()), bodyData.size() / 2);
+            QString bodyStr = QString::fromUtf16(reinterpret_cast<const char16_t*>(bodyData.constData()), bodyData.size() / 2);
+            doc = QJsonDocument::fromJson(bodyStr.toUtf8(), &parseError);
         } else {
-            bodyStr = QString::fromUtf8(bodyData);
+            doc = QJsonDocument::fromJson(bodyData, &parseError);
         }
 
-        QJsonParseError parseError;
-        QJsonDocument doc = QJsonDocument::fromJson(bodyStr.toUtf8(), &parseError);
         if (!doc.isNull() && doc.isObject()) {
             QString targetUrl = doc.object().value(QStringLiteral("url")).toString().trimmed();
             QString downloadType = doc.object().value(QStringLiteral("type")).toString(QStringLiteral("video")); // Default to "video"
@@ -274,7 +283,7 @@ void LocalApiServer::handleRequest(QTcpSocket *socket, const QByteArray &request
         if (doc.isNull()) {
             errObj[QStringLiteral("parse_error")] = parseError.errorString();
             errObj[QStringLiteral("body_length")] = bodyData.size();
-            errObj[QStringLiteral("received_body")] = bodyStr.left(200);
+            errObj[QStringLiteral("received_body")] = QString::fromUtf8(bodyData.left(200));
         } else if (!doc.isObject()) {
             errObj[QStringLiteral("parse_error")] = QStringLiteral("JSON is valid but not an object.");
         }

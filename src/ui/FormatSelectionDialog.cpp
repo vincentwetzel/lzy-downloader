@@ -59,49 +59,49 @@ void FormatSelectionDialog::setupUI() {
 }
 
 void FormatSelectionDialog::populateTable(const QVariantMap &infoDict, const QString& downloadType) {
-    if (!infoDict.contains("formats")) return;
+    if (!infoDict.contains(QStringLiteral("formats"))) return;
 
-    QVariantList formats = infoDict.value("formats").toList();
+    QVariantList formats = infoDict.value(QStringLiteral("formats")).toList();
     
     // formats in yt-dlp are generally from worst to best, so we'll iterate backwards to put best on top
     for (int i = formats.size() - 1; i >= 0; --i) {
         QVariantMap format = formats[i].toMap();
         
-        QString formatId = format.value("format_id").toString();
-        QString ext = format.value("ext").toString();
-        QString resolution = format.value("resolution").toString();
-        if (resolution == "audio only") resolution = "Audio";
+        QString formatId = format.value(QStringLiteral("format_id")).toString();
+        QString ext = format.value(QStringLiteral("ext")).toString();
+        QString resolution = format.value(QStringLiteral("resolution")).toString();
+        if (resolution == QStringLiteral("audio only")) resolution = tr("Audio");
         
-        QString fps = format.contains("fps") && !format.value("fps").isNull() ? format.value("fps").toString() : "";
-        QString vcodec = format.value("vcodec").toString();
-        if (vcodec == "none") vcodec = "";
-        QString acodec = format.value("acodec").toString();
-        if (acodec == "none") acodec = "";
+        QString fps = format.contains(QStringLiteral("fps")) && !format.value(QStringLiteral("fps")).isNull() ? format.value(QStringLiteral("fps")).toString() : QString();
+        QString vcodec = format.value(QStringLiteral("vcodec")).toString();
+        if (vcodec == QStringLiteral("none")) vcodec = QString();
+        QString acodec = format.value(QStringLiteral("acodec")).toString();
+        if (acodec == QStringLiteral("none")) acodec = QString();
         
-        double filesize = format.value("filesize").toDouble();
-        if (filesize == 0) filesize = format.value("filesize_approx").toDouble();
+        double filesize = format.value(QStringLiteral("filesize")).toDouble();
+        if (filesize == 0) filesize = format.value(QStringLiteral("filesize_approx")).toDouble();
         
         QString sizeStr;
         if (filesize > 0) {
-            sizeStr = QString::number(filesize / (1024 * 1024), 'f', 2) + " MB";
+            sizeStr = tr("%1 MB").arg(QString::number(filesize / (1024 * 1024), 'f', 2));
         } else {
-            sizeStr = "Unknown";
+            sizeStr = tr("Unknown");
         }
 
         // Filter out video formats if audio-only download is selected
-        if (downloadType == "audio" && !vcodec.isEmpty()) {
+        if (downloadType == QStringLiteral("audio") && !vcodec.isEmpty()) {
             continue; 
         }
 
         int row = m_table->rowCount();
         m_table->insertRow(row);
         QWidget *checkWidget = new QWidget(this);
-        checkWidget->setToolTip("Check to enqueue this format.");
+        checkWidget->setToolTip(tr("Check to enqueue this format."));
         QHBoxLayout *checkLayout = new QHBoxLayout(checkWidget);
         checkLayout->setContentsMargins(0, 0, 0, 0);
         checkLayout->setSpacing(0);
         QCheckBox *checkBox = new QCheckBox(checkWidget);
-        checkBox->setToolTip("Check to enqueue this format.");
+        checkBox->setToolTip(tr("Check to enqueue this format."));
         checkBox->setProperty("formatId", formatId);
         checkLayout->addStretch();
         checkLayout->addWidget(checkBox);
@@ -117,7 +117,7 @@ void FormatSelectionDialog::populateTable(const QVariantMap &infoDict, const QSt
         
         for (int column = 1; column < m_table->columnCount(); ++column) {
             if (QTableWidgetItem *item = m_table->item(row, column)) {
-                item->setToolTip("This format can be selected using the checkbox in the first column.");
+                item->setToolTip(tr("This format can be selected using the checkbox in the first column."));
             }
         }
 

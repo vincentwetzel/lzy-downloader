@@ -104,7 +104,8 @@ void RuntimeSelectionDialog::populateData() {
         for (const QString& k : automatic_captions.keys()) if (!allLangs.contains(k)) allLangs.append(k);
         allLangs.sort();
         for (const QString &lang : allLangs) {
-            QString label = lang + (automatic_captions.contains(lang) && !subtitles.contains(lang) ? tr(" (Auto-generated)") : QString());
+            QString autoGenText = (automatic_captions.contains(lang) && !subtitles.contains(lang)) ? tr(" (Auto-generated)") : QString();
+            QString label = QStringLiteral("%1%2").arg(lang, autoGenText);
             QListWidgetItem *item = new QListWidgetItem(label);
             item->setData(Qt::UserRole, lang);
             item->setFlags(item->flags() | Qt::ItemIsUserCheckable);

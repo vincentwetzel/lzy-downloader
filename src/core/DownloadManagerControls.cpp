@@ -8,6 +8,7 @@
 #include <QDebug>
 #include <QMetaObject>
 #include <QProcess>
+#include <QDateTime>
 
 void DownloadManager::cancelDownload(const QString &id) {
     bool cancelled = false;
@@ -46,6 +47,7 @@ void DownloadManager::cancelDownload(const QString &id) {
 
     if (m_pendingSponsorBlockPreflights.contains(id)) {
         DownloadItem item = m_pendingSponsorBlockPreflights.take(id);
+        m_activeItems.remove(id);
         item.options[QStringLiteral("is_stopped")] = true;
         m_queueManager->m_pausedItems[id] = item;
         m_activeDownloadsCount = qMax(0, m_activeDownloadsCount - 1);
@@ -62,6 +64,8 @@ void DownloadManager::cancelDownload(const QString &id) {
 
         m_workerSpeeds.remove(id);
         updateTotalSpeed();
+
+        m_lastDownloadFinishTime = QDateTime::currentMSecsSinceEpoch();
 
         YtDlpWorker *ytDlpWorker = qobject_cast<YtDlpWorker*>(worker);
         if (ytDlpWorker) {
@@ -107,7 +111,6 @@ void DownloadManager::cancelDownload(const QString &id) {
         const QList<QProcess*> processes = embedder->findChildren<QProcess*>();
         for (QProcess *p : processes) {
             if (p->state() != QProcess::NotRunning) {
-                p->disconnect();
                 ProcessUtils::terminateProcessTree(p);
                 p->kill();
             }
@@ -185,18 +188,9 @@ void DownloadManager::restartDownloadWithOptions(const QVariantMap &itemData) {
     resetData[QStringLiteral("progress")] = -1; // Indeterminate progress
     emit downloadProgress(id, resetData);
 
-    // 4. Create and start a new worker with the same ID and new options.
-    YtDlpArgsBuilder argsBuilder;
-    QStringList args = argsBuilder.build(m_configManager, item.url, item.options);
-    YtDlpWorker *newWorker = new YtDlpWorker(item.id, args, m_configManager, this);
-    m_activeWorkers[item.id] = newWorker;
-
-    connect(newWorker, &YtDlpWorker::progressUpdated, this, &DownloadManager::onWorkerProgress);
-    connect(newWorker, &YtDlpWorker::finished, this, &DownloadManager::onWorkerFinished);
-    connect(newWorker, &YtDlpWorker::outputReceived, this, &DownloadManager::onWorkerOutputReceived);
-    connect(newWorker, &YtDlpWorker::ytDlpErrorDetected, this, &DownloadManager::onYtDlpErrorDetected);
-
-    newWorker->start();
+    // 4. Restart using the shared item startup flow so gallery-dl 
+    // and active download counts are handled correctly.
+    startDownloadItem(item, true);
 }
 
 void DownloadManager::resumeDownload(const QVariantMap &itemData) {
@@ -204,16 +198,27 @@ void DownloadManager::resumeDownload(const QVariantMap &itemData) {
 }
 
 void DownloadManager::pauseDownload(const QString &id) {
+    if (m_queueManager && m_queueManager->m_pendingExpansions.contains(id)) {
+        qWarning() << "Cannot pause a download that is currently expanding playlist:" << id;
+        emit downloadResumed(id); // Revert UI
+        return;
+    }
+
     bool paused = false;
     
-    DownloadItem pausedItem; // To capture the item if it's from the queue
-
+    DownloadItem pausedItem;
+    if (m_queueManager && m_queueManager->pauseQueuedDownload(id, pausedItem)) {
+        paused = true;
+    }
+    
     if (!paused && m_activeWorkers.contains(id)) {
         QObject *worker = m_activeWorkers.take(id);
         m_queueManager->m_pausedItems[id] = m_activeItems.take(id); // Add to queue manager's paused items
         
         m_workerSpeeds.remove(id);
         updateTotalSpeed();
+
+        m_lastDownloadFinishTime = QDateTime::currentMSecsSinceEpoch();
 
         YtDlpWorker *ytDlpWorker = qobject_cast<YtDlpWorker*>(worker);
         if (ytDlpWorker) {
@@ -243,7 +248,7 @@ void DownloadManager::pauseDownload(const QString &id) {
         paused = true; // Corrected: paused = true
     } else if (!paused && m_pendingSponsorBlockPreflights.contains(id)) {
         DownloadItem item = m_pendingSponsorBlockPreflights.take(id);
-        item.options[QStringLiteral("is_stopped")] = true;
+        m_activeItems.remove(id);
         m_queueManager->m_pausedItems[id] = item;
         m_activeDownloadsCount = qMax(0, m_activeDownloadsCount - 1);
         qDebug() << "Paused SponsorBlock preflight download:" << id;
@@ -252,7 +257,11 @@ void DownloadManager::pauseDownload(const QString &id) {
     } else if (!paused && m_activeEmbedders.contains(id)) {
         qWarning() << "Cannot pause a download that is currently embedding metadata:" << id;
         emit downloadResumed(id); // Revert UI
-        paused = true;
+        return;
+    } else if (!paused) {
+        qWarning() << "Cannot pause download (it may be finalizing or already stopped):" << id;
+        emit downloadResumed(id); // Revert UI
+        return;
     }
 
     if (paused) {

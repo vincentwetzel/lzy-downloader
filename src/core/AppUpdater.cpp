@@ -48,8 +48,8 @@ QUrl selectInstallerAsset(const QJsonArray &assets)
 
     for (const QJsonValue &value : assets) {
         const QJsonObject asset = value.toObject();
-        const QString assetName = asset["name"].toString();
-        const QUrl downloadUrl(asset["browser_download_url"].toString());
+        const QString assetName = asset[QStringLiteral("name")].toString();
+        const QUrl downloadUrl(asset[QStringLiteral("browser_download_url")].toString());
 
         if (!assetName.endsWith(QStringLiteral(".exe"), Qt::CaseInsensitive) || !downloadUrl.isValid()) {
             continue;
@@ -126,17 +126,18 @@ void AppUpdater::onCheckFinished(QNetworkReply *reply) {
     }
 
     QJsonObject release = doc.object();
-    const QString latestVersion = normalizeVersionString(release["tag_name"].toString());
-    QString releaseNotes = release["body"].toString();
 
-    if (latestVersion.isEmpty()) {
-        emit updateCheckFailed(tr("Latest release did not contain a usable version tag."));
+    if (!release.contains(QStringLiteral("tag_name")) || !release[QStringLiteral("tag_name")].isString()) {
+        emit updateCheckFailed(tr("Invalid release JSON format: missing tag_name."));
         reply->deleteLater();
         return;
     }
 
+    const QString latestVersion = normalizeVersionString(release[QStringLiteral("tag_name")].toString());
+    QString releaseNotes = release[QStringLiteral("body")].toString();
+
     if (isNewerVersion(latestVersion, m_currentVersion)) {
-        const QUrl downloadUrl = selectInstallerAsset(release["assets"].toArray());
+        const QUrl downloadUrl = selectInstallerAsset(release[QStringLiteral("assets")].toArray());
         if (downloadUrl.isValid()) {
             emit updateAvailable(latestVersion, releaseNotes, downloadUrl);
             reply->deleteLater();
@@ -194,7 +195,11 @@ void AppUpdater::onDownloadFinished(QNetworkReply *reply) {
     }
 
     installerFile.write(reply->readAll());
-    installerFile.commit();
+    if (!installerFile.commit()) {
+        emit updateCheckFailed(tr("Failed to save installer: %1").arg(installerFile.errorString()));
+        reply->deleteLater();
+        return;
+    }
     reply->deleteLater();
 
     emit downloadFinished();

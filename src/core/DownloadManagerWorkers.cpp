@@ -7,6 +7,7 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QMetaObject>
+#include <QDateTime>
 
 namespace {
 bool shouldNormalizeSectionContainer(const DownloadItem &item)
@@ -132,6 +133,8 @@ void DownloadManager::onWorkerFinished(const QString &id, bool success, const QS
     updateTotalSpeed();
     workerObj->deleteLater();
 
+    m_lastDownloadFinishTime = QDateTime::currentMSecsSinceEpoch();
+
 
     if (!success) {
         DownloadItem item = m_activeItems.take(id);
@@ -229,6 +232,8 @@ void DownloadManager::onGalleryDlWorkerFinished(const QString &id, bool success,
     updateTotalSpeed();
     workerObj->deleteLater();
 
+    m_lastDownloadFinishTime = QDateTime::currentMSecsSinceEpoch();
+
 
     if (!success) {
         DownloadItem item = m_activeItems.take(id);
@@ -320,11 +325,11 @@ void DownloadManager::onFinalizationComplete(const QString &id, bool success, co
     m_activeItems.remove(id);
 
     emitDownloadStats();
-        
-        // CRITICAL: Synchronously flush state immediately so headless exits do not terminate
-        // with a pending state save sitting in the event loop queue.
-        m_queueManager->saveQueueState(m_activeItems);
-        
+
+     // CRITICAL: Synchronously flush state immediately so headless exits do not terminate
+    // with a pending state save sitting in the event loop queue.
+    m_queueManager->saveQueueState(m_activeItems);
+
     QMetaObject::invokeMethod(this, [this]() {
         startNextDownload();
     }, Qt::QueuedConnection);

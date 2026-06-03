@@ -14,6 +14,7 @@
 #include <QThread>
 #include <QTimer>
 #include <QSaveFile>
+#include <chrono>
 #include "core/ProcessUtils.h"
 #include "core/ConfigManager.h"
 
@@ -77,6 +78,15 @@ void GalleryDlUpdater::fetchVersion() {
         m_process = nullptr;
         return;
     }
+
+    QTimer *watchdog = new QTimer(m_process);
+    watchdog->setSingleShot(true);
+    QProcess *p = m_process;
+    connect(watchdog, &QTimer::timeout, p, [p]() {
+        qWarning() << "gallery-dl --version timed out. Killing process.";
+        if (p->state() != QProcess::NotRunning) p->kill();
+    });
+    watchdog->start(std::chrono::seconds(10)); // 10 seconds
 
     m_process->start(binary.path, QStringList{QStringLiteral("--version")});
 }
@@ -284,7 +294,7 @@ QString GalleryDlUpdater::normalizeVersion(const QString &version) const {
 }
 
 QString GalleryDlUpdater::storedVersionPath() const {
-    return QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral("gallery-dl.version"));
+    return QDir(m_configManager->getConfigDir()).filePath(QStringLiteral("gallery-dl.version"));
 }
 
 QString GalleryDlUpdater::loadStoredVersion() const {

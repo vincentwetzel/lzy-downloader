@@ -11,7 +11,6 @@ GalleryDlArgsBuilder::GalleryDlArgsBuilder(ConfigManager *configManager)
 QStringList GalleryDlArgsBuilder::build(const QString &url, const QVariantMap &options) {
     QStringList args;
     args << QStringLiteral("--verbose");
-    args << url;
 
     // Output path - gallery-dl's --directory sets the base download directory
     QString tempPath = m_configManager->get(QStringLiteral("Paths"), QStringLiteral("temporary_downloads_directory")).toString();
@@ -29,20 +28,26 @@ QStringList GalleryDlArgsBuilder::build(const QString &url, const QVariantMap &o
 
     // Cookies
     QString cookiesBrowser = m_configManager->get(QStringLiteral("General"), QStringLiteral("gallery_cookies_from_browser"), QStringLiteral("None")).toString();
+    
+    // Fallback to yt-dlp's browser cookie setting if the gallery-specific one is not set
+    if (cookiesBrowser == QStringLiteral("None")) {
+        cookiesBrowser = m_configManager->get(QStringLiteral("General"), QStringLiteral("cookies_from_browser"), QStringLiteral("None")).toString();
+    }
+
     if (cookiesBrowser != QStringLiteral("None")) {
         args << QStringLiteral("--cookies-from-browser") << cookiesBrowser.toLower();
     }
 
-    // External Downloader
-    if (m_configManager->get(QStringLiteral("Metadata"), QStringLiteral("use_aria2c"), false).toBool()
-        && ProcessUtils::findBinary(QStringLiteral("aria2c"), m_configManager).source != QStringLiteral("Not Found")) {
-        args << QStringLiteral("-o") << QStringLiteral("downloader.program=aria2c");
+    // Rate Limit
+    QString rateLimit = options.value(QStringLiteral("rate_limit"), QStringLiteral("Unlimited")).toString();
+    if (rateLimit == QStringLiteral("Unlimited")) {
+        rateLimit = m_configManager->get(QStringLiteral("General"), QStringLiteral("rate_limit"), QStringLiteral("Unlimited")).toString();
     }
 
-    // Rate Limit
-    QString rateLimit = m_configManager->get(QStringLiteral("General"), QStringLiteral("rate_limit"), QStringLiteral("Unlimited")).toString();
     if (rateLimit != QStringLiteral("Unlimited")) {
-        args << QStringLiteral("--limit-rate") << rateLimit.split(QLatin1Char(' ')).first();
+        QString formattedRate = rateLimit;
+        formattedRate.replace(QLatin1String(" MB/s"), QLatin1String("M")).replace(QLatin1String(" KB/s"), QLatin1String("K")).replace(QLatin1Char(' '), QString());
+        args << QStringLiteral("--limit-rate") << formattedRate;
     }
 
     // Override duplicate download check
@@ -52,8 +57,10 @@ QStringList GalleryDlArgsBuilder::build(const QString &url, const QVariantMap &o
 
     // Restrict filenames
     if (m_configManager->get(QStringLiteral("General"), QStringLiteral("restrict_filenames"), false).toBool()) {
-        args << QStringLiteral("--windows-filenames");
+        args << QStringLiteral("--restrict-filenames");
     }
+
+    args << url;
 
     return args;
 }

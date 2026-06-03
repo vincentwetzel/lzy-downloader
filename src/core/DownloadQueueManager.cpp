@@ -171,9 +171,13 @@ void DownloadQueueManager::enqueueDownload(const DownloadItem &item, bool isNew)
     uiData[QStringLiteral("progress")] = -1;
     uiData[QStringLiteral("options")] = item.options;
     uiData[QStringLiteral("playlistIndex")] = item.playlistIndex;
-    const QString initialTitle = item.options.value("initial_title").toString().trimmed();
+    const QString initialTitle = item.options.value(QStringLiteral("initial_title")).toString().trimmed();
     if (!initialTitle.isEmpty()) {
         uiData[QStringLiteral("title")] = initialTitle;
+    }
+    const QString thumb = item.options.value(QStringLiteral("thumbnail_url")).toString().trimmed();
+    if (!thumb.isEmpty()) {
+        uiData[QStringLiteral("thumbnail_path")] = thumb;
     }
     
     if (isNew) {
@@ -381,6 +385,19 @@ void DownloadQueueManager::processResumeDownloadsSelection(const QJsonArray &arr
         uiData[QStringLiteral("status")] = (status == QStringLiteral("paused")) ? tr("Paused") : tr("Queued");
         uiData[QStringLiteral("progress")] = 0;
         uiData[QStringLiteral("options")] = item.options;
+        
+        const QString initialTitle = item.options.value(QStringLiteral("initial_title")).toString().trimmed();
+        if (!initialTitle.isEmpty()) {
+            uiData[QStringLiteral("title")] = initialTitle;
+        } else if (item.metadata.contains(QStringLiteral("title"))) {
+            uiData[QStringLiteral("title")] = item.metadata.value(QStringLiteral("title"));
+        }
+        const QString thumbPath = item.metadata.value(QStringLiteral("thumbnail_path")).toString().trimmed();
+        if (!thumbPath.isEmpty()) {
+            uiData[QStringLiteral("thumbnail_path")] = thumbPath;
+        } else if (item.options.contains(QStringLiteral("thumbnail_url"))) {
+            uiData[QStringLiteral("thumbnail_path")] = item.options.value(QStringLiteral("thumbnail_url")).toString().trimmed();
+        }
 
         if (status == QStringLiteral("paused")) {
             m_pausedItems[item.id] = item;

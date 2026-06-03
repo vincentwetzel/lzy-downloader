@@ -16,10 +16,10 @@
 #include <QSizePolicy>
 #include <QMessageBox> // For QMessageBox
 
-const QString GITHUB_PROJECT_URL = "https://github.com/vincentwetzel/LzyDownloader";
-const QString DEVELOPER_DISCORD_URL_PART1 = "https://discord.gg/";
-const QString DEVELOPER_DISCORD_URL_PART2 = "NfWaqK";
-const QString DEVELOPER_DISCORD_URL_PART3 = "gYRG";
+const QString GITHUB_PROJECT_URL = QStringLiteral("https://github.com/vincentwetzel/LzyDownloader");
+const QString DEVELOPER_DISCORD_URL_PART1 = QStringLiteral("https://discord.gg/");
+const QString DEVELOPER_DISCORD_URL_PART2 = QStringLiteral("NfWaqK");
+const QString DEVELOPER_DISCORD_URL_PART3 = QStringLiteral("gYRG");
 
 MainWindowUiBuilder::MainWindowUiBuilder(ConfigManager *configManager, QObject *parent)
     : QObject(parent),
@@ -43,32 +43,32 @@ void MainWindowUiBuilder::build(QMainWindow *mainWindow, QVBoxLayout *mainLayout
     mainLayout->addWidget(m_tabWidget);
 
     QComboBox *languageCombo = new QComboBox(mainWindow);
-    languageCombo->setToolTip("Select Application Language");
+    languageCombo->setToolTip(tr("Select Application Language"));
     QStringList languagesWithFlags = {
-        "🇺🇸 English", "🇪🇸 Spanish", "🇵🇹 Portuguese", "🇷🇺 Russian", "🇩🇪 German", "🇫🇷 French",
-        "🇮🇹 Italian", "🇨🇳 Mandarin", "🇮🇳 Hindi", "🇧🇩 Bengali", "🇯🇵 Japanese", "🇵🇰 Western Punjabi",
-        "🇹🇷 Turkish", "🇻🇳 Vietnamese", "🇭🇰 Yue Chinese", "🇪🇬 Egyptian Arabic", "🇨🇳 Wu Chinese",
-        "🇮🇳 Marathi", "🇮🇳 Telugu", "🇰🇷 Korean", "🇮🇳 Tamil", "🇵🇰 Urdu", "🇮🇩 Indonesian",
-        "🇮🇩 Javanese", "🇮🇷 Iranian Persian", "🇳🇬 Hausa", "🇮🇳 Gujarati", "🇱🇧 Levantine Arabic",
-        "🇮🇳 Bhojpuri"
+        QStringLiteral("🇺🇸 English"), QStringLiteral("🇪🇸 Spanish"), QStringLiteral("🇵🇹 Portuguese"), QStringLiteral("🇷🇺 Russian"), QStringLiteral("🇩🇪 German"), QStringLiteral("🇫🇷 French"),
+        QStringLiteral("🇮🇹 Italian"), QStringLiteral("🇨🇳 Mandarin"), QStringLiteral("🇮🇳 Hindi"), QStringLiteral("🇧🇩 Bengali"), QStringLiteral("🇯🇵 Japanese"), QStringLiteral("🇵🇰 Western Punjabi"),
+        QStringLiteral("🇹🇷 Turkish"), QStringLiteral("🇻🇳 Vietnamese"), QStringLiteral("🇭🇰 Yue Chinese"), QStringLiteral("🇪🇬 Egyptian Arabic"), QStringLiteral("🇨🇳 Wu Chinese"),
+        QStringLiteral("🇮🇳 Marathi"), QStringLiteral("🇮🇳 Telugu"), QStringLiteral("🇰🇷 Korean"), QStringLiteral("🇮🇳 Tamil"), QStringLiteral("🇵🇰 Urdu"), QStringLiteral("🇮🇩 Indonesian"),
+        QStringLiteral("🇮🇩 Javanese"), QStringLiteral("🇮🇷 Iranian Persian"), QStringLiteral("🇳🇬 Hausa"), QStringLiteral("🇮🇳 Gujarati"), QStringLiteral("🇱🇧 Levantine Arabic"),
+        QStringLiteral("🇮🇳 Bhojpuri")
     };
     languageCombo->addItems(languagesWithFlags);
 
-    QString savedLang = m_configManager->get("General", "language", "🇺🇸 English").toString();
+    QString savedLang = m_configManager->get(QStringLiteral("General"), QStringLiteral("language"), QStringLiteral("🇺🇸 English")).toString();
     int index = languageCombo->findText(savedLang);
     if (index >= 0) languageCombo->setCurrentIndex(index);
     m_tabWidget->setCornerWidget(languageCombo, Qt::TopRightCorner);
     connect(languageCombo, &QComboBox::currentTextChanged, this, [this](const QString &text) {
-        if (m_configManager->get("General", "language", "🇺🇸 English").toString() != text) {
-            m_configManager->set("General", "language", text);
-            QMessageBox::information(nullptr, "Language Changed", "Language changed to " + text + ".\n\nPlease restart the application for changes to take full effect.");
+        if (m_configManager->get(QStringLiteral("General"), QStringLiteral("language"), QStringLiteral("🇺🇸 English")).toString() != text) {
+            m_configManager->set(QStringLiteral("General"), QStringLiteral("language"), text);
+            QMessageBox::information(qobject_cast<QWidget*>(parent()), tr("Language Changed"), tr("Language changed to %1.\n\nPlease restart the application for changes to take full effect.").arg(text));
         }
     });
 
-    m_tabWidget->addTab(startTab, "Start Download");
-    m_tabWidget->addTab(activeDownloadsTab, "Active Downloads");
-    m_tabWidget->addTab(sortingTab, "Sorting Rules");
-    m_tabWidget->addTab(advancedSettingsTab, "Advanced Settings");
+    m_tabWidget->addTab(startTab, tr("Start Download"));
+    m_tabWidget->addTab(activeDownloadsTab, tr("Active Downloads"));
+    m_tabWidget->addTab(sortingTab, tr("Sorting Rules"));
+    m_tabWidget->addTab(advancedSettingsTab, tr("Advanced Settings"));
 
     // Dynamically adjust size policies to prevent hidden tabs from forcing a large minimum window width.
     // This ensures that only the currently visible tab influences the window's minimum size.
@@ -90,32 +90,32 @@ void MainWindowUiBuilder::build(QMainWindow *mainWindow, QVBoxLayout *mainLayout
 
     QVBoxLayout *footerContainer = new QVBoxLayout();
     QHBoxLayout *footerTopRow = new QHBoxLayout();
-    QLabel *githubLink = new QLabel(QString("<a href=\"%1\">Source Code</a>").arg(GITHUB_PROJECT_URL));
+    QLabel *githubLink = new QLabel(tr("<a href=\"%1\">Source Code</a>").arg(GITHUB_PROJECT_URL));
     githubLink->setOpenExternalLinks(true);
-    githubLink->setToolTip("Visit the project's source code repository on GitHub.");
+    githubLink->setToolTip(tr("Visit the project's source code repository on GitHub."));
 
-    QLabel *discordLink = new QLabel(QString("<a href=\"%1%2%3\"><img src=\":/ui/assets/discord.png\" alt=\"Developer Discord\" width=\"24\" height=\"24\"></a>")
+    QLabel *discordLink = new QLabel(tr("<a href=\"%1%2%3\"><img src=\":/ui/assets/discord.png\" alt=\"Developer Discord\" width=\"24\" height=\"24\"></a>")
                                          .arg(DEVELOPER_DISCORD_URL_PART1)
                                          .arg(DEVELOPER_DISCORD_URL_PART2)
                                          .arg(DEVELOPER_DISCORD_URL_PART3));
     discordLink->setOpenExternalLinks(true);
-    discordLink->setToolTip("Join the developer Discord server.");
+    discordLink->setToolTip(tr("Join the developer Discord server."));
 
-    m_queuedDownloadsLabel = new QLabel("Queued: 0", mainWindow);
-    m_queuedDownloadsLabel->setToolTip("Number of downloads waiting to start.");
-    m_activeDownloadsLabel = new QLabel("Active: 0", mainWindow);
-    m_activeDownloadsLabel->setToolTip("Number of currently active downloads.");
-    m_completedDownloadsLabel = new QLabel("Completed: 0", mainWindow);
-    m_completedDownloadsLabel->setToolTip("Number of successfully completed downloads.");
-    m_errorDownloadsLabel = new QLabel("Errors: 0", mainWindow);
-    m_errorDownloadsLabel->setToolTip("Number of downloads that failed with an error.");
-    m_speedLabel = new QLabel("Current Speed: 0.00 MB/s", mainWindow);
-    m_speedLabel->setToolTip("Total download speed across all active transfers.");
+    m_queuedDownloadsLabel = new QLabel(tr("Queued: 0"), mainWindow);
+    m_queuedDownloadsLabel->setToolTip(tr("Number of downloads waiting to start."));
+    m_activeDownloadsLabel = new QLabel(tr("Active: 0"), mainWindow);
+    m_activeDownloadsLabel->setToolTip(tr("Number of currently active downloads."));
+    m_completedDownloadsLabel = new QLabel(tr("Completed: 0"), mainWindow);
+    m_completedDownloadsLabel->setToolTip(tr("Number of successfully completed downloads."));
+    m_errorDownloadsLabel = new QLabel(tr("Errors: 0"), mainWindow);
+    m_errorDownloadsLabel->setToolTip(tr("Number of downloads that failed with an error."));
+    m_speedLabel = new QLabel(tr("Current Speed: 0.00 MB/s"), mainWindow);
+    m_speedLabel->setToolTip(tr("Total download speed across all active transfers."));
 
-    QLabel *exitAfterLabel = new QLabel("Exit after all downloads complete:", mainWindow);
+    QLabel *exitAfterLabel = new QLabel(tr("Exit after all downloads complete:"), mainWindow);
     m_exitAfterSwitch = new ToggleSwitch(mainWindow);
-    m_exitAfterSwitch->setToolTip("If switched on, the application will automatically close once all your downloads are finished.");
-    m_exitAfterSwitch->setChecked(m_configManager->get("General", "exit_after", false).toBool());
+    m_exitAfterSwitch->setToolTip(tr("If switched on, the application will automatically close once all your downloads are finished."));
+    m_exitAfterSwitch->setChecked(m_configManager->get(QStringLiteral("General"), QStringLiteral("exit_after"), false).toBool());
 
     footerTopRow->addWidget(githubLink);
     footerTopRow->addSpacing(20);

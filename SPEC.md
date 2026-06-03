@@ -56,6 +56,7 @@ This document outlines the specifications for the C++ port of the LzyDownloader 
     - Video Settings group with quality, codec, extension, and audio codec defaults. Choosing `Quality = Select at Runtime` must hide the other video-format defaults on that page and defer the whole format decision to the runtime picker. Includes a "Lock Video Settings" checkbox.
     - Audio Settings group with quality, codec, and extension defaults. Choosing `Quality = Select at Runtime` must hide the other audio-format defaults on that page and defer the whole format decision to the runtime picker. Includes a "Lock Audio Settings" checkbox.
     - Operational Controls including Playlist logic, Max Concurrent downloads (capped at 4 on application startup), a global Rate Limit (app-wide, not per-download), and "Override duplicate download check". Changing these controls must instantly save to configuration and immediately react in the backend. "Exit after all downloads complete" is controlled from the main window footer.
+    - When Playlist logic is `Ask`, detected multi-item playlists must let the user queue every item, queue only selected items through a range/checkbox selector, queue only the first item, or cancel. Partial selection ranges are one-based and comma-separated, such as `1-5, 8, 11-13`.
 - **Active Downloads Tab**:
     - Displays a list of queued, actively downloading, and completed items.
     - Each download GUI element must play/display a thumbnail preview for audio/video downloads on the left side of the widget.
@@ -154,6 +155,7 @@ This document outlines the specifications for the C++ port of the LzyDownloader 
     - **Queue state persistence**: `DownloadQueueState` class handles saving/loading queue state, deferring calls via `Qt::QueuedConnection` to prevent GUI thread blocking.
   - **Single videos**: Status updates from "Checking for playlist..." to "Queued" once expansion completes. `DownloadQueueManager` handles updating the placeholder item.
   - **Playlists**: Placeholder item is removed and replaced with individual items for each track
+    - If the user chooses partial playlist queueing, only selected expanded entries are enqueued and the original placeholder is still removed cleanly.
   - Queue state persistence (handled by `DownloadQueueManager`) MUST be deferred via `Qt::QueuedConnection` to prevent GUI thread blocking
   - Playlist-derived items must preserve enough metadata (`is_playlist`, `playlist_title`, and playlist index/context) for downstream sorting rules and finalization to treat them as playlist downloads instead of single-item fallbacks.
 - **Runtime Format Selection**: When Advanced Settings `Quality` is set to `Select at Runtime` for video or audio downloads, the app must asynchronously fetch format metadata with `yt-dlp` and present a structured selection dialog. Selecting multiple formats must enqueue one download per selected format.
@@ -205,4 +207,4 @@ This document outlines the specifications for the C++ port of the LzyDownloader 
 - CMake must register new single-source Qt test executables through `lzy_add_test(...)`.
 - The test suite must remain runnable through `ctest -C <config> --output-on-failure`.
 - `run_headless_tests.py` is the canonical helper for non-interactive Windows test runs; it builds the requested configuration and sets `QT_QPA_PLATFORM=offscreen`.
-- Current required coverage includes yt-dlp argument generation/progress parsing, archive normalization, configuration defaults/reset and legacy cleanup, Local API token/auth/enqueue behavior, process binary-resolution cache behavior, URL validation, sorting sanitization, UI progress widgets, and the local end-to-end download fixture.
+- Current required coverage includes yt-dlp argument generation/progress parsing, archive normalization, configuration defaults/reset and legacy cleanup, Local API token/auth/enqueue behavior, process binary-resolution cache behavior, URL validation, sorting sanitization, playlist range selection, UI progress widgets, and the local end-to-end download fixture.

@@ -14,6 +14,7 @@
 #include <QThread>
 #include <QTimer>
 #include <QSaveFile>
+#include <chrono>
 #include "core/ProcessUtils.h"
 #include "core/ConfigManager.h"
 
@@ -89,7 +90,7 @@ void YtDlpUpdater::fetchVersion() {
         qWarning() << "yt-dlp --version timed out. Killing process.";
         if (p->state() != QProcess::NotRunning) p->kill();
     });
-    watchdog->start(10000); // 10 seconds
+    watchdog->start(std::chrono::seconds(10)); // 10 seconds
 
     m_process->start(binary.path, QStringList{QStringLiteral("--version")});
 }
@@ -161,7 +162,8 @@ void YtDlpUpdater::onReleaseCheckFinished() {
         QNetworkRequest request(downloadUrl);
         request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
         request.setHeader(QNetworkRequest::UserAgentHeader, QStringLiteral("LzyDownloader"));
-        request.setTransferTimeout(60000);
+        constexpr int downloadTimeoutMs = 60000;
+        request.setTransferTimeout(downloadTimeoutMs);
         QNetworkReply *dlReply = m_networkManager->get(request);
         dlReply->setProperty("newVersion", remoteVersionTag);
         connect(dlReply, &QNetworkReply::downloadProgress, this, [dlReply](qint64 bytesReceived, qint64 bytesTotal) {
@@ -265,7 +267,8 @@ void YtDlpUpdater::onVersionFetchFinished(int exitCode, QProcess::ExitStatus exi
         QNetworkRequest request(url);
         request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
         request.setHeader(QNetworkRequest::UserAgentHeader, QStringLiteral("LzyDownloader"));
-        request.setTransferTimeout(15000);
+        constexpr int releaseCheckTimeoutMs = 15000;
+        request.setTransferTimeout(releaseCheckTimeoutMs);
         QNetworkReply *reply = m_networkManager->get(request);
         connect(reply, &QNetworkReply::finished, this, &YtDlpUpdater::onReleaseCheckFinished);
     }
@@ -293,7 +296,7 @@ bool YtDlpUpdater::isVersionNewer(const QString &localVersion, const QString &re
 }
 
 QString YtDlpUpdater::storedVersionPath() const {
-    return QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral("yt-dlp.version"));
+    return QDir(m_configManager->getConfigDir()).filePath(QStringLiteral("yt-dlp.version"));
 }
 
 QString YtDlpUpdater::loadStoredVersion() const {

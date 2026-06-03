@@ -7,6 +7,7 @@
 #include "FormatSelectionDialog.h"
 
 #include "core/version.h"
+#include "core/PlaylistRangeDialog.h"
 #include "core/AppUpdater.h"
 #include "core/ConfigManager.h"
 #include "core/DownloadManager.h"
@@ -33,6 +34,7 @@
 #include <QThread>
 #include <QTimer>
 #include <QUrl>
+#include <chrono>
 
 #ifdef Q_OS_WIN
 #include <windows.h>
@@ -67,7 +69,7 @@ void applyConsoleState(bool show)
 #endif
 
 namespace {
-const QString GITHUB_PROJECT_URL = "https://github.com/vincentwetzel/lzy-downloader";
+const QString GITHUB_PROJECT_URL = QStringLiteral("https://github.com/vincentwetzel/lzy-downloader");
 }
 
 void MainWindow::setupLocalApiServer()
@@ -75,13 +77,13 @@ void MainWindow::setupLocalApiServer()
     m_localApiServer = new LocalApiServer(m_configManager, this);
     connect(m_localApiServer, &LocalApiServer::enqueueRequested, this, &MainWindow::onLocalApiEnqueueRequested);
     const bool serverMode = MainWindowHelpers::hasServerLaunchArgument();
-    if (serverMode || m_configManager->get("General", "enable_local_api", false).toBool()) {
+    if (serverMode || m_configManager->get(QStringLiteral("General"), QStringLiteral("enable_local_api"), false).toBool()) {
         qInfo() << "[LocalApi] Attempting to start Local API Server on startup..."
                 << "serverMode:" << serverMode;
         m_localApiServer->start();
     }
     connect(m_configManager, &ConfigManager::settingChanged, this, [this, serverMode](const QString &section, const QString &key, const QVariant &value) {
-        if (section == "General" && key == "enable_local_api") {
+        if (section == QStringLiteral("General") && key == QStringLiteral("enable_local_api")) {
             if (value.toBool()) {
                 qInfo() << "[LocalApi] Local API Server enabled by user setting. Starting server...";
                 m_localApiServer->start();
@@ -104,10 +106,10 @@ void MainWindow::setupWindowsDebugConsole()
 #elif !defined(NDEBUG)
     isDebug = true;
 #endif
-    bool showConsole = m_configManager->get("General", "show_debug_console", isDebug).toBool();
+    bool showConsole = m_configManager->get(QStringLiteral("General"), QStringLiteral("show_debug_console"), isDebug).toBool();
     applyConsoleState(showConsole);
     connect(m_configManager, &ConfigManager::settingChanged, this, [](const QString &section, const QString &key, const QVariant &value) {
-        if (section == "General" && key == "show_debug_console") {
+        if (section == QStringLiteral("General") && key == QStringLiteral("show_debug_console")) {
             applyConsoleState(value.toBool());
         }
     });
@@ -128,27 +130,27 @@ void MainWindow::connectAppUpdaterSignals()
 
                 QMessageBox msgBox(this);
                 msgBox.setIcon(QMessageBox::Information);
-                msgBox.setWindowTitle("Update Available");
-                msgBox.setText(QString("LzyDownloader %1 is available. You are currently running %2.")
-                                   .arg(latestVersion, QString(APP_VERSION_STRING)));
+                msgBox.setWindowTitle(tr("Update Available"));
+                msgBox.setText(tr("LzyDownloader %1 is available. You are currently running %2.")
+                                   .arg(latestVersion, QStringLiteral(APP_VERSION_STRING)));
 
-                QString informativeText = "Would you like to download and install the update now?";
+                QString informativeText = tr("Would you like to download and install the update now?");
                 if (!releaseNotes.trimmed().isEmpty()) {
                     QString trimmedNotes = releaseNotes.trimmed();
                     if (trimmedNotes.size() > 1200) {
-                        trimmedNotes = trimmedNotes.left(1200).trimmed() + "\n\n[Release notes truncated]";
+                        trimmedNotes = tr("%1\n\n[Release notes truncated]").arg(trimmedNotes.left(1200).trimmed());
                     }
-                    informativeText += "\n\nRelease notes:\n" + trimmedNotes;
+                    informativeText = tr("%1\n\nRelease notes:\n%2").arg(informativeText, trimmedNotes);
                 }
                 msgBox.setInformativeText(informativeText);
 
-                QPushButton *updateNowButton = msgBox.addButton("Update Now", QMessageBox::AcceptRole);
-                QPushButton *viewReleaseButton = msgBox.addButton("View Release", QMessageBox::ActionRole);
+                QPushButton *updateNowButton = msgBox.addButton(tr("Update Now"), QMessageBox::AcceptRole);
+                QPushButton *viewReleaseButton = msgBox.addButton(tr("View Release"), QMessageBox::ActionRole);
                 msgBox.addButton(QMessageBox::Cancel);
                 msgBox.exec();
 
                 if (msgBox.clickedButton() == updateNowButton) {
-                    statusBar()->showMessage("Downloading update...");
+                    statusBar()->showMessage(tr("Downloading update..."));
                     m_appUpdater->downloadAndInstall(downloadUrl);
                 } else if (msgBox.clickedButton() == viewReleaseButton) {
                     QDesktopServices::openUrl(QUrl(GITHUB_PROJECT_URL + "/releases/latest"));
@@ -165,21 +167,21 @@ void MainWindow::connectAppUpdaterSignals()
         m_silentUpdateCheck = false;
         qWarning() << "App update check failed:" << error;
         if (!wasSilent) {
-            QMessageBox::warning(this, "Update Check Failed", error);
+            QMessageBox::warning(this, tr("Update Check Failed"), error);
         }
     });
 
     connect(m_appUpdater, &AppUpdater::downloadProgress, this, [this](qint64 bytesReceived, qint64 bytesTotal) {
         if (bytesTotal > 0) {
             const double percent = (static_cast<double>(bytesReceived) / static_cast<double>(bytesTotal)) * 100.0;
-            statusBar()->showMessage(QString("Downloading update... %1%").arg(percent, 0, 'f', 1));
+            statusBar()->showMessage(tr("Downloading update... %1%").arg(percent, 0, 'f', 1));
         } else {
-            statusBar()->showMessage("Downloading update...");
+            statusBar()->showMessage(tr("Downloading update..."));
         }
     });
 
     connect(m_appUpdater, &AppUpdater::downloadFinished, this, [this]() {
-        statusBar()->showMessage("Update downloaded. Launching installer...", 5000);
+        statusBar()->showMessage(tr("Update downloaded. Launching installer..."), 5000);
     });
 }
 
@@ -190,46 +192,46 @@ void MainWindow::scheduleInitialSetup()
         bool isNonInteractive = m_nonInteractiveLaunch;
 
         if (isHeadless && m_trayIcon) {
-            m_trayIcon->showMessage("LzyDownloader", "Running in headless server mode.", QSystemTrayIcon::Information, 3000);
+            m_trayIcon->showMessage(QStringLiteral("LzyDownloader"), tr("Running in headless server mode."), QSystemTrayIcon::Information, 3000);
         }
 
-        QString completedDownloadsDir = m_configManager->get("Paths", "completed_downloads_directory").toString();
+        QString completedDownloadsDir = m_configManager->get(QStringLiteral("Paths"), QStringLiteral("completed_downloads_directory")).toString();
         if (completedDownloadsDir.isEmpty()) {
             if (isNonInteractive) {
                 QString baseDownloadDir = QStandardPaths::writableLocation(QStandardPaths::DownloadLocation);
                 if (baseDownloadDir.isEmpty()) {
                     baseDownloadDir = QDir::homePath();
                 }
-                completedDownloadsDir = QDir(baseDownloadDir).filePath("LzyDownloader");
-                if (m_configManager->set("Paths", "completed_downloads_directory", completedDownloadsDir)) {
+                completedDownloadsDir = QDir(baseDownloadDir).filePath(QStringLiteral("LzyDownloader"));
+                if (m_configManager->set(QStringLiteral("Paths"), QStringLiteral("completed_downloads_directory"), completedDownloadsDir)) {
                     m_configManager->save();
                 }
                 qInfo() << "Set default completed downloads directory for non-interactive launch:" << completedDownloadsDir;
             } else {
-                QMessageBox::information(this, "Setup Required",
-                                         "Please select a directory for completed downloads. This will also set up a temporary downloads directory.");
-                QString selectedDir = QFileDialog::getExistingDirectory(this, "Select Completed Downloads Directory",
+                QMessageBox::information(this, tr("Setup Required"),
+                                         tr("Please select a directory for completed downloads. This will also set up a temporary downloads directory."));
+                QString selectedDir = QFileDialog::getExistingDirectory(this, tr("Select Completed Downloads Directory"),
                                                                         QDir::homePath(), QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
                 if (!selectedDir.isEmpty()) {
-                    if (m_configManager->set("Paths", "completed_downloads_directory", selectedDir)) {
+                    if (m_configManager->set(QStringLiteral("Paths"), QStringLiteral("completed_downloads_directory"), selectedDir)) {
                         m_configManager->save();
                     }
                     completedDownloadsDir = selectedDir;
-                    QMessageBox::information(this, "Directory Set",
-                                             QString("Completed downloads directory set to:\n%1\n\nTemporary downloads directory set to:\n%2")
+                    QMessageBox::information(this, tr("Directory Set"),
+                                             tr("Completed downloads directory set to:\n%1\n\nTemporary downloads directory set to:\n%2")
                                                  .arg(completedDownloadsDir)
                                                  .arg(QDir(completedDownloadsDir).filePath("temp_downloads")));
                 } else {
-                    QMessageBox::warning(this, "Directory Not Set",
-                                         "No completed downloads directory was selected. Please set it in Advanced Settings to enable downloads.");
+                    QMessageBox::warning(this, tr("Directory Not Set"),
+                                         tr("No completed downloads directory was selected. Please set it in Advanced Settings to enable downloads."));
                 }
             }
         }
 
-        QString temporaryDownloadsDir = m_configManager->get("Paths", "temporary_downloads_directory").toString();
+        QString temporaryDownloadsDir = m_configManager->get(QStringLiteral("Paths"), QStringLiteral("temporary_downloads_directory")).toString();
         if (!completedDownloadsDir.isEmpty() && temporaryDownloadsDir.isEmpty()) {
-            QString defaultTempDir = QDir(completedDownloadsDir).filePath("temp_downloads");
-            if (m_configManager->set("Paths", "temporary_downloads_directory", defaultTempDir)) {
+            QString defaultTempDir = QDir(completedDownloadsDir).filePath(QStringLiteral("temp_downloads"));
+            if (m_configManager->set(QStringLiteral("Paths"), QStringLiteral("temporary_downloads_directory"), defaultTempDir)) {
                 m_configManager->save();
                 qInfo() << "Automatically set missing temporary_downloads_directory to" << defaultTempDir;
             }
@@ -303,26 +305,41 @@ void MainWindow::connectDownloadManagerSignals()
 
                 QMessageBox msgBox(this);
                 msgBox.setIcon(QMessageBox::Question);
-                msgBox.setWindowTitle("Playlist Detected");
-                msgBox.setText(QString("This URL contains a playlist with %1 item(s).").arg(itemCount));
-                msgBox.setInformativeText("Do you want to queue every item or just the first one?");
+                msgBox.setWindowTitle(tr("Playlist Detected"));
+                msgBox.setText(tr("This URL contains a playlist with %1 item(s).").arg(itemCount));
+                msgBox.setInformativeText(tr("Do you want to queue every item or just the first one?"));
 
-                QPushButton *downloadAllButton = msgBox.addButton("Download All", QMessageBox::AcceptRole);
-                QPushButton *downloadSingleButton = msgBox.addButton("Download Single Item", QMessageBox::ActionRole);
+                QPushButton *downloadAllButton = msgBox.addButton(tr("Download All"), QMessageBox::AcceptRole);
+                QPushButton *downloadPartButton = msgBox.addButton(tr("Download Part..."), QMessageBox::ActionRole);
+                QPushButton *downloadSingleButton = msgBox.addButton(tr("Download Single Item"), QMessageBox::ActionRole);
                 QPushButton *cancelButton = msgBox.addButton(QMessageBox::Cancel);
 
                 msgBox.exec();
 
                 QString action;
+                QList<QVariantMap> itemsToProcess = expandedItems;
+
                 if (msgBox.clickedButton() == downloadAllButton) {
-                    action = "Download All";
+                    action = QStringLiteral("Download All");
+                } else if (msgBox.clickedButton() == downloadPartButton) {
+                    PlaylistRangeDialog rangeDialog(expandedItems, this);
+                    if (rangeDialog.exec() == QDialog::Accepted) {
+                        itemsToProcess = rangeDialog.getSelectedItems();
+                        if (!itemsToProcess.isEmpty()) {
+                            action = QStringLiteral("Download Part");
+                        } else {
+                            action = QStringLiteral("Cancel");
+                        }
+                    } else {
+                        action = QStringLiteral("Cancel");
+                    }
                 } else if (msgBox.clickedButton() == downloadSingleButton) {
-                    action = "Download Single Item";
+                    action = QStringLiteral("Download Single Item");
                 } else if (msgBox.clickedButton() == cancelButton) {
-                    action = "Cancel";
+                    action = QStringLiteral("Cancel");
                 }
 
-                m_downloadManager->processPlaylistSelection(url, action, options, expandedItems);
+                m_downloadManager->processPlaylistSelection(url, action, options, itemsToProcess);
                 m_uiBuilder->tabWidget()->setCurrentWidget(m_activeDownloadsTab);
             });
 
@@ -330,7 +347,7 @@ void MainWindow::connectDownloadManagerSignals()
             [this](const QString &url, const QVariantMap &options, const QVariantMap &infoDict) {
                 if (MainWindowHelpers::isNonInteractiveRequest(options)) {
                     QVariantMap newOptions = options;
-                    newOptions["runtime_format_selected"] = true;
+                    newOptions[QStringLiteral("runtime_format_selected")] = true;
                     qInfo() << "Skipping runtime format dialog for non-interactive request:" << url;
                     m_downloadManager->enqueueDownload(url, newOptions);
                     return;
@@ -342,8 +359,8 @@ void MainWindow::connectDownloadManagerSignals()
                     if (!selectedFormats.isEmpty()) {
                         for (const QString &formatId : selectedFormats) {
                             QVariantMap newOptions = options;
-                            newOptions["runtime_format_selected"] = true;
-                            newOptions["format"] = formatId;
+                            newOptions[QStringLiteral("runtime_format_selected")] = true;
+                            newOptions[QStringLiteral("format")] = formatId;
                             m_downloadManager->enqueueDownload(url, newOptions);
                         }
                         m_uiBuilder->tabWidget()->setCurrentWidget(m_activeDownloadsTab);
@@ -392,12 +409,12 @@ void MainWindow::queueDirectCliDownload()
 {
     QString cliUrl = MainWindowHelpers::directCliUrl();
     if (!cliUrl.isEmpty()) {
-        QTimer::singleShot(500, this, [this, cliUrl]() {
+        QTimer::singleShot(std::chrono::milliseconds(500), this, [this, cliUrl]() {
             QVariantMap options;
             if (QCoreApplication::arguments().contains("--audio")) {
-                options["type"] = "audio";
+                options[QStringLiteral("type")] = QStringLiteral("audio");
             } else {
-                options["type"] = "video";
+                options[QStringLiteral("type")] = QStringLiteral("video");
             }
             MainWindowHelpers::applyNonInteractiveDownloadDefaults(options);
             onDownloadRequested(cliUrl, options);

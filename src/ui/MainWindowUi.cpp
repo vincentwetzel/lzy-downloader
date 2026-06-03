@@ -36,10 +36,11 @@
 #include <QTimer>
 #include <QVBoxLayout>
 #include <QWidget>
+#include <chrono>
 
 void MainWindow::setupUI()
 {
-    setWindowTitle("LzyDownloader v" + QString(APP_VERSION_STRING));
+    setWindowTitle(tr("LzyDownloader v%1").arg(QStringLiteral(APP_VERSION_STRING)));
 
     QWidget *centralWidget = new QWidget(this);
     setCentralWidget(centralWidget);
@@ -54,14 +55,14 @@ void MainWindow::setupUI()
     m_uiBuilder->build(this, mainLayout, m_startTab, m_activeDownloadsTab, m_advancedSettingsTab, sortingTab);
 
     connect(m_uiBuilder->exitAfterSwitch(), &ToggleSwitch::toggled, this, [this](bool checked) {
-        m_configManager->set("General", "exit_after", checked);
+        m_configManager->set(QStringLiteral("General"), QStringLiteral("exit_after"), checked);
         m_configManager->save();
     });
 
     connect(m_startTab, &StartTab::downloadRequested, this, &MainWindow::onDownloadRequested);
     connect(m_startTab, &StartTab::navigateToExternalBinaries, this, [this]() {
         m_uiBuilder->tabWidget()->setCurrentWidget(m_advancedSettingsTab);
-        m_advancedSettingsTab->navigateToCategory("External Binaries");
+        m_advancedSettingsTab->navigateToCategory(QStringLiteral("External Binaries"));
     });
     connect(m_startTab, &StartTab::missingBinariesDetected, this, [this](const QStringList &missingBinaries) {
         showMissingBinariesDialog(missingBinaries);
@@ -77,13 +78,13 @@ void MainWindow::setupUI()
 
 void MainWindow::setupTrayIcon()
 {
-    m_trayIcon = new QSystemTrayIcon(QIcon(":/app-icon"), this);
-    m_trayIcon->setToolTip("LzyDownloader");
+    m_trayIcon = new QSystemTrayIcon(QIcon(QStringLiteral(":/app-icon")), this);
+    m_trayIcon->setToolTip(QStringLiteral("LzyDownloader"));
 
     m_trayMenu = new QMenu(this);
-    QAction *showAction = m_trayMenu->addAction("Show");
+    QAction *showAction = m_trayMenu->addAction(tr("Show"));
     connect(showAction, &QAction::triggered, this, &QWidget::showNormal);
-    QAction *quitAction = m_trayMenu->addAction("Quit");
+    QAction *quitAction = m_trayMenu->addAction(tr("Quit"));
     connect(quitAction, &QAction::triggered, qApp, &QCoreApplication::quit);
 
     m_trayIcon->setContextMenu(m_trayMenu);
@@ -99,23 +100,13 @@ void MainWindow::closeEvent(QCloseEvent *event)
         return;
     }
 
-    int activeCount = 0;
-    int queuedCount = 0;
-
-    QString activeText = m_uiBuilder->activeDownloadsLabel()->text();
-    if (activeText.startsWith("Active: ")) {
-        activeCount = activeText.mid(8).toInt();
-    }
-
-    QString queuedText = m_uiBuilder->queuedDownloadsLabel()->text();
-    if (queuedText.startsWith("Queued: ")) {
-        queuedCount = queuedText.mid(8).toInt();
-    }
+    int activeCount = m_uiBuilder->activeDownloadsLabel()->property("count").toInt();
+    int queuedCount = m_uiBuilder->queuedDownloadsLabel()->property("count").toInt();
 
     if (activeCount > 0 || queuedCount > 0) {
         QMessageBox::StandardButton reply;
-        reply = QMessageBox::warning(this, "Downloads in Progress",
-                                     "There are downloads currently running or queued.\n\nAre you sure you want to exit?\nYour downloads will be safely saved and will resume the next time you start the application.",
+        reply = QMessageBox::warning(this, tr("Downloads in Progress"),
+                                     tr("There are downloads currently running or queued.\n\nAre you sure you want to exit?\nYour downloads will be safely saved and will resume the next time you start the application."),
                                      QMessageBox::Yes | QMessageBox::No);
         if (reply == QMessageBox::No) {
             event->ignore();
@@ -150,7 +141,7 @@ bool MainWindow::event(QEvent *event)
         return handled;
     }
 
-    int autoPasteMode = m_configManager->get("General", "auto_paste_mode", 0).toInt();
+    int autoPasteMode = m_configManager->get(QStringLiteral("General"), QStringLiteral("auto_paste_mode"), 0).toInt();
 
     if (event->type() == QEvent::WindowActivate || event->type() == QEvent::Enter) {
         if (autoPasteMode == 1) {
@@ -168,7 +159,7 @@ void MainWindow::onClipboardChanged()
         return;
     }
 
-    int autoPasteMode = m_configManager->get("General", "auto_paste_mode", 0).toInt();
+    int autoPasteMode = m_configManager->get(QStringLiteral("General"), QStringLiteral("auto_paste_mode"), 0).toInt();
 
     if (autoPasteMode == 2) {
         handleClipboardAutoPaste(false);
@@ -227,36 +218,26 @@ void MainWindow::onQueueFinished()
     }
 
     if (m_trayIcon && m_trayIcon->isVisible()) {
-        m_trayIcon->showMessage("Downloads Complete", "All queued media downloads have finished.",
+        m_trayIcon->showMessage(tr("Downloads Complete"), tr("All queued media downloads have finished."),
                                 QSystemTrayIcon::Information, 3000);
     }
 
-    bool exitAfter = m_configManager->get("General", "exit_after", false).toBool();
+    bool exitAfter = m_configManager->get(QStringLiteral("General"), QStringLiteral("exit_after"), false).toBool();
     if (exitAfter) {
         qInfo() << "Queue finished and 'exit after' is enabled. Waiting 2 seconds before quitting to allow for final file cleanup.";
-        QTimer::singleShot(2000, this, [this]() {
+        QTimer::singleShot(std::chrono::seconds(2), this, [this]() {
             if (!m_configManager || !m_uiBuilder) {
                 return;
             }
 
-            const bool exitStillEnabled = m_configManager->get("General", "exit_after", false).toBool();
+            const bool exitStillEnabled = m_configManager->get(QStringLiteral("General"), QStringLiteral("exit_after"), false).toBool();
             if (!exitStillEnabled) {
                 qInfo() << "Exit-after timer cancelled because the setting was turned off before shutdown.";
                 return;
             }
 
-            int activeCount = 0;
-            int queuedCount = 0;
-
-            const QString activeText = m_uiBuilder->activeDownloadsLabel()->text();
-            if (activeText.startsWith("Active: ")) {
-                activeCount = activeText.mid(8).toInt();
-            }
-
-            const QString queuedText = m_uiBuilder->queuedDownloadsLabel()->text();
-            if (queuedText.startsWith("Queued: ")) {
-                queuedCount = queuedText.mid(8).toInt();
-            }
+            int activeCount = m_uiBuilder->activeDownloadsLabel()->property("count").toInt();
+            int queuedCount = m_uiBuilder->queuedDownloadsLabel()->property("count").toInt();
 
             if (activeCount == 0 && queuedCount == 0) {
                 QCoreApplication::quit();
@@ -310,18 +291,18 @@ void MainWindow::onVideoQualityWarning(const QString &url, const QString &messag
         return;
     }
 
-    QMessageBox::warning(this, "Low Quality Video",
-                         QString("The following video was downloaded at a low quality:\n%1\n\n%2").arg(url, message));
+    QMessageBox::warning(this, tr("Low Quality Video"),
+                         tr("The following video was downloaded at a low quality:\n%1\n\n%2").arg(url, message));
 }
 
 void MainWindow::applyTheme(const QString &themeName)
 {
-    qApp->setStyle(QStyleFactory::create("Fusion"));
+    qApp->setStyle(QStyleFactory::create(QStringLiteral("Fusion")));
 
     bool useDarkTheme = false;
-    if (themeName == "Dark") {
+    if (themeName == QStringLiteral("Dark")) {
         useDarkTheme = true;
-    } else if (themeName == "System") {
+    } else if (themeName == QStringLiteral("System")) {
         const auto colorScheme = qApp->styleHints()->colorScheme();
         useDarkTheme = (colorScheme == Qt::ColorScheme::Dark);
     }
@@ -363,15 +344,18 @@ void MainWindow::applyTheme(const QString &themeName)
 void MainWindow::updateTotalSpeed(double speed)
 {
     double speedMb = speed / (1024.0 * 1024.0);
-    m_uiBuilder->speedLabel()->setText(QString("Current Speed: %1 MB/s").arg(speedMb, 0, 'f', 2));
+    m_uiBuilder->speedLabel()->setText(tr("Current Speed: %1 MB/s").arg(speedMb, 0, 'f', 2));
 }
 
 void MainWindow::onDownloadStatsUpdated(int queued, int active, int completed, int errors)
 {
-    m_uiBuilder->queuedDownloadsLabel()->setText(QString("Queued: %1").arg(queued));
-    m_uiBuilder->activeDownloadsLabel()->setText(QString("Active: %1").arg(active));
-    m_uiBuilder->completedDownloadsLabel()->setText(QString("Completed: %1").arg(completed));
-    m_uiBuilder->errorDownloadsLabel()->setText(QString("Errors: %1").arg(errors));
+    m_uiBuilder->queuedDownloadsLabel()->setProperty("count", queued);
+    m_uiBuilder->activeDownloadsLabel()->setProperty("count", active);
+
+    m_uiBuilder->queuedDownloadsLabel()->setText(tr("Queued: %1").arg(queued));
+    m_uiBuilder->activeDownloadsLabel()->setText(tr("Active: %1").arg(active));
+    m_uiBuilder->completedDownloadsLabel()->setText(tr("Completed: %1").arg(completed));
+    m_uiBuilder->errorDownloadsLabel()->setText(tr("Errors: %1").arg(errors));
 }
 
 void MainWindow::setYtDlpVersion(const QString &version)

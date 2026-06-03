@@ -78,6 +78,11 @@ void appendSiteSpecificRefererWorkarounds(QStringList &args, const QString &url)
     if (!referer.isEmpty()) {
         args << QStringLiteral("--referer") << referer;
     }
+
+    // Add TikTok API workaround to bypass "Solving JavaScript challenge" hangs
+    if (url.contains(QStringLiteral("tiktok.com"), Qt::CaseInsensitive)) {
+        args << QStringLiteral("--extractor-args") << QStringLiteral("tiktok:api=aweme");
+    }
 }
 
 QString ffmpegCutEncoderArgs(ConfigManager *configManager)

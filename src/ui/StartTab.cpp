@@ -40,11 +40,11 @@ StartTab::StartTab(ConfigManager *configManager, ExtractorJsonParser *extractorJ
     connect(m_extractorJsonParser, &ExtractorJsonParser::extractorsReady, this, &StartTab::onExtractorsReady);
     connect(m_configManager, &ConfigManager::settingChanged, this, [this](const QString &section, const QString &/*key*/, const QVariant &/*value*/){
         // The command preview only cares about settings that influence the download args
-        if (section != "SortingRules") {
+        if (section != QStringLiteral("SortingRules")) {
             updateCommandPreview();
         }
         // updateDynamicUI is now a slot in StartTab, which delegates to m_downloadActions
-        if (section == "Binaries") {
+        if (section == QStringLiteral("Binaries")) {
             updateDynamicUI();
         }
     });
@@ -66,7 +66,7 @@ StartTab::StartTab(ConfigManager *configManager, ExtractorJsonParser *extractorJ
     loadSettings();
     if (m_uiBuilder->urlInput()) { // Added null check
         m_uiBuilder->urlInput()->setEnabled(false);
-        m_uiBuilder->urlInput()->setPlaceholderText("Waiting for startup checks to finish...");
+        m_uiBuilder->urlInput()->setPlaceholderText(tr("Waiting for startup checks to finish..."));
         m_uiBuilder->urlInput()->installEventFilter(this);
     } else {
         qCritical() << "CRITICAL ERROR: m_urlInput is null in StartTab constructor after setupUI!";
@@ -110,7 +110,7 @@ void StartTab::setupUI() {
     QVBoxLayout *mainLayout = new QVBoxLayout(this); // Use 'this' as parent for mainLayout
     m_uiBuilder->build(this, mainLayout); // Pass 'this' as parentWidget
 
-    if (QPushButton *supportedSitesBtn = findChild<QPushButton*>("supportedSitesBtn")) {
+    if (QPushButton *supportedSitesBtn = findChild<QPushButton*>(QStringLiteral("supportedSitesBtn"))) {
         connect(supportedSitesBtn, &QPushButton::clicked, this, [this]() {
             SupportedSitesDialog dialog(this);
             dialog.exec();
@@ -119,26 +119,26 @@ void StartTab::setupUI() {
 
     // Wire up operational controls to save instantly to ConfigManager
     if (m_uiBuilder->maxConcurrentCombo()) {
-        connect(m_uiBuilder->maxConcurrentCombo(), &QComboBox::currentTextChanged, this, [this](const QString &text) {
-            m_configManager->set("General", "max_threads", text);
+        connect(m_uiBuilder->maxConcurrentCombo(), &QComboBox::currentIndexChanged, this, [this](int index) {
+            m_configManager->set(QStringLiteral("General"), QStringLiteral("max_threads"), m_uiBuilder->maxConcurrentCombo()->itemData(index).toString());
             m_configManager->save();
         });
     }
     if (m_uiBuilder->playlistLogicCombo()) {
-        connect(m_uiBuilder->playlistLogicCombo(), &QComboBox::currentTextChanged, this, [this](const QString &text) {
-            m_configManager->set("General", "playlist_logic", text);
+        connect(m_uiBuilder->playlistLogicCombo(), &QComboBox::currentIndexChanged, this, [this](int index) {
+            m_configManager->set(QStringLiteral("General"), QStringLiteral("playlist_logic"), m_uiBuilder->playlistLogicCombo()->itemData(index).toString());
             m_configManager->save();
         });
     }
     if (m_uiBuilder->rateLimitCombo()) {
-        connect(m_uiBuilder->rateLimitCombo(), &QComboBox::currentTextChanged, this, [this](const QString &text) {
-            m_configManager->set("General", "rate_limit", text);
+        connect(m_uiBuilder->rateLimitCombo(), &QComboBox::currentIndexChanged, this, [this](int index) {
+            m_configManager->set(QStringLiteral("General"), QStringLiteral("rate_limit"), m_uiBuilder->rateLimitCombo()->itemData(index).toString());
             m_configManager->save();
         });
     }
     if (m_uiBuilder->overrideDuplicateCheck()) {
         connect(m_uiBuilder->overrideDuplicateCheck(), &ToggleSwitch::toggled, this, [this](bool checked) {
-            m_configManager->set("General", "override_archive", checked);
+            m_configManager->set(QStringLiteral("General"), QStringLiteral("override_archive"), checked);
             m_configManager->save();
         });
     }
@@ -166,14 +166,20 @@ void StartTab::loadSettings() { // Use m_uiBuilder members
     QSignalBlocker b3(m_uiBuilder->rateLimitCombo());
     QSignalBlocker b4(m_uiBuilder->overrideDuplicateCheck());
 
-    if (m_uiBuilder->playlistLogicCombo())
-        m_uiBuilder->playlistLogicCombo()->setCurrentText(m_configManager->get("General", "playlist_logic", "Ask").toString());
-    if (m_uiBuilder->maxConcurrentCombo())
-        m_uiBuilder->maxConcurrentCombo()->setCurrentText(m_configManager->get("General", "max_threads", "4").toString());
-    if (m_uiBuilder->rateLimitCombo())
-        m_uiBuilder->rateLimitCombo()->setCurrentText(m_configManager->get("General", "rate_limit", "Unlimited").toString());
+    if (m_uiBuilder->playlistLogicCombo()) {
+        int idx = m_uiBuilder->playlistLogicCombo()->findData(m_configManager->get(QStringLiteral("General"), QStringLiteral("playlist_logic"), QStringLiteral("Ask")).toString());
+        if (idx >= 0) m_uiBuilder->playlistLogicCombo()->setCurrentIndex(idx);
+    }
+    if (m_uiBuilder->maxConcurrentCombo()) {
+        int idx = m_uiBuilder->maxConcurrentCombo()->findData(m_configManager->get(QStringLiteral("General"), QStringLiteral("max_threads"), QStringLiteral("4")).toString());
+        if (idx >= 0) m_uiBuilder->maxConcurrentCombo()->setCurrentIndex(idx);
+    }
+    if (m_uiBuilder->rateLimitCombo()) {
+        int idx = m_uiBuilder->rateLimitCombo()->findData(m_configManager->get(QStringLiteral("General"), QStringLiteral("rate_limit"), QStringLiteral("Unlimited")).toString());
+        if (idx >= 0) m_uiBuilder->rateLimitCombo()->setCurrentIndex(idx);
+    }
     if (m_uiBuilder->overrideDuplicateCheck())
-        m_uiBuilder->overrideDuplicateCheck()->setChecked(m_configManager->get("General", "override_archive", false).toBool());
+        m_uiBuilder->overrideDuplicateCheck()->setChecked(m_configManager->get(QStringLiteral("General"), QStringLiteral("override_archive"), false).toBool());
 
 }
 
@@ -192,7 +198,7 @@ void StartTab::updateDynamicUI() {
 
 void StartTab::onDuplicateDownloadDetected(const QString &url, const QString &reason)
 {
-    QMessageBox::warning(this, "Duplicate Download Detected",
-                         QString("The following URL was not added to the queue:\n\n%1\n\nReason: %2")
+    QMessageBox::warning(this, tr("Duplicate Download Detected"),
+                         tr("The following URL was not added to the queue:\n\n%1\n\nReason: %2")
                              .arg(url, reason));
 }

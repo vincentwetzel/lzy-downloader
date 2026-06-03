@@ -8,7 +8,7 @@ A lightweight, high-performance desktop application for downloading media (video
 
 - 🎬 **Download Video & Audio** — Support for YouTube, TikTok, Instagram, and 1000+ other sites via yt-dlp
 - 🎵 **Audio Extraction** — Extract audio as MP3, M4A, opus, or other formats
-- 📋 **Playlist Support** — Download entire playlists with configurable behavior
+- 📋 **Playlist Support** - Download entire playlists, only the first item, or a selected range of expanded playlist entries
 - 🖼️ **Gallery Support** — Download image galleries from supported sites (e.g., Instagram, Twitter) via `gallery-dl`
 - 🎨 **Advanced Settings** — Quality selection, format filtering, SponsorBlock integration, metadata embedding
 - 🎛️ **Runtime Format Selection** — Optionally prompt for specific video/audio qualities on every download, supporting multiple simultaneous format selections for the same media
@@ -64,7 +64,7 @@ Qt test executables are registered through CMake and can be run with CTest. For 
 python run_headless_tests.py --build-dir build --config Release
 ```
 
-Current coverage includes argument construction, progress parsing, archive normalization, configuration defaults/reset cleanup, Local API auth/enqueue behavior, process binary-resolution caching, URL validation, sorting sanitization, UI progress widgets, and a local end-to-end download fixture.
+Current coverage includes argument construction, progress parsing, archive normalization, configuration defaults/reset cleanup, Local API auth/enqueue behavior, process binary-resolution caching, URL validation, sorting sanitization, playlist range selection, UI progress widgets, and a local end-to-end download fixture.
 
 ### Release Checklist
 
@@ -79,10 +79,12 @@ Before building a release, keep all release metadata in sync:
 
 1. **Launch the app** (`LzyDownloader.exe`)
 2. **Enter a URL** in the "Start Download" tab
-3. **Configure options** (quality, format, SponsorBlock, etc.)
+3. **Configure options** (quality, format, playlist behavior, SponsorBlock, etc.)
 4. **Click Download** to start
 5. **Monitor progress** in the "Active Downloads" tab
 6. **Find completed files** in your configured output folder
+
+When playlist handling is set to `Ask`, detected playlists can be queued entirely, reduced to the first item, cancelled, or narrowed with **Download Part...**. The partial playlist dialog accepts ranges such as `1-5, 8, 11-13` and keeps the range text synchronized with individual item checkboxes.
 
 ## Configuration
 

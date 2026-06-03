@@ -10,6 +10,7 @@
 #include <QFileInfo>
 #include <QDir>
 #include <algorithm>
+#include <QThread>
 
 ArchiveManager::ArchiveManager(ConfigManager *configManager, QObject *parent)
     : ArchiveManager(configManager, QDir(configManager->getConfigDir()).filePath(QStringLiteral("download_archive.db")), false, parent) {
@@ -28,19 +29,17 @@ ArchiveManager::ArchiveManager(ConfigManager *configManager, const QString &dbPa
 }
 
 ArchiveManager::~ArchiveManager() {
+    QStringList connectionsToRemove;
     {
         QMutexLocker locker(&m_mutex);
-        QString connectionName;
-        {
-            QSqlDatabase db = QSqlDatabase::database("archive_connection", false);
-            if (db.isValid() && db.isOpen()) {
-                connectionName = db.connectionName();
-                db.close();
+        for (const QString &connName : QSqlDatabase::connectionNames()) {
+            if (connName.startsWith(QStringLiteral("archive_connection"))) {
+                connectionsToRemove.append(connName);
             }
         }
-        if (!connectionName.isEmpty()) {
-            QSqlDatabase::removeDatabase(connectionName);
-        }
+    }
+    for (const QString &connName : connectionsToRemove) {
+        QSqlDatabase::removeDatabase(connName);
     }
 }
 
@@ -49,27 +48,40 @@ QString ArchiveManager::getArchiveDbPath() const {
 }
 
 QSqlDatabase ArchiveManager::getDatabase() {
-    QSqlDatabase db = QSqlDatabase::database(QStringLiteral("archive_connection"));
+    const QString connectionName = QStringLiteral("archive_connection_%1").arg(reinterpret_cast<quintptr>(QThread::currentThreadId()));
+    QSqlDatabase db = QSqlDatabase::database(connectionName, false);
     if (!db.isValid()) {
-        db = QSqlDatabase::addDatabase(QStringLiteral("QSQLITE"), QStringLiteral("archive_connection"));
+        db = QSqlDatabase::addDatabase(QStringLiteral("QSQLITE"), connectionName);
         db.setDatabaseName(m_dbPath);
     }
 
     if (!db.isOpen()) {
         if (!db.open()) {
             qCritical() << "Failed to open archive database:" << db.lastError().text();
+        } else {
+            QSqlQuery pragmaQuery(db);
+            pragmaQuery.exec(QStringLiteral("PRAGMA journal_mode=WAL;"));
+            pragmaQuery.exec(QStringLiteral("PRAGMA synchronous=NORMAL;"));
+            pragmaQuery.exec(QStringLiteral("PRAGMA busy_timeout=5000;"));
         }
     }
     return db;
 }
 
 void ArchiveManager::closeDatabase() {
-    QMutexLocker locker(&m_mutex);
-    QSqlDatabase db = QSqlDatabase::database(QStringLiteral("archive_connection"), false);
-    if (db.isValid() && db.isOpen()) {
-        db.close();
-        qDebug() << "Archive database connection closed.";
+    QStringList connectionsToRemove;
+    {
+        QMutexLocker locker(&m_mutex);
+        for (const QString &connName : QSqlDatabase::connectionNames()) {
+            if (connName.startsWith(QStringLiteral("archive_connection"))) {
+                connectionsToRemove.append(connName);
+            }
+        }
     }
+    for (const QString &connName : connectionsToRemove) {
+        QSqlDatabase::removeDatabase(connName);
+    }
+    qDebug() << "Archive database connections closed.";
 }
 
 void ArchiveManager::ensureSchema() {
@@ -122,18 +134,20 @@ void ArchiveManager::backfillIdentityColumns() {
                "OR provider IS NULL OR provider = '' "
                "OR (provider = 'youtube' AND (media_id IS NULL OR media_id = ''))"));
 
+    db.transaction();
     while (query.next()) {
         QString url = query.value(0).toString();
         UrlIdentity identity = buildIdentity(url);
 
         QSqlQuery updateQuery(db);
-        updateQuery.prepare("UPDATE downloads SET normalized_url = ?, provider = ?, media_id = ? WHERE url = ?");
+        updateQuery.prepare(QStringLiteral("UPDATE downloads SET normalized_url = ?, provider = ?, media_id = ? WHERE url = ?"));
         updateQuery.addBindValue(identity.normalizedUrl);
         updateQuery.addBindValue(identity.provider);
         updateQuery.addBindValue(identity.mediaId);
         updateQuery.addBindValue(url);
         updateQuery.exec();
     }
+    db.commit();
 }
 
 void ArchiveManager::addToArchive(const QString &url) {
@@ -148,13 +162,13 @@ void ArchiveManager::addToArchive(const QString &url) {
     if (!db.isOpen()) return;
 
     QSqlQuery query(db);
-    query.prepare("INSERT INTO downloads(url, normalized_url, provider, media_id, timestamp) "
+    query.prepare(QStringLiteral("INSERT INTO downloads(url, normalized_url, provider, media_id, timestamp) "
                   "VALUES (?, ?, ?, ?, ?) "
                   "ON CONFLICT(url) DO UPDATE SET "
                   "normalized_url = excluded.normalized_url, "
                   "provider = excluded.provider, "
                   "media_id = excluded.media_id, "
-                  "timestamp = excluded.timestamp");
+                  "timestamp = excluded.timestamp"));
 
     query.addBindValue(url);
     query.addBindValue(identity.normalizedUrl);
@@ -227,9 +241,12 @@ QString ArchiveManager::extractVideoId(const QString &urlStr) const {
         static const QRegularExpression re(QStringLiteral(R"(/(?:shorts|live|embed)/([0-9A-Za-z_-]{11})(?:[/?#]|$))"));
         QRegularExpressionMatch match = re.match(url.path());
         if (match.hasMatch()) return match.captured(1);
-    }
-
-    if (host.contains(QStringLiteral("youtu.be"))) {
+            
+            // Fallback patterns only for YouTube domains to prevent misclassifying generic URLs
+            static const QRegularExpression p1(QStringLiteral(R"((?:v=|/)([0-9A-Za-z_-]{11})(?:[/?#]|$))"));
+            QRegularExpressionMatch m1 = p1.match(urlStr);
+            if (m1.hasMatch()) return m1.captured(1);
+    } else if (host.contains(QStringLiteral("youtu.be"))) {
         QString path = url.path();
         if (path.startsWith(QLatin1Char('/'))) path = path.mid(1);
         QStringList parts = path.split(QLatin1Char('/'));
@@ -239,15 +256,6 @@ QString ArchiveManager::extractVideoId(const QString &urlStr) const {
             if (re.match(seg).hasMatch()) return seg;
         }
     }
-
-    // Fallback patterns
-    static const QRegularExpression p1(QStringLiteral(R"((?:v=|/)([0-9A-Za-z_-]{11}).*)"));
-    QRegularExpressionMatch m1 = p1.match(urlStr);
-    if (m1.hasMatch()) return m1.captured(1);
-
-    static const QRegularExpression p2(QStringLiteral(R"(youtu\.be/([0-9A-Za-z_-]{11}))"));
-    QRegularExpressionMatch m2 = p2.match(urlStr);
-    if (m2.hasMatch()) return m2.captured(1);
 
     return QString();
 }
@@ -268,29 +276,21 @@ QString ArchiveManager::normalizeUrl(const QString &urlStr) const {
     QUrlQuery query(url);
     QList<QPair<QString, QString>> queryItems = query.queryItems(QUrl::FullyDecoded);
 
-    // For non-YouTube URLs, strip all query params (they're usually session/tracking junk)
-    // For YouTube URLs, only strip known tracking params
-    QStringList keptParams;
-    if (!host.contains(QStringLiteral("youtube")) && !host.contains(QStringLiteral("youtu.be"))) {
-        // Generic URLs: strip all query parameters for archive matching
-        QString result = (host + path).toLower();
-        return result;
-    }
-
-    // Filter YouTube query parameters
-    const QSet<QString> dropParams = {
-        QStringLiteral("utm_source"), QStringLiteral("utm_medium"), QStringLiteral("utm_campaign"), QStringLiteral("utm_term"), QStringLiteral("utm_content"),
-        QStringLiteral("si"), QStringLiteral("feature"), QStringLiteral("pp")
-    };
-
     // Sort keys to ensure consistent order
     std::sort(queryItems.begin(), queryItems.end(), [](const QPair<QString, QString> &a, const QPair<QString, QString> &b) {
         return a.first < b.first;
     });
 
-    for (const auto &item : queryItems) {
-        if (dropParams.contains(item.first.toLower())) continue;
-        keptParams.append(QStringLiteral("%1=%2").arg(item.first, item.second));
+    QStringList keptParams;
+    if (host.contains(QStringLiteral("youtube")) || host.contains(QStringLiteral("youtu.be"))) {
+        const QSet<QString> dropParams = {
+            QStringLiteral("utm_source"), QStringLiteral("utm_medium"), QStringLiteral("utm_campaign"), QStringLiteral("utm_term"), QStringLiteral("utm_content"),
+            QStringLiteral("si"), QStringLiteral("feature"), QStringLiteral("pp")
+        };
+        for (const auto &item : queryItems) {
+            if (dropParams.contains(item.first.toLower())) continue;
+            keptParams.append(QStringLiteral("%1=%2").arg(item.first, item.second));
+        }
     }
 
     QString queryString;

@@ -3,6 +3,7 @@
 #include "core/ProcessUtils.h"
 #include <QDebug>
 #include <QTimer>
+#include <chrono>
 
 UrlValidator::UrlValidator(ConfigManager *configManager, QObject *parent)
     : QObject(parent), m_configManager(configManager) {
@@ -40,9 +41,13 @@ void UrlValidator::validate(const QString &url) {
     m_process->start(ytDlpBinary.path, args);
 
     // Watchdog to prevent indefinite hangs
-    QTimer::singleShot(15000, m_process, [this]() {
-        if (m_process->state() != QProcess::NotRunning) {
+    const int runId = m_process->property("run_id").toInt() + 1;
+    m_process->setProperty("run_id", runId);
+
+    QTimer::singleShot(std::chrono::seconds(15), m_process, [this, runId]() {
+        if (m_process->property("run_id").toInt() == runId && m_process->state() != QProcess::NotRunning) {
             m_process->setProperty("timed_out", true);
+            ProcessUtils::terminateProcessTree(m_process);
             m_process->kill();
             emit validationFinished(false, tr("Validation timed out after 15 seconds."));
         }

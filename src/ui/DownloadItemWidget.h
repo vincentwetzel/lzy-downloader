@@ -1,5 +1,4 @@
-#ifndef DOWNLOADITEMWIDGET_H
-#define DOWNLOADITEMWIDGET_H
+#pragma once
 
 #include <QWidget>
 #include <QVariantMap>
@@ -56,8 +55,8 @@ class DownloadItemWidget : public QWidget {
 
 public:
     explicit DownloadItemWidget(const QVariantMap &itemData, QWidget *parent = nullptr);
-    QString getId() const;
-    QVariantMap getItemData() const;
+    [[nodiscard]] QString getId() const;
+    [[nodiscard]] QVariantMap getItemData() const;
     void updateProgress(const QVariantMap &progressData);
     void setFinalPath(const QString &path);
     void setFinished(bool success, const QString &message);
@@ -105,13 +104,12 @@ private:
     bool m_isFinished = false;
     bool m_isSuccessful = false;
     bool m_isPaused = false;
+    QString m_currentThumbnailPath;
 
 public:
     void setPaused(bool paused);
-    bool isFinished() const { return m_isFinished; }
-    bool isSuccessful() const { return m_isSuccessful; }
+    [[nodiscard]] bool isFinished() const { return m_isFinished; }
+    [[nodiscard]] bool isSuccessful() const { return m_isSuccessful; }
     void showCancellingFeedback();
     void showPausingFeedback(bool pausing);
 };
-
-#endif // DOWNLOADITEMWIDGET_H

@@ -8,6 +8,7 @@
 #include <QRegularExpression>
 #include <QFileInfo>
 #include <QProcess>
+#include <QDateTime>
 
 GalleryDlWorker::GalleryDlWorker(const QString &id, const QStringList &args, ConfigManager *configManager, QObject *parent)
     : QObject(parent), m_configManager(configManager), m_id(id), m_args(args)
@@ -39,6 +40,7 @@ void GalleryDlWorker::start()
 
     m_process->setWorkingDirectory(QFileInfo(galleryDlPath).absolutePath());
     m_process->start(galleryDlPath, m_args);
+    m_process->closeWriteChannel(); // Prevent hanging if it expects stdin (e.g. for captchas/auth)
 }
 
 void GalleryDlWorker::killProcess()
@@ -86,12 +88,28 @@ void GalleryDlWorker::onReadyReadStandardOutput()
             if (!filePath.isEmpty() && filePath != m_lastFile) {
                 m_lastFile = filePath;
                 QFileInfo fi(m_lastFile);
-                // Emit full progress with "processing" color
-                emit progressUpdated(m_id, {
-                    {QStringLiteral("progress"), 100},
-                    {QStringLiteral("status"), tr("Downloading: %1").arg(fi.fileName())},
-                    {QStringLiteral("current_file"), m_lastFile}
-                });
+                
+                int current = m_process->property("gallery_current_file").toInt() + 1;
+                m_process->setProperty("gallery_current_file", current);
+                int total = m_process->property("gallery_total_files").toInt();
+                
+                int percentage = -1;
+                if (total > 0) {
+                    percentage = qMin(100, static_cast<int>((static_cast<double>(current) / total) * 100));
+                }
+                
+                qint64 now = QDateTime::currentMSecsSinceEpoch();
+                qint64 lastEmit = m_process->property("last_file_emit").toLongLong();
+                
+                if (now - lastEmit > 300) { // 300ms throttle for webhook/UI updates
+                    m_process->setProperty("last_file_emit", now);
+                    QString statusText = total > 0 ? tr("Downloading file %1 of %2: %3").arg(current).arg(total).arg(fi.fileName()) : tr("Downloading file %1: %2").arg(current).arg(fi.fileName());
+                    emit progressUpdated(m_id, {
+                        {QStringLiteral("progress"), percentage},
+                        {QStringLiteral("status"), statusText},
+                        {QStringLiteral("current_file"), m_lastFile}
+                    });
+                }
             }
         }
     }
@@ -118,11 +136,39 @@ void GalleryDlWorker::onReadyReadStandardError()
     for (const QString &line : lines) {
         QString trimmedLine = line.trimmed();
         
-        QString currentStderr = m_process->property("fullStderr").toString();
-        m_process->setProperty("fullStderr", QStringLiteral("%1%2\n").arg(currentStderr, trimmedLine));
+        QStringList currentStderr = m_process->property("fullStderr").toStringList();
+        currentStderr.append(trimmedLine);
+        m_process->setProperty("fullStderr", currentStderr);
         
         if (!trimmedLine.isEmpty()) {
             emit outputReceived(m_id, trimmedLine);
+            
+            if (trimmedLine.startsWith(QStringLiteral("[")) && trimmedLine.contains(QStringLiteral("] "))) {
+                // Ignore debug lines to reduce noise
+                if (trimmedLine.contains(QStringLiteral("[debug]"), Qt::CaseInsensitive)) {
+                    continue;
+                }
+
+                int lastBracket = trimmedLine.indexOf(QStringLiteral("] "), 0);
+                if (lastBracket != -1) {
+                    QString message = trimmedLine.mid(lastBracket + 2).trimmed();
+                    if (!message.isEmpty()) {
+                        // Attempt to extract a total count from info messages
+                        static const QRegularExpression totalRe(QStringLiteral(R"((\d+)\s+(?:items?|posts?|media|files?|images?|videos?))"), QRegularExpression::CaseInsensitiveOption);
+                        QRegularExpressionMatch match = totalRe.match(message);
+                        if (match.hasMatch()) {
+                            int newTotal = match.captured(1).toInt();
+                            if (newTotal > m_process->property("gallery_total_files").toInt()) {
+                                m_process->setProperty("gallery_total_files", newTotal);
+                            }
+                        }
+
+                        emit progressUpdated(m_id, {
+                            {QStringLiteral("status"), message}
+                        });
+                    }
+                }
+            }
         }
     }
 }
@@ -141,8 +187,13 @@ void GalleryDlWorker::onProcessFinished(int exitCode, QProcess::ExitStatus exitS
         m_errorBuffer.clear();
     }
 
-    if (exitStatus == QProcess::CrashExit || (exitCode != 0 && exitCode != 101)) { // 101 can mean "no images found"
-        QString stderrOutput = m_process->property("fullStderr").toString().trimmed();
+    bool success = (exitStatus == QProcess::NormalExit) && (exitCode == 0 || exitCode == 101);
+    
+    // If we got an error but actually downloaded files (common with Instagram/Twitter limits), treat as partial success
+    bool partialSuccess = !success && !m_lastFile.isEmpty() && exitStatus == QProcess::NormalExit;
+
+    if (!success && !partialSuccess) {
+        QString stderrOutput = m_process->property("fullStderr").toStringList().join(QLatin1Char('\n')).trimmed();
         qWarning() << "GalleryDlWorker failed. Exit code:" << exitCode << "Stderr:" << stderrOutput;
         emit finished(m_id, false, tr("gallery-dl failed: %1").arg(stderrOutput), QString(), QVariantMap());
         return;
@@ -151,7 +202,7 @@ void GalleryDlWorker::onProcessFinished(int exitCode, QProcess::ExitStatus exitS
     // Emit final progress before finishing
     emit progressUpdated(m_id, {
         {QStringLiteral("progress"), 100},
-        {QStringLiteral("status"), tr("Finalizing...")}
+        {QStringLiteral("status"), partialSuccess ? tr("Finalizing (with warnings)...") : tr("Finalizing...")}
     });
 
     QString outputDirectory;
@@ -162,7 +213,8 @@ void GalleryDlWorker::onProcessFinished(int exitCode, QProcess::ExitStatus exitS
         }
     }
 
-    emit finished(m_id, true, tr("Download completed successfully."), outputDirectory, QVariantMap());
+    QString message = partialSuccess ? tr("Gallery download completed with some warnings.") : tr("Download completed successfully.");
+    emit finished(m_id, true, message, outputDirectory, QVariantMap());
 }
 
 void GalleryDlWorker::onProcessError(QProcess::ProcessError processError)
@@ -170,9 +222,6 @@ void GalleryDlWorker::onProcessError(QProcess::ProcessError processError)
     if (processError == QProcess::FailedToStart) {
         qWarning() << "GalleryDlWorker failed to start process:" << m_process->errorString();
         emit finished(m_id, false, tr("Failed to start gallery-dl process. Please check if it's installed and in your PATH, or configure the path in settings."), QString(), QVariantMap());
-    } else {
-        qWarning() << "GalleryDlWorker process error:" << m_process->errorString();
-        emit finished(m_id, false, tr("An error occurred with the gallery-dl process: %1").arg(m_process->errorString()), QString(), QVariantMap());
     }
 }
 

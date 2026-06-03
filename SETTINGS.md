@@ -39,7 +39,7 @@ Application-wide settings that control theme, cookie handling, clipboard behavio
 | `single_line_preview` | Boolean | `false` | Display the command preview in single-line mode on the Start tab. |
 | `restrict_filenames` | Boolean | `false` | Restrict downloaded filenames to ASCII characters only for maximum compatibility. |
 | `max_threads` | String | `4` | Maximum number of concurrent downloads to start automatically. Users may raise this during a session, but startup clamps persisted values back to `4` to avoid aggressive resume storms. |
-| `playlist_logic` | String | `Ask` | Default playlist handling mode. Options: `Ask`, `Download All (no prompt)`, `Download Single (ignore playlist)`. |
+| `playlist_logic` | String | `Ask` | Default playlist handling mode. Options: `Ask`, `Download All (no prompt)`, `Download Single (ignore playlist)`. In `Ask` mode, detected multi-item playlists can be queued entirely, narrowed through the partial range/checkbox selector, reduced to the first item, or cancelled. |
 | `rate_limit` | String | `Unlimited` | Global yt-dlp rate limit preset shown on the Start tab. |
 | `override_archive` | Boolean | `false` | Allow downloads that would otherwise be blocked by archive/duplicate detection. |
 | `exit_after` | Boolean | `false` | Exit the app automatically after the queue fully finishes. Always resets to `false` on application startup. The delayed shutdown re-checks queued and active counts before quitting. |

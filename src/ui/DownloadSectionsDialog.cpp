@@ -15,8 +15,8 @@
 DownloadSectionsDialog::DownloadSectionsDialog(const QVariantMap &infoDict, QWidget *parent)
     : QDialog(parent)
 {
-    if (infoDict.contains("chapters") && infoDict["chapters"].typeId() == QMetaType::QVariantList) {
-        m_chapters = infoDict["chapters"].toList();
+    if (infoDict.contains(QStringLiteral("chapters")) && infoDict[QStringLiteral("chapters")].typeId() == QMetaType::QVariantList) {
+        m_chapters = infoDict[QStringLiteral("chapters")].toList();
     }
     setupUi();
     addSectionWidget(); // Start with one section by default
@@ -26,18 +26,18 @@ DownloadSectionsDialog::~DownloadSectionsDialog() = default;
 
 void DownloadSectionsDialog::setupUi()
 {
-    setWindowTitle("Download Sections");
+    setWindowTitle(tr("Download Sections"));
     setMinimumSize(600, 400);
 
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
 
-    QLabel *descriptionLabel = new QLabel(
+    QLabel *descriptionLabel = new QLabel(tr(
         "Define one or more sections to download. Each section can be a time range or a chapter.\n"
         "yt-dlp will download only these parts of the video. For time ranges, you can leave a field blank "
         "to download from the beginning or to the very end."
-        "\n\nYou can disable Download Sections in Advanced Settings -> Download Flow", this);
+        "\n\nYou can disable Download Sections in Advanced Settings -> Download Flow"), this);
     descriptionLabel->setWordWrap(true);
-    descriptionLabel->setToolTip("Use the 'Add Section' button to define multiple parts to download.");
+    descriptionLabel->setToolTip(tr("Use the 'Add Section' button to define multiple parts to download."));
     mainLayout->addWidget(descriptionLabel);
 
     QScrollArea *scrollArea = new QScrollArea(this);
@@ -53,12 +53,12 @@ void DownloadSectionsDialog::setupUi()
     mainLayout->addWidget(scrollArea);
 
     QHBoxLayout *buttonLayout = new QHBoxLayout();
-    QPushButton *addSectionButton = new QPushButton("Add Section", this);
-    addSectionButton->setToolTip("Add another time range or chapter to download.");
+    QPushButton *addSectionButton = new QPushButton(tr("Add Section"), this);
+    addSectionButton->setToolTip(tr("Add another time range or chapter to download."));
 
-    QPushButton *okButton = new QPushButton("OK", this);
+    QPushButton *okButton = new QPushButton(tr("OK"), this);
     okButton->setDefault(true);
-    QPushButton *cancelButton = new QPushButton("Cancel", this);
+    QPushButton *cancelButton = new QPushButton(tr("Cancel"), this);
 
     buttonLayout->addWidget(addSectionButton);
     buttonLayout->addStretch();
@@ -92,35 +92,35 @@ QWidget* DownloadSectionsDialog::createSectionWidget()
     QHBoxLayout *layout = new QHBoxLayout(frame);
 
     QComboBox *typeCombo = new QComboBox(frame);
-    typeCombo->setObjectName("typeCombo");
-    typeCombo->setToolTip("Choose whether to define the section by time or by chapter name.");
-    typeCombo->addItem("Time Range");
-    typeCombo->addItem("Chapter");
+    typeCombo->setObjectName(QStringLiteral("typeCombo"));
+    typeCombo->setToolTip(tr("Choose whether to define the section by time or by chapter name."));
+    typeCombo->addItem(tr("Time Range"), QStringLiteral("Time Range"));
+    typeCombo->addItem(tr("Chapter"), QStringLiteral("Chapter"));
     typeCombo->setFixedWidth(120);
     if (m_chapters.isEmpty()) {
         if (auto *model = qobject_cast<QStandardItemModel*>(typeCombo->model())) {
             model->item(1)->setEnabled(false);
         }
-        typeCombo->setToolTip("Choose whether to define the section by time. Chapters not available for this video.");
+        typeCombo->setToolTip(tr("Choose whether to define the section by time. Chapters not available for this video."));
     }
 
     QStackedWidget *stack = new QStackedWidget(frame);
-    stack->setObjectName("stack");
+    stack->setObjectName(QStringLiteral("stack"));
 
     // Time Range Widget
     QWidget *timeWidget = new QWidget(frame);
     QHBoxLayout *timeLayout = new QHBoxLayout(timeWidget);
     timeLayout->setContentsMargins(0, 0, 0, 0);
     QLineEdit *startEdit = new QLineEdit(timeWidget);
-    startEdit->setObjectName("startEdit");
-    startEdit->setPlaceholderText("HH:MM:SS");
-    startEdit->setToolTip("Enter the start time (HH:MM:SS). Leave blank to start from the beginning.");
-    QLabel *toLabel = new QLabel(" to ", timeWidget);
+    startEdit->setObjectName(QStringLiteral("startEdit"));
+    startEdit->setPlaceholderText(QStringLiteral("HH:MM:SS"));
+    startEdit->setToolTip(tr("Enter the start time (HH:MM:SS). Leave blank to start from the beginning."));
+    QLabel *toLabel = new QLabel(tr(" to "), timeWidget);
     QLineEdit *endEdit = new QLineEdit(timeWidget);
-    endEdit->setObjectName("endEdit");
-    endEdit->setPlaceholderText("HH:MM:SS");
-    endEdit->setToolTip("Enter the end time (HH:MM:SS). Leave blank to download to the end.");
-    timeLayout->addWidget(new QLabel("From:", timeWidget));
+    endEdit->setObjectName(QStringLiteral("endEdit"));
+    endEdit->setPlaceholderText(QStringLiteral("HH:MM:SS"));
+    endEdit->setToolTip(tr("Enter the end time (HH:MM:SS). Leave blank to download to the end."));
+    timeLayout->addWidget(new QLabel(tr("From:"), timeWidget));
     timeLayout->addWidget(startEdit);
     timeLayout->addWidget(toLabel);
     timeLayout->addWidget(endEdit);
@@ -132,23 +132,23 @@ QWidget* DownloadSectionsDialog::createSectionWidget()
     QHBoxLayout *chapterLayout = new QHBoxLayout(chapterWidget);
     chapterLayout->setContentsMargins(0, 0, 0, 0);
     QComboBox *chapterCombo = new QComboBox(chapterWidget);
-    chapterCombo->setObjectName("chapterCombo");
-    chapterCombo->setToolTip("Select a chapter to download.");
+    chapterCombo->setObjectName(QStringLiteral("chapterCombo"));
+    chapterCombo->setToolTip(tr("Select a chapter to download."));
     for (const QVariant &chapter : m_chapters) {
         QVariantMap chapterMap = chapter.toMap();
-        if (chapterMap.contains("title")) {
-            chapterCombo->addItem(chapterMap["title"].toString());
+        if (chapterMap.contains(QStringLiteral("title"))) {
+            chapterCombo->addItem(chapterMap[QStringLiteral("title")].toString());
         }
     }
-    chapterLayout->addWidget(new QLabel("Chapter:", chapterWidget));
+    chapterLayout->addWidget(new QLabel(tr("Chapter:"), chapterWidget));
     chapterLayout->addWidget(chapterCombo);
     chapterLayout->addStretch();
     stack->addWidget(chapterWidget);
 
     connect(typeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), stack, &QStackedWidget::setCurrentIndex);
 
-    QPushButton *removeButton = new QPushButton("Remove", frame);
-    removeButton->setToolTip("Remove this section from the download.");
+    QPushButton *removeButton = new QPushButton(tr("Remove"), frame);
+    removeButton->setToolTip(tr("Remove this section from the download."));
     connect(removeButton, &QPushButton::clicked, this, [this, frame] {
         removeSectionWidget(frame);
     });
@@ -172,9 +172,13 @@ QString DownloadSectionsDialog::getFilenameLabel() const
         value.replace('/', '-');
         value.replace('\\', '-');
         value.replace(' ', '_');
-        value.remove(QRegularExpression(R"([<>:"/\\|?*])"));
-        value.replace(QRegularExpression(R"(_{2,})"), "_");
-        value.replace(QRegularExpression(R"(-{2,})"), "-");
+        
+        static const QRegularExpression illegalCharsRe(QStringLiteral(R"([<>:"/\\|?*])"));
+        static const QRegularExpression multipleUnderscoresRe(QStringLiteral(R"(_{2,})"));
+        static const QRegularExpression multipleDashesRe(QStringLiteral(R"(-{2,})"));
+        value.remove(illegalCharsRe);
+        value.replace(multipleUnderscoresRe, QStringLiteral("_"));
+        value.replace(multipleDashesRe, QStringLiteral("-"));
         return value.left(40);
     };
 
@@ -183,13 +187,13 @@ QString DownloadSectionsDialog::getFilenameLabel() const
         QWidget *widget = m_sectionsLayout->itemAt(i)->widget();
         if (!widget) continue;
 
-        QComboBox *typeCombo = widget->findChild<QComboBox*>("typeCombo");
-        QStackedWidget *stack = widget->findChild<QStackedWidget*>("stack");
+        QComboBox *typeCombo = widget->findChild<QComboBox*>(QStringLiteral("typeCombo"));
+        QStackedWidget *stack = widget->findChild<QStackedWidget*>(QStringLiteral("stack"));
         if (!typeCombo || !stack) continue;
 
-        if (typeCombo->currentText() == "Time Range") {
-            QLineEdit *startEdit = stack->widget(0)->findChild<QLineEdit*>("startEdit");
-            QLineEdit *endEdit = stack->widget(0)->findChild<QLineEdit*>("endEdit");
+        if (typeCombo->currentData().toString() == QStringLiteral("Time Range")) {
+            QLineEdit *startEdit = stack->widget(0)->findChild<QLineEdit*>(QStringLiteral("startEdit"));
+            QLineEdit *endEdit = stack->widget(0)->findChild<QLineEdit*>(QStringLiteral("endEdit"));
             if (!startEdit || !endEdit) continue;
 
             QString startTime = sanitizeLabelPart(startEdit->text());
@@ -198,16 +202,16 @@ QString DownloadSectionsDialog::getFilenameLabel() const
                 continue;
             }
 
-            if (startTime.isEmpty()) startTime = "start";
-            if (endTime.isEmpty()) endTime = "end";
-            labels.append(QString("%1_to_%2").arg(startTime, endTime));
-        } else if (typeCombo->currentText() == "Chapter") {
-            QComboBox *chapterCombo = stack->widget(1)->findChild<QComboBox*>("chapterCombo");
+            if (startTime.isEmpty()) startTime = QStringLiteral("start");
+            if (endTime.isEmpty()) endTime = QStringLiteral("end");
+            labels.append(QStringLiteral("%1_to_%2").arg(startTime, endTime));
+        } else if (typeCombo->currentData().toString() == QStringLiteral("Chapter")) {
+            QComboBox *chapterCombo = stack->widget(1)->findChild<QComboBox*>(QStringLiteral("chapterCombo"));
             if (!chapterCombo || chapterCombo->count() == 0) continue;
 
             QString chapterName = sanitizeLabelPart(chapterCombo->currentText());
             if (!chapterName.isEmpty()) {
-                labels.append(QString("chapter_%1").arg(chapterName));
+                labels.append(QStringLiteral("chapter_%1").arg(chapterName));
             }
         }
     }
@@ -220,9 +224,9 @@ QString DownloadSectionsDialog::getFilenameLabel() const
         return labels.first();
     }
 
-    QString label = labels.mid(0, 3).join("__");
+    QString label = labels.mid(0, 3).join(QStringLiteral("__"));
     if (labels.size() > 3) {
-        label += QString("__plus_%1_more").arg(labels.size() - 3);
+        label += QStringLiteral("__plus_%1_more").arg(labels.size() - 3);
     }
     return label.left(90);
 }
@@ -233,13 +237,13 @@ QString DownloadSectionsDialog::getSectionsString() const
         QWidget *widget = m_sectionsLayout->itemAt(i)->widget();
         if (!widget) continue;
 
-        QComboBox *typeCombo = widget->findChild<QComboBox*>("typeCombo");
-        QStackedWidget *stack = widget->findChild<QStackedWidget*>("stack");
+        QComboBox *typeCombo = widget->findChild<QComboBox*>(QStringLiteral("typeCombo"));
+        QStackedWidget *stack = widget->findChild<QStackedWidget*>(QStringLiteral("stack"));
         if (!typeCombo || !stack) continue;
 
-        if (typeCombo->currentText() == "Time Range") {
-            QLineEdit *startEdit = stack->widget(0)->findChild<QLineEdit*>("startEdit");
-            QLineEdit *endEdit = stack->widget(0)->findChild<QLineEdit*>("endEdit");
+        if (typeCombo->currentData().toString() == QStringLiteral("Time Range")) {
+            QLineEdit *startEdit = stack->widget(0)->findChild<QLineEdit*>(QStringLiteral("startEdit"));
+            QLineEdit *endEdit = stack->widget(0)->findChild<QLineEdit*>(QStringLiteral("endEdit"));
             if (startEdit && endEdit) {
                 QString startTime = startEdit->text().trimmed();
                 QString endTime = endEdit->text().trimmed();
@@ -248,10 +252,10 @@ QString DownloadSectionsDialog::getSectionsString() const
                 if (startTime.isEmpty() && endTime.isEmpty()) {
                     continue;
                 }
-                sectionStrings.append(QString("*%1-%2").arg(startTime, endTime)); // yt-dlp handles empty start/end correctly
+                sectionStrings.append(QStringLiteral("*%1-%2").arg(startTime, endTime)); // yt-dlp handles empty start/end correctly
             }
-        } else if (typeCombo->currentText() == "Chapter") {
-            QComboBox *chapterCombo = stack->widget(1)->findChild<QComboBox*>("chapterCombo");
+        } else if (typeCombo->currentData().toString() == QStringLiteral("Chapter")) {
+            QComboBox *chapterCombo = stack->widget(1)->findChild<QComboBox*>(QStringLiteral("chapterCombo"));
             if (chapterCombo && chapterCombo->count() > 0) {
                 QString chapterName = chapterCombo->currentText();
                 // yt-dlp is sensitive to some characters, but we'll let it handle it.
@@ -262,7 +266,7 @@ QString DownloadSectionsDialog::getSectionsString() const
                     // A simple approach is to just use the name.
                     // For more complex names, yt-dlp recommends `*re:^Chapter Title$`
                     // For now, we'll just use the chapter name.
-                    sectionStrings.append(QString("*%1").arg(chapterName));
+                    sectionStrings.append(QStringLiteral("*%1").arg(chapterName));
                 }
             }
         }

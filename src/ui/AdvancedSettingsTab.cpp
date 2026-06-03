@@ -134,7 +134,7 @@ void AdvancedSettingsTab::setupUI() {
     m_categoryList->setUniformItemSizes(true);
     m_categoryList->setSpacing(2);
     applyCategoryListStyleSheet();
-    m_categoryList->setToolTip("Switch between advanced setting sections.");
+    m_categoryList->setToolTip(tr("Switch between advanced setting sections."));
     auto addPage = [this](const QString &title, QWidget *page, const QString &tooltip) {
         auto *item = new QListWidgetItem(title);
         item->setToolTip(tooltip);
@@ -152,32 +152,32 @@ void AdvancedSettingsTab::setupUI() {
     };
 
     const std::vector<PageDescriptor> descriptors = {
-        { "Essentials",
+        { tr("Essentials"),
           new SettingsSectionPage({
               configPage,
               new AuthenticationPage(m_configManager, this)
           }, this),
-          "Start here: folders, theme, local API, and login cookie access." },
-        { "Formats",
+          tr("Start here: folders, theme, local API, and login cookie access.") },
+        { tr("Formats"),
           new SettingsSectionPage({
               new VideoSettingsPage(m_configManager, this),
               new AudioSettingsPage(m_configManager, this),
               new LivestreamSettingsPage(m_configManager, this)
           }, this),
-          "Default video, audio, and livestream quality/format choices." },
-        { "Download Flow",
+          tr("Default video, audio, and livestream quality/format choices.") },
+        { tr("Download Flow"),
           new DownloadOptionsPage(m_configManager, this),
-          "Downloader engine, automation, clipping, chapters, filenames, and proxy behavior." },
-        { "Files & Tags",
+          tr("Downloader engine, automation, clipping, chapters, filenames, and proxy behavior.") },
+        { tr("Files & Tags"),
           new SettingsSectionPage({
               new OutputTemplatesPage(m_configManager, this),
               new MetadataPage(m_configManager, this),
               new SubtitlesPage(m_configManager, this)
           }, this),
-          "Filename templates, metadata, artwork, and subtitles." },
-        { "External Tools",
+          tr("Filename templates, metadata, artwork, and subtitles.") },
+        { tr("External Tools"),
           new BinariesPage(m_configManager, this),
-          "Manage paths, versions, installs, and updates for external dependencies." }
+          tr("Manage paths, versions, installs, and updates for external dependencies.") }
     };
 
     for (const auto &descriptor : descriptors) {
@@ -207,26 +207,26 @@ void AdvancedSettingsTab::setupUI() {
 #elif !defined(NDEBUG)
     isDebug = true;
 #endif
-    QCheckBox *consoleToggle = new QCheckBox("Show Debug Console", this);
-    consoleToggle->setChecked(m_configManager->get("General", "show_debug_console", isDebug).toBool());
+    QCheckBox *consoleToggle = new QCheckBox(tr("Show Debug Console"), this);
+    consoleToggle->setChecked(m_configManager->get(QStringLiteral("General"), QStringLiteral("show_debug_console"), isDebug).toBool());
     
     bool ownsConsole = qApp->property("lzy_consoleAllocatedByUs").toBool();
     if (GetConsoleWindow() != NULL && !ownsConsole) {
-        consoleToggle->setToolTip("Setting saved for next launch. (Cannot hide the console right now because the app was launched from an existing terminal.)");
+        consoleToggle->setToolTip(tr("Setting saved for next launch. (Cannot hide the console right now because the app was launched from an existing terminal.)"));
     } else {
-        consoleToggle->setToolTip("Show or hide the command prompt / debug console window while the application is running.");
+        consoleToggle->setToolTip(tr("Show or hide the command prompt / debug console window while the application is running."));
     }
 
     connect(consoleToggle, &QCheckBox::toggled, this, [this](bool checked) {
-        m_configManager->set("General", "show_debug_console", checked);
+        m_configManager->set(QStringLiteral("General"), QStringLiteral("show_debug_console"), checked);
     });
     bottomLayout->addWidget(consoleToggle);
 #endif
 
     bottomLayout->addStretch();
 
-    m_restoreDefaultsButton = new QPushButton("Restore defaults", this);
-    m_restoreDefaultsButton->setToolTip("Reset all advanced settings to defaults.");
+    m_restoreDefaultsButton = new QPushButton(tr("Restore defaults"), this);
+    m_restoreDefaultsButton->setToolTip(tr("Reset all advanced settings to defaults."));
     bottomLayout->addWidget(m_restoreDefaultsButton);
     mainLayout->addLayout(bottomLayout);
     connect(m_restoreDefaultsButton, &QPushButton::clicked, this, &AdvancedSettingsTab::restoreDefaults);
@@ -241,12 +241,12 @@ void AdvancedSettingsTab::loadSettings() {
 }
 
 void AdvancedSettingsTab::restoreDefaults() {
-    if (QMessageBox::question(this, "Restore Defaults",
-        "Are you sure you want to restore all settings to their default values?\nThis cannot be undone.",
+    if (QMessageBox::question(this, tr("Restore Defaults"),
+        tr("Are you sure you want to restore all settings to their default values?\nThis cannot be undone."),
         QMessageBox::Yes | QMessageBox::No) == QMessageBox::Yes) {
         m_configManager->resetToDefaults();
         loadSettings();
-        QMessageBox::information(this, "Defaults Restored", "Settings have been restored to defaults.");
+        QMessageBox::information(this, tr("Defaults Restored"), tr("Settings have been restored to defaults."));
     }
 }
 
@@ -271,16 +271,16 @@ void AdvancedSettingsTab::setYtDlpVersion(const QString &version) {
 
 void AdvancedSettingsTab::navigateToCategory(const QString &categoryTitle) {
     QString targetTitle = categoryTitle;
-    if (categoryTitle == "Configuration" || categoryTitle == "Authentication" || categoryTitle == "Authentication Access") {
-        targetTitle = "Essentials";
-    } else if (categoryTitle == "Video Settings" || categoryTitle == "Audio Settings" || categoryTitle == "Livestream Settings") {
-        targetTitle = "Formats";
-    } else if (categoryTitle == "Download Options") {
-        targetTitle = "Download Flow";
-    } else if (categoryTitle == "Output Templates" || categoryTitle == "Output Template" || categoryTitle == "Metadata" || categoryTitle == "Subtitles") {
-        targetTitle = "Files & Tags";
-    } else if (categoryTitle == "External Binaries" || categoryTitle == "Binaries") {
-        targetTitle = "External Tools";
+    if (categoryTitle == QStringLiteral("Configuration") || categoryTitle == QStringLiteral("Authentication") || categoryTitle == QStringLiteral("Authentication Access")) {
+        targetTitle = tr("Essentials");
+    } else if (categoryTitle == QStringLiteral("Video Settings") || categoryTitle == QStringLiteral("Audio Settings") || categoryTitle == QStringLiteral("Livestream Settings")) {
+        targetTitle = tr("Formats");
+    } else if (categoryTitle == QStringLiteral("Download Options")) {
+        targetTitle = tr("Download Flow");
+    } else if (categoryTitle == QStringLiteral("Output Templates") || categoryTitle == QStringLiteral("Output Template") || categoryTitle == QStringLiteral("Metadata") || categoryTitle == QStringLiteral("Subtitles")) {
+        targetTitle = tr("Files & Tags");
+    } else if (categoryTitle == QStringLiteral("External Binaries") || categoryTitle == QStringLiteral("Binaries")) {
+        targetTitle = tr("External Tools");
     }
 
     QList<QListWidgetItem *> items = m_categoryList->findItems(targetTitle, Qt::MatchExactly);

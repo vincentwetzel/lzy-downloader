@@ -127,6 +127,7 @@ private:
     int m_errorDownloadsCount;
     QMap<QString, double> m_workerSpeeds;
     bool m_isShuttingDown;
+    qint64 m_lastDownloadFinishTime = 0;
 
     DownloadQueueState *m_queueState;
     DownloadQueueManager *m_queueManager;

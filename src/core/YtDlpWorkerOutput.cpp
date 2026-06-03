@@ -14,6 +14,7 @@
 #include <QProcess>
 #include <QRegularExpression>
 #include <QUrl>
+#include <chrono>
 
 void YtDlpWorker::handleOutputLine(const QString &line) {
     const QString normalizedLine = normalizeConsoleLine(line);
@@ -145,10 +146,11 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
             
             auto fetchThumbnail = [this](const QString& thumbUrl) {
                 QNetworkAccessManager *manager = new QNetworkAccessManager(this);
-                QNetworkRequest request((QUrl(thumbUrl)));
+                QNetworkRequest request{QUrl(thumbUrl)};
                 request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
                 request.setHeader(QNetworkRequest::UserAgentHeader, QStringLiteral("LzyDownloader"));
-                request.setTransferTimeout(15000);
+                constexpr int thumbTimeoutMs = 15000;
+                request.setTransferTimeout(thumbTimeoutMs);
                 QNetworkReply *reply = manager->get(request);
                 connect(reply, &QNetworkReply::finished, this, [this, reply, manager]() {
                     if (reply->error() == QNetworkReply::NoError) {
@@ -204,7 +206,8 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
                 QNetworkRequest request(oembedUrl);
                 request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
                 request.setHeader(QNetworkRequest::UserAgentHeader, QStringLiteral("LzyDownloader"));
-                request.setTransferTimeout(15000);
+                constexpr int oembedTimeoutMs = 15000;
+                request.setTransferTimeout(oembedTimeoutMs);
                 QNetworkReply *reply = manager->get(request);
                 connect(reply, &QNetworkReply::finished, this, [this, reply, manager, fetchThumbnail]() {
                     if (reply->error() == QNetworkReply::NoError) {
@@ -307,15 +310,32 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
             });
 
             fetchProcess->start(ytDlpPath, fetchArgs);
+
+            QTimer *watchdog = new QTimer(fetchProcess);
+            watchdog->setSingleShot(true);
+            connect(watchdog, &QTimer::timeout, fetchProcess, [fetchProcess]() {
+                qWarning() << "[YtDlpWorker] Pre-wait metadata fetch timed out. Killing process.";
+                if (fetchProcess->state() != QProcess::NotRunning) {
+                    ProcessUtils::terminateProcessTree(fetchProcess);
+                    fetchProcess->kill();
+                }
+            });
+            watchdog->start(std::chrono::seconds(30)); // 30 seconds
         }
     return;
     }
 
-    static const QRegularExpression thumbnailRegex(QStringLiteral("\\[ThumbnailsConvertor\\] Converting thumbnail \"([^\"]+)\" to jpg"));
+    static const QRegularExpression thumbnailRegex(QStringLiteral("\\[ThumbnailsConvertor\\] Converting thumbnail \"([^\"]+)\" to (\\w+)"));
     QRegularExpressionMatch thumbnailMatch = thumbnailRegex.match(normalizedLine);
     if (thumbnailMatch.hasMatch()) {
-        QString webpPath = thumbnailMatch.captured(1);
-        m_thumbnailPath = QDir::toNativeSeparators(webpPath.replace(QStringLiteral(".webp"), QStringLiteral(".jpg")));
+        QString originalPath = thumbnailMatch.captured(1);
+        QString format = thumbnailMatch.captured(2);
+        
+        int extIndex = originalPath.lastIndexOf(QLatin1Char('.'));
+        if (extIndex != -1) {
+            originalPath = originalPath.left(extIndex + 1) + format;
+        }
+        m_thumbnailPath = QDir::toNativeSeparators(originalPath);
         QVariantMap updateData;
         updateData[QStringLiteral("thumbnail_path")] = m_thumbnailPath;
         qDebug() << "[LOG] YtDlpWorker: Found converted thumbnail path for" << m_id << ":" << m_thumbnailPath;

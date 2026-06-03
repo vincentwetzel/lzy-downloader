@@ -7,6 +7,7 @@
 #include <QRegularExpression>
 #include <QStandardPaths>
 #include <QDate>
+#include <cmath>
 
 SortingManager::SortingManager(ConfigManager *configManager, QObject *parent)
     : QObject(parent), m_configManager(configManager) {
@@ -60,6 +61,12 @@ QVariantMap mergedSortingMetadata(const QVariantMap &metadata, const QVariantMap
         combined.insert(it.key(), it.value());
     }
 
+    // Prevent the internal UUID from leaking into {id} sorting tokens if metadata doesn't have a real ID
+    if (combined.contains(QStringLiteral("id")) && !metadata.contains(QStringLiteral("id"))) {
+        // We intentionally remove it so parseAndReplaceTokens evaluates it as "Unknown" rather than a UUID
+        combined.remove(QStringLiteral("id"));
+    }
+
     QString metaPlaylistTitle = combined.value(QStringLiteral("playlist_title")).toString().trimmed();
     if (metaPlaylistTitle.isEmpty() || metaPlaylistTitle.toLower() == QStringLiteral("null") || metaPlaylistTitle == QStringLiteral("NA")) {
         const QString optionsPlaylistTitle = downloadOptions.value(QStringLiteral("playlist_title")).toString().trimmed();
@@ -82,11 +89,11 @@ QVariantMap mergedSortingMetadata(const QVariantMap &metadata, const QVariantMap
 bool hasPlaylistContext(const QVariantMap &metadata, const QVariantMap &downloadOptions) {
     Q_UNUSED(metadata);
 
-    if (downloadOptions.value("is_playlist", false).toBool()) {
+    if (downloadOptions.value(QStringLiteral("is_playlist"), false).toBool()) {
         return true;
     }
 
-    const int optionsPlaylistIndex = downloadOptions.value("playlist_index", -1).toInt();
+    const int optionsPlaylistIndex = downloadOptions.value(QStringLiteral("playlist_index"), -1).toInt();
     return optionsPlaylistIndex != -1;
 }
 
@@ -179,8 +186,8 @@ QString SortingManager::getSortedDirectory(const QVariantMap &videoMetadata, con
 
     qDebug() << "SortingManager::getSortedDirectory called.";
     qDebug() << "  videoMetadata keys:" << sortingMetadata.keys();
-    if (sortingMetadata.contains("uploader")) {
-        qDebug() << "  uploader value:" << sortingMetadata["uploader"].toString();
+    if (sortingMetadata.contains(QStringLiteral("uploader"))) {
+        qDebug() << "  uploader value:" << sortingMetadata[QStringLiteral("uploader")].toString();
     } else {
         qDebug() << "  uploader key NOT FOUND in metadata!";
     }
@@ -270,8 +277,8 @@ QString SortingManager::getSortedDirectory(const QVariantMap &videoMetadata, con
             bool match = false;
             if (isDurationField(field)) {
                 bool ok;
-                const qlonglong durationValue = metadataValue.toLongLong();
-                const qlonglong conditionValue = value.toLongLong(&ok);
+                const qlonglong durationValue = static_cast<qlonglong>(std::round(metadataValue.toDouble()));
+                const qlonglong conditionValue = static_cast<qlonglong>(std::round(value.toDouble(&ok)));
                 if (ok) {
                     if (normalizedOperator == QStringLiteral("is")) {
                         match = (durationValue == conditionValue);

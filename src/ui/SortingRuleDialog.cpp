@@ -1,5 +1,4 @@
 #include "SortingRuleDialog.h"
-#include "utils/YtDlpJsonParser.h" // Corrected include path
 #include <QVBoxLayout>
 #include <QFormLayout>
 #include <QHBoxLayout>
@@ -37,12 +36,17 @@ public:
         topLayout->setSpacing(4);
 
         m_fieldCombo = new QComboBox(this);
-        m_fieldCombo->addItems({"Uploader", "Title", "Playlist Title", "Duration (seconds)", "Album", "ID"});
-        m_fieldCombo->setToolTip("Select the metadata field to examine.");
+        m_fieldCombo->addItem(tr("Uploader"), QStringLiteral("Uploader"));
+        m_fieldCombo->addItem(tr("Title"), QStringLiteral("Title"));
+        m_fieldCombo->addItem(tr("Playlist Title"), QStringLiteral("Playlist Title"));
+        m_fieldCombo->addItem(tr("Duration (seconds)"), QStringLiteral("Duration (seconds)"));
+        m_fieldCombo->addItem(tr("Album"), QStringLiteral("Album"));
+        m_fieldCombo->addItem(tr("ID"), QStringLiteral("ID"));
+        m_fieldCombo->setToolTip(tr("Select the metadata field to examine."));
         m_fieldCombo->setSizeAdjustPolicy(QComboBox::AdjustToContents);
 
         m_operatorCombo = new QComboBox(this);
-        m_operatorCombo->setToolTip("Select the comparison operator.");
+        m_operatorCombo->setToolTip(tr("Select the comparison operator."));
         m_operatorCombo->setSizeAdjustPolicy(QComboBox::AdjustToContents);
         // Items will be populated by onFieldChanged
 
@@ -66,124 +70,134 @@ public:
         mainLayout->addLayout(topLayout);
         mainLayout->addWidget(m_valueStackedWidget);
 
-        connect(m_fieldCombo, &QComboBox::currentTextChanged, this, &ConditionWidget::onFieldChanged);
-        connect(m_operatorCombo, &QComboBox::currentTextChanged, this, &ConditionWidget::onOperatorChanged);
+        connect(m_fieldCombo, &QComboBox::currentIndexChanged, this, [this](int index) {
+            onFieldChanged(m_fieldCombo->itemData(index).toString());
+        });
+        connect(m_operatorCombo, &QComboBox::currentIndexChanged, this, [this](int index) {
+            onOperatorChanged(m_operatorCombo->itemData(index).toString());
+        });
 
         // Initial state setup
-        onFieldChanged(m_fieldCombo->currentText());
+        onFieldChanged(m_fieldCombo->currentData().toString());
     }
 
-    QVariantMap getCondition() const {
+    [[nodiscard]] QVariantMap getCondition() const {
         QVariantMap condition;
-        QString uiField = m_fieldCombo->currentText();
+        QString uiField = m_fieldCombo->currentData().toString();
         QString internalField = uiField.toLower();
-        if (uiField == "Playlist Title") internalField = "playlist_title";
-        else if (uiField == "Duration (seconds)") internalField = "duration";
-        else if (uiField == "Album") internalField = "album";
-        else if (uiField == "ID") internalField = "id";
+        if (uiField == QStringLiteral("Playlist Title")) internalField = QStringLiteral("playlist_title");
+        else if (uiField == QStringLiteral("Duration (seconds)")) internalField = QStringLiteral("duration");
+        else if (uiField == QStringLiteral("Album")) internalField = QStringLiteral("album");
+        else if (uiField == QStringLiteral("ID")) internalField = QStringLiteral("id");
         
-        condition["field"] = internalField;
-        condition["operator"] = m_operatorCombo->currentText();
-        if (m_operatorCombo->currentText() == "Is One Of") {
-            condition["value"] = m_valueInputMulti->toPlainText();
+        condition[QStringLiteral("field")] = internalField;
+        condition[QStringLiteral("operator")] = m_operatorCombo->currentData().toString();
+        if (m_operatorCombo->currentData().toString() == QStringLiteral("Is One Of")) {
+            condition[QStringLiteral("value")] = m_valueInputMulti->toPlainText();
         } else {
-            condition["value"] = m_valueInputSingle->text();
+            condition[QStringLiteral("value")] = m_valueInputSingle->text();
         }
         return condition;
     }
 
     void setCondition(const QVariantMap &condition) {
-        QString field = condition["field"].toString();
+        QString field = condition[QStringLiteral("field")].toString();
         
         // Map internal fields back to UI fields
-        if (field.compare("playlist_title", Qt::CaseInsensitive) == 0 || field.compare("playlist", Qt::CaseInsensitive) == 0) field = "Playlist Title";
-        else if (field.compare("duration", Qt::CaseInsensitive) == 0) field = "Duration (seconds)";
-        else if (field.compare("album", Qt::CaseInsensitive) == 0) field = "Album";
-        else if (field.compare("id", Qt::CaseInsensitive) == 0) field = "ID";
-        else if (field.compare("uploader", Qt::CaseInsensitive) == 0) field = "Uploader";
-        else if (field.compare("title", Qt::CaseInsensitive) == 0) field = "Title";
+        if (field.compare(QStringLiteral("playlist_title"), Qt::CaseInsensitive) == 0 || field.compare(QStringLiteral("playlist"), Qt::CaseInsensitive) == 0) field = QStringLiteral("Playlist Title");
+        else if (field.compare(QStringLiteral("duration"), Qt::CaseInsensitive) == 0) field = QStringLiteral("Duration (seconds)");
+        else if (field.compare(QStringLiteral("album"), Qt::CaseInsensitive) == 0) field = QStringLiteral("Album");
+        else if (field.compare(QStringLiteral("id"), Qt::CaseInsensitive) == 0) field = QStringLiteral("ID");
+        else if (field.compare(QStringLiteral("uploader"), Qt::CaseInsensitive) == 0) field = QStringLiteral("Uploader");
+        else if (field.compare(QStringLiteral("title"), Qt::CaseInsensitive) == 0) field = QStringLiteral("Title");
         
         // Fallback case-insensitive match
         for (int i = 0; i < m_fieldCombo->count(); ++i) {
-            if (m_fieldCombo->itemText(i).compare(field, Qt::CaseInsensitive) == 0) {
-                field = m_fieldCombo->itemText(i);
+            if (m_fieldCombo->itemData(i).toString().compare(field, Qt::CaseInsensitive) == 0) {
+                field = m_fieldCombo->itemData(i).toString();
                 break;
             }
         }
         
-        m_fieldCombo->setCurrentText(field);
+        m_fieldCombo->setCurrentIndex(m_fieldCombo->findData(field));
         onFieldChanged(field); // Set up operators
 
-        QString op = condition["operator"].toString();
-        if (op.compare("Equals", Qt::CaseInsensitive) == 0) {
-            op = "Is";
+        QString op = condition[QStringLiteral("operator")].toString();
+        if (op.compare(QStringLiteral("Equals"), Qt::CaseInsensitive) == 0) {
+            op = QStringLiteral("Is");
         }
         for (int i = 0; i < m_operatorCombo->count(); ++i) {
-            if (m_operatorCombo->itemText(i).compare(op, Qt::CaseInsensitive) == 0) {
-                op = m_operatorCombo->itemText(i);
+            if (m_operatorCombo->itemData(i).toString().compare(op, Qt::CaseInsensitive) == 0) {
+                op = m_operatorCombo->itemData(i).toString();
                 break;
             }
         }
         
         // Temporarily unhook onOperatorChanged so we don't mess up text copying
         QSignalBlocker opBlock(m_operatorCombo);
-        m_operatorCombo->setCurrentText(op);
+        m_operatorCombo->setCurrentIndex(m_operatorCombo->findData(op));
         opBlock.unblock();
 
         // Set value directly without triggering operator change effects yet
-        if (m_operatorCombo->currentText() == "Is One Of") {
-            m_valueInputMulti->setPlainText(condition["value"].toString());
+        if (m_operatorCombo->currentData().toString() == QStringLiteral("Is One Of")) {
+            m_valueInputMulti->setPlainText(condition[QStringLiteral("value")].toString());
         } else {
-            m_valueInputSingle->setText(condition["value"].toString());
+            m_valueInputSingle->setText(condition[QStringLiteral("value")].toString());
         }
         
         // Now invoke to update UI state (placeholders, stacked widget)
-        onOperatorChanged(m_operatorCombo->currentText());
+        onOperatorChanged(m_operatorCombo->currentData().toString());
     }
 
-    QString getValueText() const {
-        if (m_operatorCombo->currentText() == "Is One Of") {
+    [[nodiscard]] QString getValueText() const {
+        if (m_operatorCombo->currentData().toString() == QStringLiteral("Is One Of")) {
             return m_valueInputMulti->toPlainText();
         }
         return m_valueInputSingle->text();
     }
 
     void setValueText(const QString &text) {
-        if (m_operatorCombo->currentText() == "Is One Of") {
+        if (m_operatorCombo->currentData().toString() == QStringLiteral("Is One Of")) {
             m_valueInputMulti->setPlainText(text);
         } else {
             m_valueInputSingle->setText(text);
         }
     }
 
-    QString getOperatorText() const {
-        return m_operatorCombo->currentText();
+    [[nodiscard]] QString getOperatorText() const {
+        return m_operatorCombo->currentData().toString();
     }
 
 
 private slots:
     void onFieldChanged(const QString &field) {
-        QString currentOperator = m_operatorCombo->currentText();
+        QString currentOperator = m_operatorCombo->currentData().toString();
         m_operatorCombo->clear();
-        if (field == "Duration (seconds)") {
-            m_operatorCombo->addItems({"Is", "Greater Than", "Less Than"});
+        if (field == QStringLiteral("Duration (seconds)")) {
+            m_operatorCombo->addItem(tr("Is"), QStringLiteral("Is"));
+            m_operatorCombo->addItem(tr("Greater Than"), QStringLiteral("Greater Than"));
+            m_operatorCombo->addItem(tr("Less Than"), QStringLiteral("Less Than"));
         } else {
-            m_operatorCombo->addItems({"Contains", "Is", "Starts With", "Ends With", "Is One Of"});
+            m_operatorCombo->addItem(tr("Contains"), QStringLiteral("Contains"));
+            m_operatorCombo->addItem(tr("Is"), QStringLiteral("Is"));
+            m_operatorCombo->addItem(tr("Starts With"), QStringLiteral("Starts With"));
+            m_operatorCombo->addItem(tr("Ends With"), QStringLiteral("Ends With"));
+            m_operatorCombo->addItem(tr("Is One Of"), QStringLiteral("Is One Of"));
         }
         // Try to restore the previously selected operator if it's still valid
-        int index = m_operatorCombo->findText(currentOperator);
+        int index = m_operatorCombo->findData(currentOperator);
         if (index != -1) {
             m_operatorCombo->setCurrentIndex(index);
         } else {
             m_operatorCombo->setCurrentIndex(0); // Select first available operator
         }
-        onOperatorChanged(m_operatorCombo->currentText());
+        onOperatorChanged(m_operatorCombo->currentData().toString());
     }
 
     void onOperatorChanged(const QString &op) {
-        if (op == "Is One Of") {
-            m_valueInputMulti->setPlaceholderText("Enter one value per line.");
-            m_valueInputMulti->setToolTip("Enter one value per line. The condition will match if the field is an exact match to any of the lines.");
+        if (op == QStringLiteral("Is One Of")) {
+            m_valueInputMulti->setPlaceholderText(tr("Enter one value per line."));
+            m_valueInputMulti->setToolTip(tr("Enter one value per line. The condition will match if the field is an exact match to any of the lines."));
             
             // When switching from single-line, copy text
             if (m_valueStackedWidget->currentWidget() == m_valueInputSingle && !m_valueInputSingle->text().isEmpty()) {
@@ -192,16 +206,16 @@ private slots:
             
             m_valueStackedWidget->setCurrentWidget(m_valueInputMulti);
         } else {
-            QString placeholder = "Enter value.";
-            if (m_fieldCombo->currentText() == "Duration (seconds)") {
-                placeholder = "Enter a number (e.g., 300 for 5 minutes).";
+            QString placeholder = tr("Enter value.");
+            if (m_fieldCombo->currentData().toString() == QStringLiteral("Duration (seconds)")) {
+                placeholder = tr("Enter a number (e.g., 300 for 5 minutes).");
             }
             m_valueInputSingle->setPlaceholderText(placeholder);
-            m_valueInputSingle->setToolTip("Enter the value to compare against.");
+            m_valueInputSingle->setToolTip(tr("Enter the value to compare against."));
 
             // When switching from multi-line, copy the first line to the single-line input
             if (m_valueStackedWidget->currentWidget() == m_valueInputMulti) {
-                QString firstLine = m_valueInputMulti->toPlainText().split('\n').first();
+                QString firstLine = m_valueInputMulti->toPlainText().split(QLatin1Char('\n')).first();
                 m_valueInputSingle->setText(firstLine);
             }
             m_valueStackedWidget->setCurrentWidget(m_valueInputSingle);
@@ -226,52 +240,57 @@ SortingRuleDialog::SortingRuleDialog(const QVariantMap &rule, QWidget *parent) :
 }
 
 void SortingRuleDialog::setupUI() {
-    setWindowTitle("Sorting Rule");
+    setWindowTitle(tr("Sorting Rule"));
     setMinimumSize(650, 500);
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
     QFormLayout *formLayout = new QFormLayout();
 
     m_ruleNameInput = new QLineEdit(this);
-    m_ruleNameInput->setToolTip("A descriptive name for this rule (e.g., 'Music Videos').");
-    formLayout->addRow("Rule Name:", m_ruleNameInput);
+    m_ruleNameInput->setToolTip(tr("A descriptive name for this rule (e.g., 'Music Videos')."));
+    formLayout->addRow(tr("Rule Name:"), m_ruleNameInput);
 
     QHBoxLayout *targetFolderLayout = new QHBoxLayout();
     m_targetFolderInput = new QLineEdit(this);
-    m_targetFolderInput->setToolTip("The main folder where matching files will be moved.");
-    m_browseButton = new QPushButton("Browse...", this);
-    m_browseButton->setToolTip("Browse to select the target folder.");
+    m_targetFolderInput->setToolTip(tr("The main folder where matching files will be moved."));
+    m_browseButton = new QPushButton(tr("Browse..."), this);
+    m_browseButton->setToolTip(tr("Browse to select the target folder."));
     targetFolderLayout->addWidget(m_targetFolderInput);
     targetFolderLayout->addWidget(m_browseButton);
-    formLayout->addRow("Target Folder:", targetFolderLayout);
+    formLayout->addRow(tr("Target Folder:"), targetFolderLayout);
 
     QHBoxLayout *subfolderLayout = new QHBoxLayout();
     m_subfolderPatternInput = new QLineEdit(this);
-    m_subfolderPatternInput->setToolTip("Optional. Create subfolders using media properties. Use the dropdown to insert placeholders.");
+    m_subfolderPatternInput->setToolTip(tr("Optional. Create subfolders using media properties. Use the dropdown to insert placeholders."));
 
     m_tokenDropdown = new QComboBox(this);
-    m_tokenDropdown->setToolTip("Insert a placeholder into the subfolder pattern.");
-    m_tokenDropdown->addItem("Insert Token...");
-    QStringList tokens = {"{title}", "{uploader}", "{id}", "{album}", "{upload_year}", "{upload_month}", "{upload_day}", "{playlist_title}"};
+    m_tokenDropdown->setToolTip(tr("Insert a placeholder into the subfolder pattern."));
+    m_tokenDropdown->addItem(tr("Insert Token..."));
+    QStringList tokens = {QStringLiteral("{title}"), QStringLiteral("{uploader}"), QStringLiteral("{id}"), QStringLiteral("{album}"), QStringLiteral("{upload_year}"), QStringLiteral("{upload_month}"), QStringLiteral("{upload_day}"), QStringLiteral("{playlist_title}")};
     m_tokenDropdown->addItems(tokens);
 
     subfolderLayout->addWidget(m_subfolderPatternInput);
     subfolderLayout->addWidget(m_tokenDropdown);
-    formLayout->addRow("Subfolder Pattern:", subfolderLayout);
+    formLayout->addRow(tr("Subfolder Pattern:"), subfolderLayout);
 
     m_appliesToDropdown = new QComboBox(this);
-    m_appliesToDropdown->setToolTip("Choose which types of downloads this rule should apply to.");
-    m_appliesToDropdown->addItems({"All Downloads", "Video Downloads", "Audio Downloads", "Gallery Downloads", "Video Playlist Downloads", "Audio Playlist Downloads"});
-    formLayout->addRow("Rule Applies to:", m_appliesToDropdown);
+    m_appliesToDropdown->setToolTip(tr("Choose which types of downloads this rule should apply to."));
+    m_appliesToDropdown->addItem(tr("All Downloads"), QStringLiteral("All Downloads"));
+    m_appliesToDropdown->addItem(tr("Video Downloads"), QStringLiteral("Video Downloads"));
+    m_appliesToDropdown->addItem(tr("Audio Downloads"), QStringLiteral("Audio Downloads"));
+    m_appliesToDropdown->addItem(tr("Gallery Downloads"), QStringLiteral("Gallery Downloads"));
+    m_appliesToDropdown->addItem(tr("Video Playlist Downloads"), QStringLiteral("Video Playlist Downloads"));
+    m_appliesToDropdown->addItem(tr("Audio Playlist Downloads"), QStringLiteral("Audio Playlist Downloads"));
+    formLayout->addRow(tr("Rule Applies to:"), m_appliesToDropdown);
 
     mainLayout->addLayout(formLayout);
 
     QHBoxLayout* conditionsHeaderLayout = new QHBoxLayout();
-    QLabel *conditionsHeaderLabel = new QLabel("Conditions (All Must Match):");
-    conditionsHeaderLabel->setToolTip("A list of conditions that must all be true for this sorting rule to trigger.");
+    QLabel *conditionsHeaderLabel = new QLabel(tr("Conditions (All Must Match):"));
+    conditionsHeaderLabel->setToolTip(tr("A list of conditions that must all be true for this sorting rule to trigger."));
     conditionsHeaderLayout->addWidget(conditionsHeaderLabel);
     conditionsHeaderLayout->addStretch();
-    m_addConditionButton = new QPushButton("Add Condition", this);
-    m_addConditionButton->setToolTip("Add a new condition to this rule. All conditions must be met for the rule to apply.");
+    m_addConditionButton = new QPushButton(tr("Add Condition"), this);
+    m_addConditionButton->setToolTip(tr("Add a new condition to this rule. All conditions must be met for the rule to apply."));
     conditionsHeaderLayout->addWidget(m_addConditionButton);
     mainLayout->addLayout(conditionsHeaderLayout);
 
@@ -281,7 +300,7 @@ void SortingRuleDialog::setupUI() {
     m_conditionsScrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     m_conditionsScrollArea->setMinimumHeight(150);
     m_conditionsScrollArea->setMaximumHeight(400);
-    m_conditionsScrollArea->setToolTip("Add one or more conditions. A download must match ALL of them for this rule to apply.");
+    m_conditionsScrollArea->setToolTip(tr("Add one or more conditions. A download must match ALL of them for this rule to apply."));
 
     m_conditionsContainer = new QWidget();
     m_conditionsLayout = new QVBoxLayout(m_conditionsContainer);
@@ -308,27 +327,23 @@ void SortingRuleDialog::setupUI() {
 }
 
 void SortingRuleDialog::setRule(const QVariantMap &rule) {
-    m_ruleNameInput->setText(rule["name"].toString());
-    m_targetFolderInput->setText(QDir::toNativeSeparators(rule["target_folder"].toString()));
-    m_subfolderPatternInput->setText(rule["subfolder_pattern"].toString());
+    m_ruleNameInput->setText(rule[QStringLiteral("name")].toString());
+    m_targetFolderInput->setText(QDir::toNativeSeparators(rule[QStringLiteral("target_folder")].toString()));
+    m_subfolderPatternInput->setText(rule[QStringLiteral("subfolder_pattern")].toString());
 
-    if (rule.contains("applies_to")) {
-        QString appliesTo = rule["applies_to"].toString();
+    if (rule.contains(QStringLiteral("applies_to"))) {
+        QString appliesTo = rule[QStringLiteral("applies_to")].toString();
         
-        if (appliesTo.compare("video", Qt::CaseInsensitive) == 0) appliesTo = "Video Downloads";
-        else if (appliesTo.compare("audio", Qt::CaseInsensitive) == 0) appliesTo = "Audio Downloads";
-        else if (appliesTo.compare("gallery", Qt::CaseInsensitive) == 0) appliesTo = "Gallery Downloads";
-        else if (appliesTo.compare("video_playlist", Qt::CaseInsensitive) == 0) appliesTo = "Video Playlist Downloads";
-        else if (appliesTo.compare("audio_playlist", Qt::CaseInsensitive) == 0) appliesTo = "Audio Playlist Downloads";
-        else if (appliesTo.compare("any", Qt::CaseInsensitive) == 0 || appliesTo.compare("all", Qt::CaseInsensitive) == 0) appliesTo = "All Downloads";
+        if (appliesTo.compare(QStringLiteral("video"), Qt::CaseInsensitive) == 0) appliesTo = QStringLiteral("Video Downloads");
+        else if (appliesTo.compare(QStringLiteral("audio"), Qt::CaseInsensitive) == 0) appliesTo = QStringLiteral("Audio Downloads");
+        else if (appliesTo.compare(QStringLiteral("gallery"), Qt::CaseInsensitive) == 0) appliesTo = QStringLiteral("Gallery Downloads");
+        else if (appliesTo.compare(QStringLiteral("video_playlist"), Qt::CaseInsensitive) == 0) appliesTo = QStringLiteral("Video Playlist Downloads");
+        else if (appliesTo.compare(QStringLiteral("audio_playlist"), Qt::CaseInsensitive) == 0) appliesTo = QStringLiteral("Audio Playlist Downloads");
+        else if (appliesTo.compare(QStringLiteral("any"), Qt::CaseInsensitive) == 0 || appliesTo.compare(QStringLiteral("all"), Qt::CaseInsensitive) == 0) appliesTo = QStringLiteral("All Downloads");
         
         for (int i = 0; i < m_appliesToDropdown->count(); ++i) {
-            if (m_appliesToDropdown->itemText(i).compare(appliesTo, Qt::CaseInsensitive) == 0) {
-                appliesTo = m_appliesToDropdown->itemText(i);
-                break;
-            }
+            m_appliesToDropdown->setCurrentIndex(m_appliesToDropdown->findData(appliesTo));
         }
-        m_appliesToDropdown->setCurrentText(appliesTo);
     }
 
     // Clear existing conditions (remove all but the stretch)
@@ -338,7 +353,7 @@ void SortingRuleDialog::setRule(const QVariantMap &rule) {
         delete item;
     }
 
-    QVariantList conditions = rule["conditions"].toList();
+    QVariantList conditions = rule[QStringLiteral("conditions")].toList();
     for (const QVariant &condVariant : conditions) {
         addCondition(condVariant.toMap());
     }
@@ -346,18 +361,18 @@ void SortingRuleDialog::setRule(const QVariantMap &rule) {
 
 QVariantMap SortingRuleDialog::getRule() const {
     QVariantMap rule;
-    rule["name"] = m_ruleNameInput->text();
-    rule["target_folder"] = QDir::cleanPath(m_targetFolderInput->text());
-    rule["subfolder_pattern"] = m_subfolderPatternInput->text();
+    rule[QStringLiteral("name")] = m_ruleNameInput->text();
+    rule[QStringLiteral("target_folder")] = QDir::cleanPath(m_targetFolderInput->text());
+    rule[QStringLiteral("subfolder_pattern")] = m_subfolderPatternInput->text();
 
-    QString uiAppliesTo = m_appliesToDropdown->currentText();
-    QString internalAppliesTo = "any";
-    if (uiAppliesTo == "Video Downloads") internalAppliesTo = "video";
-    else if (uiAppliesTo == "Audio Downloads") internalAppliesTo = "audio";
-    else if (uiAppliesTo == "Gallery Downloads") internalAppliesTo = "gallery";
-    else if (uiAppliesTo == "Video Playlist Downloads") internalAppliesTo = "video_playlist";
-    else if (uiAppliesTo == "Audio Playlist Downloads") internalAppliesTo = "audio_playlist";
-    rule["applies_to"] = internalAppliesTo;
+    QString uiAppliesTo = m_appliesToDropdown->currentData().toString();
+    QString internalAppliesTo = QStringLiteral("any");
+    if (uiAppliesTo == QStringLiteral("Video Downloads")) internalAppliesTo = QStringLiteral("video");
+    else if (uiAppliesTo == QStringLiteral("Audio Downloads")) internalAppliesTo = QStringLiteral("audio");
+    else if (uiAppliesTo == QStringLiteral("Gallery Downloads")) internalAppliesTo = QStringLiteral("gallery");
+    else if (uiAppliesTo == QStringLiteral("Video Playlist Downloads")) internalAppliesTo = QStringLiteral("video_playlist");
+    else if (uiAppliesTo == QStringLiteral("Audio Playlist Downloads")) internalAppliesTo = QStringLiteral("audio_playlist");
+    rule[QStringLiteral("applies_to")] = internalAppliesTo;
 
     QVariantList conditions;
     // Iterate through layout containers (skip the stretch at the end)
@@ -377,7 +392,7 @@ QVariantMap SortingRuleDialog::getRule() const {
 }
 
 void SortingRuleDialog::browseTargetFolder() {
-    QString dir = QFileDialog::getExistingDirectory(this, "Select Target Folder",
+    QString dir = QFileDialog::getExistingDirectory(this, tr("Select Target Folder"),
                                                     m_targetFolderInput->text(),
                                                     QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
     if (!dir.isEmpty()) {
@@ -391,9 +406,9 @@ void SortingRuleDialog::addCondition(const QVariantMap &condition) {
         conditionWidget->setCondition(condition);
     }
 
-    QPushButton *removeButton = new QPushButton("Remove");
-    removeButton->setStyleSheet("color: red;");
-    removeButton->setToolTip("Remove this condition.");
+    QPushButton *removeButton = new QPushButton(tr("Remove"));
+    removeButton->setStyleSheet(QStringLiteral("color: #dc2626;"));
+    removeButton->setToolTip(tr("Remove this condition."));
     removeButton->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
 
     QHBoxLayout *hbox = new QHBoxLayout();
@@ -419,11 +434,11 @@ void SortingRuleDialog::insertToken(const QString &token) {
 
 void SortingRuleDialog::accept() {
     if (m_ruleNameInput->text().trimmed().isEmpty()) {
-        QMessageBox::warning(this, "Validation Error", "Rule Name cannot be empty.");
+        QMessageBox::warning(this, tr("Validation Error"), tr("Rule Name cannot be empty."));
         return;
     }
     if (m_targetFolderInput->text().trimmed().isEmpty()) {
-        QMessageBox::warning(this, "Validation Error", "Target Folder cannot be empty.");
+        QMessageBox::warning(this, tr("Validation Error"), tr("Target Folder cannot be empty."));
         return;
     }
 
@@ -433,12 +448,12 @@ void SortingRuleDialog::accept() {
         if (auto container = item->widget()) {
             for (QObject *child : container->children()) {
                 if (auto conditionWidget = dynamic_cast<ConditionWidget*>(child)) {
-                    if (conditionWidget->getOperatorText() == "Is One Of") {
-                        QStringList values = conditionWidget->getValueText().split('\n', Qt::SkipEmptyParts);
+                    if (conditionWidget->getOperatorText() == QStringLiteral("Is One Of")) {
+                        QStringList values = conditionWidget->getValueText().split(QLatin1Char('\n'), Qt::SkipEmptyParts);
                         std::sort(values.begin(), values.end(), [](const QString &s1, const QString &s2) {
-                            return s1.toLower() < s2.toLower();
+                            return s1.compare(s2, Qt::CaseInsensitive) < 0;
                         });
-                        conditionWidget->setValueText(values.join('\n'));
+                        conditionWidget->setValueText(values.join(QLatin1Char('\n')));
                     }
                     break;
                 }
@@ -449,7 +464,7 @@ void SortingRuleDialog::accept() {
     QString subfolderPattern = m_subfolderPatternInput->text();
     QString error;
     if (!validateSubfolderPattern(subfolderPattern, error)) {
-        QMessageBox::warning(this, "Invalid Subfolder Pattern", error);
+        QMessageBox::warning(this, tr("Invalid Subfolder Pattern"), error);
         return;
     }
 
@@ -457,7 +472,7 @@ void SortingRuleDialog::accept() {
 }
 
 bool SortingRuleDialog::validateSubfolderPattern(const QString &pattern, QString &error) const {
-    QRegularExpression re("\\{([^}]+)\\}");
+    static const QRegularExpression re(QStringLiteral("\\{([^}]+)\\}"));
     auto it = re.globalMatch(pattern);
 
     const QSet<QString> validTokens = {
@@ -475,7 +490,7 @@ bool SortingRuleDialog::validateSubfolderPattern(const QString &pattern, QString
         QRegularExpressionMatch match = it.next();
         QString token = match.captured(1);
         if (!validTokens.contains(token.toLower())) {
-            error = QString("The token '{%1}' is not a valid metadata field. Please check the spelling and try again.").arg(token);
+            error = tr("The token '{%1}' is not a valid metadata field. Please check the spelling and try again.").arg(token);
             return false;
         }
     }

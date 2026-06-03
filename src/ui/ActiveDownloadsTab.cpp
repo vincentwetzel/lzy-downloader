@@ -15,6 +15,7 @@
 #include <QStyle>
 #include "core/ConfigManager.h"
 #include <QPainter>
+#include <chrono>
 
 static QIcon createColoredIcon(QStyle::StandardPixmap sp, const QColor &color) {
     QPixmap pixmap = QApplication::style()->standardIcon(sp).pixmap(32, 32);
@@ -38,13 +39,13 @@ void ActiveDownloadsTab::setupUi() {
     QHBoxLayout *toolbarLayout = new QHBoxLayout();
     m_cancelAllButton = new QPushButton(this);
     m_cancelAllButton->setIcon(createColoredIcon(QStyle::SP_MediaStop, QColor("#ef4444")));
-    m_cancelAllButton->setToolTip("Stop All Active Downloads");
+    m_cancelAllButton->setToolTip(tr("Stop All Active Downloads"));
     m_cancelAllButton->setFixedSize(32, 32);
 
     QPushButton *resumeAllButton = new QPushButton(this);
     resumeAllButton->setIcon(createColoredIcon(QStyle::SP_MediaPlay, QColor("#22c55e")));
-    resumeAllButton->setObjectName("resumeAllButton");
-    resumeAllButton->setToolTip("Resume all stopped or failed downloads.");
+    resumeAllButton->setObjectName(QStringLiteral("resumeAllButton"));
+    resumeAllButton->setToolTip(tr("Resume all stopped or failed downloads."));
     resumeAllButton->setFixedSize(32, 32);
     connect(resumeAllButton, &QPushButton::clicked, this, [this]() {
         QList<DownloadItemWidget*> widgetsToResume;
@@ -60,13 +61,13 @@ void ActiveDownloadsTab::setupUi() {
         
         if (widgetsToResume.isEmpty()) return;
 
-        if (QMessageBox::question(this, "Resume All", "Are you sure you want to resume all stopped or failed downloads?", QMessageBox::Yes | QMessageBox::No) == QMessageBox::No) {
+        if (QMessageBox::question(this, tr("Resume All"), tr("Are you sure you want to resume all stopped or failed downloads?"), QMessageBox::Yes | QMessageBox::No) == QMessageBox::No) {
             return;
         }
 
         for (DownloadItemWidget *itemWidget : widgetsToResume) {
             for (QPushButton *btn : itemWidget->findChildren<QPushButton*>()) {
-                if (btn->toolTip() == "Resume" || btn->toolTip() == "Retry") {
+                if (btn->toolTip() == tr("Resume") || btn->toolTip() == tr("Retry")) {
                     btn->click();
                     break;
                 }
@@ -76,7 +77,7 @@ void ActiveDownloadsTab::setupUi() {
 
     m_clearInactiveButton = new QPushButton(this);
     m_clearInactiveButton->setIcon(createColoredIcon(QStyle::SP_TrashIcon, QColor("#64748b")));
-    m_clearInactiveButton->setToolTip("Clear all inactive (completed, stopped, and failed) downloads.");
+    m_clearInactiveButton->setToolTip(tr("Clear all inactive (completed, stopped, and failed) downloads."));
     m_clearInactiveButton->setFixedSize(32, 32);
     
     connect(m_clearInactiveButton, &QPushButton::clicked, this, [this]() {
@@ -99,8 +100,8 @@ void ActiveDownloadsTab::setupUi() {
         
         bool deleteTempFiles = false;
         if (!incompleteToRemove.isEmpty()) {
-            deleteTempFiles = (QMessageBox::question(this, "Clear Inactive Downloads",
-                                                     "Do you also want to delete temporary files for the incomplete downloads being cleared?",
+            deleteTempFiles = (QMessageBox::question(this, tr("Clear Inactive Downloads"),
+                                                     tr("Do you also want to delete temporary files for the incomplete downloads being cleared?"),
                                                      QMessageBox::Yes | QMessageBox::No) == QMessageBox::Yes);
         }
 
@@ -116,29 +117,29 @@ void ActiveDownloadsTab::setupUi() {
     });
 
     // Add folder buttons for quick access to download directories
-    QPushButton *openTempFolderButton = new QPushButton("Open Temporary Folder", this);
+    QPushButton *openTempFolderButton = new QPushButton(tr("Open Temporary Folder"), this);
     openTempFolderButton->setIcon(createColoredIcon(QStyle::SP_DirIcon, QColor("#3b82f6")));
-    openTempFolderButton->setToolTip("Click here to open the folder where active downloads are temporarily stored.");
+    openTempFolderButton->setToolTip(tr("Click here to open the folder where active downloads are temporarily stored."));
     connect(openTempFolderButton, &QPushButton::clicked, this, [this]() {
-        QString tempDir = m_configManager->get("Paths", "temporary_downloads_directory").toString();
+        QString tempDir = m_configManager->get(QStringLiteral("Paths"), QStringLiteral("temporary_downloads_directory")).toString();
         if (tempDir.isEmpty() || !QDir(tempDir).exists()) {
-            QMessageBox::warning(this, "Folder Not Found",
-                                 "The temporary downloads directory is not set or does not exist.\n"
-                                 "Please configure it in the Advanced Settings tab.");
+            QMessageBox::warning(this, tr("Folder Not Found"),
+                                 tr("The temporary downloads directory is not set or does not exist.\n"
+                                 "Please configure it in the Advanced Settings tab."));
             return;
         }
         QDesktopServices::openUrl(QUrl::fromLocalFile(tempDir));
     });
     
-    QPushButton *openDownloadsFolderButton = new QPushButton("Open Downloads Folder", this);
+    QPushButton *openDownloadsFolderButton = new QPushButton(tr("Open Downloads Folder"), this);
     openDownloadsFolderButton->setIcon(createColoredIcon(QStyle::SP_DirOpenIcon, QColor("#3b82f6")));
-    openDownloadsFolderButton->setToolTip("Click here to open the folder where all your finished downloads are saved.");
+    openDownloadsFolderButton->setToolTip(tr("Click here to open the folder where all your finished downloads are saved."));
     connect(openDownloadsFolderButton, &QPushButton::clicked, this, [this]() {
-        QString downloadsDir = m_configManager->get("Paths", "completed_downloads_directory").toString();
+        QString downloadsDir = m_configManager->get(QStringLiteral("Paths"), QStringLiteral("completed_downloads_directory")).toString();
         if (downloadsDir.isEmpty() || !QDir(downloadsDir).exists()) {
-            QMessageBox::warning(this, "Folder Not Found",
-                                 "The downloads directory is not set or does not exist.\n"
-                                 "Please configure it in the Advanced Settings tab.");
+            QMessageBox::warning(this, tr("Folder Not Found"),
+                                 tr("The downloads directory is not set or does not exist.\n"
+                                 "Please configure it in the Advanced Settings tab."));
             return;
         }
         QDesktopServices::openUrl(QUrl::fromLocalFile(downloadsDir));
@@ -168,7 +169,7 @@ void ActiveDownloadsTab::setupUi() {
 
     QLabel *textLabel = new QLabel(tr("No active downloads.\nAdd a URL in the Start Download tab to begin."), this);
     textLabel->setAlignment(Qt::AlignCenter);
-    textLabel->setStyleSheet("color: gray; font-size: 14px;");
+    textLabel->setStyleSheet(QStringLiteral("color: palette(shadow); font-size: 14px;"));
 
     placeholderLayout->addStretch();
     placeholderLayout->addWidget(iconLabel);
@@ -198,16 +199,33 @@ void ActiveDownloadsTab::setupUi() {
 }
 
 void ActiveDownloadsTab::addDownloadItem(const QVariantMap &itemData) {
-    QString id = itemData["id"].toString();
+    QString id = itemData[QStringLiteral("id")].toString();
     if (m_downloadItems.contains(id)) {
         onItemClearRequested(id);
+    }
+
+    // Automatically prune old finished downloads if the list gets too long
+    // Defaults to 100 items to prevent UI lag over long sessions
+    int maxItems = m_configManager->get(QStringLiteral("General"), QStringLiteral("max_ui_downloads"), 100).toInt();
+    if (maxItems > 0 && m_downloadItems.size() >= maxItems) {
+        for (int i = 0; i < m_downloadsLayout->count() && m_downloadItems.size() >= maxItems; ) {
+            if (QWidget *widget = m_downloadsLayout->itemAt(i)->widget()) {
+                if (DownloadItemWidget *itemWidget = qobject_cast<DownloadItemWidget*>(widget)) {
+                    if (itemWidget->isFinished()) {
+                        onItemClearRequested(itemWidget->getId());
+                        continue; // Layout shifted, check the same index again
+                    }
+                }
+            }
+            ++i;
+        }
     }
 
     DownloadItemWidget *itemWidget = new DownloadItemWidget(itemData, this);
 
     // Insert before the stretch
     m_downloadsLayout->insertWidget(m_downloadsLayout->count() - 1, itemWidget);
-    m_downloadItems[itemData["id"].toString()] = itemWidget;
+    m_downloadItems[id] = itemWidget;
 
     connect(itemWidget, &DownloadItemWidget::cancelRequested, this, &ActiveDownloadsTab::cancelDownloadRequested);
     connect(itemWidget, &DownloadItemWidget::retryRequested, this, &ActiveDownloadsTab::retryDownloadRequested);
@@ -231,8 +249,8 @@ void ActiveDownloadsTab::updateDownloadProgress(const QString &id, const QVarian
 void ActiveDownloadsTab::onDownloadFinished(const QString &id, bool success, const QString &message) {
     if (m_downloadItems.contains(id)) {
         m_downloadItems[id]->setFinished(success, message);
-        if (success && m_configManager->get("DownloadOptions", "auto_clear_completed", false).toBool()) {
-            QTimer::singleShot(2000, this, [this, id]() { onItemClearRequested(id); });
+        if (success && m_configManager->get(QStringLiteral("DownloadOptions"), QStringLiteral("auto_clear_completed"), false).toBool()) {
+            QTimer::singleShot(std::chrono::seconds(2), this, [this, id]() { onItemClearRequested(id); });
         }
     }
 }
@@ -252,7 +270,7 @@ void ActiveDownloadsTab::onDownloadPaused(const QString &id) {
 void ActiveDownloadsTab::onDownloadResumed(const QString &id) {
     if (m_downloadItems.contains(id)) {
         m_downloadItems[id]->setPaused(false);
-        m_downloadItems[id]->updateProgress({{"status", "Resuming download..."}, {"progress", -1}});
+        m_downloadItems[id]->updateProgress({{QStringLiteral("status"), tr("Resuming download...")}, {QStringLiteral("progress"), -1}});
     }
 }
 
@@ -268,7 +286,7 @@ void ActiveDownloadsTab::onDownloadFinalPathReady(const QString &id, const QStri
 
 void ActiveDownloadsTab::setDownloadStatus(const QString &id, const QString &status) {
     if (m_downloadItems.contains(id)) {
-        m_downloadItems[id]->updateProgress({{"status", status}});
+        m_downloadItems[id]->updateProgress({{QStringLiteral("status"), status}});
     }
 }
 
@@ -285,12 +303,12 @@ void ActiveDownloadsTab::updatePlaceholderVisibility() {
         m_stackedLayout->setCurrentIndex(0); // Show placeholder
         m_cancelAllButton->setEnabled(false);
         m_clearInactiveButton->setEnabled(false);
-        if (QPushButton *btn = findChild<QPushButton*>("resumeAllButton")) btn->setEnabled(false);
+        if (QPushButton *btn = findChild<QPushButton*>(QStringLiteral("resumeAllButton"))) btn->setEnabled(false);
     } else {
         m_stackedLayout->setCurrentIndex(1); // Show downloads
         m_cancelAllButton->setEnabled(true);
         m_clearInactiveButton->setEnabled(true);
-        if (QPushButton *btn = findChild<QPushButton*>("resumeAllButton")) btn->setEnabled(true);
+        if (QPushButton *btn = findChild<QPushButton*>(QStringLiteral("resumeAllButton"))) btn->setEnabled(true);
     }
 }
 
@@ -308,7 +326,7 @@ void ActiveDownloadsTab::cancelAllDownloads() {
     
     if (toCancel.isEmpty()) return;
 
-    if (QMessageBox::question(this, "Stop All", "Are you sure you want to stop all active downloads?", QMessageBox::Yes | QMessageBox::No) == QMessageBox::No) {
+    if (QMessageBox::question(this, tr("Stop All"), tr("Are you sure you want to stop all active downloads?"), QMessageBox::Yes | QMessageBox::No) == QMessageBox::No) {
         return;
     }
 

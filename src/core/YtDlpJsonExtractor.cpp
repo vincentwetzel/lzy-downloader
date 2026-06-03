@@ -6,6 +6,7 @@
 #include <QJsonParseError>
 #include <QDebug>
 #include <QTimer>
+#include <chrono>
 
 YtDlpJsonExtractor::YtDlpJsonExtractor(ConfigManager *configManager, QObject *parent)
     : QObject(parent), m_configManager(configManager)
@@ -32,9 +33,13 @@ void YtDlpJsonExtractor::getInfo(const QString &url)
     qDebug() << "YtDlpJsonExtractor executing command:" << program << args;
     m_process->start(program, args);
 
-    QTimer::singleShot(30000, m_process, [this]() {
-        if (m_process->state() != QProcess::NotRunning) {
+    const int runId = m_process->property("run_id").toInt() + 1;
+    m_process->setProperty("run_id", runId);
+
+    QTimer::singleShot(std::chrono::seconds(30), m_process, [this, runId]() {
+        if (m_process->property("run_id").toInt() == runId && m_process->state() != QProcess::NotRunning) {
             m_process->setProperty("timed_out", true);
+            ProcessUtils::terminateProcessTree(m_process);
             m_process->kill();
             emit error(tr("Extraction timed out after 30 seconds."));
         }
@@ -78,8 +83,5 @@ void YtDlpJsonExtractor::onProcessError(QProcess::ProcessError processError)
     if (processError == QProcess::FailedToStart) {
         qWarning() << "YtDlpJsonExtractor failed to start process:" << m_process->errorString();
         emit error(tr("Failed to start yt-dlp process. Please check if it's installed and in your PATH, or configure the path in settings."));
-    } else {
-        qWarning() << "YtDlpJsonExtractor process error:" << m_process->errorString();
-        emit error(tr("An error occurred with the yt-dlp process: %1").arg(m_process->errorString()));
     }
 }

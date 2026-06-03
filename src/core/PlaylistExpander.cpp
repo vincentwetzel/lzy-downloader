@@ -8,6 +8,7 @@
 #include <QProcess>
 #include <QStringList>
 #include <QTimer>
+#include <chrono>
 
 namespace {
 QString resolveExpandedItemUrl(const QJsonObject &entry)
@@ -64,6 +65,17 @@ void PlaylistExpander::startExpansion(const QString &playlistLogic) {
     m_currentPlaylistLogic = playlistLogic;
     m_options = property("options").toMap(); // Retrieve options stored earlier
 
+    // gallery-dl handles its own galleries and pagination; it does not need yt-dlp to expand it.
+    // Bypass the yt-dlp playlist check entirely to prevent hanging on JS challenges!
+    if (m_options.value(QStringLiteral("type")).toString() == QStringLiteral("gallery")) {
+        QVariantMap item;
+        item[QStringLiteral("url")] = m_url;
+        item[QStringLiteral("is_playlist")] = false;
+        item[QStringLiteral("playlist_index")] = -1;
+        emit expansionFinished(m_url, {item}, QString());
+        return;
+    }
+
     // Build full yt-dlp command using YtDlpArgsBuilder to match the actual download command
     YtDlpArgsBuilder builder;
     
@@ -77,23 +89,18 @@ void PlaylistExpander::startExpansion(const QString &playlistLogic) {
     // Helper lambda to remove an argument and its value
     auto removeArgWithValue = [&args](const QString &flag) {
         int index = args.indexOf(flag);
-        if (index != -1) {
+        while (index != -1) {
             args.removeAt(index); // Remove the flag
             if (index < args.size()) {
                 args.removeAt(index); // Remove the value
             }
+            index = args.indexOf(flag);
         }
     };
     
     // Override format selection for playlist expansion - we just need URLs, not actual downloads
     // Remove the -f and related download-specific args, add --flat-playlist and --dump-single-json
-    int formatIndex = args.indexOf(QStringLiteral("-f"));
-    if (formatIndex != -1) {
-        args.removeAt(formatIndex); // Remove -f
-        if (formatIndex < args.size()) {
-            args.removeAt(formatIndex); // Remove the format string
-        }
-    }
+    removeArgWithValue(QStringLiteral("-f"));
     
     // Remove download-specific options that aren't needed for playlist expansion
     args.removeAll(QStringLiteral("--write-info-json"));
@@ -120,13 +127,7 @@ void PlaylistExpander::startExpansion(const QString &playlistLogic) {
     args << QStringLiteral("--no-download"); // Don't download anything, just extract info
 
     // Remove the --print after_move:filepath since we're not downloading
-    int printIndex = args.indexOf(QStringLiteral("--print"));
-    if (printIndex != -1) {
-        args.removeAt(printIndex); // Remove --print
-        if (printIndex < args.size()) {
-            args.removeAt(printIndex); // Remove the print argument
-        }
-    }
+    removeArgWithValue(QStringLiteral("--print"));
 
     qDebug() << "PlaylistExpander executing command: yt-dlp" << args;
     
@@ -139,9 +140,10 @@ void PlaylistExpander::startExpansion(const QString &playlistLogic) {
     
     m_process->start(ytDlpBinary.path, args);
 
-    QTimer::singleShot(45000, m_process, [this]() {
+    QTimer::singleShot(std::chrono::seconds(45), m_process, [this]() {
         if (m_process->state() != QProcess::NotRunning) {
             m_process->setProperty("timed_out", true);
+            ProcessUtils::terminateProcessTree(m_process);
             m_process->kill();
             emit expansionFinished(m_url, {}, tr("Playlist expansion timed out after 45 seconds."));
         }
@@ -198,6 +200,19 @@ void PlaylistExpander::onProcessFinished(int exitCode, QProcess::ExitStatus exit
                 if (entry.contains(QStringLiteral("title")) && entry.value(QStringLiteral("title")).isString()) {
                     item[QStringLiteral("title")] = entry.value(QStringLiteral("title")).toString();
                 }
+                QString thumbnailUrl;
+                if (entry.contains(QStringLiteral("thumbnails")) && entry.value(QStringLiteral("thumbnails")).isArray()) {
+                    QJsonArray thumbs = entry.value(QStringLiteral("thumbnails")).toArray();
+                    if (!thumbs.isEmpty()) {
+                        thumbnailUrl = thumbs.last().toObject().value(QStringLiteral("url")).toString();
+                    }
+                }
+                if (thumbnailUrl.isEmpty() && entry.contains(QStringLiteral("thumbnail")) && entry.value(QStringLiteral("thumbnail")).isString()) {
+                    thumbnailUrl = entry.value(QStringLiteral("thumbnail")).toString();
+                }
+                if (!thumbnailUrl.isEmpty()) {
+                    item[QStringLiteral("thumbnail_url")] = thumbnailUrl;
+                }
                 QString entryPlaylistTitle = firstStringValue(entry, {QStringLiteral("playlist_title"), QStringLiteral("playlist"), QStringLiteral("album")});
                 if (entryPlaylistTitle.isEmpty()) {
                     entryPlaylistTitle = playlistTitle;
@@ -216,6 +231,19 @@ void PlaylistExpander::onProcessFinished(int exitCode, QProcess::ExitStatus exit
         item[QStringLiteral("playlist_index")] = -1;
         if (root.contains(QStringLiteral("title")) && root.value(QStringLiteral("title")).isString()) {
             item[QStringLiteral("title")] = root.value(QStringLiteral("title")).toString();
+        }
+        QString thumbnailUrl;
+        if (root.contains(QStringLiteral("thumbnails")) && root.value(QStringLiteral("thumbnails")).isArray()) {
+            QJsonArray thumbs = root.value(QStringLiteral("thumbnails")).toArray();
+            if (!thumbs.isEmpty()) {
+                thumbnailUrl = thumbs.last().toObject().value(QStringLiteral("url")).toString();
+            }
+        }
+        if (thumbnailUrl.isEmpty() && root.contains(QStringLiteral("thumbnail")) && root.value(QStringLiteral("thumbnail")).isString()) {
+            thumbnailUrl = root.value(QStringLiteral("thumbnail")).toString();
+        }
+        if (!thumbnailUrl.isEmpty()) {
+            item[QStringLiteral("thumbnail_url")] = thumbnailUrl;
         }
         const QString playlistTitle = firstStringValue(root, {QStringLiteral("playlist_title"), QStringLiteral("playlist"), QStringLiteral("album")});
         if (!playlistTitle.isEmpty()) {

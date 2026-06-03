@@ -162,11 +162,11 @@ void ConfigManager::cleanUpLegacyKeys() {
     bool keysRemoved = false;
 
     for (const QString &fullKey : allKeys) {
-        QStringList parts = fullKey.split('/');
+        QStringList parts = fullKey.split(QLatin1Char('/'));
         if (parts.isEmpty()) continue;
 
         QString section = parts.first();
-        QString key = parts.mid(1).join('/');
+        QString key = parts.mid(1).join(QLatin1Char('/'));
 
         // 1. Preserve explicitly dynamic groups completely (case-insensitive)
         bool inDynamic = false;

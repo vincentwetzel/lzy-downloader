@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(LzyDownloader VERSION 1.1.50 LANGUAGES CXX)
+project(LzyDownloader VERSION 1.1.51 LANGUAGES CXX)
 enable_testing()
 
 set(_qt_search_prefixes "")
@@ -143,6 +143,7 @@ add_library(LzyAppLib STATIC
     src/core/LocalApiServer.cpp
     src/core/MetadataEmbedder.cpp
     src/core/PlaylistExpander.cpp
+    src/core/PlaylistRangeDialog.cpp
     src/core/ProcessUtils.cpp
     src/core/SortingManager.cpp
     src/core/StartupWorker.cpp
@@ -285,3 +286,4 @@ lzy_add_test(TestUrlValidator src/tests/TestUrlValidator.cpp)
 lzy_add_test(TestSortingManager src/tests/TestSortingManager.cpp)
 lzy_add_test(TestUIWidgets src/tests/TestUIWidgets.cpp)
 lzy_add_test(TestProcessUtils src/tests/TestProcessUtils.cpp)
+lzy_add_test(TestPlaylistRangeDialog src/tests/TestPlaylistRangeDialog.cpp)

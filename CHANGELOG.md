@@ -10,14 +10,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - **AI contributor coding standards**: Added `CODING_STANDARDS.md` as the canonical C++/Qt quality, security, threading, file-safety, testing, and UI guidance for future automated code changes.
 - **Expanded headless test coverage**: Added CMake-registered tests for configuration defaults/reset cleanup, Local API auth/enqueue behavior, ProcessUtils cache behavior, and URL validation, plus headless CTest helper/workflow files for non-interactive Windows test runs.
+- **Partial playlist queueing**: Playlist prompts now include a "Download Part..." flow that lets users select expanded playlist items by range text (for example `1-5, 8, 11-13`) or individual checkboxes before queueing only those entries.
 
 ### Changed
 - **Core reliability hardening**: Core download, updater, queue, process, and parsing paths now consistently use localized user-facing strings, `QStringLiteral`, static regular expressions for hot parsers, validated JSON parsing, safer path construction, and atomic `QSaveFile` writes for critical state and downloaded tools.
 - **Qt standards cleanup**: Downloader argument builders, worker parsers, queue/archive helpers, updater paths, and runtime selection dialogs now consistently use Qt-native string/byte literals, argument-list process launches, and safer path helpers to reduce avoidable allocations and fragile platform-specific string handling.
 - **Network and updater bounds**: App, yt-dlp, and gallery-dl update checks/downloads now apply explicit redirect policies, timeouts, response-size limits, payload-size limits, and safer JSON validation before saving or installing update artifacts.
 - **Background runtime isolation**: Queue state and Local API token handling now treat `--background` the same as server/headless mode by using the isolated `Server/` app-data subfolder.
+- **Playlist prompt handling**: `playlist_logic=Ask` now supports queueing all items, queueing only selected items, queueing just the first item, or cancelling after playlist expansion.
 
 ### Fixed
+- **Sleep mode delay on idle queues**: The 1-download short/long sleep modes now calculate precise elapsed times since the last finished download instead of blindly sleeping when the queue is already idle, and changing the concurrency setting away from sleep modes now immediately cancels any pending sleep delays.
 - **Local API hardening**: Generated API tokens are written atomically with owner-only permissions, oversized requests are rejected, and Host/Origin validation blocks unauthorized browser-origin access to the localhost API.
 - **Finalizer responsiveness**: File move/copy and related finalization work is pushed off the GUI thread while preserving progress/status updates, keeping the UI responsive during large completed-download moves.
 - **Finalizer callback safety**: Gallery and media finalization now guards queued self-references before emitting progress or copying directories, avoiding stale-object access during shutdown or cancellation.

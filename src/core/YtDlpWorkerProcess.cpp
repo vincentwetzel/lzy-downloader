@@ -12,6 +12,7 @@
 #include <QRegularExpression>
 #include <QTimer>
 #include <QVariantList>
+#include <chrono>
 
 void YtDlpWorker::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatus) {
     if (m_finishEmitted) {
@@ -70,11 +71,10 @@ void YtDlpWorker::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatu
             }
             emit progressUpdated(m_id, progressData);
 
-            QTimer::singleShot(300000, this, [this, exitCode, exitStatus]() {
-                if (!m_finishEmitted) {
-                    qDebug() << "[YtDlpWorker] User prompt timeout reached. Emitting finished signal.";
-                    onProcessFinished(exitCode, exitStatus);
-                }
+            QTimer::singleShot(std::chrono::minutes(5), this, [this, exitCode, exitStatus]() {
+                qDebug() << "[YtDlpWorker] User prompt timeout reached. Emitting finished signal.";
+                m_finishEmitted = false; // Reset so onProcessFinished actually executes
+                onProcessFinished(exitCode, exitStatus);
             });
             return;
         }
@@ -296,7 +296,7 @@ void YtDlpWorker::readInfoJsonWithRetry() {
         qWarning().noquote() << "readInfoJsonWithRetry:" << reason;
         if (m_infoJsonRetryCount < 5) {
             m_infoJsonRetryCount++;
-            QTimer::singleShot(500, this, &YtDlpWorker::readInfoJsonWithRetry);
+            QTimer::singleShot(std::chrono::milliseconds(500), this, &YtDlpWorker::readInfoJsonWithRetry);
             qDebug() << "readInfoJsonWithRetry: Retrying in 500ms. Attempt:" << m_infoJsonRetryCount;
         } else {
             qWarning() << "readInfoJsonWithRetry: Max retries reached for info.json.";

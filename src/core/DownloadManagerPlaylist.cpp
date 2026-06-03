@@ -49,7 +49,7 @@ void DownloadManager::processPlaylistSelection(const QString &url, const QString
     queueOptions[QStringLiteral("playlist_logic")] = QStringLiteral("Download Single (ignore playlist)");
     QList<QVariantMap> finalItems;
 
-    if (action == QStringLiteral("Download All")) {
+    if (action == QStringLiteral("Download All") || action == QStringLiteral("Download Part")) {
         finalItems = expandedItems;
         bool containsPlaylistItems = false;
         for (const QVariantMap &itemData : finalItems) {
@@ -93,7 +93,6 @@ void DownloadManager::processPlaylistSelection(const QString &url, const QString
         if (found) {
             m_queueManager->m_pendingExpansions.remove(queueId);
             QVariantMap progressData;
-            progressData[QStringLiteral("status")] = tr("Queued");
             progressData[QStringLiteral("progress")] = 0;
             progressData[QStringLiteral("url")] = itemData.value(QStringLiteral("url")).toString();
             progressData[QStringLiteral("playlistIndex")] = itemData.value(QStringLiteral("playlist_index"), -1).toInt();
@@ -102,9 +101,13 @@ void DownloadManager::processPlaylistSelection(const QString &url, const QString
             if (!title.isEmpty()) {
                 progressData[QStringLiteral("title")] = title;
             }
+            if (itemData.contains(QStringLiteral("thumbnail_url"))) {
+                progressData[QStringLiteral("thumbnail_path")] = itemData.value(QStringLiteral("thumbnail_url"));
+            }
             emit downloadProgress(queueId, progressData);
-            QMetaObject::invokeMethod(this, [this]() { m_queueManager->saveQueueState(m_activeItems); }, Qt::QueuedConnection);
             
+            onQueueCountsChanged(m_queueManager->m_downloadQueue.size(), m_queueManager->m_pausedItems.size());
+
             startNextDownload();
             return;
         }
@@ -130,6 +133,9 @@ void DownloadManager::processPlaylistSelection(const QString &url, const QString
         itemOptions[QStringLiteral("original_playlist_url")] = url;
         if (itemData.contains(QStringLiteral("playlist_title"))) {
             itemOptions[QStringLiteral("playlist_title")] = itemData.value(QStringLiteral("playlist_title"));
+        }
+        if (itemData.contains(QStringLiteral("thumbnail_url"))) {
+            itemOptions[QStringLiteral("thumbnail_url")] = itemData.value(QStringLiteral("thumbnail_url"));
         }
         item.options = itemOptions;
         item.playlistIndex = itemData.value(QStringLiteral("playlist_index"), -1).toInt();
@@ -233,16 +239,18 @@ void DownloadManager::onPlaylistExpanded(const QString &originalUrl, const QList
         if (found) {
             m_queueManager->m_pendingExpansions.remove(queueId); // Assumes m_pendingExpansions is accessible
             QVariantMap progressData;
-            progressData[QStringLiteral("status")] = tr("Queued");
             progressData[QStringLiteral("progress")] = 0;
             const QString title = itemData.value(QStringLiteral("title")).toString().trimmed();
             if (!title.isEmpty()) {
                 progressData[QStringLiteral("title")] = title;
             }
+            if (itemData.contains(QStringLiteral("thumbnail_url"))) {
+                progressData[QStringLiteral("thumbnail_path")] = itemData.value(QStringLiteral("thumbnail_url"));
+            }
             emit downloadProgress(queueId, progressData);
-            // Manually save the queue state since we modified an item in-place
-            QMetaObject::invokeMethod(this, [this]() { m_queueManager->saveQueueState(m_activeItems); }, Qt::QueuedConnection);
             
+            onQueueCountsChanged(m_queueManager->m_downloadQueue.size(), m_queueManager->m_pausedItems.size());
+
             startNextDownload();
         }
     } else if (itemsToProcess.size() > 1) {
