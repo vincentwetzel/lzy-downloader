@@ -1,11 +1,9 @@
-#ifndef YTDLPWORKER_H
-#define YTDLPWORKER_H
+#pragma once
 
 #include <QObject>
-#include <QProcess>
 #include <QVariantMap>
-#include <QTimer> // Include QTimer
-#include <QStringList> // Include QStringList
+#include <QStringList>
+#include <QProcess>
 
 class ConfigManager;
 
@@ -14,7 +12,7 @@ class YtDlpWorker : public QObject {
 
 public:
     explicit YtDlpWorker(const QString &id, const QStringList &args, ConfigManager *configManager, QObject *parent = nullptr);
-    QString getId() const { return m_id; }
+    [[nodiscard]] QString getId() const { return m_id; }
     void start();
     void killProcess();
     void finishGracefully();
@@ -33,6 +31,7 @@ private slots:
     void readInfoJsonWithRetry(); // New slot for retry mechanism
 
 protected: // Changed from private for testing
+    void parseProcessBuffer(QByteArray &buffer, const QByteArray &newData);
     void parseStandardOutput(const QByteArray &output);
     void parseStandardError(const QByteArray &output);
     void handleOutputLine(const QString &line);
@@ -75,6 +74,7 @@ protected: // Changed from private for testing
     QVariantMap m_fullMetadata;    // Stores the full metadata parsed from info.json
     bool m_errorEmitted;           // Tracks if a specific error has been emitted
     QStringList m_errorLines;      // Stores ERROR: lines from stderr
+    bool m_promptDelayActive{false};
     QStringList m_requestedTransferStatuses;
     QStringList m_requestedTransferFormatIds;
     QList<double> m_requestedTransferSizes;
@@ -85,5 +85,3 @@ protected: // Changed from private for testing
     double m_lastPrimaryProgress = -1.0;
     double m_lastPrimaryTotalBytes = 0.0;
 };
-
-#endif // YTDLPWORKER_H

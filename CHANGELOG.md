@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Build source list cleanup**: Removed obsolete source entries from `LzyAppLib` and consolidated post-build copying of the two extractor domain lists into one CMake step.
+- **Headless test throughput**: `run_headless_tests.py` now runs CTest in parallel using the host CPU count while keeping `QT_QPA_PLATFORM=offscreen`.
+- **yt-dlp worker parsing cleanup**: stdout and stderr now share the same buffered line parser, reducing duplicate process-output logic while preserving progress and error parsing behavior.
+- **Extractor refresh performance**: Shared extractor-domain parsing regexes are precompiled for faster yt-dlp/gallery-dl list generation.
+
+### Fixed
+- **Single-instance crash recovery**: Startup now detaches stale `QSharedMemory` segments before creating the single-instance lock and releases the startup semaphore through a scope guard.
+- **yt-dlp metadata extraction errors**: JSON metadata extraction now reports a clear missing-binary error when `yt-dlp` cannot be resolved, and process stderr is decoded as UTF-8.
+- **URL validation timeout ownership**: URL validation and JSON extraction timeouts are owned by their worker objects so callbacks are suppressed safely if the process object changes lifetime.
+- **yt-dlp temp metadata cleanup**: Completed downloads now remove `info.json` after loading metadata and continue cleaning empty UUID temp folders using the configured or derived temp path.
+
 ## [1.1.52] - 2026-06-03
 
 ### Added

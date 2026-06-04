@@ -8,6 +8,18 @@ and test URLs.
 import re
 from urllib.parse import urlparse
 
+# Pre-compile regexes for performance
+_DOMAIN_PATTERN_RE = re.compile(r'(?:[a-zA-Z0-9](?:[a-zA-Z0-9\-]*[a-zA-Z0-9])?\.)+[a-zA-Z]{2,13}')
+_BAD_CHARS_RE = re.compile(r'[\\^$*+?{}|()[\]<>]')
+_BAD_LABELS_RE = re.compile(
+    r'^(?:www|s|m|com|net|org|io|tv|co|[0-9]+|'
+    r'a-z|0-9|[a-z]|[0-9]|w\+|d\+|s\+)$'
+)
+_ALT_GROUP_RE = re.compile(r'\(\?:([^)]+)\)([a-z0-9.\-]+)', re.I)
+_CLEAN_WWW_RE = re.compile(r'^www\.')
+_TLD_RE = re.compile(r'[a-z]{2,13}')
+_URL_TLD_RE = re.compile(r'\.[a-z]{2,13}$')
+
 def extract_domains_from_pattern(pattern: str) -> set[str]:
     """
     Extract real domain names from a regex pattern string.
@@ -23,27 +35,18 @@ def extract_domains_from_pattern(pattern: str) -> set[str]:
     found: set[str] = set()
 
     # ── pass 1: pull raw candidates with a liberal pattern ───────────────────
-    candidates = re.findall(
-        r'(?:[a-zA-Z0-9](?:[a-zA-Z0-9\-]*[a-zA-Z0-9])?\.)+[a-zA-Z]{2,13}',
-        pattern,
-    )
-
-    bad_chars = re.compile(r'[\\^$*+?{}|()[\]<>]')
-    bad_labels = re.compile(
-        r'^(?:www|s|m|com|net|org|io|tv|co|[0-9]+|'
-        r'a-z|0-9|[a-z]|[0-9]|w\+|d\+|s\+)$'
-    )
+    candidates = _DOMAIN_PATTERN_RE.findall(pattern)
 
     for raw in candidates:
-        clean = re.sub(r'^www\.', '', raw.lower())
+        clean = _CLEAN_WWW_RE.sub('', raw.lower())
         parts = clean.split('.')
         tld = parts[-1]
 
-        if bad_chars.search(clean):
+        if _BAD_CHARS_RE.search(clean):
             continue
-        if any(bad_labels.match(p) for p in parts[:-1]):
+        if any(_BAD_LABELS_RE.match(p) for p in parts[:-1]):
             continue
-        if not re.fullmatch(r'[a-z]{2,13}', tld):
+        if not _TLD_RE.fullmatch(tld):
             continue
         if len(parts) < 2:
             continue
@@ -51,7 +54,7 @@ def extract_domains_from_pattern(pattern: str) -> set[str]:
         found.add(clean)
 
     # ── pass 2: expand simple alternation groups ──────────────────────────────
-    for m in re.finditer(r'\(\?:([^)]+)\)([a-z0-9.\-]+)', pattern, re.I):
+    for m in _ALT_GROUP_RE.finditer(pattern):
         alts = m.group(1).split('|')
         suffix = m.group(2).lstrip('\\')
         for alt in alts:
@@ -71,7 +74,7 @@ def extract_domain_from_url(url: str) -> str | None:
             return None
     else:
         host = url.split('/')[0]
-    host = re.sub(r'^www\.', '', host.lower()).strip()
-    if '.' in host and re.search(r'\.[a-z]{2,13}$', host):
+    host = _CLEAN_WWW_RE.sub('', host.lower()).strip()
+    if '.' in host and _URL_TLD_RE.search(host):
         return host
     return None

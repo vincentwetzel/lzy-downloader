@@ -1,9 +1,9 @@
-#ifndef CONFIGMANAGER_H
-#define CONFIGMANAGER_H
+#pragma once
 
 #include <QObject>
-#include <QSettings>
 #include <QVariant>
+
+class QSettings;
 
 class ConfigManager : public QObject {
     Q_OBJECT
@@ -32,5 +32,3 @@ private:
     QSettings *m_settings;
     QMap<QString, QMap<QString, QVariant>> m_defaultSettings;
 };
-
-#endif // CONFIGMANAGER_H

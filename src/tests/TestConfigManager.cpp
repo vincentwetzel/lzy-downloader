@@ -9,7 +9,7 @@ void TestConfigManager::init() {
 
 void TestConfigManager::cleanup() {
     if (m_configManager) {
-        delete m_configManager;
+        m_configManager->deleteLater();
         m_configManager = nullptr;
     }
     BaseTest::cleanup();
@@ -52,7 +52,7 @@ void TestConfigManager::testLegacyCleanup() {
     }
     
     // Now load it via ConfigManager which should clean up legacy keys
-    ConfigManager manager(testIniPath, true, this);
+    ConfigManager manager(testIniPath, true, nullptr);
     
     // Valid key should remain
     QCOMPARE(manager.get(QStringLiteral("General"), QStringLiteral("theme")).toString(), QStringLiteral("Light"));

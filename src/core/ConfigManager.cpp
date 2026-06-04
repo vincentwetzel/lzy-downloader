@@ -3,6 +3,7 @@
 #include <QCoreApplication>
 #include <QStandardPaths>
 #include <QFile>
+#include <QSettings>
 #include <QDebug>
 
 // Original constructor (now explicit about fileName)

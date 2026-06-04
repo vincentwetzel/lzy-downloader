@@ -1,10 +1,11 @@
-#include <QtTest/QtTest>
 #include "BaseTest.h"
 #include "core/PlaylistRangeDialog.h"
+
 #include <QListWidget>
 #include <QLineEdit>
 #include <QPushButton>
 #include <QVariantMap>
+#include <QtTest/QtTest>
 
 class TestPlaylistRangeDialog : public BaseTest {
     Q_OBJECT
@@ -53,6 +54,8 @@ void TestPlaylistRangeDialog::testSelectNoneAndAll() {
     PlaylistRangeDialog dialog(items);
     QListWidget *listWidget = dialog.findChild<QListWidget*>();
     QLineEdit *rangeEdit = dialog.findChild<QLineEdit*>();
+    QVERIFY(listWidget != nullptr);
+    QVERIFY(rangeEdit != nullptr);
     
     QList<QPushButton*> buttons = dialog.findChildren<QPushButton*>();
     QPushButton *selectNoneBtn = nullptr;
@@ -90,6 +93,7 @@ void TestPlaylistRangeDialog::testTextToListSync() {
 
     PlaylistRangeDialog dialog(items);
     QListWidget *listWidget = dialog.findChild<QListWidget*>();
+    QVERIFY(listWidget != nullptr);
     
     // Simulate user typing distinct list numbers: "1, 3, 5"
     QMetaObject::invokeMethod(&dialog, "onRangeTextChanged", Q_ARG(QString, QStringLiteral("1, 3, 5")));
@@ -127,6 +131,8 @@ void TestPlaylistRangeDialog::testListToTextSync() {
     PlaylistRangeDialog dialog(items);
     QListWidget *listWidget = dialog.findChild<QListWidget*>();
     QLineEdit *rangeEdit = dialog.findChild<QLineEdit*>();
+    QVERIFY(listWidget != nullptr);
+    QVERIFY(rangeEdit != nullptr);
     
     listWidget->item(1)->setCheckState(Qt::Unchecked);
     QCOMPARE(rangeEdit->text(), QStringLiteral("1, 3-5"));
@@ -145,6 +151,7 @@ void TestPlaylistRangeDialog::testGetSelectedItems() {
 
     PlaylistRangeDialog dialog(items);
     QListWidget *listWidget = dialog.findChild<QListWidget*>();
+    QVERIFY(listWidget != nullptr);
     listWidget->item(1)->setCheckState(Qt::Unchecked);
     listWidget->item(3)->setCheckState(Qt::Unchecked);
     QCOMPARE(static_cast<int>(dialog.getSelectedItems().size()), 3);

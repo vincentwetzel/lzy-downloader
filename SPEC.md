@@ -13,6 +13,7 @@ This document outlines the specifications for the C++ port of the LzyDownloader 
 
 ### 2.1. Single Instance Enforcement
 - The application must ensure that only one instance of itself can run at any given time for a given mode. Standard GUI launches use one lock, while headless/server launches (`--headless`, `--server`, `--background`) use a separate `_Server` lock, allowing one GUI instance and one background server instance to safely co-exist. User preferences remain shared through the main app-local `settings.ini`; only server/headless runtime state is isolated under `Server/`.
+- Startup must recover cleanly from stale Qt shared-memory segments left by a previous crash by attaching/detaching before creating the active single-instance marker, and semaphore release must be exception/early-return safe.
 
 ### 2.2. Configuration Compatibility
 - **File Format**: `settings.ini` (INI format).
@@ -206,5 +207,5 @@ This document outlines the specifications for the C++ port of the LzyDownloader 
 ## 4. Test Requirements
 - CMake must register new single-source Qt test executables through `lzy_add_test(...)`.
 - The test suite must remain runnable through `ctest -C <config> --output-on-failure`.
-- `run_headless_tests.py` is the canonical helper for non-interactive Windows test runs; it builds the requested configuration and sets `QT_QPA_PLATFORM=offscreen`.
+- `run_headless_tests.py` is the canonical helper for non-interactive Windows test runs; it builds the requested configuration, sets `QT_QPA_PLATFORM=offscreen`, and runs CTest with parallel jobs based on the host CPU count.
 - Current required coverage includes yt-dlp argument generation/progress parsing, archive normalization, configuration defaults/reset and legacy cleanup, Local API token/auth/enqueue behavior, process binary-resolution cache behavior, URL validation, sorting sanitization, playlist range selection, UI progress widgets, and the local end-to-end download fixture.

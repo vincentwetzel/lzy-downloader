@@ -7,6 +7,7 @@
 #include <QSignalSpy>
 #include <QTimer>
 #include <QEventLoop>
+#include <QScopeGuard>
 
 void TestLocalApiServer::init() {
     BaseTest::init();
@@ -20,7 +21,7 @@ void TestLocalApiServer::init() {
 void TestLocalApiServer::cleanup() {
     if (m_apiServer) {
         m_apiServer->stop();
-        delete m_apiServer;
+        m_apiServer->deleteLater();
         m_apiServer = nullptr;
     }
     BaseTest::cleanup();
@@ -41,7 +42,7 @@ void TestLocalApiServer::testApiTokenGeneration() {
     QVERIFY(!token.isEmpty());
     
     // Ensure the token remains consistent when reading from the generated file again
-    LocalApiServer secondServer(getConfigManager(), this);
+    LocalApiServer secondServer(getConfigManager(), nullptr);
     QCOMPARE(secondServer.getApiKey(), token);
 }
 
@@ -50,14 +51,20 @@ void TestLocalApiServer::testUnauthorizedAccess() {
     QNetworkRequest request(QUrl(QStringLiteral("http://127.0.0.1:8765/status")));
     
     QNetworkReply *reply = manager.get(request);
+    auto replyGuard = qScopeGuard([reply]() {
+        if (reply->isRunning()) {
+            reply->abort();
+        }
+        reply->deleteLater();
+    });
     
     QEventLoop loop;
     connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
     QTimer::singleShot(3000, &loop, &QEventLoop::quit); // 3 sec timeout guard
     loop.exec();
     
+    QVERIFY2(!reply->isRunning(), "Network request timed out before finishing");
     QCOMPARE(reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt(), 401);
-    reply->deleteLater();
 }
 
 void TestLocalApiServer::testValidEnqueueRequest() {
@@ -65,8 +72,8 @@ void TestLocalApiServer::testValidEnqueueRequest() {
     
     QNetworkAccessManager manager;
     QNetworkRequest request(QUrl(QStringLiteral("http://127.0.0.1:8765/enqueue")));
-    request.setRawHeader("Authorization", QStringLiteral("Bearer %1").arg(m_apiServer->getApiKey()).toUtf8());
-    request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+    request.setRawHeader(QByteArrayLiteral("Authorization"), QStringLiteral("Bearer %1").arg(m_apiServer->getApiKey()).toUtf8());
+    request.setHeader(QNetworkRequest::ContentTypeHeader, QStringLiteral("application/json"));
     
     QJsonObject json;
     json[QStringLiteral("url")] = QStringLiteral("https://www.youtube.com/watch?v=dQw4w9WgXcQ");
@@ -74,12 +81,19 @@ void TestLocalApiServer::testValidEnqueueRequest() {
     QByteArray data = QJsonDocument(json).toJson(QJsonDocument::Compact);
     
     QNetworkReply *reply = manager.post(request, data);
+    auto replyGuard = qScopeGuard([reply]() {
+        if (reply->isRunning()) {
+            reply->abort();
+        }
+        reply->deleteLater();
+    });
     
     QEventLoop loop;
     connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
     QTimer::singleShot(3000, &loop, &QEventLoop::quit);
     loop.exec();
     
+    QVERIFY2(!reply->isRunning(), "Network request timed out before finishing");
     // Ensure the request was accepted
     QCOMPARE(reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt(), 200);
     
@@ -89,8 +103,6 @@ void TestLocalApiServer::testValidEnqueueRequest() {
     QCOMPARE(args.at(0).toString(), QStringLiteral("https://www.youtube.com/watch?v=dQw4w9WgXcQ"));
     QCOMPARE(args.at(1).toString(), QStringLiteral("video"));
     QVERIFY(!args.at(2).toString().isEmpty()); // Job ID should be generated and not empty
-    
-    reply->deleteLater();
 }
 
 QTEST_GUILESS_MAIN(TestLocalApiServer)

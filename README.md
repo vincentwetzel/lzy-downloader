@@ -58,7 +58,7 @@ cmake --build build --config Release
 
 ### Testing
 
-Qt test executables are registered through CMake and can be run with CTest. For headless Windows/CI runs, the helper script builds the configured tree and sets `QT_QPA_PLATFORM=offscreen` before running tests:
+Qt test executables are registered through CMake and can be run with CTest. For headless Windows/CI runs, the helper script builds the configured tree, sets `QT_QPA_PLATFORM=offscreen`, and runs CTest in parallel using the host CPU count:
 
 ```bash
 python run_headless_tests.py --build-dir build --config Release

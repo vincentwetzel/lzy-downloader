@@ -42,22 +42,30 @@ void YtDlpWorker::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatu
     QString message = success ? tr("Download completed successfully.") : tr("Download failed.");
     QString postprocessorWarning;
 
+    // Extract duplicated fallback logic into a single lambda helper
+    auto getTempDir = [this]() -> QString {
+        if (!m_configManager) return QString();
+        QString tempDir = m_configManager->get(QStringLiteral("Paths"), QStringLiteral("temporary_downloads_directory")).toString();
+        if (tempDir.isEmpty()) {
+            QString completedDir = m_configManager->get(QStringLiteral("Paths"), QStringLiteral("completed_downloads_directory")).toString();
+            if (!completedDir.isEmpty()) {
+                tempDir = QDir(completedDir).filePath(QStringLiteral("temp_downloads"));
+            }
+        }
+        return tempDir;
+    };
+
     // Check if we are waiting for a user prompt (scheduled livestream)
-    if (!success && m_errorEmitted && !property("promptDelayActive").toBool()) {
+    if (!success && m_errorEmitted && !m_promptDelayActive) {
         QString errorStr = m_errorLines.join(QStringLiteral(" "));
-        if (errorStr.contains(QStringLiteral("Premieres in"), Qt::CaseInsensitive) ||
-            errorStr.contains(QStringLiteral("Premiering in"), Qt::CaseInsensitive) ||
-            errorStr.contains(QStringLiteral("Premiere will begin"), Qt::CaseInsensitive) ||
-            errorStr.contains(QStringLiteral("live event will begin"), Qt::CaseInsensitive) ||
-            errorStr.contains(QStringLiteral("is upcoming"), Qt::CaseInsensitive) ||
-            errorStr.contains(QStringLiteral("Offline (expected)"), Qt::CaseInsensitive) ||
-            errorStr.contains(QStringLiteral("Offline expected"), Qt::CaseInsensitive) ||
-            errorStr.contains(QStringLiteral("waiting for premiere"), Qt::CaseInsensitive) ||
-            errorStr.contains(QStringLiteral("waiting for livestream"), Qt::CaseInsensitive) ||
-            errorStr.contains(QStringLiteral("Live in "), Qt::CaseInsensitive) ||
-            errorStr.contains(QStringLiteral("Starting in "), Qt::CaseInsensitive)) {
-            
-            setProperty("promptDelayActive", true);
+        
+        static const QRegularExpression premiereRegex(
+            QStringLiteral("Premieres in|Premiering in|Premiere will begin|live event will begin|is upcoming|Offline \\(expected\\)|Offline expected|waiting for premiere|waiting for livestream|Live in |Starting in "),
+            QRegularExpression::CaseInsensitiveOption
+        );
+        
+        if (premiereRegex.match(errorStr).hasMatch()) {
+            m_promptDelayActive = true;
             qDebug() << "[YtDlpWorker] Delaying finished signal to wait for user prompt response.";
             
             QVariantMap progressData;
@@ -103,14 +111,8 @@ void YtDlpWorker::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatu
     QVariantMap metadata;
     if (success) {
         // Move wait thumbnail inside UUID folder so DownloadFinalizer cleans it up automatically
-        if (!m_thumbnailPath.isEmpty() && QFileInfo(m_thumbnailPath).fileName().startsWith(QStringLiteral("%1_wait_thumbnail").arg(m_id)) && m_configManager) {
-            QString tempDir = m_configManager->get(QStringLiteral("Paths"), QStringLiteral("temporary_downloads_directory")).toString();
-            if (tempDir.isEmpty()) {
-                QString completedDir = m_configManager->get(QStringLiteral("Paths"), QStringLiteral("completed_downloads_directory")).toString();
-                if (!completedDir.isEmpty()) {
-                    tempDir = QDir(completedDir).filePath(QStringLiteral("temp_downloads"));
-                }
-            }
+        if (!m_thumbnailPath.isEmpty() && QFileInfo(m_thumbnailPath).fileName().startsWith(QStringLiteral("%1_wait_thumbnail").arg(m_id))) {
+            QString tempDir = getTempDir();
             if (!tempDir.isEmpty()) {
                 QString uuidDirPath = QDir(tempDir).filePath(m_id);
                 QString newThumbPath = QDir(uuidDirPath).filePath(QFileInfo(m_thumbnailPath).fileName());
@@ -126,9 +128,9 @@ void YtDlpWorker::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatu
         }
 
         // Ensure metadata is loaded if it hasn't been asynchronously parsed yet
-        if (m_fullMetadata.isEmpty() && !m_infoJsonPath.isEmpty() && QFile::exists(m_infoJsonPath)) {
+        if (!m_infoJsonPath.isEmpty()) {
             QFile jsonFile(m_infoJsonPath);
-            if (jsonFile.open(QIODevice::ReadOnly)) {
+            if (m_fullMetadata.isEmpty() && jsonFile.open(QIODevice::ReadOnly)) {
                 QJsonParseError parseError;
                 QJsonDocument doc = QJsonDocument::fromJson(jsonFile.readAll(), &parseError);
                 if (parseError.error == QJsonParseError::NoError && doc.isObject()) {
@@ -136,13 +138,12 @@ void YtDlpWorker::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatu
                 } else {
                     qWarning() << "Failed to parse info.json in onProcessFinished:" << parseError.errorString();
                 }
+                jsonFile.close();
             }
-        }
-
-        // Clean up info.json now that metadata is loaded, so the UUID temp folder can be removed
-        if (!m_infoJsonPath.isEmpty() && QFile::exists(m_infoJsonPath)) {
-            QFile::remove(m_infoJsonPath);
-            qDebug() << "Cleaned up info.json file:" << m_infoJsonPath;
+            
+            if (jsonFile.remove()) {
+                qDebug() << "Cleaned up info.json file:" << m_infoJsonPath;
+            }
         }
 
         // Use the full metadata that was already parsed from info.json during readInfoJsonWithRetry
@@ -182,7 +183,7 @@ void YtDlpWorker::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatu
         } else {
             // Fallback: Use the last few lines of general output if no ERROR: lines were captured
             if (!m_allOutputLines.isEmpty()) {
-                message = QStringLiteral("%1\n%2").arg(message, m_allOutputLines.mid(qMax(0, m_allOutputLines.size() - 5)).join(QStringLiteral("\n")).left(200));
+                message = QStringLiteral("%1\n%2").arg(message, m_allOutputLines.mid(qMax(qsizetype(0), m_allOutputLines.size() - 5)).join(QStringLiteral("\n")).left(200));
             }
         }
         
@@ -195,18 +196,10 @@ void YtDlpWorker::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatu
 
     // Try to clean up empty UUID directory if yt-dlp failed before writing anything,
     // or if the process completed but left the directory empty (e.g. skipped downloads).
-    if (m_configManager) {
-        QString tempDir = m_configManager->get(QStringLiteral("Paths"), QStringLiteral("temporary_downloads_directory")).toString();
-        if (tempDir.isEmpty()) {
-            QString completedDir = m_configManager->get(QStringLiteral("Paths"), QStringLiteral("completed_downloads_directory")).toString();
-            if (!completedDir.isEmpty()) {
-                tempDir = QDir(completedDir).filePath(QStringLiteral("temp_downloads"));
-            }
-        }
-        if (!tempDir.isEmpty()) {
-            QString uuidDirPath = QDir(tempDir).filePath(m_id);
-            QDir().rmdir(uuidDirPath); // Only succeeds if the directory is empty
-        }
+    QString finalTempDir = getTempDir();
+    if (!finalTempDir.isEmpty()) {
+        QString uuidDirPath = QDir(finalTempDir).filePath(m_id);
+        QDir().rmdir(uuidDirPath); // Only succeeds if the directory is empty
     }
 
     // Ensure m_videoTitle is included in the metadata for the finished signal
@@ -232,7 +225,7 @@ void YtDlpWorker::onProcessError(QProcess::ProcessError error) {
     if (error == QProcess::FailedToStart || error == QProcess::Crashed ||
         error == QProcess::ReadError || error == QProcess::WriteError) {
         m_finishEmitted = true;
-        const QString message = tr("Download failed.\nFailed to start yt-dlp process (%1): %2")
+        const QString message = tr("Download failed.\nyt-dlp process error (%1): %2")
                                     .arg(static_cast<int>(error))
                                     .arg(m_process->errorString());
         qWarning() << message;
@@ -242,46 +235,38 @@ void YtDlpWorker::onProcessError(QProcess::ProcessError error) {
 
 void YtDlpWorker::onReadyReadStandardOutput() {
     QByteArray data = m_process->readAllStandardOutput();
-    qDebug() << "[STDOUT] Received" << data.size() << "bytes:" << QString::fromUtf8(data).left(300);
+    qDebug() << "[STDOUT] Received" << data.size() << "bytes.";
     parseStandardOutput(data);
 }
 
 void YtDlpWorker::onReadyReadStandardError() {
     QByteArray data = m_process->readAllStandardError();
-    qDebug() << "[STDERR] Received" << data.size() << "bytes:" << QString::fromUtf8(data).left(300);
+    qDebug() << "[STDERR] Received" << data.size() << "bytes.";
     parseStandardError(data);
 }
 
-void YtDlpWorker::parseStandardOutput(const QByteArray &output) {
-    m_outputBuffer.append(output);
+void YtDlpWorker::parseProcessBuffer(QByteArray &buffer, const QByteArray &newData)
+{
+    buffer.append(newData);
 
-    qsizetype lastDelimiter = qMax(m_outputBuffer.lastIndexOf('\n'), m_outputBuffer.lastIndexOf('\r'));
+    qsizetype lastDelimiter = qMax(buffer.lastIndexOf('\n'), buffer.lastIndexOf('\r'));
     if (lastDelimiter == -1) return;
 
     static const QRegularExpression newlineRegex(QStringLiteral("[\\r\\n]"));
-    QStringList lines = QString::fromUtf8(m_outputBuffer.left(lastDelimiter + 1)).split(newlineRegex, Qt::SkipEmptyParts);
-    m_outputBuffer.remove(0, lastDelimiter + 1);
+    QStringList lines = QString::fromUtf8(buffer.left(lastDelimiter + 1)).split(newlineRegex, Qt::SkipEmptyParts);
+    buffer.remove(0, lastDelimiter + 1);
 
     for (const QString &line : lines) {
         handleOutputLine(line.trimmed());
     }
 }
 
+void YtDlpWorker::parseStandardOutput(const QByteArray &output) {
+    parseProcessBuffer(m_outputBuffer, output);
+}
+
 void YtDlpWorker::parseStandardError(const QByteArray &output) {
-    m_errorBuffer.append(output);
-    qDebug() << "parseStandardError called. Current buffer size:" << m_errorBuffer.size();
-
-    qsizetype lastDelimiter = qMax(m_errorBuffer.lastIndexOf('\n'), m_errorBuffer.lastIndexOf('\r'));
-    if (lastDelimiter == -1) return;
-
-    static const QRegularExpression newlineRegex(QStringLiteral("[\\r\\n]"));
-    QStringList lines = QString::fromUtf8(m_errorBuffer.left(lastDelimiter + 1)).split(newlineRegex, Qt::SkipEmptyParts);
-    m_errorBuffer.remove(0, lastDelimiter + 1);
-
-    for (const QString &line : lines) {
-        qDebug() << "Processing stderr line:" << line.trimmed();
-        handleOutputLine(line.trimmed());
-    }
+    parseProcessBuffer(m_errorBuffer, output);
 }
 
 void YtDlpWorker::readInfoJsonWithRetry() {
@@ -294,7 +279,8 @@ void YtDlpWorker::readInfoJsonWithRetry() {
 
     auto scheduleRetry = [this](const QString& reason) {
         qWarning().noquote() << "readInfoJsonWithRetry:" << reason;
-        if (m_infoJsonRetryCount < 5) {
+        constexpr int MAX_JSON_RETRIES = 5;
+        if (m_infoJsonRetryCount < MAX_JSON_RETRIES) {
             m_infoJsonRetryCount++;
             QTimer::singleShot(std::chrono::milliseconds(500), this, &YtDlpWorker::readInfoJsonWithRetry);
             qDebug() << "readInfoJsonWithRetry: Retrying in 500ms. Attempt:" << m_infoJsonRetryCount;
@@ -305,11 +291,6 @@ void YtDlpWorker::readInfoJsonWithRetry() {
     };
 
     QFile jsonFile(m_infoJsonPath);
-    if (!jsonFile.exists()) {
-        scheduleRetry(QStringLiteral("info.json file does not exist yet at: %1").arg(m_infoJsonPath));
-        return;
-    }
-
     if (!jsonFile.open(QIODevice::ReadOnly)) {
         scheduleRetry(QStringLiteral("Could not open info.json file at: %1 Error: %2").arg(m_infoJsonPath, jsonFile.errorString()));
         return;
@@ -379,7 +360,7 @@ void YtDlpWorker::readInfoJsonWithRetry() {
     }
 
     if (obj.contains(QStringLiteral("duration"))) {
-        updateData[QStringLiteral("duration")] = obj[QStringLiteral("duration")].toVariant().toInt();
+        updateData[QStringLiteral("duration")] = obj[QStringLiteral("duration")].toVariant().toDouble();
     } else if (obj.contains(QStringLiteral("duration_string")) && obj[QStringLiteral("duration_string")].isString()) {
         updateData[QStringLiteral("duration_string")] = obj[QStringLiteral("duration_string")].toString();
     }

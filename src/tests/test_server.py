@@ -17,7 +17,7 @@ class QuietHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         pass
 
 def main():
-    with socketserver.TCPServer(("", PORT), QuietHTTPRequestHandler) as httpd:
+    with socketserver.TCPServer(("127.0.0.1", PORT), QuietHTTPRequestHandler) as httpd:
         print(f"Serving on port {PORT}")
         httpd.serve_forever()
 

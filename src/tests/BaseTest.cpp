@@ -1,6 +1,6 @@
 #include "BaseTest.h"
-#include "ConfigManager.h"
-#include "ArchiveManager.h"
+#include "core/ConfigManager.h"
+#include "core/ArchiveManager.h"
 
 #include <QDebug>
 #include <QCoreApplication>
@@ -9,8 +9,8 @@
 #include <QtTest/QTest>
 
 namespace {
-    const QString TEST_SETTINGS_FILE = "test_settings.ini";
-    const QString TEST_ARCHIVE_FILE = "test_archive.db";
+    const QString TEST_SETTINGS_FILE = QStringLiteral("test_settings.ini");
+    const QString TEST_ARCHIVE_FILE = QStringLiteral("test_archive.db");
 }
 
 BaseTest::BaseTest(QObject *parent)
@@ -59,7 +59,7 @@ QString BaseTest::getTempDir() const {
 ConfigManager* BaseTest::getConfigManager() {
     if (m_configManager.isNull()) {
         QString settingsFilePath = QDir(getTempDir()).filePath(TEST_SETTINGS_FILE);
-        m_configManager = QSharedPointer<ConfigManager>(new ConfigManager(settingsFilePath, true, nullptr));
+        m_configManager = QSharedPointer<ConfigManager>::create(settingsFilePath, true, nullptr);
         qDebug() << "ConfigManager created for testing with path:" << settingsFilePath;
     }
     return m_configManager.data();
@@ -68,7 +68,7 @@ ConfigManager* BaseTest::getConfigManager() {
 ArchiveManager* BaseTest::getArchiveManager() {
     if (m_archiveManager.isNull()) {
         QString dbFilePath = QDir(getTempDir()).filePath(TEST_ARCHIVE_FILE);
-        m_archiveManager = QSharedPointer<ArchiveManager>(new ArchiveManager(getConfigManager(), dbFilePath, true, nullptr));
+        m_archiveManager = QSharedPointer<ArchiveManager>::create(getConfigManager(), dbFilePath, true, nullptr);
         qDebug() << "ArchiveManager created for testing with path:" << dbFilePath;
     }
     return m_archiveManager.data();

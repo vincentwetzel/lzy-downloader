@@ -44,7 +44,7 @@ void UrlValidator::validate(const QString &url) {
     const int runId = m_process->property("run_id").toInt() + 1;
     m_process->setProperty("run_id", runId);
 
-    QTimer::singleShot(std::chrono::seconds(15), m_process, [this, runId]() {
+    QTimer::singleShot(std::chrono::seconds(15), this, [this, runId]() {
         if (m_process->property("run_id").toInt() == runId && m_process->state() != QProcess::NotRunning) {
             m_process->setProperty("timed_out", true);
             ProcessUtils::terminateProcessTree(m_process);
@@ -62,7 +62,7 @@ void UrlValidator::onProcessFinished(int exitCode, QProcess::ExitStatus exitStat
     bool isValid = (exitStatus == QProcess::NormalExit && exitCode == 0);
     QString error;
     if (!isValid) {
-        QString stderrOutput = m_process->readAllStandardError();
+        QString stderrOutput = QString::fromUtf8(m_process->readAllStandardError());
         qWarning().noquote() << "UrlValidator yt-dlp stderr:" << stderrOutput.trimmed();
         error = tr("yt-dlp encountered an error.");
         int errIdx = stderrOutput.indexOf(QStringLiteral("ERROR:"));

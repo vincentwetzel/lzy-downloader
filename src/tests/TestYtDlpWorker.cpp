@@ -1,8 +1,9 @@
-#include <QtTest/QtTest>
-#include <QSignalSpy>
 #include "BaseTest.h"
 #include "core/YtDlpWorker.h"
 #include "core/ConfigManager.h"
+
+#include <QtTest/QtTest>
+#include <QSignalSpy>
 
 // Define a testable YtDlpWorker that allows direct access to protected parsing methods
 class TestableYtDlpWorker : public YtDlpWorker {
@@ -39,164 +40,163 @@ private slots:
 
 void TestYtDlpWorker::init() {
     // Called before each test function
-    // Ensure the ConfigManager is fresh for each test if needed
-    // For now, BaseTest::getConfigManager() provides a fresh instance per test class.
+    BaseTest::init();
 }
 
 void TestYtDlpWorker::cleanup() {
     // Called after each test function
+    BaseTest::cleanup();
 }
 
 void TestYtDlpWorker::testYtDlpProgressParsing() {
     ConfigManager *config = getConfigManager();
     QStringList args; // Args are not critical for parsing tests
-    TestableYtDlpWorker worker("testId1", args, config, this);
+    TestableYtDlpWorker worker(QStringLiteral("testId1"), args, config, nullptr);
 
     QSignalSpy progressSpy(&worker, &YtDlpWorker::progressUpdated);
 
     // Simulate yt-dlp progress line (0.5% of 10MiB at 2MiB/s ETA 00:05)
-    QString progressLine = "[download]   0.5% of   10.00MiB at  2.00MiB/s ETA 00:05";
+    QString progressLine = QStringLiteral("[download]   0.5% of   10.00MiB at  2.00MiB/s ETA 00:05");
     worker.callHandleOutputLine(progressLine);
 
     // Assert progress signal
     QCOMPARE(progressSpy.count(), 1);
     QVariantList arguments = progressSpy.takeFirst();
-    QCOMPARE(arguments.at(0).toString(), "testId1");
+    QCOMPARE(arguments.at(0).toString(), QStringLiteral("testId1"));
     QVariantMap progressData = arguments.at(1).toMap();
 
-    QCOMPARE(progressData["progress"].toInt(), 1); // 0.5% rounded up
-    QCOMPARE(progressData["status"].toString(), "Downloading..."); // Default status
-    // QCOMPARE(progressData["downloaded_size"].toString(), "50.0 KiB"); // Actual downloaded size calculation is complex
-    QCOMPARE(progressData["speed"].toString(), "2.00 MiB/s");
-    QCOMPARE(progressData["eta"].toString(), "00:05");
+    QCOMPARE(progressData[QStringLiteral("progress")].toInt(), 1); // 0.5% rounded up
+    QCOMPARE(progressData[QStringLiteral("status")].toString(), QStringLiteral("Downloading...")); // Default status
+    QCOMPARE(progressData[QStringLiteral("speed")].toString(), QStringLiteral("2.00 MiB/s"));
+    QCOMPARE(progressData[QStringLiteral("eta")].toString(), QStringLiteral("00:05"));
 }
 
 void TestYtDlpWorker::testYtDlpErrorParsing() {
     ConfigManager *config = getConfigManager();
     QStringList args;
-    TestableYtDlpWorker worker("testId2", args, config, this);
+    TestableYtDlpWorker worker(QStringLiteral("testId2"), args, config, nullptr);
 
     QSignalSpy errorSpy(&worker, &YtDlpWorker::ytDlpErrorDetected);
 
     // Simulate a private video error
-    QString errorLine = "ERROR: This video is private";
+    QString errorLine = QStringLiteral("ERROR: This video is private");
     worker.callHandleOutputLine(errorLine);
 
     QCOMPARE(errorSpy.count(), 1);
     QVariantList errorArgs = errorSpy.takeFirst();
-    QCOMPARE(errorArgs.at(0).toString(), "testId2");
-    QCOMPARE(errorArgs.at(1).toString(), "private");
-    QVERIFY(errorArgs.at(2).toString().contains("private"));
+    QCOMPARE(errorArgs.at(0).toString(), QStringLiteral("testId2"));
+    QCOMPARE(errorArgs.at(1).toString(), QStringLiteral("private"));
+    QVERIFY(errorArgs.at(2).toString().contains(QStringLiteral("private")));
     QCOMPARE(errorArgs.at(3).toString(), errorLine);
 
     // Simulate an unavailable video error
-    errorLine = "ERROR: This video is unavailable";
+    errorLine = QStringLiteral("ERROR: This video is unavailable");
     worker.resetErrorEmitted(); // Reset internal flag as if it's a new error
     worker.callHandleOutputLine(errorLine);
     QCOMPARE(errorSpy.count(), 1); // Should emit again after reset
-    QCOMPARE(errorSpy.takeFirst().at(1).toString(), "unavailable");
+    QCOMPARE(errorSpy.takeFirst().at(1).toString(), QStringLiteral("unavailable"));
 
     // Simulate a scheduled livestream error
-    errorLine = "ERROR: Premieres in 2 hours";
+    errorLine = QStringLiteral("ERROR: Premieres in 2 hours");
     worker.resetErrorEmitted(); // Reset internal flag as if it's a new error
     worker.callHandleOutputLine(errorLine);
     QCOMPARE(errorSpy.count(), 1);
-    QCOMPARE(errorSpy.takeFirst().at(1).toString(), "scheduled_livestream");
+    QCOMPARE(errorSpy.takeFirst().at(1).toString(), QStringLiteral("scheduled_livestream"));
 }
 
 void TestYtDlpWorker::testAria2ProgressParsing() {
     ConfigManager *config = getConfigManager();
     QStringList args;
-    TestableYtDlpWorker worker("testId3", args, config, this);
+    TestableYtDlpWorker worker(QStringLiteral("testId3"), args, config, nullptr);
 
     QSignalSpy progressSpy(&worker, &YtDlpWorker::progressUpdated);
 
     // Simulate aria2c progress line
-    QString progressLine = "[#123456 1.2MiB/5.0MiB(24%) DL:800KiB/s ETA:00:04]";
+    QString progressLine = QStringLiteral("[#123456 1.2MiB/5.0MiB(24%) DL:800KiB/s ETA:00:04]");
     worker.callHandleOutputLine(progressLine);
 
     QCOMPARE(progressSpy.count(), 1);
     QVariantList arguments = progressSpy.takeFirst();
-    QCOMPARE(arguments.at(0).toString(), "testId3");
+    QCOMPARE(arguments.at(0).toString(), QStringLiteral("testId3"));
     QVariantMap progressData = arguments.at(1).toMap();
 
-    QCOMPARE(progressData["progress"].toInt(), 24);
-    QCOMPARE(progressData["downloaded_size"].toString(), "1.20 MiB");
-    QCOMPARE(progressData["total_size"].toString(), "5.00 MiB");
-    QCOMPARE(progressData["speed"].toString(), "800.0 KiB/s");
-    QCOMPARE(progressData["eta"].toString(), "00:04");
+    QCOMPARE(progressData[QStringLiteral("progress")].toInt(), 24);
+    QCOMPARE(progressData[QStringLiteral("downloaded_size")].toString(), QStringLiteral("1.20 MiB"));
+    QCOMPARE(progressData[QStringLiteral("total_size")].toString(), QStringLiteral("5.00 MiB"));
+    QCOMPARE(progressData[QStringLiteral("speed")].toString(), QStringLiteral("800.0 KiB/s"));
+    QCOMPARE(progressData[QStringLiteral("eta")].toString(), QStringLiteral("00:04"));
 }
 
 void TestYtDlpWorker::testLifecycleStatusParsing() {
     ConfigManager *config = getConfigManager();
     QStringList args;
-    TestableYtDlpWorker worker("testId4", args, config, this);
+    TestableYtDlpWorker worker(QStringLiteral("testId4"), args, config, nullptr);
 
     QSignalSpy progressSpy(&worker, &YtDlpWorker::progressUpdated);
 
     // Simulate merger line
-    worker.callHandleOutputLine("[Merger] Merging video and audio files");
+    worker.callHandleOutputLine(QStringLiteral("[Merger] Merging video and audio files"));
     QCOMPARE(progressSpy.count(), 1);
-    QCOMPARE(progressSpy.takeFirst().at(1).toMap()["status"].toString(), "Merging segments with ffmpeg...");
+    QCOMPARE(progressSpy.takeFirst().at(1).toMap()[QStringLiteral("status")].toString(), QStringLiteral("Merging segments with ffmpeg..."));
 
     // Simulate extract audio line
-    worker.callHandleOutputLine("[ExtractAudio] Post-processing for audio extraction");
+    worker.callHandleOutputLine(QStringLiteral("[ExtractAudio] Post-processing for audio extraction"));
     QCOMPARE(progressSpy.count(), 1);
-    QCOMPARE(progressSpy.takeFirst().at(1).toMap()["status"].toString(), "Extracting audio...");
+    QCOMPARE(progressSpy.takeFirst().at(1).toMap()[QStringLiteral("status")].toString(), QStringLiteral("Extracting audio..."));
 }
 
 void TestYtDlpWorker::testAria2AdvancedProgressParsing() {
     ConfigManager *config = getConfigManager();
-    TestableYtDlpWorker worker("testId5", {}, config, this);
+    TestableYtDlpWorker worker(QStringLiteral("testId5"), {}, config, nullptr);
     QSignalSpy progressSpy(&worker, &YtDlpWorker::progressUpdated);
 
     // Test aria2 progress with higher percentage and different speed/ETA
-    worker.callHandleOutputLine("[#987654 4.8MiB/5.0MiB(96%) DL:2.5MiB/s ETA:00:01]");
+    worker.callHandleOutputLine(QStringLiteral("[#987654 4.8MiB/5.0MiB(96%) DL:2.5MiB/s ETA:00:01]"));
     QCOMPARE(progressSpy.count(), 1);
     QVariantMap progressData = progressSpy.takeFirst().at(1).toMap();
-    QCOMPARE(progressData["progress"].toInt(), 96);
-    QCOMPARE(progressData["speed"].toString(), "2.50 MiB/s");
+    QCOMPARE(progressData[QStringLiteral("progress")].toInt(), 96);
+    QCOMPARE(progressData[QStringLiteral("speed")].toString(), QStringLiteral("2.50 MiB/s"));
 }
 
 void TestYtDlpWorker::testYtDlpProgressStalledParsing() {
     ConfigManager *config = getConfigManager();
-    TestableYtDlpWorker worker("testId6", {}, config, this);
+    TestableYtDlpWorker worker(QStringLiteral("testId6"), {}, config, nullptr);
     QSignalSpy progressSpy(&worker, &YtDlpWorker::progressUpdated);
 
     // Simulate yt-dlp stalled/unknown progress
-    worker.callHandleOutputLine("[download] Destination: video.mp4");
-    worker.callHandleOutputLine("[download]   0.0% of unknown size at  0.00MiB/s ETA --:--");
+    worker.callHandleOutputLine(QStringLiteral("[download] Destination: video.mp4"));
+    worker.callHandleOutputLine(QStringLiteral("[download]   0.0% of unknown size at  0.00MiB/s ETA --:--"));
     QCOMPARE(progressSpy.count(), 2);
     QVariantMap progressData = progressSpy.last().at(1).toMap();
-    QCOMPARE(progressData["progress"].toInt(), 0);
-    QCOMPARE(progressData["status"].toString(), "Downloading video stream...");
+    QCOMPARE(progressData[QStringLiteral("progress")].toInt(), 0);
+    QCOMPARE(progressData[QStringLiteral("status")].toString(), QStringLiteral("Downloading video stream..."));
 }
 
 void TestYtDlpWorker::testLivestreamWaitParsing() {
     ConfigManager *config = getConfigManager();
-    TestableYtDlpWorker worker("testLiveId", {}, config, this);
+    TestableYtDlpWorker worker(QStringLiteral("testLiveId"), {}, config, nullptr);
     QSignalSpy progressSpy(&worker, &YtDlpWorker::progressUpdated);
 
     // Test generic wait for video
-    worker.callHandleOutputLine("[wait] Waiting for 01:00:00 - Press Ctrl+C to try now");
+    worker.callHandleOutputLine(QStringLiteral("[wait] Waiting for 01:00:00 - Press Ctrl+C to try now"));
     QCOMPARE(progressSpy.count(), 1);
     QVariantMap progressData = progressSpy.takeFirst().at(1).toMap();
-    QCOMPARE(progressData["progress"].toInt(), -1);
-    QCOMPARE(progressData["status"].toString(), "Waiting for livestream to start...");
+    QCOMPARE(progressData[QStringLiteral("progress")].toInt(), -1);
+    QCOMPARE(progressData[QStringLiteral("status")].toString(), QStringLiteral("Waiting for livestream to start..."));
 
     // Test precise wait remaining time countdown
-    worker.callHandleOutputLine("[wait] Remaining time until next attempt: 00:04:45");
+    worker.callHandleOutputLine(QStringLiteral("[wait] Remaining time until next attempt: 00:04:45"));
     QCOMPARE(progressSpy.count(), 1);
     progressData = progressSpy.takeFirst().at(1).toMap();
-    QCOMPARE(progressData["progress"].toInt(), -1);
-    QCOMPARE(progressData["status"].toString(), "Next check in 00:04:45");
+    QCOMPARE(progressData[QStringLiteral("progress")].toInt(), -1);
+    QCOMPARE(progressData[QStringLiteral("status")].toString(), QStringLiteral("Next check in 00:04:45"));
 
     // Test generic wait prefix
-    worker.callHandleOutputLine("[wait] Some other wait reason");
+    worker.callHandleOutputLine(QStringLiteral("[wait] Some other wait reason"));
     QCOMPARE(progressSpy.count(), 1);
     progressData = progressSpy.takeFirst().at(1).toMap();
-    QCOMPARE(progressData["progress"].toInt(), -1);
-    QCOMPARE(progressData["status"].toString(), "Waiting for livestream to start...");
+    QCOMPARE(progressData[QStringLiteral("progress")].toInt(), -1);
+    QCOMPARE(progressData[QStringLiteral("status")].toString(), QStringLiteral("Waiting for livestream to start..."));
 }
 
 // Generates the main() function for the test executable

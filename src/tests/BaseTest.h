@@ -1,5 +1,4 @@
-#ifndef BASETEST_H
-#define BASETEST_H
+#pragma once
 
 #include <QObject>
 #include <QDir>
@@ -36,5 +35,3 @@ private:
     QSharedPointer<ConfigManager> m_configManager;
     QSharedPointer<ArchiveManager> m_archiveManager;
 };
-
-#endif // BASETEST_H

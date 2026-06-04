@@ -3,6 +3,7 @@ import os
 import sys
 import subprocess
 import argparse
+import multiprocessing
 
 def main():
     parser = argparse.ArgumentParser(description="Run LzyDownloader C++ tests headlessly.")
@@ -39,7 +40,8 @@ def main():
     env["QT_DEBUG_PLUGINS"] = "0"         
 
     # Construct the CTest command
-    ctest_cmd = ["ctest", "-C", args.config, "--output-on-failure"]
+    cores = str(multiprocessing.cpu_count())
+    ctest_cmd = ["ctest", "-C", args.config, "--output-on-failure", "-j", cores]
     if args.verbose:
         ctest_cmd.append("-V")
 

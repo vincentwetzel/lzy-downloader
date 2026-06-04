@@ -125,7 +125,6 @@ configure_file(
 add_library(LzyAppLib STATIC
     src/core/AppUpdater.cpp
     src/core/ArchiveManager.cpp
-    src/core/Aria2Daemon.cpp
     src/core/ConfigManager.cpp
     src/core/DownloadFinalizer.cpp
     src/core/DownloadManager.cpp
@@ -136,7 +135,6 @@ add_library(LzyAppLib STATIC
     src/core/DownloadManagerWorkers.cpp
     src/core/DownloadQueueManager.cpp
     src/core/DownloadQueueState.cpp
-    src/core/FfmpegPostProcessor.cpp
     src/core/GalleryDlArgsBuilder.cpp
     src/core/GalleryDlUpdater.cpp
     src/core/GalleryDlWorker.cpp
@@ -149,7 +147,6 @@ add_library(LzyAppLib STATIC
     src/core/StartupWorker.cpp
     src/core/UrlValidator.cpp
     src/core/YtDlpArgsBuilder.cpp
-    src/core/YtDlpJsonExtractor.cpp
     src/core/YtDlpUpdater.cpp
     src/core/YtDlpWorker.cpp
     src/core/YtDlpWorkerOutput.cpp
@@ -245,14 +242,9 @@ endif()
 add_custom_command(TARGET LzyDownloader POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
     "${CMAKE_CURRENT_SOURCE_DIR}/extractors_yt-dlp.json"
-    "$<TARGET_FILE_DIR:LzyDownloader>"
-    COMMENT "Copying yt-dlp extractor list to output directory"
-)
-add_custom_command(TARGET LzyDownloader POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
     "${CMAKE_CURRENT_SOURCE_DIR}/extractors_gallery-dl.json"
     "$<TARGET_FILE_DIR:LzyDownloader>"
-    COMMENT "Copying gallery-dl extractor list to output directory"
+    COMMENT "Copying extractor lists to output directory"
 )
 
 function(lzy_add_test target_name source_file)

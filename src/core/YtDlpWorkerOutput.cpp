@@ -12,6 +12,7 @@
 #include <QNetworkReply>
 #include <QNetworkRequest>
 #include <QProcess>
+#include <QTimer>
 #include <QRegularExpression>
 #include <QUrl>
 #include <chrono>

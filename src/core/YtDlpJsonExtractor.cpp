@@ -28,15 +28,19 @@ void YtDlpJsonExtractor::getInfo(const QString &url)
     QStringList args;
     args << QStringLiteral("--dump-json") << QStringLiteral("--no-playlist") << url;
 
-    QString program = ProcessUtils::findBinary(QStringLiteral("yt-dlp"), m_configManager).path;
-    
-    qDebug() << "YtDlpJsonExtractor executing command:" << program << args;
-    m_process->start(program, args);
+    const ProcessUtils::FoundBinary ytDlpBinary = ProcessUtils::findBinary(QStringLiteral("yt-dlp"), m_configManager);
+    if (ytDlpBinary.source == QStringLiteral("Not Found") || ytDlpBinary.path.isEmpty()) {
+        emit error(tr("yt-dlp could not be found. Configure it in Advanced Settings -> External Tools."));
+        return;
+    }
+
+    qDebug() << "YtDlpJsonExtractor executing command:" << ytDlpBinary.path << args;
+    m_process->start(ytDlpBinary.path, args);
 
     const int runId = m_process->property("run_id").toInt() + 1;
     m_process->setProperty("run_id", runId);
 
-    QTimer::singleShot(std::chrono::seconds(30), m_process, [this, runId]() {
+    QTimer::singleShot(std::chrono::seconds(30), this, [this, runId]() {
         if (m_process->property("run_id").toInt() == runId && m_process->state() != QProcess::NotRunning) {
             m_process->setProperty("timed_out", true);
             ProcessUtils::terminateProcessTree(m_process);
@@ -53,7 +57,7 @@ void YtDlpJsonExtractor::onProcessFinished(int exitCode, QProcess::ExitStatus ex
         return;
     }
     if (exitStatus == QProcess::CrashExit || exitCode != 0) {
-        QString stderrOutput = m_process->readAllStandardError();
+        QString stderrOutput = QString::fromUtf8(m_process->readAllStandardError());
         qWarning() << "YtDlpJsonExtractor failed. Exit code:" << exitCode << "Stderr:" << stderrOutput;
         QString cleanError = QStringLiteral("Unknown error");
         int errIdx = stderrOutput.indexOf(QStringLiteral("ERROR:"));

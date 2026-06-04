@@ -7,6 +7,8 @@
 #include <QSet>
 #include <QUrl>
 #include <limits>
+#include <array>
+#include <algorithm>
 
 void YtDlpWorker::updateTransferTarget(const QString &path) {
     m_currentTransferTarget = QDir::toNativeSeparators(path);
@@ -214,19 +216,19 @@ QString YtDlpWorker::inferPrimaryStreamStatusFromPath(const QString &path) const
     }
 
     const QString lowerPath = path.toLower();
-    static const QStringList audioMarkers = { // NOLINT(clang-diagnostic-exit-time-destructors)
-        QStringLiteral(".m4a"), QStringLiteral(".mp3"), QStringLiteral(".aac"), QStringLiteral(".opus"), QStringLiteral(".ogg"), QStringLiteral(".flac"), QStringLiteral(".wav"), QStringLiteral(".weba"), QStringLiteral(".mpga")
+    static constexpr std::array<QStringView, 9> audioMarkers = {
+        u".m4a", u".mp3", u".aac", u".opus", u".ogg", u".flac", u".wav", u".weba", u".mpga"
     };
-    static const QStringList videoMarkers = { // NOLINT(clang-diagnostic-exit-time-destructors)
-        QStringLiteral(".mp4"), QStringLiteral(".m4v"), QStringLiteral(".mkv"), QStringLiteral(".webm"), QStringLiteral(".mov"), QStringLiteral(".avi"), QStringLiteral(".ts"), QStringLiteral(".m2ts")
+    static constexpr std::array<QStringView, 8> videoMarkers = {
+        u".mp4", u".m4v", u".mkv", u".webm", u".mov", u".avi", u".ts", u".m2ts"
     };
 
-    for (const QString &marker : audioMarkers) {
+    for (const auto &marker : audioMarkers) {
         if (lowerPath.contains(marker)) {
             return tr("Downloading audio stream...");
         }
     }
-    for (const QString &marker : videoMarkers) {
+    for (const auto &marker : videoMarkers) {
         if (lowerPath.contains(marker)) {
             if (requestedAudioExtraction()) {
                 return tr("Downloading audio stream...");
@@ -298,10 +300,13 @@ bool YtDlpWorker::isAuxiliaryTransferTarget(const QString &path) const {
     }
 
     const QString suffix = QFileInfo(path).suffix().toLower();
-    static const QSet<QString> auxiliaryExtensions = { // NOLINT(clang-diagnostic-exit-time-destructors)
-        QStringLiteral("json"), QStringLiteral("jpg"), QStringLiteral("jpeg"), QStringLiteral("png"), QStringLiteral("webp"), QStringLiteral("avif"), QStringLiteral("gif"), QStringLiteral("vtt"), QStringLiteral("srt"), QStringLiteral("ass"), QStringLiteral("lrc"), QStringLiteral("sbv")
+    static constexpr std::array<QStringView, 12> auxiliaryExtensions = {
+        u"json", u"jpg", u"jpeg", u"png", u"webp", u"avif", u"gif", u"vtt", u"srt", u"ass", u"lrc", u"sbv"
     };
-    return auxiliaryExtensions.contains(suffix);
+    
+    return std::any_of(auxiliaryExtensions.begin(), auxiliaryExtensions.end(), [&](QStringView ext) {
+        return suffix == ext;
+    });
 }
 
 QString YtDlpWorker::statusForCurrentTransfer() const {
