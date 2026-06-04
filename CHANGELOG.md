@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.52] - 2026-06-03
+
 ### Added
 - **AI contributor coding standards**: Added `CODING_STANDARDS.md` as the canonical C++/Qt quality, security, threading, file-safety, testing, and UI guidance for future automated code changes.
 - **Download History tab**: Added a persistent Download History tab backed by `download_history.json`, showing completed downloads with title, URL, timestamp, size, duration, cached thumbnail, and quick Open File/Open Folder actions.

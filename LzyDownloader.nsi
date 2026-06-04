@@ -5,6 +5,10 @@
   !error "APP_VERSION must be supplied to makensis (for example /DAPP_VERSION=x.y.z)"
 !endif
 
+!ifndef RELEASE_BUILD_DIR
+  !define RELEASE_BUILD_DIR "build-release\Release"
+!endif
+
 ;--------------------------------
 ; General Configuration
 Name "LzyDownloader"
@@ -46,9 +50,9 @@ Section "Install"
 
     SetOutPath "$INSTDIR"
 
-    ; Copy all files from the CMake build Release directory
+    ; Copy all files from the CMake release output directory
     ; This includes LzyDownloader.exe, Qt DLLs, plugins, and extractor JSONs
-    File /r "build\Release\*.*"
+    File /r "${RELEASE_BUILD_DIR}\*.*"
 
     ; Create Start Menu shortcut
     CreateDirectory "$SMPROGRAMS\LzyDownloader"
