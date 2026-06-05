@@ -10,10 +10,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - **Build source list cleanup**: Removed obsolete source entries from `LzyAppLib` and consolidated post-build copying of the two extractor domain lists into one CMake step.
 - **Headless test throughput**: `run_headless_tests.py` now runs CTest in parallel using the host CPU count while keeping `QT_QPA_PLATFORM=offscreen`.
+- **Translation readiness pass**: Advanced Settings pages and binary-management dialogs now wrap user-facing text in Qt translation calls, keeping the UI ready for the supported-language work tracked in `LANGUAGES.md`.
+- **Core performance polish**: Queue, worker, finalizer, updater, Local API, and settings paths now use more Qt-native literals, cached/static regular expressions, prepared/reused query objects, and direct map inserts/lookups to reduce avoidable allocations in hot paths.
 - **yt-dlp worker parsing cleanup**: stdout and stderr now share the same buffered line parser, reducing duplicate process-output logic while preserving progress and error parsing behavior.
 - **Extractor refresh performance**: Shared extractor-domain parsing regexes are precompiled for faster yt-dlp/gallery-dl list generation.
 
 ### Fixed
+- **Archive database teardown**: Archive database shutdown now closes matching Qt SQL connections before removing them, avoiding lingering SQLite locks during shutdown and tests.
+- **Finalizer thread safety**: Finalization resolves settings before worker-thread file operations, guards QObject callbacks, and reports cleanup failures instead of silently ignoring failed temp-file removals.
+- **Local API request validation**: The localhost API now rejects empty or malformed request lines with JSON errors, matches `Content-Length`, `Expect`, Host, and extension Origin headers more precisely, and builds HTTP responses without repeated string formatting.
 - **Single-instance crash recovery**: Startup now detaches stale `QSharedMemory` segments before creating the single-instance lock and releases the startup semaphore through a scope guard.
 - **yt-dlp metadata extraction errors**: JSON metadata extraction now reports a clear missing-binary error when `yt-dlp` cannot be resolved, and process stderr is decoded as UTF-8.
 - **URL validation timeout ownership**: URL validation and JSON extraction timeouts are owned by their worker objects so callbacks are suppressed safely if the process object changes lifetime.

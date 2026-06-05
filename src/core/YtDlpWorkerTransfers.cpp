@@ -15,12 +15,11 @@ void YtDlpWorker::updateTransferTarget(const QString &path) {
     m_currentTransferIsAuxiliary = isAuxiliaryTransferTarget(m_currentTransferTarget);
 
     if (m_currentTransferIsAuxiliary) {
-        const QString lowerPath = m_currentTransferTarget.toLower();
-        if (lowerPath.endsWith(QStringLiteral(".info.json"))) {
+        if (m_currentTransferTarget.endsWith(QStringLiteral(".info.json"), Qt::CaseInsensitive)) {
             m_currentTransferStatus = tr("Downloading metadata...");
-        } else if (lowerPath.contains(QStringLiteral(".jpg")) || lowerPath.contains(QStringLiteral(".jpeg")) || lowerPath.contains(QStringLiteral(".png")) || lowerPath.contains(QStringLiteral(".webp")) || lowerPath.contains(QStringLiteral(".avif"))) {
+        } else if (m_currentTransferTarget.contains(QStringLiteral(".jpg"), Qt::CaseInsensitive) || m_currentTransferTarget.contains(QStringLiteral(".jpeg"), Qt::CaseInsensitive) || m_currentTransferTarget.contains(QStringLiteral(".png"), Qt::CaseInsensitive) || m_currentTransferTarget.contains(QStringLiteral(".webp"), Qt::CaseInsensitive) || m_currentTransferTarget.contains(QStringLiteral(".avif"), Qt::CaseInsensitive)) {
             m_currentTransferStatus = tr("Downloading thumbnail...");
-        } else if (lowerPath.contains(QStringLiteral(".srt")) || lowerPath.contains(QStringLiteral(".vtt")) || lowerPath.contains(QStringLiteral(".ass")) || lowerPath.contains(QStringLiteral(".lrc")) || lowerPath.contains(QStringLiteral(".sbv"))) {
+        } else if (m_currentTransferTarget.contains(QStringLiteral(".srt"), Qt::CaseInsensitive) || m_currentTransferTarget.contains(QStringLiteral(".vtt"), Qt::CaseInsensitive) || m_currentTransferTarget.contains(QStringLiteral(".ass"), Qt::CaseInsensitive) || m_currentTransferTarget.contains(QStringLiteral(".lrc"), Qt::CaseInsensitive) || m_currentTransferTarget.contains(QStringLiteral(".sbv"), Qt::CaseInsensitive)) {
             m_currentTransferStatus = tr("Downloading subtitles...");
         } else {
             m_currentTransferStatus = tr("Downloading auxiliary file...");
@@ -67,7 +66,7 @@ void YtDlpWorker::inferRequestedTransfersFromFormatList(const QString &formatLis
         return;
     }
 
-    const QStringList parts = formatList.split('+', Qt::SkipEmptyParts);
+    const QStringList parts = formatList.split(QLatin1Char('+'), Qt::SkipEmptyParts);
     if (parts.isEmpty()) {
         return;
     }
@@ -93,7 +92,8 @@ void YtDlpWorker::inferRequestedTransfersFromFormatList(const QString &formatLis
 }
 
 bool YtDlpWorker::handleAria2CommandLine(const QString &line) {
-    if (!line.startsWith(QStringLiteral("[debug] aria2c.exe command line:"), Qt::CaseInsensitive)) {
+    // Ensure cross-platform compatibility as non-Windows platforms will not have the .exe extension
+    if (!line.startsWith(QStringLiteral("[debug] aria2c"), Qt::CaseInsensitive) || !line.contains(QStringLiteral("command line:"), Qt::CaseInsensitive)) {
         return false;
     }
 
@@ -206,7 +206,7 @@ int YtDlpWorker::inferPrimaryStreamIndexFromTotalBytes(double totalBytes) const 
 }
 
 bool YtDlpWorker::requestedAudioExtraction() const {
-    return m_args.contains("-x") || m_args.contains("--extract-audio");
+    return m_args.contains(QStringLiteral("-x")) || m_args.contains(QStringLiteral("--extract-audio"));
 }
 
 QString YtDlpWorker::inferPrimaryStreamStatusFromPath(const QString &path) const {
@@ -215,7 +215,6 @@ QString YtDlpWorker::inferPrimaryStreamStatusFromPath(const QString &path) const
         return m_requestedTransferStatuses.at(inferredIndex);
     }
 
-    const QString lowerPath = path.toLower();
     static constexpr std::array<QStringView, 9> audioMarkers = {
         u".m4a", u".mp3", u".aac", u".opus", u".ogg", u".flac", u".wav", u".weba", u".mpga"
     };
@@ -223,13 +222,13 @@ QString YtDlpWorker::inferPrimaryStreamStatusFromPath(const QString &path) const
         u".mp4", u".m4v", u".mkv", u".webm", u".mov", u".avi", u".ts", u".m2ts"
     };
 
-    for (const auto &marker : audioMarkers) {
-        if (lowerPath.contains(marker)) {
+    for (QStringView marker : audioMarkers) {
+        if (path.contains(marker, Qt::CaseInsensitive)) {
             return tr("Downloading audio stream...");
         }
     }
-    for (const auto &marker : videoMarkers) {
-        if (lowerPath.contains(marker)) {
+    for (QStringView marker : videoMarkers) {
+        if (path.contains(marker, Qt::CaseInsensitive)) {
             if (requestedAudioExtraction()) {
                 return tr("Downloading audio stream...");
             }
@@ -294,18 +293,17 @@ void YtDlpWorker::updateInferredTransferStage(double percentage, double download
 }
 
 bool YtDlpWorker::isAuxiliaryTransferTarget(const QString &path) const {
-    const QString lowerPath = path.toLower();
-    if (lowerPath.endsWith(QStringLiteral(".info.json")) || lowerPath.endsWith(QStringLiteral(".description"))) {
+    if (path.endsWith(QStringLiteral(".info.json"), Qt::CaseInsensitive) || path.endsWith(QStringLiteral(".description"), Qt::CaseInsensitive)) {
         return true;
     }
 
-    const QString suffix = QFileInfo(path).suffix().toLower();
+    const QString suffix = QFileInfo(path).suffix();
     static constexpr std::array<QStringView, 12> auxiliaryExtensions = {
         u"json", u"jpg", u"jpeg", u"png", u"webp", u"avif", u"gif", u"vtt", u"srt", u"ass", u"lrc", u"sbv"
     };
     
     return std::any_of(auxiliaryExtensions.begin(), auxiliaryExtensions.end(), [&](QStringView ext) {
-        return suffix == ext;
+        return suffix.compare(ext, Qt::CaseInsensitive) == 0;
     });
 }
 
@@ -315,28 +313,28 @@ QString YtDlpWorker::statusForCurrentTransfer() const {
 
 void YtDlpWorker::emitStatusUpdate(const QString &status, int progress) {
     QVariantMap progressData;
-    progressData[QStringLiteral("status")] = status;
+    progressData.insert(QStringLiteral("status"), status);
     if (progress != -2) {
-        progressData[QStringLiteral("progress")] = progress;
+        progressData.insert(QStringLiteral("progress"), progress);
     }
     if (!m_videoTitle.isEmpty()) {
-        progressData[QStringLiteral("title")] = m_videoTitle;
+        progressData.insert(QStringLiteral("title"), m_videoTitle);
     }
     if (!m_thumbnailPath.isEmpty()) {
-        progressData[QStringLiteral("thumbnail_path")] = m_thumbnailPath;
+        progressData.insert(QStringLiteral("thumbnail_path"), m_thumbnailPath);
     }
         
-        QString currentFile;
-        if (!m_originalDownloadedFilename.isEmpty()) {
-            currentFile = m_originalDownloadedFilename;
-        } else if (!m_currentTransferTarget.isEmpty() && !m_currentTransferIsAuxiliary) {
-            currentFile = m_currentTransferTarget;
-        } else if (!m_infoJsonPath.isEmpty()) {
-            currentFile = m_infoJsonPath;
-        }
-        if (!currentFile.isEmpty()) {
-            progressData[QStringLiteral("current_file")] = currentFile;
-        }
+    QString currentFile;
+    if (!m_originalDownloadedFilename.isEmpty()) {
+        currentFile = m_originalDownloadedFilename;
+    } else if (!m_currentTransferTarget.isEmpty() && !m_currentTransferIsAuxiliary) {
+        currentFile = m_currentTransferTarget;
+    } else if (!m_infoJsonPath.isEmpty()) {
+        currentFile = m_infoJsonPath;
+    }
+    if (!currentFile.isEmpty()) {
+        progressData.insert(QStringLiteral("current_file"), currentFile);
+    }
     emit progressUpdated(m_id, progressData);
 }
 

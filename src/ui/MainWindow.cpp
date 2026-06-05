@@ -34,7 +34,7 @@ MainWindow::MainWindow(ExtractorJsonParser *extractorJsonParser, QWidget *parent
       m_silentUpdateCheck(false), m_nonInteractiveLaunch(MainWindowHelpers::hasNonInteractiveLaunchArgument()), m_lastAutoPasteTimestamp(0)
 {
     // Intercept window creation BEFORE it can be shown by main.cpp
-    if (QCoreApplication::arguments().contains("--headless") || QCoreApplication::arguments().contains("--server")) {
+    if (QCoreApplication::arguments().contains(QStringLiteral("--headless")) || QCoreApplication::arguments().contains(QStringLiteral("--server"))) {
         setAttribute(Qt::WA_DontShowOnScreen, true);
     }
 
@@ -43,7 +43,7 @@ MainWindow::MainWindow(ExtractorJsonParser *extractorJsonParser, QWidget *parent
     qInfo() << "Using settings file at:" << QDir(m_configManager->getConfigDir()).filePath(QStringLiteral("settings.ini"));
 
     // Apply CLI overrides and ensure exit_after resets to false on normal launches
-    if (QCoreApplication::arguments().contains("--exit-after")) {
+    if (QCoreApplication::arguments().contains(QStringLiteral("--exit-after"))) {
         m_configManager->set(QStringLiteral("General"), QStringLiteral("exit_after"), true);
     } else {
         m_configManager->set(QStringLiteral("General"), QStringLiteral("exit_after"), false);
@@ -52,7 +52,7 @@ MainWindow::MainWindow(ExtractorJsonParser *extractorJsonParser, QWidget *parent
 
     m_archiveManager = new ArchiveManager(m_configManager, this);
     m_downloadManager = new DownloadManager(m_configManager, this);
-    m_appUpdater = new AppUpdater(REPO_URLS, QString(APP_VERSION_STRING), this);
+    m_appUpdater = new AppUpdater(REPO_URLS, QStringLiteral(APP_VERSION_STRING), this);
     m_urlValidator = new UrlValidator(m_configManager, this);
     m_clipboard = QApplication::clipboard(); // Initialize QClipboard
 
@@ -88,15 +88,6 @@ MainWindow::MainWindow(ExtractorJsonParser *extractorJsonParser, QWidget *parent
     setupLocalApiServer();
     setupWindowsDebugConsole();
 
-    // Dynamically reschedule queue if the user increases Max Concurrent
-    connect(m_configManager, &ConfigManager::settingChanged, this, [this](const QString &section, const QString &key, const QVariant &/*value*/) {
-        if (section == QStringLiteral("General") && key == QStringLiteral("max_threads")) {
-            if (m_downloadManager) {
-                QMetaObject::invokeMethod(m_downloadManager, "startNextDownload", Qt::QueuedConnection);
-            }
-        }
-    });
-
     setupUI();
     setupTrayIcon();
     connectAppUpdaterSignals();
@@ -109,7 +100,7 @@ MainWindow::MainWindow(ExtractorJsonParser *extractorJsonParser, QWidget *parent
 
 MainWindow::~MainWindow() {
     if (m_startupWorker) {
-        QMetaObject::invokeMethod(m_startupWorker, "deleteLater", Qt::QueuedConnection);
+        m_startupWorker->deleteLater();
     }
     if (m_startupThread && m_startupThread->isRunning()) {
         m_startupThread->quit();

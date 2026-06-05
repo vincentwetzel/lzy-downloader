@@ -15,27 +15,27 @@
 
 namespace {
     bool validateYtDlpTemplate(QWidget* parent, ConfigManager* configManager, const QString& templateStr) {
-        QString ytDlpPath = ProcessUtils::findBinary("yt-dlp", configManager).path;
+        QString ytDlpPath = ProcessUtils::findBinary(QStringLiteral("yt-dlp"), configManager).path;
         if (ytDlpPath.isEmpty()) {
-            QMessageBox::warning(parent, "Missing Binary", "yt-dlp executable not found. Cannot validate template.");
+            QMessageBox::warning(parent, QObject::tr("Missing Binary"), QObject::tr("yt-dlp executable not found. Cannot validate template."));
             return false;
         }
 
         QProcess process;
         ProcessUtils::setProcessEnvironment(process);
-        process.start(ytDlpPath, QStringList() << "-o" << templateStr << "dummy:");
+        process.start(ytDlpPath, QStringList() << QStringLiteral("-o") << templateStr << QStringLiteral("dummy:"));
         if (!process.waitForStarted(2000)) {
-            QMessageBox::warning(parent, "Process Error", "Failed to start yt-dlp to validate the template. Please check your yt-dlp installation.");
+            QMessageBox::warning(parent, QObject::tr("Process Error"), QObject::tr("Failed to start yt-dlp to validate the template. Please check your yt-dlp installation."));
             return false;
         }
         if (!process.waitForFinished(5000)) {
             ProcessUtils::terminateProcessTree(&process);
-            QMessageBox::warning(parent, "Validation Timeout", "yt-dlp took too long to validate the template (exceeded 5 seconds).");
+            QMessageBox::warning(parent, QObject::tr("Validation Timeout"), QObject::tr("yt-dlp took too long to validate the template (exceeded 5 seconds)."));
             return false;
         }
         QString err = process.readAllStandardError();
-        if (err.contains("error:", Qt::CaseInsensitive) && (err.contains("template", Qt::CaseInsensitive) || err.contains("missing", Qt::CaseInsensitive))) {
-            QMessageBox::warning(parent, "Invalid Template", "yt-dlp rejected the template:\n" + err.trimmed());
+        if (err.contains(QStringLiteral("error:"), Qt::CaseInsensitive) && (err.contains(QStringLiteral("template"), Qt::CaseInsensitive) || err.contains(QStringLiteral("missing"), Qt::CaseInsensitive))) {
+            QMessageBox::warning(parent, QObject::tr("Invalid Template"), QObject::tr("yt-dlp rejected the template:\n%1").arg(err.trimmed()));
             return false;
         }
         return true;
@@ -48,107 +48,107 @@ OutputTemplatesPage::OutputTemplatesPage(ConfigManager *configManager, QWidget *
     layout->setContentsMargins(0, 0, 0, 0);
 
     QStringList ytDlpTokens = {
-        "%(title)s", "%(uploader)s", "%(upload_date>%Y-%m-%d)s", "%(id)s", "%(ext)s",
-        "%(playlist_index)s", "%(playlist_title)s", "%(channel)s", "%(channel_id)s",
-        "%(duration)s", "%(view_count)s", "%(like_count)s", "%(comment_count)s",
-        "%(age_limit)s", "%(genre)s", "%(format_id)s", "%(format)s", "%(format_note)s",
-        "%(resolution)s", "%(width)s", "%(height)s", "%(fps)s", "%(vcodec)s", "%(acodec)s",
-        "%(abr)s", "%(vbr)s", "%(tbr)s", "%(filesize)s", "%(epoch)s", "%(autonumber)s"
+        QStringLiteral("%(title)s"), QStringLiteral("%(uploader)s"), QStringLiteral("%(upload_date>%Y-%m-%d)s"), QStringLiteral("%(id)s"), QStringLiteral("%(ext)s"),
+        QStringLiteral("%(playlist_index)s"), QStringLiteral("%(playlist_title)s"), QStringLiteral("%(channel)s"), QStringLiteral("%(channel_id)s"),
+        QStringLiteral("%(duration)s"), QStringLiteral("%(view_count)s"), QStringLiteral("%(like_count)s"), QStringLiteral("%(comment_count)s"),
+        QStringLiteral("%(age_limit)s"), QStringLiteral("%(genre)s"), QStringLiteral("%(format_id)s"), QStringLiteral("%(format)s"), QStringLiteral("%(format_note)s"),
+        QStringLiteral("%(resolution)s"), QStringLiteral("%(width)s"), QStringLiteral("%(height)s"), QStringLiteral("%(fps)s"), QStringLiteral("%(vcodec)s"), QStringLiteral("%(acodec)s"),
+        QStringLiteral("%(abr)s"), QStringLiteral("%(vbr)s"), QStringLiteral("%(tbr)s"), QStringLiteral("%(filesize)s"), QStringLiteral("%(epoch)s"), QStringLiteral("%(autonumber)s")
     };
 
-    QGroupBox *ytDlpGroup = new QGroupBox("yt-dlp Filename Templates", this);
-    ytDlpGroup->setToolTip("Define custom filename patterns for video and audio downloads using yt-dlp templates.");
+    QGroupBox *ytDlpGroup = new QGroupBox(tr("yt-dlp Filename Templates"), this);
+    ytDlpGroup->setToolTip(tr("Define custom filename patterns for video and audio downloads using yt-dlp templates."));
     QGridLayout *ytDlpLayout = new QGridLayout(ytDlpGroup);
 
-    QLabel* videoPatternLabel = new QLabel("Video Pattern:", this);
-    videoPatternLabel->setToolTip("The filename pattern for video downloads.");
+    QLabel* videoPatternLabel = new QLabel(tr("Video Pattern:"), this);
+    videoPatternLabel->setToolTip(tr("The filename pattern for video downloads."));
     ytDlpLayout->addWidget(videoPatternLabel, 0, 0);
     m_videoOutputTemplateInput = new QLineEdit(this);
     m_videoOutputTemplateInput->setMinimumHeight(30);
-    m_videoOutputTemplateInput->setToolTip("The filename pattern for video downloads.");
+    m_videoOutputTemplateInput->setToolTip(tr("The filename pattern for video downloads."));
     ytDlpLayout->addWidget(m_videoOutputTemplateInput, 0, 1);
     m_videoTemplateTokensCombo = new QComboBox(this);
-    m_videoTemplateTokensCombo->addItem("Insert token...", "");
+    m_videoTemplateTokensCombo->addItem(tr("Insert token..."), QStringLiteral(""));
     m_videoTemplateTokensCombo->setMaximumWidth(180);
-    m_videoTemplateTokensCombo->setToolTip("Insert a yt-dlp metadata token into the video template.");
+    m_videoTemplateTokensCombo->setToolTip(tr("Insert a yt-dlp metadata token into the video template."));
     m_videoTemplateTokensCombo->addItems(ytDlpTokens);
     ytDlpLayout->addWidget(m_videoTemplateTokensCombo, 0, 2);
-    m_saveVideoTemplateButton = new QPushButton("Save", this);
-    m_saveVideoTemplateButton->setToolTip("Save and validate the video template.");
+    m_saveVideoTemplateButton = new QPushButton(tr("Save"), this);
+    m_saveVideoTemplateButton->setToolTip(tr("Save and validate the video template."));
     ytDlpLayout->addWidget(m_saveVideoTemplateButton, 0, 3);
-    QPushButton *resetVideoButton = new QPushButton("Reset", this);
-    resetVideoButton->setToolTip("Reset the video template to its default value.");
+    QPushButton *resetVideoButton = new QPushButton(tr("Reset"), this);
+    resetVideoButton->setToolTip(tr("Reset the video template to its default value."));
     ytDlpLayout->addWidget(resetVideoButton, 0, 4);
 
-    QLabel* audioPatternLabel = new QLabel("Audio Pattern:", this);
-    audioPatternLabel->setToolTip("The filename pattern for audio downloads.");
+    QLabel* audioPatternLabel = new QLabel(tr("Audio Pattern:"), this);
+    audioPatternLabel->setToolTip(tr("The filename pattern for audio downloads."));
     ytDlpLayout->addWidget(audioPatternLabel, 1, 0);
     m_audioOutputTemplateInput = new QLineEdit(this);
     m_audioOutputTemplateInput->setMinimumHeight(30);
-    m_audioOutputTemplateInput->setToolTip("The filename pattern for audio downloads.");
+    m_audioOutputTemplateInput->setToolTip(tr("The filename pattern for audio downloads."));
     ytDlpLayout->addWidget(m_audioOutputTemplateInput, 1, 1);
     m_audioTemplateTokensCombo = new QComboBox(this);
-    m_audioTemplateTokensCombo->addItem("Insert token...", "");
+    m_audioTemplateTokensCombo->addItem(tr("Insert token..."), QStringLiteral(""));
     m_audioTemplateTokensCombo->setMaximumWidth(180);
-    m_audioTemplateTokensCombo->setToolTip("Insert a yt-dlp metadata token into the audio template.");
+    m_audioTemplateTokensCombo->setToolTip(tr("Insert a yt-dlp metadata token into the audio template."));
     m_audioTemplateTokensCombo->addItems(ytDlpTokens);
     ytDlpLayout->addWidget(m_audioTemplateTokensCombo, 1, 2);
-    m_saveAudioTemplateButton = new QPushButton("Save", this);
-    m_saveAudioTemplateButton->setToolTip("Save and validate the audio template.");
+    m_saveAudioTemplateButton = new QPushButton(tr("Save"), this);
+    m_saveAudioTemplateButton->setToolTip(tr("Save and validate the audio template."));
     ytDlpLayout->addWidget(m_saveAudioTemplateButton, 1, 3);
-    QPushButton *resetAudioButton = new QPushButton("Reset", this);
-    resetAudioButton->setToolTip("Reset the audio template to its default value.");
+    QPushButton *resetAudioButton = new QPushButton(tr("Reset"), this);
+    resetAudioButton->setToolTip(tr("Reset the audio template to its default value."));
     ytDlpLayout->addWidget(resetAudioButton, 1, 4);
     layout->addWidget(ytDlpGroup);
 
-    QGroupBox *galleryDlGroup = new QGroupBox("gallery-dl Filename Template", this);
-    galleryDlGroup->setToolTip("Define custom filename patterns for gallery downloads using gallery-dl templates.");
+    QGroupBox *galleryDlGroup = new QGroupBox(tr("gallery-dl Filename Template"), this);
+    galleryDlGroup->setToolTip(tr("Define custom filename patterns for gallery downloads using gallery-dl templates."));
     QHBoxLayout *galleryDlControlsLayout = new QHBoxLayout(galleryDlGroup);
-    QLabel* galleryPatternLabel = new QLabel("Gallery Pattern:", this);
-    galleryPatternLabel->setToolTip("The filename pattern for gallery downloads.");
+    QLabel* galleryPatternLabel = new QLabel(tr("Gallery Pattern:"), this);
+    galleryPatternLabel->setToolTip(tr("The filename pattern for gallery downloads."));
     galleryDlControlsLayout->addWidget(galleryPatternLabel);
     m_galleryDlOutputTemplateInput = new QLineEdit(this);
     m_galleryDlOutputTemplateInput->setMinimumHeight(30);
-    m_galleryDlOutputTemplateInput->setToolTip("The filename pattern for gallery downloads.");
+    m_galleryDlOutputTemplateInput->setToolTip(tr("The filename pattern for gallery downloads."));
     galleryDlControlsLayout->addWidget(m_galleryDlOutputTemplateInput, 1); // Stretch factor 1
     m_galleryDlTemplateTokensCombo = new QComboBox(this);
-    m_galleryDlTemplateTokensCombo->addItem("Insert token...", "");
+    m_galleryDlTemplateTokensCombo->addItem(tr("Insert token..."), QStringLiteral(""));
     m_galleryDlTemplateTokensCombo->setMaximumWidth(180);
-    m_galleryDlTemplateTokensCombo->setToolTip("Insert a gallery-dl metadata token into the gallery template.");
+    m_galleryDlTemplateTokensCombo->setToolTip(tr("Insert a gallery-dl metadata token into the gallery template."));
     m_galleryDlTemplateTokensCombo->addItems({
-        "{category}", "{subcategory}", "{id}", "{filename}", "{extension}",
-        "{title}", "{description}", "{date}", "{date:%Y-%m-%d}",
-        "{user[username]}", "{user[name]}", "{user[id]}",
-        "{author[name]}", "{author[url]}", "{author[id]}",
-        "{url}", "{shortcode}", "{num}", "{count}",
-        "{width}", "{height}", "{size}", "{width}x{height}",
-        "{post[title]}", "{post[id]}", "{post[num]}", "{post[count]}",
-        "{media[num]}", "{media[count]}",
-        "{category}/{id}_{filename}.{extension}"
+        QStringLiteral("{category}"), QStringLiteral("{subcategory}"), QStringLiteral("{id}"), QStringLiteral("{filename}"), QStringLiteral("{extension}"),
+        QStringLiteral("{title}"), QStringLiteral("{description}"), QStringLiteral("{date}"), QStringLiteral("{date:%Y-%m-%d}"),
+        QStringLiteral("{user[username]}"), QStringLiteral("{user[name]}"), QStringLiteral("{user[id]}"),
+        QStringLiteral("{author[name]}"), QStringLiteral("{author[url]}"), QStringLiteral("{author[id]}"),
+        QStringLiteral("{url}"), QStringLiteral("{shortcode}"), QStringLiteral("{num}"), QStringLiteral("{count}"),
+        QStringLiteral("{width}"), QStringLiteral("{height}"), QStringLiteral("{size}"), QStringLiteral("{width}x{height}"),
+        QStringLiteral("{post[title]}"), QStringLiteral("{post[id]}"), QStringLiteral("{post[num]}"), QStringLiteral("{post[count]}"),
+        QStringLiteral("{media[num]}"), QStringLiteral("{media[count]}"),
+        QStringLiteral("{category}/{id}_{filename}.{extension}")
     });
     galleryDlControlsLayout->addWidget(m_galleryDlTemplateTokensCombo, 0); // No stretch
-    m_saveGalleryDlTemplateButton = new QPushButton("Save", this);
-    m_saveGalleryDlTemplateButton->setToolTip("Save the gallery template.");
+    m_saveGalleryDlTemplateButton = new QPushButton(tr("Save"), this);
+    m_saveGalleryDlTemplateButton->setToolTip(tr("Save the gallery template."));
     galleryDlControlsLayout->addWidget(m_saveGalleryDlTemplateButton);
-    QPushButton *resetGalleryDlButton = new QPushButton("Reset", this);
-    resetGalleryDlButton->setToolTip("Reset the gallery template to its default value.");
+    QPushButton *resetGalleryDlButton = new QPushButton(tr("Reset"), this);
+    resetGalleryDlButton->setToolTip(tr("Reset the gallery template to its default value."));
     galleryDlControlsLayout->addWidget(resetGalleryDlButton);
     layout->addWidget(galleryDlGroup);
 
     layout->addStretch();
 
     connect(resetVideoButton, &QPushButton::clicked, this, [this]() {
-        m_videoOutputTemplateInput->setText(m_configManager->get("General", "output_template").toString());
-        QMessageBox::information(this, "Template Reset", "Video filename pattern has been reset to default.");
+        m_videoOutputTemplateInput->setText(m_configManager->get(QStringLiteral("General"), QStringLiteral("output_template")).toString());
+        QMessageBox::information(this, tr("Template Reset"), tr("Video filename pattern has been reset to default."));
     });
     connect(resetAudioButton, &QPushButton::clicked, this, [this]() {
-        m_audioOutputTemplateInput->setText(m_configManager->get("General", "output_template").toString());
-        QMessageBox::information(this, "Template Reset", "Audio filename pattern has been reset to default.");
+        m_audioOutputTemplateInput->setText(m_configManager->get(QStringLiteral("General"), QStringLiteral("output_template")).toString());
+        QMessageBox::information(this, tr("Template Reset"), tr("Audio filename pattern has been reset to default."));
     });
     connect(resetGalleryDlButton, &QPushButton::clicked, this, [this]() {
-        QString defaultTpl = m_configManager->getDefault("General", "gallery_output_template").toString();
+        QString defaultTpl = m_configManager->getDefault(QStringLiteral("General"), QStringLiteral("gallery_output_template")).toString();
         m_galleryDlOutputTemplateInput->setText(defaultTpl);
-        QMessageBox::information(this, "Template Reset", "Gallery filename pattern has been reset to default.");
+        QMessageBox::information(this, tr("Template Reset"), tr("Gallery filename pattern has been reset to default."));
     });
 
     auto insertToken = [](QLineEdit* lineEdit, QComboBox* comboBox, int index) {
@@ -172,55 +172,55 @@ void OutputTemplatesPage::loadSettings() {
     QSignalBlocker b2(m_audioOutputTemplateInput);
     QSignalBlocker b3(m_galleryDlOutputTemplateInput);
 
-    QString defaultTpl = m_configManager->get("General", "output_template").toString();
+    QString defaultTpl = m_configManager->get(QStringLiteral("General"), QStringLiteral("output_template")).toString();
 
-    QString videoTpl = m_configManager->get("General", "output_template_video").toString();
+    QString videoTpl = m_configManager->get(QStringLiteral("General"), QStringLiteral("output_template_video")).toString();
     m_videoOutputTemplateInput->setText(videoTpl.isEmpty() ? defaultTpl : videoTpl);
 
-    QString audioTpl = m_configManager->get("General", "output_template_audio").toString();
+    QString audioTpl = m_configManager->get(QStringLiteral("General"), QStringLiteral("output_template_audio")).toString();
     m_audioOutputTemplateInput->setText(audioTpl.isEmpty() ? defaultTpl : audioTpl);
 
-    m_galleryDlOutputTemplateInput->setText(m_configManager->get("General", "gallery_output_template").toString());
+    m_galleryDlOutputTemplateInput->setText(m_configManager->get(QStringLiteral("General"), QStringLiteral("gallery_output_template")).toString());
 }
 
 void OutputTemplatesPage::validateAndSaveVideoTemplate() {
     QString templateStr = m_videoOutputTemplateInput->text();
-    if (templateStr.isEmpty()) { QMessageBox::warning(this, "Invalid Template", "Template cannot be empty."); return; }
+    if (templateStr.isEmpty()) { QMessageBox::warning(this, tr("Invalid Template"), tr("Template cannot be empty.")); return; }
 
     if (!validateYtDlpTemplate(this, m_configManager, templateStr)) {
         return;
     }
 
-    m_configManager->set("General", "output_template_video", templateStr);
-    QMessageBox::information(this, "Saved", "Video output filename pattern saved.");
+    m_configManager->set(QStringLiteral("General"), QStringLiteral("output_template_video"), templateStr);
+    QMessageBox::information(this, tr("Saved"), tr("Video output filename pattern saved."));
 }
 
 void OutputTemplatesPage::validateAndSaveAudioTemplate() {
     QString templateStr = m_audioOutputTemplateInput->text();
-    if (templateStr.isEmpty()) { QMessageBox::warning(this, "Invalid Template", "Template cannot be empty."); return; }
+    if (templateStr.isEmpty()) { QMessageBox::warning(this, tr("Invalid Template"), tr("Template cannot be empty.")); return; }
 
     if (!validateYtDlpTemplate(this, m_configManager, templateStr)) {
         return;
     }
 
-    m_configManager->set("General", "output_template_audio", templateStr);
-    QMessageBox::information(this, "Saved", "Audio output filename pattern saved.");
+    m_configManager->set(QStringLiteral("General"), QStringLiteral("output_template_audio"), templateStr);
+    QMessageBox::information(this, tr("Saved"), tr("Audio output filename pattern saved."));
 }
 
 void OutputTemplatesPage::validateAndSaveGalleryDlTemplate() {
     QString templateStr = m_galleryDlOutputTemplateInput->text();
-    if (templateStr.isEmpty()) { QMessageBox::warning(this, "Invalid Template", "Template cannot be empty."); return; }
-    m_configManager->set("General", "gallery_output_template", templateStr);
-    QMessageBox::information(this, "Saved", "Gallery output filename pattern saved.");
+    if (templateStr.isEmpty()) { QMessageBox::warning(this, tr("Invalid Template"), tr("Template cannot be empty.")); return; }
+    m_configManager->set(QStringLiteral("General"), QStringLiteral("gallery_output_template"), templateStr);
+    QMessageBox::information(this, tr("Saved"), tr("Gallery output filename pattern saved."));
 }
 
 void OutputTemplatesPage::handleConfigSettingChanged(const QString &section, const QString &key, const QVariant &value) {
     Q_UNUSED(value);
-    if (section == "General" && (
-        key == "output_template_video" ||
-        key == "output_template_audio" ||
-        key == "gallery_output_template" ||
-        key == "output_template"
+    if (section == QStringLiteral("General") && (
+        key == QStringLiteral("output_template_video") ||
+        key == QStringLiteral("output_template_audio") ||
+        key == QStringLiteral("gallery_output_template") ||
+        key == QStringLiteral("output_template")
     )) {
         loadSettings();
     }

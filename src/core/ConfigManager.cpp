@@ -20,7 +20,7 @@ ConfigManager::ConfigManager(const QString &fileName, QObject *parent)
     // Server/headless mode used to store user preferences under Server/settings.ini.
     // Preferences now have one source of truth in the main app-local settings file;
     // keep Server/ for runtime state only.
-    QString obsoleteServerPath = QDir(dir.filePath(QStringLiteral("Server"))).filePath(fileName);
+    const QString obsoleteServerPath = QDir(dir.filePath(QStringLiteral("Server"))).filePath(fileName);
     if (!QFile::exists(actualConfigPath) && QFile::exists(obsoleteServerPath)) {
         if (QFile::copy(obsoleteServerPath, actualConfigPath)) {
             qInfo() << "Migrated obsolete server settings file to shared settings file:" << actualConfigPath;
@@ -31,7 +31,7 @@ ConfigManager::ConfigManager(const QString &fileName, QObject *parent)
     }
 
     // Seamlessly migrate legacy settings.ini from the application directory if present
-    QString legacyPath = QDir(QCoreApplication::applicationDirPath()).filePath(fileName);
+    const QString legacyPath = QDir(QCoreApplication::applicationDirPath()).filePath(fileName);
     if (QFile::exists(legacyPath) && !QFile::exists(actualConfigPath)) {
         QFile::copy(legacyPath, actualConfigPath);
     }
@@ -79,9 +79,9 @@ void ConfigManager::commonInitialization() {
     cleanUpLegacyKeys();
 
     // Enforce max concurrency cap of 4 on startup to prevent accidental aggressive spam
-    QString maxThreads = m_settings->value(QStringLiteral("General/max_threads"), QStringLiteral("4")).toString();
-    bool isInt;
-    int threads = maxThreads.toInt(&isInt);
+    const QString maxThreads = m_settings->value(QStringLiteral("General/max_threads"), QStringLiteral("4")).toString();
+    bool isInt = false;
+    const int threads = maxThreads.toInt(&isInt);
     if (isInt && threads > 4) {
         m_settings->setValue(QStringLiteral("General/max_threads"), QStringLiteral("4"));
         m_settings->sync();
@@ -159,15 +159,15 @@ void ConfigManager::cleanUpLegacyKeys() {
     // These top-level sections are allowed to have dynamic/user-defined keys
     const QStringList dynamicGroups = {QStringLiteral("SortingRules"), QStringLiteral("MainWindow"), QStringLiteral("UI"), QStringLiteral("Geometry"), QStringLiteral("Paths"), QStringLiteral("Binaries"), QStringLiteral("LocalApi")};
     
-    QStringList allKeys = m_settings->allKeys();
+    const QStringList allKeys = m_settings->allKeys();
     bool keysRemoved = false;
 
     for (const QString &fullKey : allKeys) {
-        QStringList parts = fullKey.split(QLatin1Char('/'));
+        const QStringList parts = fullKey.split(QLatin1Char('/'));
         if (parts.isEmpty()) continue;
 
-        QString section = parts.first();
-        QString key = parts.mid(1).join(QLatin1Char('/'));
+        const QString section = parts.first();
+        const QString key = parts.mid(1).join(QLatin1Char('/'));
 
         // 1. Preserve explicitly dynamic groups completely (case-insensitive)
         bool inDynamic = false;
@@ -210,11 +210,11 @@ QVariant ConfigManager::get(const QString &section, const QString &key, const QV
     // which in turn can have a fallback to the function's default parameter.
     QVariant appDefault = getDefault(section, key);
     QVariant finalFallback = appDefault.isValid() ? appDefault : defaultValue;
-    return m_settings->value(QStringLiteral("%1/%2").arg(section, key), finalFallback);
+    return m_settings->value(section + QLatin1Char('/') + key, finalFallback);
 }
 
 bool ConfigManager::set(const QString &section, const QString &key, const QVariant &value) {
-    QString fullKey = QStringLiteral("%1/%2").arg(section, key);
+    QString fullKey = section + QLatin1Char('/') + key;
     if (m_settings->contains(fullKey) && m_settings->value(fullKey) == value) {
         return true;
     }
@@ -224,7 +224,7 @@ bool ConfigManager::set(const QString &section, const QString &key, const QVaria
 }
 
 void ConfigManager::remove(const QString &section, const QString &key) {
-    QString fullKey = QStringLiteral("%1/%2").arg(section, key);
+    QString fullKey = section + QLatin1Char('/') + key;
     if (m_settings->contains(fullKey)) {
         m_settings->remove(fullKey);
         emit settingChanged(section, key, QVariant());

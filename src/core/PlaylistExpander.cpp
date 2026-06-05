@@ -187,7 +187,7 @@ void PlaylistExpander::onProcessFinished(int exitCode, QProcess::ExitStatus exit
         // It's a playlist
         isPlaylist = true;
         
-        QString playlistTitle = firstStringValue(root, {QStringLiteral("playlist_title"), QStringLiteral("playlist"), QStringLiteral("album"), QStringLiteral("title")});
+        QString playlistTitle = firstStringValue(root, QStringList{QStringLiteral("playlist_title"), QStringLiteral("playlist"), QStringLiteral("album"), QStringLiteral("title")});
         QJsonArray entries = root.value(QStringLiteral("entries")).toArray();
         for (const QJsonValue &value : entries) {
             QJsonObject entry = value.toObject();
@@ -213,7 +213,7 @@ void PlaylistExpander::onProcessFinished(int exitCode, QProcess::ExitStatus exit
                 if (!thumbnailUrl.isEmpty()) {
                     item[QStringLiteral("thumbnail_url")] = thumbnailUrl;
                 }
-                QString entryPlaylistTitle = firstStringValue(entry, {QStringLiteral("playlist_title"), QStringLiteral("playlist"), QStringLiteral("album")});
+                QString entryPlaylistTitle = firstStringValue(entry, QStringList{QStringLiteral("playlist_title"), QStringLiteral("playlist"), QStringLiteral("album")});
                 if (entryPlaylistTitle.isEmpty()) {
                     entryPlaylistTitle = playlistTitle;
                 }
@@ -245,7 +245,7 @@ void PlaylistExpander::onProcessFinished(int exitCode, QProcess::ExitStatus exit
         if (!thumbnailUrl.isEmpty()) {
             item[QStringLiteral("thumbnail_url")] = thumbnailUrl;
         }
-        const QString playlistTitle = firstStringValue(root, {QStringLiteral("playlist_title"), QStringLiteral("playlist"), QStringLiteral("album")});
+        const QString playlistTitle = firstStringValue(root, QStringList{QStringLiteral("playlist_title"), QStringLiteral("playlist"), QStringLiteral("album")});
         if (!playlistTitle.isEmpty()) {
             item[QStringLiteral("playlist_title")] = playlistTitle;
         }

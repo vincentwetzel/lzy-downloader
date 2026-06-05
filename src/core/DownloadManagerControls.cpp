@@ -154,8 +154,10 @@ void DownloadManager::restartDownloadWithOptions(const QVariantMap &itemData) {
 
     qDebug() << "Restarting active download with new options:" << id;
 
-    // 1. Get the active worker and kill it.
-    if (m_activeWorkers.contains(id)) {
+    if (m_pendingSponsorBlockPreflights.contains(id)) {
+        m_pendingSponsorBlockPreflights.remove(id);
+    } else if (m_activeWorkers.contains(id)) {
+        // 1. Get the active worker and kill it.
         QObject *worker = m_activeWorkers.take(id);
         // Disconnect signals to prevent onWorkerFinished from being called with an error
         worker->disconnect(this);

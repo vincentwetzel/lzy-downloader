@@ -19,7 +19,7 @@ void DownloadManager::onPlaylistDetected(const QString &url, int itemCount, cons
         storedOptions = expander->property("options").toMap();
         const QString queueId = expander->property("queueId").toString();
         if (!queueId.isEmpty()) {
-            storedOptions[QStringLiteral("playlist_placeholder_id")] = queueId;
+            storedOptions.insert(QStringLiteral("playlist_placeholder_id"), queueId);
         }
         expander->deleteLater();
     }
@@ -46,7 +46,7 @@ void DownloadManager::processPlaylistSelection(const QString &url, const QString
     const QString queueId = options.value(QStringLiteral("playlist_placeholder_id")).toString();
     QVariantMap queueOptions = options;
     queueOptions.remove(QStringLiteral("playlist_placeholder_id"));
-    queueOptions[QStringLiteral("playlist_logic")] = QStringLiteral("Download Single (ignore playlist)");
+    queueOptions.insert(QStringLiteral("playlist_logic"), QStringLiteral("Download Single (ignore playlist)"));
     QList<QVariantMap> finalItems;
 
     if (action == QStringLiteral("Download All") || action == QStringLiteral("Download Part")) {
@@ -58,10 +58,10 @@ void DownloadManager::processPlaylistSelection(const QString &url, const QString
                 break;
             }
         }
-        queueOptions[QStringLiteral("is_playlist")] = containsPlaylistItems;
+        queueOptions.insert(QStringLiteral("is_playlist"), containsPlaylistItems);
     } else if (action == QStringLiteral("Download Single Item") && !expandedItems.isEmpty()) {
         finalItems.append(expandedItems.first());
-        queueOptions[QStringLiteral("is_playlist")] = expandedItems.first().value(QStringLiteral("is_playlist"), false).toBool();
+        queueOptions.insert(QStringLiteral("is_playlist"), expandedItems.first().value(QStringLiteral("is_playlist"), false).toBool());
     } else {
         if (!queueId.isEmpty()) {
             m_queueManager->removePendingExpansionPlaceholder(queueId);
@@ -80,10 +80,10 @@ void DownloadManager::processPlaylistSelection(const QString &url, const QString
                 item.url = itemData.value(QStringLiteral("url")).toString();
                 item.playlistIndex = itemData.value(QStringLiteral("playlist_index"), -1).toInt();
                 item.options = queueOptions;
-                item.options[QStringLiteral("original_playlist_url")] = url;
-                item.options[QStringLiteral("is_playlist")] = itemData.value(QStringLiteral("is_playlist"), queueOptions.value(QStringLiteral("is_playlist"), false)).toBool();
+                item.options.insert(QStringLiteral("original_playlist_url"), url);
+                item.options.insert(QStringLiteral("is_playlist"), itemData.value(QStringLiteral("is_playlist"), queueOptions.value(QStringLiteral("is_playlist"), false)).toBool());
                 if (itemData.contains(QStringLiteral("is_live"))) {
-                    item.options[QStringLiteral("is_live")] = itemData.value(QStringLiteral("is_live")).toBool();
+                    item.options.insert(QStringLiteral("is_live"), itemData.value(QStringLiteral("is_live")).toBool());
                 }
                 found = true;
                 break;
@@ -93,16 +93,16 @@ void DownloadManager::processPlaylistSelection(const QString &url, const QString
         if (found) {
             m_queueManager->m_pendingExpansions.remove(queueId);
             QVariantMap progressData;
-            progressData[QStringLiteral("progress")] = 0;
-            progressData[QStringLiteral("url")] = itemData.value(QStringLiteral("url")).toString();
-            progressData[QStringLiteral("playlistIndex")] = itemData.value(QStringLiteral("playlist_index"), -1).toInt();
-            progressData[QStringLiteral("options")] = queueOptions;
+            progressData.insert(QStringLiteral("progress"), 0);
+            progressData.insert(QStringLiteral("url"), itemData.value(QStringLiteral("url")).toString());
+            progressData.insert(QStringLiteral("playlistIndex"), itemData.value(QStringLiteral("playlist_index"), -1).toInt());
+            progressData.insert(QStringLiteral("options"), queueOptions);
             const QString title = itemData.value(QStringLiteral("title")).toString().trimmed();
             if (!title.isEmpty()) {
-                progressData[QStringLiteral("title")] = title;
+                progressData.insert(QStringLiteral("title"), title);
             }
             if (itemData.contains(QStringLiteral("thumbnail_url"))) {
-                progressData[QStringLiteral("thumbnail_path")] = itemData.value(QStringLiteral("thumbnail_url"));
+                progressData.insert(QStringLiteral("thumbnail_path"), itemData.value(QStringLiteral("thumbnail_url")));
             }
             emit downloadProgress(queueId, progressData);
             
@@ -122,20 +122,20 @@ void DownloadManager::processPlaylistSelection(const QString &url, const QString
         item.id = QUuid::createUuid().toString(QUuid::WithoutBraces);
         item.url = itemData.value(QStringLiteral("url")).toString();
         QVariantMap itemOptions = queueOptions;
-        itemOptions[QStringLiteral("is_playlist")] = itemData.value(QStringLiteral("is_playlist"), queueOptions.value(QStringLiteral("is_playlist"), false)).toBool();
+        itemOptions.insert(QStringLiteral("is_playlist"), itemData.value(QStringLiteral("is_playlist"), queueOptions.value(QStringLiteral("is_playlist"), false)).toBool());
         if (itemData.contains(QStringLiteral("is_live"))) {
-            itemOptions[QStringLiteral("is_live")] = itemData.value(QStringLiteral("is_live")).toBool();
+            itemOptions.insert(QStringLiteral("is_live"), itemData.value(QStringLiteral("is_live")).toBool());
         }
         const QString title = itemData.value(QStringLiteral("title")).toString().trimmed();
         if (!title.isEmpty()) {
-            itemOptions[QStringLiteral("initial_title")] = title;
+            itemOptions.insert(QStringLiteral("initial_title"), title);
         }
-        itemOptions[QStringLiteral("original_playlist_url")] = url;
+        itemOptions.insert(QStringLiteral("original_playlist_url"), url);
         if (itemData.contains(QStringLiteral("playlist_title"))) {
-            itemOptions[QStringLiteral("playlist_title")] = itemData.value(QStringLiteral("playlist_title"));
+            itemOptions.insert(QStringLiteral("playlist_title"), itemData.value(QStringLiteral("playlist_title")));
         }
         if (itemData.contains(QStringLiteral("thumbnail_url"))) {
-            itemOptions[QStringLiteral("thumbnail_url")] = itemData.value(QStringLiteral("thumbnail_url"));
+            itemOptions.insert(QStringLiteral("thumbnail_url"), itemData.value(QStringLiteral("thumbnail_url")));
         }
         item.options = itemOptions;
         item.playlistIndex = itemData.value(QStringLiteral("playlist_index"), -1).toInt();
@@ -188,8 +188,8 @@ void DownloadManager::onPlaylistExpanded(const QString &originalUrl, const QList
         if (isKnownVideoError) {
             qDebug() << "Playlist expansion hit a known video-level error. Bypassing to let YtDlpWorker handle it. Error:" << error;
             QVariantMap singleItem;
-            singleItem[QStringLiteral("url")] = originalUrl;
-            singleItem[QStringLiteral("playlist_index")] = -1;
+            singleItem.insert(QStringLiteral("url"), originalUrl);
+            singleItem.insert(QStringLiteral("playlist_index"), -1);
             itemsToProcess.append(singleItem);
         } else {
             qDebug() << "Playlist expansion failed:" << error;
@@ -218,18 +218,18 @@ void DownloadManager::onPlaylistExpanded(const QString &originalUrl, const QList
                 item.url = itemData.value(QStringLiteral("url")).toString();
                 item.playlistIndex = itemData.value(QStringLiteral("playlist_index"), -1).toInt();
                 item.options = options;
-                item.options[QStringLiteral("original_playlist_url")] = originalUrl;
-                item.options[QStringLiteral("playlist_logic")] = QStringLiteral("Download Single (ignore playlist)");
-                item.options[QStringLiteral("is_playlist")] = itemData.value(QStringLiteral("is_playlist"), false).toBool();
+            item.options.insert(QStringLiteral("original_playlist_url"), originalUrl);
+            item.options.insert(QStringLiteral("playlist_logic"), QStringLiteral("Download Single (ignore playlist)"));
+            item.options.insert(QStringLiteral("is_playlist"), itemData.value(QStringLiteral("is_playlist"), false).toBool());
                 if (itemData.contains(QStringLiteral("playlist_title"))) {
-                    item.options[QStringLiteral("playlist_title")] = itemData.value(QStringLiteral("playlist_title"));
+                item.options.insert(QStringLiteral("playlist_title"), itemData.value(QStringLiteral("playlist_title")));
                 }
                 const QString title = itemData.value(QStringLiteral("title")).toString().trimmed();
                 if (!title.isEmpty()) {
-                    item.options[QStringLiteral("initial_title")] = title;
+                item.options.insert(QStringLiteral("initial_title"), title);
                 }
                 if (itemData.contains(QStringLiteral("is_live"))) {
-                    item.options[QStringLiteral("is_live")] = itemData.value(QStringLiteral("is_live")).toBool();
+                item.options.insert(QStringLiteral("is_live"), itemData.value(QStringLiteral("is_live")).toBool());
                 }
                 found = true;
                 break;
@@ -239,13 +239,13 @@ void DownloadManager::onPlaylistExpanded(const QString &originalUrl, const QList
         if (found) {
             m_queueManager->m_pendingExpansions.remove(queueId); // Assumes m_pendingExpansions is accessible
             QVariantMap progressData;
-            progressData[QStringLiteral("progress")] = 0;
+            progressData.insert(QStringLiteral("progress"), 0);
             const QString title = itemData.value(QStringLiteral("title")).toString().trimmed();
             if (!title.isEmpty()) {
-                progressData[QStringLiteral("title")] = title;
+                progressData.insert(QStringLiteral("title"), title);
             }
             if (itemData.contains(QStringLiteral("thumbnail_url"))) {
-                progressData[QStringLiteral("thumbnail_path")] = itemData.value(QStringLiteral("thumbnail_url"));
+                progressData.insert(QStringLiteral("thumbnail_path"), itemData.value(QStringLiteral("thumbnail_url")));
             }
             emit downloadProgress(queueId, progressData);
             
@@ -264,21 +264,21 @@ void DownloadManager::onPlaylistExpanded(const QString &originalUrl, const QList
             item.id = QUuid::createUuid().toString(QUuid::WithoutBraces);
             item.url = itemData.value(QStringLiteral("url")).toString();
             item.options = options; // Use the options from the original enqueue
-            item.options[QStringLiteral("original_playlist_url")] = originalUrl;
-            item.options[QStringLiteral("playlist_logic")] = QStringLiteral("Download Single (ignore playlist)");
-            item.options[QStringLiteral("is_playlist")] = true;
+            item.options.insert(QStringLiteral("original_playlist_url"), originalUrl);
+            item.options.insert(QStringLiteral("playlist_logic"), QStringLiteral("Download Single (ignore playlist)"));
+            item.options.insert(QStringLiteral("is_playlist"), true);
             
             if (itemData.contains(QStringLiteral("playlist_title"))) {
-                item.options[QStringLiteral("playlist_title")] = itemData.value(QStringLiteral("playlist_title"));
+                item.options.insert(QStringLiteral("playlist_title"), itemData.value(QStringLiteral("playlist_title")));
             }
             
             const QString title = itemData.value(QStringLiteral("title")).toString().trimmed();
             if (!title.isEmpty()) {
-                item.options[QStringLiteral("initial_title")] = title;
+                item.options.insert(QStringLiteral("initial_title"), title);
             }
             
             if (itemData.contains(QStringLiteral("is_live"))) {
-                item.options[QStringLiteral("is_live")] = itemData.value(QStringLiteral("is_live")).toBool();
+                item.options.insert(QStringLiteral("is_live"), itemData.value(QStringLiteral("is_live")).toBool());
             }
             
             item.playlistIndex = itemData.value(QStringLiteral("playlist_index"), -1).toInt();

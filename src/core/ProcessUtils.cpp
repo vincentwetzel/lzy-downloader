@@ -24,31 +24,26 @@ namespace {
 
 HANDLE ensureTrackedProcessJob()
 {
-    static HANDLE s_processJob = nullptr;
-    static bool s_initialized = false;
+    static HANDLE s_processJob = []() -> HANDLE {
+        HANDLE job = CreateJobObjectW(nullptr, nullptr);
+        if (!job) {
+            qWarning() << "[ProcessUtils] Failed to create process cleanup job object:" << GetLastError();
+            return nullptr;
+        }
 
-    if (s_initialized) {
-        return s_processJob;
-    }
-    s_initialized = true;
-
-    s_processJob = CreateJobObjectW(nullptr, nullptr);
-    if (!s_processJob) {
-        qWarning() << "[ProcessUtils] Failed to create process cleanup job object:" << GetLastError();
-        return nullptr;
-    }
-
-    JOBOBJECT_EXTENDED_LIMIT_INFORMATION info = {};
-    info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
-    if (!SetInformationJobObject(
-            s_processJob,
-            JobObjectExtendedLimitInformation,
-            &info,
-            sizeof(info))) {
-        qWarning() << "[ProcessUtils] Failed to configure process cleanup job object:" << GetLastError();
-        CloseHandle(s_processJob);
-        s_processJob = nullptr;
-    }
+        JOBOBJECT_EXTENDED_LIMIT_INFORMATION info = {};
+        info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+        if (!SetInformationJobObject(
+                job,
+                JobObjectExtendedLimitInformation,
+                &info,
+                sizeof(info))) {
+            qWarning() << "[ProcessUtils] Failed to configure process cleanup job object:" << GetLastError();
+            CloseHandle(job);
+            return nullptr;
+        }
+        return job;
+    }();
 
     return s_processJob;
 }
@@ -285,7 +280,7 @@ void setProcessEnvironment(QProcess &process) {
 #endif
 }
 
-void terminateProcessTree(QProcess *process, int gracefulTimeoutMs) {
+void terminateProcessTree(QProcess *process, int /*gracefulTimeoutMs*/) {
     if (!process || process->state() == QProcess::NotRunning) {
         return;
     }
@@ -311,10 +306,10 @@ void sendGracefulInterrupt(qint64 pid) {
 
 #ifdef Q_OS_WIN
     if (AttachConsole(static_cast<DWORD>(pid))) {
-        SetConsoleCtrlHandler(NULL, TRUE);
+        SetConsoleCtrlHandler(nullptr, TRUE);
         GenerateConsoleCtrlEvent(CTRL_C_EVENT, 0);
         FreeConsole();
-        SetConsoleCtrlHandler(NULL, FALSE);
+        SetConsoleCtrlHandler(nullptr, FALSE);
     } else {
         qWarning() << "[ProcessUtils] Failed to attach console to PID" << pid << "for graceful interrupt. Error:" << GetLastError();
     }
@@ -331,7 +326,7 @@ QString fetchFfmpegVersion(const QString& execPath) {
     QProcess process;
     process.start(execPath, QStringList{QStringLiteral("-version")});
     if (process.waitForFinished(3000)) {
-        QString output = process.readAllStandardOutput();
+        QString output = QString::fromUtf8(process.readAllStandardOutput());
         
         // Match specific clean patterns: YYYY-MM-DD, semantic version (e.g., 6.0, 4.4.1), or N-builds
         static const QRegularExpression re(QStringLiteral("(?:ffmpeg|ffprobe) version ([0-9]{4}-[0-9]{2}-[0-9]{2}|[0-9]+\\.[0-9]+(?:\\.[0-9]+)?|[Nn]-[0-9]+)"));
@@ -346,6 +341,10 @@ QString fetchFfmpegVersion(const QString& execPath) {
         if (fallbackMatch.hasMatch()) {
             return fallbackMatch.captured(1);
         }
+    } else {
+        qWarning() << "[ProcessUtils] fetchFfmpegVersion timed out for" << execPath;
+        process.kill();
+        process.waitForFinished();
     }
     return QStringLiteral("Unknown");
 }

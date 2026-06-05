@@ -343,7 +343,7 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
     // --- General Options ---
     if (configManager->get(QStringLiteral("General"), QStringLiteral("sponsorblock"), false).toBool()) {
         rawArgs << QStringLiteral("--sponsorblock-remove") << QStringLiteral("all");
-        if (downloadType == "video" || isLivestream) {
+        if (downloadType == QStringLiteral("video") || isLivestream) {
             const bool sponsorBlockSegmentsChecked = options.value(QStringLiteral("sponsorblock_segments_checked"), false).toBool();
             const bool sponsorBlockHasSegments = options.value(QStringLiteral("sponsorblock_has_segments"), false).toBool();
             if (!sponsorBlockSegmentsChecked || sponsorBlockHasSegments) {
@@ -404,7 +404,7 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
 
     bool canEmbed = embedThumb && supportedThumbnailExts.contains(finalOutputExtension, Qt::CaseInsensitive);
     // We want to write a thumbnail for the UI even if we can't embed it.
-    bool shouldWrite = (downloadType == QLatin1String("video") || isLivestream || genFolderJpg);
+    bool shouldWrite = (downloadType == QLatin1String("video") || downloadType == QLatin1String("audio") || isLivestream || genFolderJpg);
 
     if (canEmbed) {
         rawArgs << QStringLiteral("--embed-thumbnail");

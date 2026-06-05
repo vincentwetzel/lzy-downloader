@@ -51,6 +51,7 @@ void DownloadItemWidget::setupUi() {
 
     const QString initialTitle = m_itemData.value(QStringLiteral("title")).toString().trimmed();
     m_titleLabel = new QLabel(initialTitle.isEmpty() ? m_itemData[QStringLiteral("url")].toString() : initialTitle, this);
+    m_titleLabel->setTextFormat(Qt::PlainText);
     m_titleLabel->setWordWrap(true);
     m_titleLabel->setToolTip(tr("The URL or title of the media being downloaded."));
 
@@ -91,27 +92,27 @@ void DownloadItemWidget::setupUi() {
     infoLayout->addWidget(m_overallProgressBar);
 
     m_cancelButton = new QPushButton(this);
-    m_cancelButton->setIcon(createColoredIcon(QStyle::SP_MediaStop, QColor("#ef4444")));
+    m_cancelButton->setIcon(createColoredIcon(QStyle::SP_MediaStop, QColor(QStringLiteral("#ef4444"))));
     m_cancelButton->setFixedSize(30, 30);
     m_cancelButton->setToolTip(tr("Stop this download."));
 
     m_finishButton = new QPushButton(this);
-    m_finishButton->setIcon(createColoredIcon(QStyle::SP_DialogApplyButton, QColor("#10b981")));
+    m_finishButton->setIcon(createColoredIcon(QStyle::SP_DialogApplyButton, QColor(QStringLiteral("#10b981"))));
     m_finishButton->setFixedSize(30, 30);
     m_finishButton->setToolTip(tr("Finish Now (Stop streaming and finalize the video)"));
     m_finishButton->hide();
 
     m_retryButton = new QPushButton(this);
-    m_retryButton->setIcon(createColoredIcon(QStyle::SP_BrowserReload, QColor("#eab308")));
+    m_retryButton->setIcon(createColoredIcon(QStyle::SP_BrowserReload, QColor(QStringLiteral("#eab308"))));
     m_retryButton->setFixedSize(30, 30);
     m_retryButton->setToolTip(tr("Retry this failed or cancelled download."));
 
     m_openFolderButton = new QPushButton(tr("Open Folder"), this);
-    m_openFolderButton->setIcon(createColoredIcon(QStyle::SP_DirOpenIcon, QColor("#3b82f6")));
+    m_openFolderButton->setIcon(createColoredIcon(QStyle::SP_DirOpenIcon, QColor(QStringLiteral("#3b82f6"))));
     m_openFolderButton->setToolTip(tr("Open the folder where this file was saved."));
 
     QPushButton *clearTempButton = new QPushButton(tr("Clear Temp Files"), this);
-    clearTempButton->setIcon(createColoredIcon(QStyle::SP_TrashIcon, QColor("#64748b")));
+    clearTempButton->setIcon(createColoredIcon(QStyle::SP_TrashIcon, QColor(QStringLiteral("#64748b"))));
     clearTempButton->setObjectName(QStringLiteral("clearTempButton"));
     clearTempButton->setToolTip(tr("Delete partial download files from disk to free up space."));
     clearTempButton->hide();
@@ -346,7 +347,7 @@ void DownloadItemWidget::setFinished(bool success, const QString &message) {
 
     if (!success) {
         m_retryButton->setEnabled(true);
-        m_retryButton->setIcon(createColoredIcon(QStyle::SP_BrowserReload, QColor("#eab308")));
+        m_retryButton->setIcon(createColoredIcon(QStyle::SP_BrowserReload, QColor(QStringLiteral("#eab308"))));
         m_retryButton->setToolTip(tr("Retry"));
         m_retryButton->show();
         m_statusLabel->setStyleSheet(QStringLiteral("color: #dc2626;"));
@@ -383,7 +384,7 @@ void DownloadItemWidget::setCancelled() {
     m_moveUpButton->hide();
     m_moveDownButton->hide();
     m_retryButton->setEnabled(true);
-    m_retryButton->setIcon(createColoredIcon(QStyle::SP_MediaPlay, QColor("#22c55e")));
+    m_retryButton->setIcon(createColoredIcon(QStyle::SP_MediaPlay, QColor(QStringLiteral("#22c55e"))));
     m_retryButton->setToolTip(tr("Resume"));
     m_retryButton->show();
     m_isFinished = true;
@@ -441,7 +442,7 @@ void DownloadItemWidget::onRetryClicked() {
 
     m_cancelButton->show();
     m_cancelButton->setEnabled(true);
-    m_cancelButton->setIcon(createColoredIcon(QStyle::SP_MediaStop, QColor("#ef4444")));
+    m_cancelButton->setIcon(createColoredIcon(QStyle::SP_MediaStop, QColor(QStringLiteral("#ef4444"))));
     m_cancelButton->setToolTip(tr("Stop"));
 
     // Clear red error/stopped stylesheets

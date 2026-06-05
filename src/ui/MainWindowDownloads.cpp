@@ -27,9 +27,9 @@ QString MainWindow::appVersion() const
 void MainWindow::onLocalApiEnqueueRequested(const QString &url, const QString &type, const QString &jobId)
 {
     QVariantMap options;
-    options[QStringLiteral("type")] = type.isEmpty() ? QStringLiteral("video") : type;
+    options.insert(QStringLiteral("type"), type.isEmpty() ? QStringLiteral("video") : type);
     if (!jobId.isEmpty()) {
-        options[QStringLiteral("id")] = jobId;
+        options.insert(QStringLiteral("id"), jobId);
     }
     MainWindowHelpers::applyNonInteractiveDownloadDefaults(options);
 
@@ -49,34 +49,34 @@ void MainWindow::onDownloadRequested(const QString &url, const QVariantMap &opti
         return;
     }
 
-    QString type = options.value(QStringLiteral("type")).toString();
+    const QString type = options.value(QStringLiteral("type")).toString();
     QStringList missingBinaries;
 
     if (type == QStringLiteral("gallery")) {
-        QStringList required = {QStringLiteral("gallery-dl"), QStringLiteral("ffmpeg"), QStringLiteral("ffprobe")};
+        const QStringList required = {QStringLiteral("gallery-dl"), QStringLiteral("ffmpeg"), QStringLiteral("ffprobe")};
         for (const QString &bin : required) {
-            QString source = ProcessUtils::findBinary(bin, m_configManager).source;
+            const QString source = ProcessUtils::findBinary(bin, m_configManager).source;
             if (source == QStringLiteral("Not Found") || source == QStringLiteral("Invalid Custom")) {
                 missingBinaries << bin;
             }
         }
     } else if (type == QStringLiteral("view_formats")) {
-        QString source = ProcessUtils::findBinary(QStringLiteral("yt-dlp"), m_configManager).source;
+        const QString source = ProcessUtils::findBinary(QStringLiteral("yt-dlp"), m_configManager).source;
         if (source == QStringLiteral("Not Found") || source == QStringLiteral("Invalid Custom")) {
             missingBinaries << QStringLiteral("yt-dlp");
         }
     } else {
-        QStringList required = {QStringLiteral("yt-dlp"), QStringLiteral("ffmpeg"), QStringLiteral("ffprobe"), QStringLiteral("deno")};
+        const QStringList required = {QStringLiteral("yt-dlp"), QStringLiteral("ffmpeg"), QStringLiteral("ffprobe"), QStringLiteral("deno")};
         for (const QString &bin : required) {
-            QString source = ProcessUtils::findBinary(bin, m_configManager).source;
+            const QString source = ProcessUtils::findBinary(bin, m_configManager).source;
             if (source == QStringLiteral("Not Found") || source == QStringLiteral("Invalid Custom")) {
                 missingBinaries << bin;
             }
         }
 
-        bool useAria2c = m_configManager->get(QStringLiteral("Metadata"), QStringLiteral("use_aria2c"), false).toBool();
+        const bool useAria2c = m_configManager->get(QStringLiteral("Metadata"), QStringLiteral("use_aria2c"), false).toBool();
         if (useAria2c) {
-            QString ariaSource = ProcessUtils::findBinary(QStringLiteral("aria2c"), m_configManager).source;
+            const QString ariaSource = ProcessUtils::findBinary(QStringLiteral("aria2c"), m_configManager).source;
             if (ariaSource == QStringLiteral("Not Found") || ariaSource == QStringLiteral("Invalid Custom")) {
                 qWarning() << "aria2c is enabled but missing. Auto-reverting to yt-dlp native downloader.";
                 m_configManager->set(QStringLiteral("Metadata"), QStringLiteral("use_aria2c"), false);
@@ -103,7 +103,7 @@ void MainWindow::onDownloadRequested(const QString &url, const QVariantMap &opti
                 ? QStringList{QStringLiteral("yt-dlp")}
                 : QStringList{QStringLiteral("yt-dlp"), QStringLiteral("ffmpeg"), QStringLiteral("ffprobe"), QStringLiteral("deno")};
         for (const QString &bin : requiredAfterSetup) {
-            QString source = ProcessUtils::resolveBinary(bin, m_configManager).source;
+            const QString source = ProcessUtils::resolveBinary(bin, m_configManager).source;
             if (source == QStringLiteral("Not Found") || source == QStringLiteral("Invalid Custom")) {
                 missingBinaries << bin;
             }
@@ -118,7 +118,7 @@ void MainWindow::onDownloadRequested(const QString &url, const QVariantMap &opti
         MainWindowHelpers::applyNonInteractiveDownloadDefaults(mutableOptions);
     }
 
-    bool overrideArchive = mutableOptions.value(QStringLiteral("override_archive"), m_configManager->get(QStringLiteral("General"), QStringLiteral("override_archive"), false)).toBool();
+    const bool overrideArchive = mutableOptions.value(QStringLiteral("override_archive"), m_configManager->get(QStringLiteral("General"), QStringLiteral("override_archive"), false)).toBool();
 
     if (!overrideArchive && m_archiveManager && m_archiveManager->isInArchive(url)) {
         QMessageBox::StandardButton reply;
@@ -128,16 +128,16 @@ void MainWindow::onDownloadRequested(const QString &url, const QVariantMap &opti
         if (reply == QMessageBox::No) {
             return;
         }
-        mutableOptions[QStringLiteral("override_archive")] = true;
+        mutableOptions.insert(QStringLiteral("override_archive"), true);
     }
 
-    bool runtimeSubs = m_configManager->get(QStringLiteral("Subtitles"), QStringLiteral("languages"), QStringLiteral("en")).toString().split(QLatin1Char(',')).contains(QStringLiteral("runtime"));
+    const bool runtimeSubs = m_configManager->get(QStringLiteral("Subtitles"), QStringLiteral("languages"), QStringLiteral("en")).toString().split(QLatin1Char(',')).contains(QStringLiteral("runtime"));
 
     if (runtimeSubs && !nonInteractive) {
         m_pendingUrl = url;
         m_pendingOptions = mutableOptions;
         statusBar()->showMessage(tr("Fetching media info for runtime selection..."));
-        QString ytDlpPath = ProcessUtils::findBinary(QStringLiteral("yt-dlp"), m_configManager).path;
+        const QString ytDlpPath = ProcessUtils::findBinary(QStringLiteral("yt-dlp"), m_configManager).path;
         QStringList args;
         args << QStringLiteral("--dump-json") << QStringLiteral("--no-playlist") << url;
         m_runtimeExtractor->extract(ytDlpPath, args);
@@ -160,14 +160,14 @@ void MainWindow::onDownloadRequested(const QString &url, const QVariantMap &opti
 void MainWindow::onRuntimeInfoReady(const QVariantMap &info)
 {
     statusBar()->clearMessage();
-    bool runtimeSubs = m_configManager->get(QStringLiteral("Subtitles"), QStringLiteral("languages"), QStringLiteral("en")).toString().split(QLatin1Char(',')).contains(QStringLiteral("runtime"));
+    const bool runtimeSubs = m_configManager->get(QStringLiteral("Subtitles"), QStringLiteral("languages"), QStringLiteral("en")).toString().split(QLatin1Char(',')).contains(QStringLiteral("runtime"));
 
     RuntimeSelectionDialog dialog(info, false, false, runtimeSubs, this);
     if (dialog.exec() == QDialog::Accepted) {
         QVariantMap opts = m_pendingOptions;
         if (runtimeSubs) {
-            QStringList subs = dialog.getSelectedSubtitles();
-            if (!subs.isEmpty()) opts[QStringLiteral("runtime_subtitles")] = subs.join(QLatin1Char(','));
+            const QStringList subs = dialog.getSelectedSubtitles();
+            if (!subs.isEmpty()) opts.insert(QStringLiteral("runtime_subtitles"), subs.join(QLatin1Char(',')));
         }
         m_downloadManager->enqueueDownload(m_pendingUrl, opts);
         m_uiBuilder->tabWidget()->setCurrentWidget(m_activeDownloadsTab);
@@ -192,7 +192,7 @@ void MainWindow::onDownloadSectionsRequested(const QString &url, const QVariantM
 {
     if (MainWindowHelpers::isNonInteractiveRequest(options)) {
         QVariantMap newOptions = options;
-        newOptions[QStringLiteral("download_sections_set")] = true;
+        newOptions.insert(QStringLiteral("download_sections_set"), true);
         qInfo() << "Skipping download sections dialog for non-interactive request:" << url;
         m_downloadManager->enqueueDownload(url, newOptions);
         m_uiBuilder->tabWidget()->setCurrentWidget(m_activeDownloadsTab);
@@ -201,15 +201,15 @@ void MainWindow::onDownloadSectionsRequested(const QString &url, const QVariantM
 
     DownloadSectionsDialog dialog(infoJson, this);
     if (dialog.exec() == QDialog::Accepted) {
-        QString sections = dialog.getSectionsString();
-        QString sectionLabel = dialog.getFilenameLabel();
+        const QString sections = dialog.getSectionsString();
+        const QString sectionLabel = dialog.getFilenameLabel();
         QVariantMap newOptions = options;
-        newOptions[QStringLiteral("download_sections_set")] = true;
+        newOptions.insert(QStringLiteral("download_sections_set"), true);
         if (!sections.isEmpty()) {
-            newOptions[QStringLiteral("download_sections")] = sections;
+            newOptions.insert(QStringLiteral("download_sections"), sections);
         }
         if (!sectionLabel.isEmpty()) {
-            newOptions[QStringLiteral("download_sections_label")] = sectionLabel;
+            newOptions.insert(QStringLiteral("download_sections_label"), sectionLabel);
         }
         m_downloadManager->enqueueDownload(url, newOptions);
         m_uiBuilder->tabWidget()->setCurrentWidget(m_activeDownloadsTab);
@@ -238,11 +238,11 @@ void MainWindow::onYtDlpErrorPopup(const QString &id, const QString &errorType, 
 {
     Q_UNUSED(id);
 
-    QString url = itemData.value(QStringLiteral("url")).toString();
-    QVariantMap requestOptions = itemData.value(QStringLiteral("options")).toMap();
+    const QString url = itemData.value(QStringLiteral("url")).toString();
+    const QVariantMap requestOptions = itemData.value(QStringLiteral("options")).toMap();
     const bool nonInteractive = MainWindowHelpers::isNonInteractiveRequest(requestOptions);
-    QString urlHtml = url.isEmpty() ? QString() : QStringLiteral("<br><br><a href=\"%1\">%1</a>").arg(url.toHtmlEscaped());
-    QString richUserMessage = userMessage.toHtmlEscaped().replace(QStringLiteral("\n"), QStringLiteral("<br>"));
+    const QString urlHtml = url.isEmpty() ? QString() : QStringLiteral("<br><br><a href=\"%1\">%1</a>").arg(url.toHtmlEscaped());
+    const QString richUserMessage = userMessage.toHtmlEscaped().replace(QStringLiteral("\n"), QStringLiteral("<br>"));
 
     QString cleanError = rawError;
     if (cleanError.startsWith(QStringLiteral("ERROR: "))) {
@@ -254,11 +254,11 @@ void MainWindow::onYtDlpErrorPopup(const QString &id, const QString &errorType, 
         if (nonInteractive) {
             QVariantMap newItemData = itemData;
             QVariantMap options = requestOptions;
-            options[QStringLiteral("wait_for_video")] = true;
-            options[QStringLiteral("livestream_wait_min")] = m_configManager->get(QStringLiteral("Livestream"), QStringLiteral("wait_for_video_min"), 60).toInt();
-            options[QStringLiteral("livestream_wait_max")] = m_configManager->get(QStringLiteral("Livestream"), QStringLiteral("wait_for_video_max"), 300).toInt();
+            options.insert(QStringLiteral("wait_for_video"), true);
+            options.insert(QStringLiteral("livestream_wait_min"), m_configManager->get(QStringLiteral("Livestream"), QStringLiteral("wait_for_video_min"), 60).toInt());
+            options.insert(QStringLiteral("livestream_wait_max"), m_configManager->get(QStringLiteral("Livestream"), QStringLiteral("wait_for_video_max"), 300).toInt());
             MainWindowHelpers::applyNonInteractiveDownloadDefaults(options);
-            newItemData[QStringLiteral("options")] = options;
+            newItemData.insert(QStringLiteral("options"), options);
             qInfo() << "Automatically waiting for scheduled livestream in non-interactive request:" << url;
             m_downloadManager->restartDownloadWithOptions(newItemData);
             return;
@@ -282,7 +282,7 @@ void MainWindow::onYtDlpErrorPopup(const QString &id, const QString &errorType, 
         if (msgBox.clickedButton() == waitButton) {
             QVariantMap newItemData = itemData;
             QVariantMap options = newItemData[QStringLiteral("options")].toMap();
-            options[QStringLiteral("wait_for_video")] = true;
+            options.insert(QStringLiteral("wait_for_video"), true);
 
             int minWait;
             int maxWait;
@@ -297,9 +297,9 @@ void MainWindow::onYtDlpErrorPopup(const QString &id, const QString &errorType, 
                 maxWait = m_configManager->get(QStringLiteral("Livestream"), QStringLiteral("wait_for_video_max"), 300).toInt();
             }
 
-            options[QStringLiteral("livestream_wait_min")] = minWait;
-            options[QStringLiteral("livestream_wait_max")] = maxWait;
-            newItemData[QStringLiteral("options")] = options;
+            options.insert(QStringLiteral("livestream_wait_min"), minWait);
+            options.insert(QStringLiteral("livestream_wait_max"), maxWait);
+            newItemData.insert(QStringLiteral("options"), options);
             m_downloadManager->restartDownloadWithOptions(newItemData);
         }
     } else {

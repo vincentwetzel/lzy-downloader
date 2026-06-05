@@ -23,7 +23,7 @@ void RuntimeSelectionDialog::setupUi() {
 
     QString title = m_info.value(QStringLiteral("title")).toString();
     if (!title.isEmpty()) {
-        QLabel *titleLabel = new QLabel(QString("<b>%1</b>").arg(title), this);
+        QLabel *titleLabel = new QLabel(QStringLiteral("<b>%1</b>").arg(title.toHtmlEscaped()), this);
         titleLabel->setWordWrap(true);
         mainLayout->addWidget(titleLabel);
     }
@@ -69,7 +69,7 @@ void RuntimeSelectionDialog::populateData() {
 
     if (m_selectVideo && m_videoList) {
         m_videoList->addItem(tr("Default (Use Settings)"));
-        m_videoList->item(0)->setData(Qt::UserRole, "");
+        m_videoList->item(0)->setData(Qt::UserRole, QString());
         m_videoList->setCurrentRow(0);
         for (const QVariant &f : formats) {
             QVariantMap fmt = f.toMap();
@@ -85,7 +85,7 @@ void RuntimeSelectionDialog::populateData() {
 
     if (m_selectAudio && m_audioList) {
         m_audioList->addItem(tr("Default (Use Settings)"));
-        m_audioList->item(0)->setData(Qt::UserRole, "");
+        m_audioList->item(0)->setData(Qt::UserRole, QString());
         m_audioList->setCurrentRow(0);
         for (const QVariant &f : formats) {
             QVariantMap fmt = f.toMap();

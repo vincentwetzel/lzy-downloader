@@ -78,7 +78,7 @@ bool sponsorBlockResponseHasSegmentsForVideo(const QByteArray &data, const QStri
         if (!object.value(QStringLiteral("videoID")).toString().isEmpty() && object.value(QStringLiteral("videoID")).toString() != videoId) {
             continue;
         }
-        if (object.value(QStringLiteral("segment")).isArray()) {
+        if (object.value(QStringLiteral("segments")).isArray()) {
             return true;
         }
     }
@@ -110,17 +110,17 @@ void DownloadManager::startDownloadItem(DownloadItem item, bool alreadyCountedAc
         m_activeDownloadsCount++;
     }
 
-    QString downloadType = item.options.value(QStringLiteral("type"), QStringLiteral("video")).toString();
+    const QString downloadType = item.options.value(QStringLiteral("type"), QStringLiteral("video")).toString();
 
     if (downloadType == QStringLiteral("gallery")) {
-        item.options[QStringLiteral("id")] = item.id;
-        item.options[QStringLiteral("playlist_index")] = item.playlistIndex;
+        item.options.insert(QStringLiteral("id"), item.id);
+        item.options.insert(QStringLiteral("playlist_index"), item.playlistIndex);
         GalleryDlArgsBuilder argsBuilder(m_configManager);
-        QStringList args = argsBuilder.build(item.url, item.options);
+        const QStringList args = argsBuilder.build(item.url, item.options);
 
         GalleryDlWorker *worker = new GalleryDlWorker(item.id, args, m_configManager, this);
-        m_activeWorkers[item.id] = worker;
-        m_activeItems[item.id] = item;
+        m_activeWorkers.insert(item.id, worker);
+        m_activeItems.insert(item.id, item);
 
         connect(worker, &GalleryDlWorker::progressUpdated, this, &DownloadManager::onWorkerProgress);
         connect(worker, &GalleryDlWorker::finished, this, &DownloadManager::onGalleryDlWorkerFinished);
@@ -129,14 +129,14 @@ void DownloadManager::startDownloadItem(DownloadItem item, bool alreadyCountedAc
         emit downloadStarted(item.id);
         worker->start();
     } else {
-        item.options[QStringLiteral("id")] = item.id;
-        item.options[QStringLiteral("playlist_index")] = item.playlistIndex;
+        item.options.insert(QStringLiteral("id"), item.id);
+        item.options.insert(QStringLiteral("playlist_index"), item.playlistIndex);
         YtDlpArgsBuilder argsBuilder;
-        QStringList args = argsBuilder.build(m_configManager, item.url, item.options);
+        const QStringList args = argsBuilder.build(m_configManager, item.url, item.options);
 
         YtDlpWorker *worker = new YtDlpWorker(item.id, args, m_configManager, this);
-        m_activeWorkers[item.id] = worker;
-        m_activeItems[item.id] = item;
+        m_activeWorkers.insert(item.id, worker);
+        m_activeItems.insert(item.id, item);
 
         connect(worker, &YtDlpWorker::progressUpdated, this, &DownloadManager::onWorkerProgress);
         connect(worker, &YtDlpWorker::finished, this, &DownloadManager::onWorkerFinished);
@@ -171,17 +171,17 @@ void DownloadManager::startSponsorBlockPreflight(const DownloadItem &item) {
     const QString videoId = youtubeVideoIdFromUrl(item.url);
     if (videoId.isEmpty()) {
         DownloadItem fallbackItem = item;
-        fallbackItem.options[QStringLiteral("sponsorblock_segments_checked")] = false;
+        fallbackItem.options.insert(QStringLiteral("sponsorblock_segments_checked"), false);
         startDownloadItem(fallbackItem, true);
         return;
     }
 
-    m_pendingSponsorBlockPreflights[item.id] = item;
-    m_activeItems[item.id] = item; // Track as active so it saves to the queue backup
+    m_pendingSponsorBlockPreflights.insert(item.id, item);
+    m_activeItems.insert(item.id, item); // Track as active so it saves to the queue backup
 
     QVariantMap progressData;
-    progressData[QStringLiteral("status")] = tr("Checking SponsorBlock segments...");
-    progressData[QStringLiteral("progress")] = -1;
+    progressData.insert(QStringLiteral("status"), tr("Checking SponsorBlock segments..."));
+    progressData.insert(QStringLiteral("progress"), -1);
     emit downloadProgress(item.id, progressData);
 
     QNetworkAccessManager *networkManager = new QNetworkAccessManager(this);
@@ -222,8 +222,8 @@ void DownloadManager::startSponsorBlockPreflight(const DownloadItem &item) {
                        << "- falling back to accurate cut arguments.";
         }
 
-        checkedItem.options[QStringLiteral("sponsorblock_segments_checked")] = checked;
-        checkedItem.options[QStringLiteral("sponsorblock_has_segments")] = hasSegments;
+        checkedItem.options.insert(QStringLiteral("sponsorblock_segments_checked"), checked);
+        checkedItem.options.insert(QStringLiteral("sponsorblock_has_segments"), hasSegments);
 
         qInfo() << "SponsorBlock preflight for" << videoId
                 << "checked=" << checked
@@ -236,7 +236,7 @@ void DownloadManager::startSponsorBlockPreflight(const DownloadItem &item) {
 }
 
 void DownloadManager::applyMaxConcurrentSetting(const QString &maxThreadsStr) {
-    SleepMode oldSleepMode = m_sleepMode;
+    const SleepMode oldSleepMode = m_sleepMode;
 
     if (maxThreadsStr == QStringLiteral("1 (short sleep)")) {
         m_maxConcurrentDownloads = 1;
@@ -267,12 +267,12 @@ void DownloadManager::startDownloadsToCapacity() {
         m_queueManager->hasQueuedDownloads() && 
         (m_activeWorkers.count() + m_pendingSponsorBlockPreflights.count()) < m_maxConcurrentDownloads) {
         
-        qint64 now = QDateTime::currentMSecsSinceEpoch();
-        qint64 sleepDuration = (m_sleepMode == ShortSleep) ? 5000 : 30000;
-        qint64 timeSinceLastFinish = now - m_lastDownloadFinishTime;
+        const qint64 now = QDateTime::currentMSecsSinceEpoch();
+        const qint64 sleepDuration = (m_sleepMode == ShortSleep) ? 5000 : 30000;
+        const qint64 timeSinceLastFinish = now - m_lastDownloadFinishTime;
 
         if (m_lastDownloadFinishTime > 0 && timeSinceLastFinish < sleepDuration) {
-            int remainingSleep = static_cast<int>(sleepDuration - qMax(Q_INT64_C(0), timeSinceLastFinish));
+            const int remainingSleep = static_cast<int>(sleepDuration - qMax(Q_INT64_C(0), timeSinceLastFinish));
             qDebug() << "Starting sleep timer for remaining" << remainingSleep << "ms.";
             m_sleepTimer->start(std::chrono::milliseconds(remainingSleep));
             return;

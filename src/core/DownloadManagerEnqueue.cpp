@@ -20,15 +20,15 @@ bool isNonInteractiveRequest(const QVariantMap &options)
 void DownloadManager::enqueueDownload(const QString &url, const QVariantMap &options) {
     QVariantMap effectiveOptions = options;
     if (isNonInteractiveRequest(effectiveOptions)) {
-        effectiveOptions[QStringLiteral("override_archive")] = true;
-        effectiveOptions[QStringLiteral("playlist_logic")] = QStringLiteral("Download All (no prompt)");
-        effectiveOptions[QStringLiteral("runtime_format_selected")] = true;
-        effectiveOptions[QStringLiteral("download_sections_set")] = true;
+        effectiveOptions.insert(QStringLiteral("override_archive"), true);
+        effectiveOptions.insert(QStringLiteral("playlist_logic"), QStringLiteral("Download All (no prompt)"));
+        effectiveOptions.insert(QStringLiteral("runtime_format_selected"), true);
+        effectiveOptions.insert(QStringLiteral("download_sections_set"), true);
     }
 
     // Check if URL is already in any state (prevents duplicate enqueuing)
-    bool overrideArchive = effectiveOptions.value(QStringLiteral("override_archive"), false).toBool();
-    DownloadQueueManager::DuplicateStatus status = m_queueManager->getDuplicateStatus(url, m_activeItems);
+    const bool overrideArchive = effectiveOptions.value(QStringLiteral("override_archive"), false).toBool();
+    const DownloadQueueManager::DuplicateStatus status = m_queueManager->getDuplicateStatus(url, m_activeItems);
     
     if (status != DownloadQueueManager::NotDuplicate) {
         // If it's only in completed and override is enabled, allow it
@@ -60,8 +60,8 @@ void DownloadManager::enqueueDownload(const QString &url, const QVariantMap &opt
     }
 
     // Intercept for download sections before anything else
-    bool useSections = m_configManager->get(QStringLiteral("DownloadOptions"), QStringLiteral("download_sections_enabled"), false).toBool();
-    QString downloadTypeCheck = effectiveOptions.value(QStringLiteral("type"), QStringLiteral("video")).toString();
+    const bool useSections = m_configManager->get(QStringLiteral("DownloadOptions"), QStringLiteral("download_sections_enabled"), false).toBool();
+    const QString downloadTypeCheck = effectiveOptions.value(QStringLiteral("type"), QStringLiteral("video")).toString();
     // The "download_sections_set" flag prevents an infinite loop.
     if (useSections && !isNonInteractiveRequest(effectiveOptions) && !effectiveOptions.contains(QStringLiteral("download_sections_set")) && (downloadTypeCheck == QStringLiteral("video") || downloadTypeCheck == QStringLiteral("audio"))) {
         qDebug() << "Download sections enabled, fetching metadata for" << url;
@@ -69,7 +69,7 @@ void DownloadManager::enqueueDownload(const QString &url, const QVariantMap &opt
         return;
     }
 
-    QString downloadType = effectiveOptions.value(QStringLiteral("type"), QStringLiteral("video")).toString();
+    const QString downloadType = effectiveOptions.value(QStringLiteral("type"), QStringLiteral("video")).toString();
 
     // Intercept for runtime format selection before doing anything else
     bool needsRuntimeSelection = false;
@@ -105,10 +105,10 @@ void DownloadManager::enqueueDownload(const QString &url, const QVariantMap &opt
         item.playlistIndex = -1;
 
         QVariantMap uiData;
-        uiData[QStringLiteral("id")] = item.id;
-        uiData[QStringLiteral("url")] = url;
-        uiData[QStringLiteral("status")] = tr("Checking for playlist...");
-        uiData[QStringLiteral("options")] = effectiveOptions;
+        uiData.insert(QStringLiteral("id"), item.id);
+        uiData.insert(QStringLiteral("url"), url);
+        uiData.insert(QStringLiteral("status"), tr("Checking for playlist..."));
+        uiData.insert(QStringLiteral("options"), effectiveOptions);
         emit downloadAddedToQueue(uiData);
 
         PlaylistExpander *expander = new PlaylistExpander(url, m_configManager, this);
@@ -131,12 +131,12 @@ void DownloadManager::enqueueDownload(const QString &url, const QVariantMap &opt
 void DownloadManager::fetchInfoForSections(const QString &url, const QVariantMap &options)
 {
     QProcess *process = new QProcess(this);
-    QString ytDlpPath = ProcessUtils::findBinary(QStringLiteral("yt-dlp"), m_configManager).path;
+    const QString ytDlpPath = ProcessUtils::findBinary(QStringLiteral("yt-dlp"), m_configManager).path;
 
     QStringList args;
     args << QStringLiteral("--dump-json") << QStringLiteral("--no-playlist") << url;
 
-    QString cookiesBrowser = m_configManager->get(QStringLiteral("General"), QStringLiteral("cookies_from_browser"), QStringLiteral("None")).toString();
+    const QString cookiesBrowser = m_configManager->get(QStringLiteral("General"), QStringLiteral("cookies_from_browser"), QStringLiteral("None")).toString();
     if (cookiesBrowser != QStringLiteral("None")) {
         args << QStringLiteral("--cookies-from-browser") << cookiesBrowser.toLower();
     }
@@ -147,24 +147,24 @@ void DownloadManager::fetchInfoForSections(const QString &url, const QVariantMap
             return; // Handled by watchdog
         }
         if (exitStatus == QProcess::NormalExit && exitCode == 0) {
-            QByteArray output = process->readAllStandardOutput();
+            const QByteArray output = process->readAllStandardOutput();
             QJsonParseError parseError;
-            QJsonDocument doc = QJsonDocument::fromJson(output, &parseError);
+            const QJsonDocument doc = QJsonDocument::fromJson(output, &parseError);
             if (parseError.error == QJsonParseError::NoError && doc.isObject()) {
-                QVariantMap infoJson = doc.object().toVariantMap();
+                const QVariantMap infoJson = doc.object().toVariantMap();
                 QMetaObject::invokeMethod(this, [this, url, options, infoJson]() {
                     emit downloadSectionsRequested(url, options, infoJson);
                 }, Qt::QueuedConnection);
             } else {
                 qWarning() << "Failed to parse JSON for sections, enqueuing without them. Error:" << parseError.errorString();
                 QVariantMap newOptions = options;
-                newOptions[QStringLiteral("download_sections_set")] = true; // Prevent re-triggering
+                newOptions.insert(QStringLiteral("download_sections_set"), true); // Prevent re-triggering
                 enqueueDownload(url, newOptions);
             }
         } else {
             qWarning() << "Failed to fetch info for sections, enqueuing without them. Error:" << process->readAllStandardError();
             QVariantMap newOptions = options;
-            newOptions[QStringLiteral("download_sections_set")] = true; // Prevent re-triggering
+            newOptions.insert(QStringLiteral("download_sections_set"), true); // Prevent re-triggering
             enqueueDownload(url, newOptions);
         }
         process->deleteLater();
@@ -174,7 +174,7 @@ void DownloadManager::fetchInfoForSections(const QString &url, const QVariantMap
         if (error == QProcess::FailedToStart) {
             qWarning() << "Failed to start yt-dlp for sections info, enqueuing without them.";
             QVariantMap newOptions = options;
-            newOptions[QStringLiteral("download_sections_set")] = true; // Prevent re-triggering
+            newOptions.insert(QStringLiteral("download_sections_set"), true); // Prevent re-triggering
             enqueueDownload(url, newOptions);
             process->deleteLater();
         }
@@ -192,7 +192,7 @@ void DownloadManager::fetchInfoForSections(const QString &url, const QVariantMap
             process->kill();
             
             QVariantMap newOptions = options;
-            newOptions[QStringLiteral("download_sections_set")] = true; // Prevent re-triggering
+            newOptions.insert(QStringLiteral("download_sections_set"), true); // Prevent re-triggering
             enqueueDownload(url, newOptions);
         }
     });
@@ -201,12 +201,12 @@ void DownloadManager::fetchInfoForSections(const QString &url, const QVariantMap
 
 void DownloadManager::fetchFormatsForSelection(const QString &url, const QVariantMap &options) {
     QProcess *process = new QProcess(this);
-    QString ytDlpPath = ProcessUtils::findBinary(QStringLiteral("yt-dlp"), m_configManager).path;
+    const QString ytDlpPath = ProcessUtils::findBinary(QStringLiteral("yt-dlp"), m_configManager).path;
     
     QStringList args;
     args << QStringLiteral("--dump-json") << QStringLiteral("--no-playlist") << url;
     
-    QString cookiesBrowser = m_configManager->get(QStringLiteral("General"), QStringLiteral("cookies_from_browser"), QStringLiteral("None")).toString();
+    const QString cookiesBrowser = m_configManager->get(QStringLiteral("General"), QStringLiteral("cookies_from_browser"), QStringLiteral("None")).toString();
     if (cookiesBrowser != QStringLiteral("None")) {
         args << QStringLiteral("--cookies-from-browser") << cookiesBrowser.toLower();
     }
@@ -217,14 +217,14 @@ void DownloadManager::fetchFormatsForSelection(const QString &url, const QVarian
             return; // Handled by watchdog
         }
         if (exitStatus == QProcess::NormalExit && exitCode == 0) {
-            QByteArray output = process->readAllStandardOutput();
+            const QByteArray output = process->readAllStandardOutput();
             QJsonParseError parseError;
-            QJsonDocument doc = QJsonDocument::fromJson(output, &parseError);
+            const QJsonDocument doc = QJsonDocument::fromJson(output, &parseError);
             if (parseError.error == QJsonParseError::NoError && doc.isObject()) {
-                QVariantMap metadata = doc.object().toVariantMap();
+                const QVariantMap metadata = doc.object().toVariantMap();
                 QVariantMap newOptions = options;
                 if (metadata.value(QStringLiteral("is_live"), false).toBool()) {
-                    newOptions[QStringLiteral("is_live")] = true;
+                    newOptions.insert(QStringLiteral("is_live"), true);
                 }
                 QMetaObject::invokeMethod(this, [this, url, newOptions, metadata]() {
                     emit formatSelectionRequested(url, newOptions, metadata);
@@ -277,11 +277,11 @@ void DownloadManager::fetchFormatsForSelection(const QString &url, const QVarian
 
 void DownloadManager::resumeDownloadWithFormat(const QString &url, const QVariantMap &options, const QString &formatId) {
     QVariantMap newOptions = options;
-    newOptions[QStringLiteral("runtime_format_selected")] = true;
+    newOptions.insert(QStringLiteral("runtime_format_selected"), true);
     if (options.value(QStringLiteral("type"), QStringLiteral("video")).toString() == QStringLiteral("audio")) {
-        newOptions[QStringLiteral("runtime_audio_format")] = formatId;
+        newOptions.insert(QStringLiteral("runtime_audio_format"), formatId);
     } else {
-        newOptions[QStringLiteral("runtime_video_format")] = formatId;
+        newOptions.insert(QStringLiteral("runtime_video_format"), formatId);
     }
     enqueueDownload(url, newOptions);
 }

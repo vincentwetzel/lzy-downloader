@@ -73,7 +73,7 @@ void YtDlpJsonExtractor::onProcessFinished(int exitCode, QProcess::ExitStatus ex
     QJsonParseError parseError;
     QJsonDocument doc = QJsonDocument::fromJson(jsonData, &parseError);
 
-    if (parseError.error != QJsonParseError::NoError) {
+    if (parseError.error != QJsonParseError::NoError || !doc.isObject()) {
         qWarning() << "YtDlpJsonExtractor JSON parse error:" << parseError.errorString();
         emit error(tr("Failed to parse information JSON."));
         return;

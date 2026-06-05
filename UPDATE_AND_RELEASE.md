@@ -123,7 +123,7 @@ The application stores user data in standard Windows directories:
 | Settings | `%LOCALAPPDATA%\LzyDownloader\settings.ini` |
 | Archive | `%LOCALAPPDATA%\LzyDownloader\download_archive.db` |
 | Queue Backup | `%LOCALAPPDATA%\LzyDownloader\downloads_backup.json` |
-| Local API token | `%LOCALAPPDATA%\LzyDownloader\api_token.txt` |
+| Local API token | `%LOCALAPPDATA%\LzyDownloader\api_token.txt` (`Server\api_token.txt` for server/headless/background runtime) |
 | Logs | `%LOCALAPPDATA%\LzyDownloader\LzyDownloader_YYYY-MM-dd_HH-mm-ss.log` (one new file per run; oldest logs deleted after the most recent 5) |
 
 Server/headless mode still reads user preferences from `%LOCALAPPDATA%\LzyDownloader\settings.ini`, but isolates runtime queue backups, API tokens, and logs under `%LOCALAPPDATA%\LzyDownloader\Server\`.

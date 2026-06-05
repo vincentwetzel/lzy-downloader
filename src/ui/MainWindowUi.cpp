@@ -104,8 +104,8 @@ void MainWindow::closeEvent(QCloseEvent *event)
         return;
     }
 
-    int activeCount = m_uiBuilder->activeDownloadsLabel()->property("count").toInt();
-    int queuedCount = m_uiBuilder->queuedDownloadsLabel()->property("count").toInt();
+    const int activeCount = m_uiBuilder->activeDownloadsLabel()->property("count").toInt();
+    const int queuedCount = m_uiBuilder->queuedDownloadsLabel()->property("count").toInt();
 
     if (activeCount > 0 || queuedCount > 0) {
         QMessageBox::StandardButton reply;
@@ -145,7 +145,7 @@ bool MainWindow::event(QEvent *event)
         return handled;
     }
 
-    int autoPasteMode = m_configManager->get(QStringLiteral("General"), QStringLiteral("auto_paste_mode"), 0).toInt();
+    const int autoPasteMode = m_configManager->get(QStringLiteral("General"), QStringLiteral("auto_paste_mode"), 0).toInt();
 
     if (event->type() == QEvent::WindowActivate || event->type() == QEvent::Enter) {
         if (autoPasteMode == 1) {
@@ -163,7 +163,7 @@ void MainWindow::onClipboardChanged()
         return;
     }
 
-    int autoPasteMode = m_configManager->get(QStringLiteral("General"), QStringLiteral("auto_paste_mode"), 0).toInt();
+    const int autoPasteMode = m_configManager->get(QStringLiteral("General"), QStringLiteral("auto_paste_mode"), 0).toInt();
 
     if (autoPasteMode == 2) {
         handleClipboardAutoPaste(false);
@@ -178,7 +178,7 @@ void MainWindow::handleClipboardAutoPaste(bool forceEnqueue)
         return;
     }
 
-    qint64 now = QDateTime::currentMSecsSinceEpoch();
+    const qint64 now = QDateTime::currentMSecsSinceEpoch();
     if (now - m_lastAutoPasteTimestamp < 500) {
         return;
     }
@@ -226,7 +226,7 @@ void MainWindow::onQueueFinished()
                                 QSystemTrayIcon::Information, 3000);
     }
 
-    bool exitAfter = m_configManager->get(QStringLiteral("General"), QStringLiteral("exit_after"), false).toBool();
+    const bool exitAfter = m_configManager->get(QStringLiteral("General"), QStringLiteral("exit_after"), false).toBool();
     if (exitAfter) {
         qInfo() << "Queue finished and 'exit after' is enabled. Waiting 2 seconds before quitting to allow for final file cleanup.";
         QTimer::singleShot(std::chrono::seconds(2), this, [this]() {
@@ -240,8 +240,8 @@ void MainWindow::onQueueFinished()
                 return;
             }
 
-            int activeCount = m_uiBuilder->activeDownloadsLabel()->property("count").toInt();
-            int queuedCount = m_uiBuilder->queuedDownloadsLabel()->property("count").toInt();
+            const int activeCount = m_uiBuilder->activeDownloadsLabel()->property("count").toInt();
+            const int queuedCount = m_uiBuilder->queuedDownloadsLabel()->property("count").toInt();
 
             if (activeCount == 0 && queuedCount == 0) {
                 QCoreApplication::quit();
@@ -347,7 +347,7 @@ void MainWindow::applyTheme(const QString &themeName)
 
 void MainWindow::updateTotalSpeed(double speed)
 {
-    double speedMb = speed / (1024.0 * 1024.0);
+    const double speedMb = speed / (1024.0 * 1024.0);
     m_uiBuilder->speedLabel()->setText(tr("Current Speed: %1 MB/s").arg(speedMb, 0, 'f', 2));
 }
 

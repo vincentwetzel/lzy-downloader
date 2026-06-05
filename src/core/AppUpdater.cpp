@@ -184,8 +184,8 @@ void AppUpdater::onDownloadFinished(QNetworkReply *reply) {
         return;
     }
 
-    QString tempPath = QStandardPaths::writableLocation(QStandardPaths::TempLocation);
-    QString installerPath = QDir(tempPath).filePath(QStringLiteral("LzyDownloader-Setup.exe"));
+    const QString tempPath = QStandardPaths::writableLocation(QStandardPaths::TempLocation);
+    const QString installerPath = QDir(tempPath).filePath(QStringLiteral("LzyDownloader-Setup.exe"));
 
     QSaveFile installerFile(installerPath);
     if (!installerFile.open(QIODevice::WriteOnly)) {

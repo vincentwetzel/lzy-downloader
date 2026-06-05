@@ -155,7 +155,7 @@ void MainWindow::connectAppUpdaterSignals()
                     statusBar()->showMessage(tr("Downloading update..."));
                     m_appUpdater->downloadAndInstall(downloadUrl);
                 } else if (msgBox.clickedButton() == viewReleaseButton) {
-                    QDesktopServices::openUrl(QUrl(GITHUB_PROJECT_URL + "/releases/latest"));
+                QDesktopServices::openUrl(QUrl(GITHUB_PROJECT_URL + QStringLiteral("/releases/latest")));
                 }
             });
 
@@ -190,8 +190,8 @@ void MainWindow::connectAppUpdaterSignals()
 void MainWindow::scheduleInitialSetup()
 {
     QTimer::singleShot(0, this, [this]() {
-        bool isHeadless = QCoreApplication::arguments().contains("--headless") || QCoreApplication::arguments().contains("--server");
-        bool isNonInteractive = m_nonInteractiveLaunch;
+        const bool isHeadless = QCoreApplication::arguments().contains(QStringLiteral("--headless")) || QCoreApplication::arguments().contains(QStringLiteral("--server"));
+        const bool isNonInteractive = m_nonInteractiveLaunch;
 
         if (isHeadless && m_trayIcon) {
             m_trayIcon->showMessage(QStringLiteral("LzyDownloader"), tr("Running in headless server mode."), QSystemTrayIcon::Information, 3000);
@@ -222,7 +222,7 @@ void MainWindow::scheduleInitialSetup()
                     QMessageBox::information(this, tr("Directory Set"),
                                              tr("Completed downloads directory set to:\n%1\n\nTemporary downloads directory set to:\n%2")
                                                  .arg(completedDownloadsDir)
-                                                 .arg(QDir(completedDownloadsDir).filePath("temp_downloads")));
+                                             .arg(QDir(completedDownloadsDir).filePath(QStringLiteral("temp_downloads"))));
                 } else {
                     QMessageBox::warning(this, tr("Directory Not Set"),
                                          tr("No completed downloads directory was selected. Please set it in Advanced Settings to enable downloads."));
@@ -277,7 +277,7 @@ void MainWindow::connectDownloadManagerSignals()
     };
 
     connect(m_downloadManager, &DownloadManager::downloadAddedToQueue, this, [this, historyStates, cacheThumbnail](const QVariantMap &itemData) {
-        QString id = itemData.value(QStringLiteral("id")).toString();
+        const QString id = itemData.value(QStringLiteral("id")).toString();
         HistoryItemData data;
         data.id = id;
         data.url = itemData.value(QStringLiteral("url")).toString();
@@ -285,11 +285,11 @@ void MainWindow::connectDownloadManagerSignals()
         data.timestamp = QDateTime::currentDateTime().toString(QStringLiteral("yyyy-MM-dd hh:mm AP"));
 
         if (itemData.contains(QStringLiteral("duration"))) {
-            int durationSecs = itemData.value(QStringLiteral("duration")).toInt();
+            const int durationSecs = itemData.value(QStringLiteral("duration")).toInt();
             if (durationSecs > 0) {
-                int hours = durationSecs / 3600;
-                int minutes = (durationSecs % 3600) / 60;
-                int seconds = durationSecs % 60;
+                const int hours = durationSecs / 3600;
+                const int minutes = (durationSecs % 3600) / 60;
+                const int seconds = durationSecs % 60;
                 if (hours > 0) {
                     data.duration = QStringLiteral("%1:%2:%3").arg(hours).arg(minutes, 2, 10, QLatin1Char('0')).arg(seconds, 2, 10, QLatin1Char('0'));
                 } else {
@@ -297,7 +297,7 @@ void MainWindow::connectDownloadManagerSignals()
                 }
             }
         } else if (itemData.contains(QStringLiteral("duration_string"))) {
-            QString durStr = itemData.value(QStringLiteral("duration_string")).toString();
+            const QString durStr = itemData.value(QStringLiteral("duration_string")).toString();
             if (!durStr.isEmpty() && !durStr.contains(QLatin1Char(':'))) {
                 data.duration = QStringLiteral("0:%1").arg(durStr.toInt(), 2, 10, QLatin1Char('0'));
             } else {
@@ -307,10 +307,10 @@ void MainWindow::connectDownloadManagerSignals()
 
         QVariantMap updatedItemData = itemData;
         if (itemData.contains(QStringLiteral("thumbnail_path"))) {
-            QString originalPath = itemData.value(QStringLiteral("thumbnail_path")).toString();
-            QString finalPath = cacheThumbnail(id, originalPath);
+            const QString originalPath = itemData.value(QStringLiteral("thumbnail_path")).toString();
+            const QString finalPath = cacheThumbnail(id, originalPath);
             data.thumbnailPath = finalPath;
-            updatedItemData[QStringLiteral("thumbnail_path")] = finalPath;
+            updatedItemData.insert(QStringLiteral("thumbnail_path"), finalPath);
         }
 
         (*historyStates)[id] = data;
@@ -324,15 +324,16 @@ void MainWindow::connectDownloadManagerSignals()
                 (*historyStates)[id].title = progressData.value(QStringLiteral("title")).toString().trimmed();
             }
             if (progressData.contains(QStringLiteral("thumbnail_path"))) {
-                QString originalPath = progressData.value(QStringLiteral("thumbnail_path")).toString();
-                QString finalPath = cacheThumbnail(id, originalPath);
+            const QString originalPath = progressData.value(QStringLiteral("thumbnail_path")).toString();
+            const QString finalPath = cacheThumbnail(id, originalPath);
                 (*historyStates)[id].thumbnailPath = finalPath;
-                updatedProgress[QStringLiteral("thumbnail_path")] = finalPath;
+            updatedProgress.insert(QStringLiteral("thumbnail_path"), finalPath);
             }
             if (progressData.contains(QStringLiteral("total_bytes"))) {
                 (*historyStates)[id].totalBytes = progressData.value(QStringLiteral("total_bytes")).toLongLong();
             } else if (progressData.contains(QStringLiteral("total_size")) && (*historyStates)[id].totalBytes == 0) {
-                QString sizeStr = progressData.value(QStringLiteral("total_size")).toString().remove(QLatin1Char('~'));
+                QString sizeStr = progressData.value(QStringLiteral("total_size")).toString();
+                sizeStr.remove(QLatin1Char('~'));
                 if (sizeStr.endsWith(QStringLiteral("MiB"))) {
                     (*historyStates)[id].totalBytes = static_cast<qint64>(sizeStr.remove(QStringLiteral("MiB")).trimmed().toDouble() * 1024 * 1024);
                 } else if (sizeStr.endsWith(QStringLiteral("KiB"))) {
@@ -342,11 +343,11 @@ void MainWindow::connectDownloadManagerSignals()
                 }
             }
             if (progressData.contains(QStringLiteral("duration")) && (*historyStates)[id].duration.isEmpty()) {
-                int durationSecs = progressData.value(QStringLiteral("duration")).toInt();
+            const int durationSecs = progressData.value(QStringLiteral("duration")).toInt();
                 if (durationSecs > 0) {
-                    int hours = durationSecs / 3600;
-                    int minutes = (durationSecs % 3600) / 60;
-                    int seconds = durationSecs % 60;
+                const int hours = durationSecs / 3600;
+                const int minutes = (durationSecs % 3600) / 60;
+                const int seconds = durationSecs % 60;
                     if (hours > 0) {
                         (*historyStates)[id].duration = QStringLiteral("%1:%2:%3").arg(hours).arg(minutes, 2, 10, QLatin1Char('0')).arg(seconds, 2, 10, QLatin1Char('0'));
                     } else {
@@ -354,7 +355,7 @@ void MainWindow::connectDownloadManagerSignals()
                     }
                 }
             } else if (progressData.contains(QStringLiteral("duration_string")) && (*historyStates)[id].duration.isEmpty()) {
-                QString durStr = progressData.value(QStringLiteral("duration_string")).toString();
+            const QString durStr = progressData.value(QStringLiteral("duration_string")).toString();
                 if (!durStr.isEmpty() && !durStr.contains(QLatin1Char(':'))) {
                     (*historyStates)[id].duration = QStringLiteral("0:%1").arg(durStr.toInt(), 2, 10, QLatin1Char('0'));
                 } else {
@@ -421,7 +422,7 @@ void MainWindow::connectDownloadManagerSignals()
             [this](const QString &url, int itemCount, const QVariantMap &options, const QList<QVariantMap> &expandedItems) {
                 if (MainWindowHelpers::isNonInteractiveRequest(options)) {
                     qInfo() << "Non-interactive playlist request detected; queueing all playlist items for" << url << "count:" << itemCount;
-                    m_downloadManager->processPlaylistSelection(url, "Download All", options, expandedItems);
+                    m_downloadManager->processPlaylistSelection(url, QStringLiteral("Download All"), options, expandedItems);
                     m_uiBuilder->tabWidget()->setCurrentWidget(m_activeDownloadsTab);
                     return;
                 }
@@ -470,7 +471,7 @@ void MainWindow::connectDownloadManagerSignals()
             [this](const QString &url, const QVariantMap &options, const QVariantMap &infoDict) {
                 if (MainWindowHelpers::isNonInteractiveRequest(options)) {
                     QVariantMap newOptions = options;
-                    newOptions[QStringLiteral("runtime_format_selected")] = true;
+                newOptions.insert(QStringLiteral("runtime_format_selected"), true);
                     qInfo() << "Skipping runtime format dialog for non-interactive request:" << url;
                     m_downloadManager->enqueueDownload(url, newOptions);
                     return;
@@ -482,8 +483,8 @@ void MainWindow::connectDownloadManagerSignals()
                     if (!selectedFormats.isEmpty()) {
                         for (const QString &formatId : selectedFormats) {
                             QVariantMap newOptions = options;
-                            newOptions[QStringLiteral("runtime_format_selected")] = true;
-                            newOptions[QStringLiteral("format")] = formatId;
+                        newOptions.insert(QStringLiteral("runtime_format_selected"), true);
+                        newOptions.insert(QStringLiteral("format"), formatId);
                             m_downloadManager->enqueueDownload(url, newOptions);
                         }
                         m_uiBuilder->tabWidget()->setCurrentWidget(m_activeDownloadsTab);
@@ -530,14 +531,14 @@ void MainWindow::connectStartupWorkerSignals()
 
 void MainWindow::queueDirectCliDownload()
 {
-    QString cliUrl = MainWindowHelpers::directCliUrl();
+    const QString cliUrl = MainWindowHelpers::directCliUrl();
     if (!cliUrl.isEmpty()) {
         QTimer::singleShot(std::chrono::milliseconds(500), this, [this, cliUrl]() {
             QVariantMap options;
-            if (QCoreApplication::arguments().contains("--audio")) {
-                options[QStringLiteral("type")] = QStringLiteral("audio");
+            if (QCoreApplication::arguments().contains(QStringLiteral("--audio"))) {
+                options.insert(QStringLiteral("type"), QStringLiteral("audio"));
             } else {
-                options[QStringLiteral("type")] = QStringLiteral("video");
+                options.insert(QStringLiteral("type"), QStringLiteral("video"));
             }
             MainWindowHelpers::applyNonInteractiveDownloadDefaults(options);
             onDownloadRequested(cliUrl, options);

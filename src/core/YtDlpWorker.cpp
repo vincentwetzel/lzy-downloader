@@ -111,7 +111,8 @@ void YtDlpWorker::start() {
 
 void YtDlpWorker::killProcess() {
     if (m_process && m_process->state() != QProcess::NotRunning) {
-        m_process->disconnect(); // Prevent re-entrant read operations on the dying process buffer
+        disconnect(m_process, &QProcess::readyReadStandardOutput, this, &YtDlpWorker::onReadyReadStandardOutput);
+        disconnect(m_process, &QProcess::readyReadStandardError, this, &YtDlpWorker::onReadyReadStandardError);
         ProcessUtils::terminateProcessTree(m_process);
         m_process->kill(); // Forcefully kill the QProcess instance as fallback
     }

@@ -19,14 +19,14 @@ bool containsHeader(const QMap<QString, QString> &headers, const QString &name)
 
 QString siteSpecificReferer(const QString &url)
 {
-    if (url.contains("bilibili.com", Qt::CaseInsensitive)) {
+    if (url.contains(QStringLiteral("bilibili.com"), Qt::CaseInsensitive)) {
         return url;
     }
-    if (url.contains("bilibili.tv", Qt::CaseInsensitive)) {
-        return "https://www.bilibili.tv/";
+    if (url.contains(QStringLiteral("bilibili.tv"), Qt::CaseInsensitive)) {
+        return QStringLiteral("https://www.bilibili.tv/");
     }
-    if (url.contains("nicovideo.jp", Qt::CaseInsensitive)
-        || url.contains("nico.ms", Qt::CaseInsensitive)) {
+    if (url.contains(QStringLiteral("nicovideo.jp"), Qt::CaseInsensitive)
+        || url.contains(QStringLiteral("nico.ms"), Qt::CaseInsensitive)) {
         return url;
     }
     return QString();
@@ -42,12 +42,12 @@ Aria2DownloadWorker::Aria2DownloadWorker(Aria2RpcClient* globalDaemon, QObject* 
 
     connect(m_extractor, &YtDlpDownloadInfoExtractor::extractionSuccess, this, &Aria2DownloadWorker::onExtractionSuccess);
     connect(m_extractor, &YtDlpDownloadInfoExtractor::extractionFailed, this, &Aria2DownloadWorker::onExtractionFailed);
-    
+
     connect(m_ffmpeg, &FfmpegMuxer::mergeSuccess, this, &Aria2DownloadWorker::onMergeSuccess);
     connect(m_ffmpeg, &FfmpegMuxer::mergeFailed, this, &Aria2DownloadWorker::onMergeFailed);
 
     connect(m_pollTimer, &QTimer::timeout, this, &Aria2DownloadWorker::pollAria2Status);
-    
+
     // Listen to the global daemon's signals
     connect(m_daemon, &Aria2RpcClient::downloadProgress, this, &Aria2DownloadWorker::onDownloadProgress);
 }
@@ -63,23 +63,23 @@ void Aria2DownloadWorker::start(const QString& ytDlpPath, const QString& ffmpegP
     setProperty("sourceUrl", url);
     m_isCancelled = false;
 
-    emit statusTextChanged("Extracting media information...");
+    emit statusTextChanged(tr("Extracting media information..."));
 
     YtDlpArgsBuilder builder;
     QStringList extractionArgs = builder.build(configManager, url, options);
 
     // Remove conflicting args for JSON extraction
-    extractionArgs.removeAll("--print");
-    extractionArgs.removeAll("after_move:filepath");
+    extractionArgs.removeAll(QStringLiteral("--print"));
+    extractionArgs.removeAll(QStringLiteral("after_move:filepath"));
 
-    extractionArgs << "--dump-json";
+    extractionArgs << QStringLiteral("--dump-json");
 
     m_extractor->extract(ytDlpPath, extractionArgs);
 }
 
 void Aria2DownloadWorker::onExtractionSuccess(const QString& title, const QString& thumbnailUrl, const QList<DownloadTarget>& targets, const QString& finalFilename, const QMap<QString, QString>& httpHeaders, const QVariantMap& metadata) {
     m_state = State::Downloading;
-    emit statusTextChanged(QString("Downloading %1 segment(s)...").arg(targets.size()));
+    emit statusTextChanged(tr("Downloading %1 segment(s)...").arg(targets.size()));
 
     m_title = title;
     m_thumbnailUrl = thumbnailUrl;
@@ -88,24 +88,24 @@ void Aria2DownloadWorker::onExtractionSuccess(const QString& title, const QStrin
     m_finalFileName = finalFilename;
     QMap<QString, QString> effectiveHttpHeaders = httpHeaders;
     const QString referer = siteSpecificReferer(property("sourceUrl").toString());
-    if (!referer.isEmpty() && !containsHeader(effectiveHttpHeaders, "Referer")) {
-        effectiveHttpHeaders.insert("Referer", referer);
+    if (!referer.isEmpty() && !containsHeader(effectiveHttpHeaders, QStringLiteral("Referer"))) {
+        effectiveHttpHeaders.insert(QStringLiteral("Referer"), referer);
     }
 
     // Store metadata for the DownloadManager to retrieve later, bypassing brittle JSON disk reads
     this->setProperty("metadata", metadata);
 
     // Write standard .info.json for consistency and cancellation cleanups
-    QString infoFilePath = QDir(m_saveDir).filePath(QFileInfo(m_finalFileName).completeBaseName() + ".info.json");
+    QString infoFilePath = QDir(m_saveDir).filePath(QFileInfo(m_finalFileName).completeBaseName() + QStringLiteral(".info.json"));
     QFile infoFile(infoFilePath);
     if (infoFile.open(QIODevice::WriteOnly)) { infoFile.write(QJsonDocument::fromVariant(metadata).toJson()); infoFile.close(); }
 
-    int expectedGids = targets.size();
-    bool hasThumbnail = !m_thumbnailUrl.isEmpty();
-    
+    int expectedGids = static_cast<int>(targets.size());
+    const bool hasThumbnail = !m_thumbnailUrl.isEmpty();
+
     if (hasThumbnail) {
         expectedGids++;
-        m_thumbnailPath = QDir(m_saveDir).filePath(QFileInfo(m_finalFileName).completeBaseName() + "_thumb.jpg");
+        m_thumbnailPath = QDir(m_saveDir).filePath(QFileInfo(m_finalFileName).completeBaseName() + QStringLiteral("_thumb.jpg"));
     }
 
     // Using QPointer ensures callbacks don't crash if this worker is destroyed early
@@ -115,7 +115,7 @@ void Aria2DownloadWorker::onExtractionSuccess(const QString& title, const QStrin
             ptr->m_pollTimer->start(500); // Poll every 500ms
         }
     };
-    
+
     for (const DownloadTarget& target : targets) {
         QString partFilePath = QDir(m_saveDir).filePath(target.filename);
         if (target.type == DownloadTarget::Type::Subtitle) {
@@ -123,13 +123,17 @@ void Aria2DownloadWorker::onExtractionSuccess(const QString& title, const QStrin
         } else {
             m_downloadedParts.append(partFilePath);
         }
-        
+
         // Tell aria2c to start downloading this part
         m_daemon->addDownload(target.url, m_saveDir, target.filename, effectiveHttpHeaders, [ptr, checkStartPolling](const QString& gid) {
             if (ptr) {
-                ptr->m_activeGids.append(gid);
-                ptr->m_allGids.append(gid);
-                checkStartPolling();
+                if (ptr->m_state != State::Error) {
+                    ptr->m_activeGids.append(gid);
+                    ptr->m_allGids.append(gid);
+                    checkStartPolling();
+                } else {
+                    ptr->m_daemon->removeDownload(gid);
+                }
             }
         }, [ptr](const QString& err) {
             if (ptr && ptr->m_state != State::Error) {
@@ -138,7 +142,7 @@ void Aria2DownloadWorker::onExtractionSuccess(const QString& title, const QStrin
                     ptr->m_daemon->removeDownload(activeGid);
                 }
                 ptr->cleanupPartialFiles();
-                emit ptr->error("Aria2 rejected download: " + err);
+                emit ptr->error(tr("Aria2 rejected download: %1").arg(err));
             }
         });
     }
@@ -146,9 +150,13 @@ void Aria2DownloadWorker::onExtractionSuccess(const QString& title, const QStrin
     if (hasThumbnail) {
         m_daemon->addDownload(m_thumbnailUrl, m_saveDir, QFileInfo(m_thumbnailPath).fileName(), effectiveHttpHeaders, [ptr, checkStartPolling](const QString& gid) {
             if (ptr) {
-                ptr->m_activeGids.append(gid);
-                ptr->m_allGids.append(gid);
-                checkStartPolling();
+                if (ptr->m_state != State::Error) {
+                    ptr->m_activeGids.append(gid);
+                    ptr->m_allGids.append(gid);
+                    checkStartPolling();
+                } else {
+                    ptr->m_daemon->removeDownload(gid);
+                }
             }
         }, [ptr](const QString& err) {
             if (ptr && ptr->m_state != State::Error) {
@@ -157,7 +165,7 @@ void Aria2DownloadWorker::onExtractionSuccess(const QString& title, const QStrin
                     ptr->m_daemon->removeDownload(activeGid);
                 }
                 ptr->cleanupPartialFiles();
-                emit ptr->error("Aria2 rejected thumbnail: " + err);
+                emit ptr->error(tr("Aria2 rejected thumbnail: %1").arg(err));
             }
         });
     }
@@ -165,7 +173,7 @@ void Aria2DownloadWorker::onExtractionSuccess(const QString& title, const QStrin
 
 void Aria2DownloadWorker::onExtractionFailed(const QString& errorMsg) {
     if (m_isCancelled) return;
-    
+
     m_state = State::Error;
     emit error(errorMsg);
 }
@@ -181,20 +189,20 @@ void Aria2DownloadWorker::onDownloadProgress(const QString& gid, qint64 complete
 
     if (m_state == State::Error || m_isCancelled) return;
 
-    if (status == "error") {
+    if (status == QStringLiteral("error")) {
         m_pollTimer->stop();
         for (const QString& activeGid : m_activeGids) {
             m_daemon->removeDownload(activeGid);
         }
         cleanupPartialFiles();
         m_state = State::Error;
-        emit error("Aria2c encountered an error downloading a segment.");
+        emit error(tr("Aria2c encountered an error downloading a segment."));
         return;
     }
 
     m_completedLengths[gid] = completedLength;
     m_totalLengths[gid] = totalLength;
-    m_downloadSpeeds[gid] = (status == "complete") ? 0 : downloadSpeed;
+    m_downloadSpeeds[gid] = (status == QStringLiteral("complete")) ? 0 : downloadSpeed;
 
     qint64 totalCompleted = 0;
     qint64 totalSize = 0;
@@ -207,22 +215,22 @@ void Aria2DownloadWorker::onDownloadProgress(const QString& gid, qint64 complete
     }
 
     if (totalSize > 0) {
-        int percent = static_cast<int>((totalCompleted * 100) / totalSize);
-        QString speedStr = totalSpeed > 1048576 ? QString::number(totalSpeed / 1048576.0, 'f', 2) + " MB/s" : QString::number(totalSpeed / 1024) + " KB/s";
+        const int percent = static_cast<int>((totalCompleted * 100) / totalSize);
+        const QString speedStr = totalSpeed > 1048576 ? tr("%1 MB/s").arg(QString::number(totalSpeed / 1048576.0, 'f', 2)) : tr("%1 KB/s").arg(QString::number(totalSpeed / 1024));
         emit progressUpdated(percent, speedStr);
-        emit statusTextChanged("Downloading...");
+        emit statusTextChanged(tr("Downloading..."));
     }
 
-    if (status == "complete" && m_activeGids.contains(gid)) {
+    if (status == QStringLiteral("complete") && m_activeGids.contains(gid)) {
         m_activeGids.removeOne(gid);
-        
+
         if (m_activeGids.isEmpty()) {
             // All parts downloaded! Move to next state.
             m_pollTimer->stop();
             m_state = State::PostProcessing;
 
-            emit statusTextChanged("Merging segments with ffmpeg...");
-            emit progressUpdated(100, "Processing");
+            emit statusTextChanged(tr("Merging segments with ffmpeg..."));
+            emit progressUpdated(100, tr("Processing"));
 
             QString finalPath = QDir(m_saveDir).filePath(m_finalFileName);
             m_ffmpeg->merge(m_ffmpegPath, m_downloadedParts, finalPath, m_title, m_thumbnailPath, m_downloadedSubtitles);
@@ -232,13 +240,13 @@ void Aria2DownloadWorker::onDownloadProgress(const QString& gid, qint64 complete
 
 void Aria2DownloadWorker::onMergeSuccess(const QString& outputFile) {
     m_state = State::Finished;
-    emit statusTextChanged("Done");
+    emit statusTextChanged(tr("Done"));
     emit finished(outputFile);
 }
 
 void Aria2DownloadWorker::onMergeFailed(const QString& errorMsg) {
     if (m_isCancelled) return;
-    
+
     cleanupPartialFiles();
     m_state = State::Error;
     emit error(errorMsg);
@@ -246,7 +254,7 @@ void Aria2DownloadWorker::onMergeFailed(const QString& errorMsg) {
 
 void Aria2DownloadWorker::cancel() {
     if (m_state == State::Finished || m_state == State::Error || m_state == State::Idle) return;
-    
+
     m_isCancelled = true;
     m_pollTimer->stop();
 
@@ -259,28 +267,28 @@ void Aria2DownloadWorker::cancel() {
     } else if (m_state == State::PostProcessing) {
         m_ffmpeg->cancel();
     }
-    
+
     cleanupPartialFiles();
 
     m_state = State::Error;
-    emit statusTextChanged("Cancelled");
+    emit statusTextChanged(tr("Cancelled"));
 }
 
 void Aria2DownloadWorker::cleanupPartialFiles() {
-    QStringList parts = m_downloadedParts;
-    QList<SubtitleFile> subs = m_downloadedSubtitles;
-    QString thumb = m_thumbnailPath;
-    QString info = m_finalFileName.isEmpty() ? "" : QDir(m_saveDir).filePath(QFileInfo(m_finalFileName).completeBaseName() + ".info.json");
-    
+    const QStringList parts = m_downloadedParts;
+    const QList<SubtitleFile> subs = m_downloadedSubtitles;
+    const QString thumb = m_thumbnailPath;
+    const QString info = m_finalFileName.isEmpty() ? QString() : QDir(m_saveDir).filePath(QFileInfo(m_finalFileName).completeBaseName() + QStringLiteral(".info.json"));
+
     // Delay file deletion so aria2c/ffmpeg have time to release OS file locks
     QTimer::singleShot(500, [parts, subs, thumb, info]() {
         for (const QString& partFile : parts) {
             QFile::remove(partFile);
-            QFile::remove(partFile + ".aria2"); 
+            QFile::remove(partFile + QStringLiteral(".aria2"));
         }
         for (const SubtitleFile& subFile : subs) {
             QFile::remove(subFile.path);
-            QFile::remove(subFile.path + ".aria2");
+            QFile::remove(subFile.path + QStringLiteral(".aria2"));
         }
         if (!thumb.isEmpty()) QFile::remove(thumb);
         if (!info.isEmpty()) QFile::remove(info);

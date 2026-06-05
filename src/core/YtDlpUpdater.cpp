@@ -131,10 +131,10 @@ void YtDlpUpdater::onReleaseCheckFinished() {
         return;
     }
 
-    QString remoteVersionTag = release[QStringLiteral("tag_name")].toString();
-    QString normalizedRemoteVersion = normalizeVersion(remoteVersionTag);
-    QString comparisonVersion = m_cachedVersion.isEmpty() ? m_currentLocalVersion : m_cachedVersion;
-    QString normalizedComparisonVersion = normalizeVersion(comparisonVersion);
+    const QString remoteVersionTag = release[QStringLiteral("tag_name")].toString();
+    const QString normalizedRemoteVersion = normalizeVersion(remoteVersionTag);
+    const QString comparisonVersion = m_cachedVersion.isEmpty() ? m_currentLocalVersion : m_cachedVersion;
+    const QString normalizedComparisonVersion = normalizeVersion(comparisonVersion);
 
     if (!isVersionNewer(normalizedComparisonVersion, normalizedRemoteVersion)) {
         emit updateFinished(Updater::UpdateStatus::UpToDate, tr("yt-dlp is already up to date (%1).").arg(comparisonVersion));
@@ -151,10 +151,13 @@ void YtDlpUpdater::onReleaseCheckFinished() {
     QJsonArray assets = release[QStringLiteral("assets")].toArray();
     QUrl downloadUrl;
     for (const QJsonValue &value : assets) {
-        QJsonObject asset = value.toObject();
-        if (asset[QStringLiteral("name")].toString() == QStringLiteral("yt-dlp.exe")) {
-            downloadUrl = QUrl(asset[QStringLiteral("browser_download_url")].toString());
-            break;
+        if (value.isObject()) {
+            QJsonObject asset = value.toObject();
+            if (asset.contains(QStringLiteral("name")) && asset.value(QStringLiteral("name")).isString() &&
+                asset.value(QStringLiteral("name")).toString() == QStringLiteral("yt-dlp.exe")) {
+                downloadUrl = QUrl(asset.value(QStringLiteral("browser_download_url")).toString());
+                break;
+            }
         }
     }
 
@@ -195,7 +198,7 @@ void YtDlpUpdater::onDownloadFinished() {
         return;
     }
 
-    QString newVersion = reply->property("newVersion").toString();
+    const QString newVersion = reply->property("newVersion").toString();
 
     ProcessUtils::FoundBinary binary = ProcessUtils::resolveBinary(QStringLiteral("yt-dlp"), m_configManager);
     QString targetPath = binary.path;

@@ -11,6 +11,9 @@
 #include <QStandardPaths>
 #include <QSet>
 #include <QRegularExpression>
+#include <QThread>
+#include <array>
+#include <algorithm>
 
 namespace {
 QString normalizeCleanupStem(QString fileName)
@@ -32,15 +35,18 @@ QString normalizeCleanupStem(QString fileName)
     if (fileName.endsWith(QStringLiteral(".info.json"), Qt::CaseInsensitive)) {
         fileName.chop(10);
     } else {
-        static const QSet<QString> knownExts = {
-                QStringLiteral("mp4"), QStringLiteral("mkv"), QStringLiteral("webm"), QStringLiteral("m4a"),
-                QStringLiteral("mp3"), QStringLiteral("opus"), QStringLiteral("ogg"), QStringLiteral("ts"),
-                QStringLiteral("mov"), QStringLiteral("avi"), QStringLiteral("flac"), QStringLiteral("wav"),
-                QStringLiteral("jpg"), QStringLiteral("jpeg"), QStringLiteral("png"), QStringLiteral("webp"),
-                QStringLiteral("srt"), QStringLiteral("vtt"), QStringLiteral("ass"), QStringLiteral("lrc")
+        static constexpr std::array<QStringView, 20> knownExts = {
+                u"mp4", u"mkv", u"webm", u"m4a",
+                u"mp3", u"opus", u"ogg", u"ts",
+                u"mov", u"avi", u"flac", u"wav",
+                u"jpg", u"jpeg", u"png", u"webp",
+                u"srt", u"vtt", u"ass", u"lrc"
         };
-        const QString ext = QFileInfo(fileName).suffix().toLower();
-        if (knownExts.contains(ext)) {
+        const QString ext = QFileInfo(fileName).suffix();
+        auto it = std::ranges::find_if(knownExts, [&](QStringView knownExt) {
+            return ext.compare(knownExt, Qt::CaseInsensitive) == 0;
+        });
+        if (it != knownExts.end()) {
             fileName.chop(ext.length() + 1);
         }
     }
@@ -87,15 +93,18 @@ bool shouldDeleteCleanupCandidate(const QFileInfo &entry, const QFileInfo &ancho
         }
     }
 
-    static const QSet<QString> knownExts = {
-        QStringLiteral("mp4"), QStringLiteral("mkv"), QStringLiteral("webm"), QStringLiteral("m4a"),
-        QStringLiteral("mp3"), QStringLiteral("opus"), QStringLiteral("ogg"), QStringLiteral("ts"),
-        QStringLiteral("mov"), QStringLiteral("avi"), QStringLiteral("flac"), QStringLiteral("wav"),
-        QStringLiteral("jpg"), QStringLiteral("jpeg"), QStringLiteral("png"), QStringLiteral("webp"),
-        QStringLiteral("srt"), QStringLiteral("vtt"), QStringLiteral("ass"), QStringLiteral("lrc")
+    static constexpr std::array<QStringView, 20> knownExts = {
+        u"mp4", u"mkv", u"webm", u"m4a",
+        u"mp3", u"opus", u"ogg", u"ts",
+        u"mov", u"avi", u"flac", u"wav",
+        u"jpg", u"jpeg", u"png", u"webp",
+        u"srt", u"vtt", u"ass", u"lrc"
     };
-    const QString ext = entry.suffix().toLower();
-    if (knownExts.contains(ext)) {
+    const QString ext = entry.suffix();
+    auto it = std::ranges::find_if(knownExts, [&](QStringView knownExt) {
+        return ext.compare(knownExt, Qt::CaseInsensitive) == 0;
+    });
+    if (it != knownExts.end()) {
         for (const QString &stem : stems) {
             if (hasCleanupStemBoundary(fileName, stem)) {
                 return true;
@@ -134,26 +143,26 @@ DownloadQueueManager::DuplicateStatus DownloadQueueManager::getDuplicateStatus(c
             return DuplicateInQueue;
         }
     }
-    
+
     // Check in active downloads (provided by DownloadManager)
     for (const DownloadItem &item : activeItems) {
         if (item.url == url) {
             return DuplicateActive;
         }
     }
-    
+
     // Check in paused items
     for (const DownloadItem &item : m_pausedItems) {
         if (item.url == url) {
             return DuplicatePaused;
         }
     }
-    
+
     // Check in archive (completed downloads)
     if (m_archiveManager && m_archiveManager->isInArchive(url)) {
         return DuplicateCompleted;
     }
-    
+
     return NotDuplicate;
 }
 
@@ -163,23 +172,23 @@ bool DownloadQueueManager::isUrlInQueue(const QString &url, const QMap<QString, 
 
 void DownloadQueueManager::enqueueDownload(const DownloadItem &item, bool isNew) {
     m_downloadQueue.enqueue(item);
-    
+
     QVariantMap uiData;
-    uiData[QStringLiteral("id")] = item.id;
-    uiData[QStringLiteral("url")] = item.url;
-    uiData[QStringLiteral("status")] = tr("Queued");
-    uiData[QStringLiteral("progress")] = -1;
-    uiData[QStringLiteral("options")] = item.options;
-    uiData[QStringLiteral("playlistIndex")] = item.playlistIndex;
+    uiData.insert(QStringLiteral("id"), item.id);
+    uiData.insert(QStringLiteral("url"), item.url);
+    uiData.insert(QStringLiteral("status"), tr("Queued"));
+    uiData.insert(QStringLiteral("progress"), -1);
+    uiData.insert(QStringLiteral("options"), item.options);
+    uiData.insert(QStringLiteral("playlistIndex"), item.playlistIndex);
     const QString initialTitle = item.options.value(QStringLiteral("initial_title")).toString().trimmed();
     if (!initialTitle.isEmpty()) {
-        uiData[QStringLiteral("title")] = initialTitle;
+        uiData.insert(QStringLiteral("title"), initialTitle);
     }
     const QString thumb = item.options.value(QStringLiteral("thumbnail_url")).toString().trimmed();
     if (!thumb.isEmpty()) {
-        uiData[QStringLiteral("thumbnail_path")] = thumb;
+        uiData.insert(QStringLiteral("thumbnail_path"), thumb);
     }
-    
+
     if (isNew) {
         emit downloadAddedToQueue(uiData);
     } else {
@@ -211,8 +220,8 @@ bool DownloadQueueManager::cancelQueuedOrPausedDownload(const QString &id) {
     for (int i = 0; i < m_downloadQueue.size(); ++i) {
         if (m_downloadQueue.at(i).id == id) {
             DownloadItem item = m_downloadQueue.takeAt(i);
-            item.options[QStringLiteral("is_stopped")] = true;
-            m_pausedItems[id] = item;
+            item.options.insert(QStringLiteral("is_stopped"), true);
+            m_pausedItems.insert(id, item);
             qDebug() << "Stopped queued download:" << id;
             emit downloadCancelled(id);
             emitQueueCountsChanged();
@@ -221,11 +230,12 @@ bool DownloadQueueManager::cancelQueuedOrPausedDownload(const QString &id) {
         }
     }
 
-    if (m_pausedItems.contains(id)) {
-        DownloadItem item = m_pausedItems.value(id);
-        if (item.options.value(QStringLiteral("is_stopped")).toBool() || item.options.value(QStringLiteral("is_failed")).toBool()) {
+    auto it = m_pausedItems.find(id);
+    if (it != m_pausedItems.end()) {
+        if (it.value().options.value(QStringLiteral("is_stopped")).toBool() || it.value().options.value(QStringLiteral("is_failed")).toBool()) {
             // Item was already stopped/failed. A second cancel means the user cleared it from the UI!
-            m_pausedItems.remove(id);
+            DownloadItem item = it.value();
+            m_pausedItems.erase(it);
             QStringList cleanupPaths;
             collectCleanupPath(cleanupPaths, item.tempFilePath);
             collectCleanupPath(cleanupPaths, item.originalDownloadedFilePath);
@@ -234,58 +244,62 @@ bool DownloadQueueManager::cancelQueuedOrPausedDownload(const QString &id) {
             }
 
             if (!cleanupPaths.isEmpty()) {
-                QSet<QString> visitedDirs;
-                for (const QString &cleanupPath : cleanupPaths) {
-                    const QFileInfo anchor(cleanupPath);
-                    if (!anchor.absoluteDir().exists()) {
-                        continue;
-                    }
-                    if (anchor.isDir() && anchor.fileName() == id) {
-                        QDir(anchor.absoluteFilePath()).removeRecursively();
-                        continue;
-                    }
-
-                    QFile::remove(anchor.absoluteFilePath());
-
-                    const QString dirPath = anchor.absolutePath();
-                    if (visitedDirs.contains(dirPath)) {
-                        continue;
-                    }
-                    visitedDirs.insert(dirPath);
-
-                    QDir tempDir(dirPath);
-                    QSet<QString> cleanupStems;
-                    for (const QString &path : cleanupPaths) {
-                        const QFileInfo candidateInfo(path);
-                        if (candidateInfo.absolutePath().compare(dirPath, Qt::CaseInsensitive) != 0) {
+                QThread *cleanupThread = QThread::create([cleanupPaths, id]() {
+                    QSet<QString> visitedDirs;
+                    for (const QString &cleanupPath : cleanupPaths) {
+                        const QFileInfo anchor(cleanupPath);
+                        if (!anchor.absoluteDir().exists()) {
                             continue;
                         }
-                        cleanupStems.insert(normalizeCleanupStem(candidateInfo.fileName()));
-                    }
-                    cleanupStems.remove(QString());
-                    if (cleanupStems.isEmpty()) {
-                        continue;
-                    }
+                        if (anchor.isDir() && anchor.fileName() == id) {
+                            QDir(anchor.absoluteFilePath()).removeRecursively();
+                            continue;
+                        }
 
-                    QFileInfoList entries = tempDir.entryInfoList(QDir::Files | QDir::NoDotAndDotDot);
-                    for (const QFileInfo &entry : entries) {
-                        if (shouldDeleteCleanupCandidate(entry, anchor, cleanupStems)) {
-                            QFile::remove(entry.absoluteFilePath());
+                        QFile::remove(anchor.absoluteFilePath());
+
+                        const QString dirPath = anchor.absolutePath();
+                        if (visitedDirs.contains(dirPath)) {
+                            continue;
+                        }
+                        visitedDirs.insert(dirPath);
+
+                        QDir tempDir(dirPath);
+                        QSet<QString> cleanupStems;
+                        for (const QString &path : cleanupPaths) {
+                            const QFileInfo candidateInfo(path);
+                            if (candidateInfo.absolutePath().compare(dirPath, Qt::CaseInsensitive) != 0) {
+                                continue;
+                            }
+                            cleanupStems.insert(normalizeCleanupStem(candidateInfo.fileName()));
+                        }
+                        cleanupStems.remove(QString());
+                        if (cleanupStems.isEmpty()) {
+                            continue;
+                        }
+
+                        QFileInfoList entries = tempDir.entryInfoList(QDir::Files | QDir::NoDotAndDotDot);
+                        for (const QFileInfo &entry : entries) {
+                            if (shouldDeleteCleanupCandidate(entry, anchor, cleanupStems)) {
+                                QFile::remove(entry.absoluteFilePath());
+                            }
+                        }
+
+                        tempDir.refresh();
+                        if (tempDir.dirName() == id) {
+                            tempDir.removeRecursively();
                         }
                     }
-                    
-                    tempDir.refresh();
-                    if (tempDir.dirName() == id) {
-                        tempDir.removeRecursively();
-                    }
-                }
-                qDebug() << "Cleaned up temporary files for cleared download:" << id;
+                    qDebug() << "Cleaned up temporary files for cleared download:" << id;
+                });
+                connect(cleanupThread, &QThread::finished, cleanupThread, &QObject::deleteLater);
+                cleanupThread->start();
             }
             emitQueueCountsChanged();
             return true;
         } else {
             // Item was paused, now it's stopped
-            m_pausedItems[id].options[QStringLiteral("is_stopped")] = true;
+            it.value().options.insert(QStringLiteral("is_stopped"), true);
             qDebug() << "Stopped paused download:" << id;
             emit downloadCancelled(id);
             emitQueueCountsChanged();
@@ -299,7 +313,7 @@ bool DownloadQueueManager::pauseQueuedDownload(const QString &id, DownloadItem &
     for (int i = 0; i < m_downloadQueue.size(); ++i) {
         if (m_downloadQueue.at(i).id == id) {
             pausedItem = m_downloadQueue.takeAt(i);
-            m_pausedItems[id] = pausedItem;
+            m_pausedItems.insert(id, pausedItem);
             qDebug() << "Paused queued download:" << id;
             emit downloadPaused(id);
             emitQueueCountsChanged();
@@ -376,38 +390,38 @@ void DownloadQueueManager::processResumeDownloadsSelection(const QJsonArray &arr
         item.playlistIndex = obj.value(QStringLiteral("playlistIndex")).toInt(-1);
         item.tempFilePath = obj.value(QStringLiteral("tempFilePath")).toString();
         item.originalDownloadedFilePath = obj.value(QStringLiteral("originalDownloadedFilePath")).toString();
-        
+
         QString status = obj.value(QStringLiteral("status")).toString(QStringLiteral("queued"));
 
         QVariantMap uiData;
-        uiData[QStringLiteral("id")] = item.id;
-        uiData[QStringLiteral("url")] = item.url;
-        uiData[QStringLiteral("status")] = (status == QStringLiteral("paused")) ? tr("Paused") : tr("Queued");
-        uiData[QStringLiteral("progress")] = 0;
-        uiData[QStringLiteral("options")] = item.options;
-        
+        uiData.insert(QStringLiteral("id"), item.id);
+        uiData.insert(QStringLiteral("url"), item.url);
+        uiData.insert(QStringLiteral("status"), (status == QStringLiteral("paused")) ? tr("Paused") : tr("Queued"));
+        uiData.insert(QStringLiteral("progress"), 0);
+        uiData.insert(QStringLiteral("options"), item.options);
+
         const QString initialTitle = item.options.value(QStringLiteral("initial_title")).toString().trimmed();
         if (!initialTitle.isEmpty()) {
-            uiData[QStringLiteral("title")] = initialTitle;
+            uiData.insert(QStringLiteral("title"), initialTitle);
         } else if (item.metadata.contains(QStringLiteral("title"))) {
-            uiData[QStringLiteral("title")] = item.metadata.value(QStringLiteral("title"));
+            uiData.insert(QStringLiteral("title"), item.metadata.value(QStringLiteral("title")));
         }
         const QString thumbPath = item.metadata.value(QStringLiteral("thumbnail_path")).toString().trimmed();
         if (!thumbPath.isEmpty()) {
-            uiData[QStringLiteral("thumbnail_path")] = thumbPath;
+            uiData.insert(QStringLiteral("thumbnail_path"), thumbPath);
         } else if (item.options.contains(QStringLiteral("thumbnail_url"))) {
-            uiData[QStringLiteral("thumbnail_path")] = item.options.value(QStringLiteral("thumbnail_url")).toString().trimmed();
+            uiData.insert(QStringLiteral("thumbnail_path"), item.options.value(QStringLiteral("thumbnail_url")).toString().trimmed());
         }
 
         if (status == QStringLiteral("paused")) {
-            m_pausedItems[item.id] = item;
+            m_pausedItems.insert(item.id, item);
             emit downloadAddedToQueue(uiData);
             emit downloadPaused(item.id);
         } else if (status == QStringLiteral("stopped")) {
-            uiData[QStringLiteral("status")] = tr("Stopped");
-            uiData[QStringLiteral("progress")] = 0;
-            item.options[QStringLiteral("is_stopped")] = true;
-            m_pausedItems[item.id] = item;
+            uiData.insert(QStringLiteral("status"), tr("Stopped"));
+            uiData.insert(QStringLiteral("progress"), 0);
+            item.options.insert(QStringLiteral("is_stopped"), true);
+            m_pausedItems.insert(item.id, item);
             emit downloadAddedToQueue(uiData);
             emit downloadCancelled(item.id); // Triggers "Stopped" visuals in the UI
         } else {

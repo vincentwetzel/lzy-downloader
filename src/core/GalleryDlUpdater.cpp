@@ -127,10 +127,10 @@ void GalleryDlUpdater::onReleaseCheckFinished() {
         return;
     }
 
-    QString rawRemoteVersion = release[QStringLiteral("tag_name")].toString();
-    QString normalizedRemoteVersion = normalizeVersion(rawRemoteVersion);
-    QString remoteVersionForDisplay = normalizedRemoteVersion.isEmpty() ? rawRemoteVersion : normalizedRemoteVersion;
-    QString comparisonVersion = m_cachedVersion.isEmpty() ? m_currentLocalVersion : m_cachedVersion;
+    const QString rawRemoteVersion = release[QStringLiteral("tag_name")].toString();
+    const QString normalizedRemoteVersion = normalizeVersion(rawRemoteVersion);
+    const QString remoteVersionForDisplay = normalizedRemoteVersion.isEmpty() ? rawRemoteVersion : normalizedRemoteVersion;
+    const QString comparisonVersion = m_cachedVersion.isEmpty() ? m_currentLocalVersion : m_cachedVersion;
 
     if (!isVersionNewer(comparisonVersion, normalizedRemoteVersion)) {
         emit updateFinished(Updater::UpdateStatus::UpToDate, tr("gallery-dl is already up to date (%1).").arg(comparisonVersion));
@@ -147,10 +147,13 @@ void GalleryDlUpdater::onReleaseCheckFinished() {
     QJsonArray assets = release[QStringLiteral("assets")].toArray();
     QUrl downloadUrl;
     for (const QJsonValue &value : assets) {
-        QJsonObject asset = value.toObject();
-        if (asset[QStringLiteral("name")].toString() == QStringLiteral("gallery-dl.exe")) {
-            downloadUrl = QUrl(asset[QStringLiteral("browser_download_url")].toString());
-            break;
+        if (value.isObject()) {
+            QJsonObject asset = value.toObject();
+            if (asset.contains(QStringLiteral("name")) && asset.value(QStringLiteral("name")).isString() &&
+                asset.value(QStringLiteral("name")).toString() == QStringLiteral("gallery-dl.exe")) {
+                downloadUrl = QUrl(asset.value(QStringLiteral("browser_download_url")).toString());
+                break;
+            }
         }
     }
 
@@ -158,7 +161,8 @@ void GalleryDlUpdater::onReleaseCheckFinished() {
         QNetworkRequest request(downloadUrl);
         request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
         request.setHeader(QNetworkRequest::UserAgentHeader, QStringLiteral("LzyDownloader"));
-        request.setTransferTimeout(60000);
+        constexpr int downloadTimeoutMs = 60000;
+        request.setTransferTimeout(downloadTimeoutMs);
         QNetworkReply *dlReply = m_networkManager->get(request);
         dlReply->setProperty("newVersion", remoteVersionForDisplay);
         connect(dlReply, &QNetworkReply::downloadProgress, this, [dlReply](qint64 bytesReceived, qint64 bytesTotal) {
@@ -190,7 +194,7 @@ void GalleryDlUpdater::onDownloadFinished() {
         return;
     }
 
-    QString newVersion = reply->property("newVersion").toString();
+    const QString newVersion = reply->property("newVersion").toString();
 
     ProcessUtils::FoundBinary binary = ProcessUtils::resolveBinary(QStringLiteral("gallery-dl"), m_configManager);
     QString targetPath = binary.path;
@@ -252,7 +256,7 @@ void GalleryDlUpdater::onVersionCheckFinished(int exitCode, QProcess::ExitStatus
 
     if (exitCode == 0) {
         QString versionOutput = QString::fromUtf8(process->readAllStandardOutput()).trimmed();
-        QStringList parts = versionOutput.split(QLatin1Char(' '));
+        QStringList parts = versionOutput.split(QLatin1Char(' '), Qt::SkipEmptyParts);
         m_currentLocalVersion = parts.isEmpty() ? QStringLiteral("0.0.0") : parts.last();
         m_cachedVersion = m_currentLocalVersion;
         saveStoredVersion(m_currentLocalVersion);
@@ -262,7 +266,8 @@ void GalleryDlUpdater::onVersionCheckFinished(int exitCode, QProcess::ExitStatus
         QNetworkRequest request(url);
         request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
         request.setHeader(QNetworkRequest::UserAgentHeader, QStringLiteral("LzyDownloader"));
-        request.setTransferTimeout(15000);
+        constexpr int releaseCheckTimeoutMs = 15000;
+        request.setTransferTimeout(releaseCheckTimeoutMs);
         QNetworkReply *reply = m_networkManager->get(request);
         connect(reply, &QNetworkReply::finished, this, &GalleryDlUpdater::onReleaseCheckFinished);
     }
@@ -276,7 +281,7 @@ bool GalleryDlUpdater::isVersionNewer(const QString &local, const QString &remot
     if (normalizedLocal.isEmpty()) return true;
     QStringList localParts = normalizedLocal.split(QLatin1Char('.'), Qt::SkipEmptyParts);
     QStringList remoteParts = normalizedRemote.split(QLatin1Char('.'), Qt::SkipEmptyParts);
-    for (int i = 0; i < std::min(localParts.size(), remoteParts.size()); ++i) {
+    for (qsizetype i = 0; i < std::min(localParts.size(), remoteParts.size()); ++i) {
         int localNum = localParts[i].toInt();
         int remoteNum = remoteParts[i].toInt();
         if (remoteNum > localNum) return true;

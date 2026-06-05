@@ -18,7 +18,7 @@ LocalApiServer::LocalApiServer(ConfigManager *configManager, QObject *parent)
     : QObject(parent), m_configManager(configManager), m_server(new QTcpServer(this))
 {
     generateOrLoadApiKey();
-    
+
     connect(m_server, &QTcpServer::newConnection, this, &LocalApiServer::onNewConnection);
 }
 
@@ -34,11 +34,11 @@ void LocalApiServer::start()
     }
 
     // Port can be configured later, defaulting to 8765
-    quint16 port = 8765; 
-    
+    constexpr quint16 DEFAULT_PORT = 8765;
+
     // Bind strictly to localhost (127.0.0.1) to prevent external network access
-    if (m_server->listen(QHostAddress::LocalHost, port)) {
-        qInfo() << "Local API Server started on port" << port;
+    if (m_server->listen(QHostAddress::LocalHost, DEFAULT_PORT)) {
+        qInfo() << "Local API Server started on port" << DEFAULT_PORT;
     } else {
         qWarning() << "Failed to start Local API Server:" << m_server->errorString();
     }
@@ -65,14 +65,16 @@ QString LocalApiServer::getApiKey() const
 void LocalApiServer::generateOrLoadApiKey()
 {
     QString dataPath = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation);
-    if (QCoreApplication::arguments().contains(QStringLiteral("--headless")) || QCoreApplication::arguments().contains(QStringLiteral("--server")) || QCoreApplication::arguments().contains(QStringLiteral("--background"))) {
+    const QStringList args = QCoreApplication::arguments();
+    if (args.contains(QStringLiteral("--headless")) || args.contains(QStringLiteral("--server")) || args.contains(QStringLiteral("--background"))) {
         dataPath = QDir(dataPath).filePath(QStringLiteral("Server"));
     }
     QDir().mkpath(dataPath);
     QString keyPath = QDir(dataPath).filePath(QStringLiteral("api_token.txt"));
 
     QFile file(keyPath);
-    if (file.exists() && file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+    // Atomic open prevents Time-of-Check to Time-of-Use (TOCTOU) race conditions
+    if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
         m_apiKey = QString::fromUtf8(file.readAll()).trimmed();
         file.close();
     }
@@ -101,18 +103,20 @@ void LocalApiServer::onDownloadAdded(const QVariantMap &itemData)
 
 void LocalApiServer::onDownloadProgress(const QString &id, const QVariantMap &progressData)
 {
-    if (m_activeJobs.contains(id)) {
+    auto jobIt = m_activeJobs.find(id);
+    if (jobIt != m_activeJobs.end()) {
         for (auto it = progressData.constBegin(); it != progressData.constEnd(); ++it) {
-            m_activeJobs[id].insert(it.key(), it.value());
+            jobIt.value().insert(it.key(), it.value());
         }
     }
 }
 
 void LocalApiServer::onDownloadFinished(const QString &id, bool success, const QString &message)
 {
-    if (m_activeJobs.contains(id)) {
-        m_activeJobs[id].insert(QStringLiteral("status"), success ? QStringLiteral("Complete") : message);
-        m_activeJobs[id].insert(QStringLiteral("progress"), 100);
+    auto jobIt = m_activeJobs.find(id);
+    if (jobIt != m_activeJobs.end()) {
+        jobIt.value().insert(QStringLiteral("status"), success ? QStringLiteral("Complete") : message);
+        jobIt.value().insert(QStringLiteral("progress"), 100);
     }
 }
 
@@ -124,12 +128,13 @@ void LocalApiServer::onDownloadRemoved(const QString &id)
 void LocalApiServer::onNewConnection()
 {
     QTcpSocket *socket = m_server->nextPendingConnection();
-    
+    if (!socket) return;
+
     QTimer *timeoutTimer = new QTimer(socket);
     timeoutTimer->setSingleShot(true);
     connect(timeoutTimer, &QTimer::timeout, socket, &QTcpSocket::disconnectFromHost);
     timeoutTimer->start(std::chrono::seconds(15)); // 15 seconds limit to receive full request payload
-    
+
     connect(socket, &QTcpSocket::readyRead, this, &LocalApiServer::onReadyRead);
     connect(socket, &QTcpSocket::disconnected, socket, &QObject::deleteLater);
 }
@@ -143,7 +148,8 @@ void LocalApiServer::onReadyRead()
     buffer.append(socket->readAll());
 
     // Prevent memory exhaustion if headers are extremely large or missing \r\n\r\n
-    if (buffer.size() > 5 * 1024 * 1024) {
+    constexpr int MAX_PAYLOAD_SIZE = 5 * 1024 * 1024; // 5 MB
+    if (buffer.size() > MAX_PAYLOAD_SIZE) {
         socket->write(QByteArrayLiteral("HTTP/1.1 413 Payload Too Large\r\n\r\n"));
         socket->disconnectFromHost();
         return;
@@ -152,16 +158,17 @@ void LocalApiServer::onReadyRead()
     int headerEnd = buffer.indexOf(QByteArrayLiteral("\r\n\r\n"));
     if (headerEnd != -1) {
         int contentLength = 0;
-        
-        QString headersStr = QString::fromUtf8(buffer.left(headerEnd));
 
-        static const QRegularExpression clRe(QStringLiteral("Content-Length:\\s*(\\d+)"), QRegularExpression::CaseInsensitiveOption);
-        QRegularExpressionMatch clMatch = clRe.match(headersStr);
+        const QString headersStr = QString::fromUtf8(buffer.left(headerEnd));
+
+        static const QRegularExpression clRe(QStringLiteral("^Content-Length:\\s*(\\d+)"), QRegularExpression::CaseInsensitiveOption | QRegularExpression::MultilineOption);
+        const QRegularExpressionMatch clMatch = clRe.match(headersStr);
         if (clMatch.hasMatch()) {
             contentLength = clMatch.captured(1).toInt();
         }
 
-        bool expect100 = headersStr.contains(QStringLiteral("Expect: 100-continue"), Qt::CaseInsensitive);
+        static const QRegularExpression expectRe(QStringLiteral("^Expect:\\s*100-continue"), QRegularExpression::CaseInsensitiveOption | QRegularExpression::MultilineOption);
+        const bool expect100 = expectRe.match(headersStr).hasMatch();
 
         if (expect100 && !socket->property("100sent").toBool()) {
             socket->write(QByteArrayLiteral("HTTP/1.1 100 Continue\r\n\r\n"));
@@ -181,21 +188,27 @@ void LocalApiServer::onReadyRead()
 
 void LocalApiServer::handleRequest(QTcpSocket *socket, const QByteArray &requestData)
 {
-    int bodyIndex = requestData.indexOf(QByteArrayLiteral("\r\n\r\n"));
-    QByteArray headersData = (bodyIndex != -1) ? requestData.left(bodyIndex) : requestData;
-    QByteArray bodyData = (bodyIndex != -1) ? requestData.mid(bodyIndex + 4) : QByteArray();
+    const int bodyIndex = requestData.indexOf(QByteArrayLiteral("\r\n\r\n"));
+    const QByteArray headersData = (bodyIndex != -1) ? requestData.left(bodyIndex) : requestData;
+    const QByteArray bodyData = (bodyIndex != -1) ? requestData.mid(bodyIndex + 4) : QByteArray();
 
-    QString requestStr = QString::fromUtf8(headersData);
-    QStringList lines = requestStr.split(QStringLiteral("\r\n"));
-    if (lines.isEmpty()) return;
+    const QString requestStr = QString::fromUtf8(headersData);
+    const QStringList lines = requestStr.split(QStringLiteral("\r\n"));
+    if (lines.isEmpty() || lines.first().trimmed().isEmpty()) {
+        sendHttpResponse(socket, 400, QStringLiteral("Bad Request"), QByteArrayLiteral("{\"error\": \"Empty request.\"}"));
+        return;
+    }
 
-    QStringList requestParts = lines.first().split(QLatin1Char(' '));
-    if (requestParts.size() < 2) return;
+    const QStringList requestParts = lines.first().split(QLatin1Char(' '));
+    if (requestParts.size() < 2) {
+        sendHttpResponse(socket, 400, QStringLiteral("Bad Request"), QByteArrayLiteral("{\"error\": \"Malformed request line.\"}"));
+        return;
+    }
 
-    QString method = requestParts[0];
-    QString pathQuery = requestParts[1];
-    QUrl url(pathQuery);
-    QString path = url.path();
+    const QString method = requestParts[0];
+    const QString pathQuery = requestParts[1];
+    const QUrl url(pathQuery);
+    const QString path = url.path();
 
     // Enforce API Key, Host, and Origin
     bool authorized = false;
@@ -211,7 +224,8 @@ void LocalApiServer::handleRequest(QTcpSocket *socket, const QByteArray &request
             }
         } else if (line.startsWith(QStringLiteral("Host:"), Qt::CaseInsensitive)) {
             QString host = line.mid(5).trimmed();
-            if (host.startsWith(QStringLiteral("127.0.0.1")) || host.startsWith(QStringLiteral("localhost"))) {
+            static const QRegularExpression hostRe(QStringLiteral("^(?:127\\.0\\.0\\.1|localhost)(?::\\d+)?$"), QRegularExpression::CaseInsensitiveOption);
+            if (hostRe.match(host).hasMatch()) {
                 validHost = true;
             }
         } else if (line.startsWith(QStringLiteral("Origin:"), Qt::CaseInsensitive)) {
@@ -227,9 +241,9 @@ void LocalApiServer::handleRequest(QTcpSocket *socket, const QByteArray &request
     if (!originHeader.isEmpty()) {
         QUrl originUrl(originHeader);
         QString originHost = originUrl.host();
-        if (originHost != QStringLiteral("127.0.0.1") && originHost != QStringLiteral("localhost") && 
-            !originUrl.scheme().startsWith(QStringLiteral("chrome-extension")) && 
-            !originUrl.scheme().startsWith(QStringLiteral("moz-extension"))) {
+        if (originHost != QStringLiteral("127.0.0.1") && originHost != QStringLiteral("localhost") &&
+            originUrl.scheme() != QStringLiteral("chrome-extension") &&
+            originUrl.scheme() != QStringLiteral("moz-extension")) {
             sendHttpResponse(socket, 403, QStringLiteral("Forbidden"), QByteArrayLiteral("{\"error\": \"Unauthorized cross-origin request.\"}"));
             return;
         }
@@ -249,22 +263,16 @@ void LocalApiServer::handleRequest(QTcpSocket *socket, const QByteArray &request
     // Route Endpoints
     if (method == QStringLiteral("POST") && path == QStringLiteral("/enqueue")) {
         QJsonParseError parseError;
-        QJsonDocument doc;
-
-        if (bodyData.size() >= 2 && static_cast<unsigned char>(bodyData.at(0)) == 0xFF && static_cast<unsigned char>(bodyData.at(1)) == 0xFE) {
-            QString bodyStr = QString::fromUtf16(reinterpret_cast<const char16_t*>(bodyData.constData()), bodyData.size() / 2);
-            doc = QJsonDocument::fromJson(bodyStr.toUtf8(), &parseError);
-        } else {
-            doc = QJsonDocument::fromJson(bodyData, &parseError);
-        }
+        const QJsonDocument doc = QJsonDocument::fromJson(bodyData, &parseError);
 
         if (!doc.isNull() && doc.isObject()) {
-            QString targetUrl = doc.object().value(QStringLiteral("url")).toString().trimmed();
-            QString downloadType = doc.object().value(QStringLiteral("type")).toString(QStringLiteral("video")); // Default to "video"
+            const QJsonObject jsonObj = doc.object();
+            const QString targetUrl = jsonObj.value(QStringLiteral("url")).toString().trimmed();
+            const QString downloadType = jsonObj.value(QStringLiteral("type")).toString(QStringLiteral("video")); // Default to "video"
             if (!targetUrl.isEmpty()) {
                 // The signal signature in LocalApiServer.h must be updated to:
                 // void enqueueRequested(const QString &url, const QString &type, const QString &jobId);
-                QString jobId = doc.object().value(QStringLiteral("id")).toString().trimmed();
+                QString jobId = jsonObj.value(QStringLiteral("id")).toString().trimmed();
                 if (jobId.isEmpty()) {
                     jobId = QUuid::createUuid().toString(QUuid::WithoutBraces);
                 }
@@ -277,7 +285,7 @@ void LocalApiServer::handleRequest(QTcpSocket *socket, const QByteArray &request
                 return;
             }
         }
-        
+
         QJsonObject errObj;
         errObj[QStringLiteral("error")] = QStringLiteral("Missing or invalid 'url' in JSON body.");
         if (doc.isNull()) {
@@ -291,8 +299,8 @@ void LocalApiServer::handleRequest(QTcpSocket *socket, const QByteArray &request
         sendHttpResponse(socket, 400, QStringLiteral("Bad Request"), errBytes);
     } else if (method == QStringLiteral("GET") && path == QStringLiteral("/status")) {
         QJsonArray jobsArray;
-        for (const QVariantMap &job : m_activeJobs.values()) {
-            jobsArray.append(QJsonObject::fromVariantMap(job));
+        for (auto it = m_activeJobs.cbegin(); it != m_activeJobs.cend(); ++it) {
+            jobsArray.append(QJsonObject::fromVariantMap(it.value()));
         }
         QJsonObject responseObj;
         responseObj[QStringLiteral("status")] = QStringLiteral("OK");
@@ -307,10 +315,14 @@ void LocalApiServer::handleRequest(QTcpSocket *socket, const QByteArray &request
 void LocalApiServer::sendHttpResponse(QTcpSocket *socket, int statusCode, const QString &statusText, const QByteArray &body)
 {
     QByteArray response;
-    response.append(QStringLiteral("HTTP/1.1 %1 %2\r\n").arg(statusCode).arg(statusText).toUtf8());
-    response.append(QByteArrayLiteral("Content-Type: application/json\r\n"));
-    response.append(QByteArrayLiteral("Connection: close\r\n"));
-    response.append(QStringLiteral("Content-Length: %1\r\n\r\n").arg(body.size()).toUtf8());
+    response.reserve(body.size() + 128);
+    response.append(QByteArrayLiteral("HTTP/1.1 "));
+    response.append(QByteArray::number(statusCode));
+    response.append(' ');
+    response.append(statusText.toUtf8());
+    response.append(QByteArrayLiteral("\r\nContent-Type: application/json\r\nConnection: close\r\nContent-Length: "));
+    response.append(QByteArray::number(body.size()));
+    response.append(QByteArrayLiteral("\r\n\r\n"));
     response.append(body);
     socket->write(response);
 }

@@ -46,7 +46,8 @@ void GalleryDlWorker::start()
 void GalleryDlWorker::killProcess()
 {
     if (m_process->state() != QProcess::NotRunning) {
-        m_process->disconnect(); // Prevent re-entrant read operations on the dying process buffer
+        disconnect(m_process, &QProcess::readyReadStandardOutput, this, &GalleryDlWorker::onReadyReadStandardOutput);
+        disconnect(m_process, &QProcess::readyReadStandardError, this, &GalleryDlWorker::onReadyReadStandardError);
         ProcessUtils::terminateProcessTree(m_process);
         m_process->kill(); // Forcefully kill the QProcess instance as fallback
     }
@@ -136,7 +137,8 @@ void GalleryDlWorker::onReadyReadStandardError()
     for (const QString &line : lines) {
         QString trimmedLine = line.trimmed();
         
-        QStringList currentStderr = m_process->property("fullStderr").toStringList();
+        QString currentStderr = m_process->property("fullStderr").toString();
+        if (!currentStderr.isEmpty()) currentStderr.append(QLatin1Char('\n'));
         currentStderr.append(trimmedLine);
         m_process->setProperty("fullStderr", currentStderr);
         
@@ -193,7 +195,7 @@ void GalleryDlWorker::onProcessFinished(int exitCode, QProcess::ExitStatus exitS
     bool partialSuccess = !success && !m_lastFile.isEmpty() && exitStatus == QProcess::NormalExit;
 
     if (!success && !partialSuccess) {
-        QString stderrOutput = m_process->property("fullStderr").toStringList().join(QLatin1Char('\n')).trimmed();
+        QString stderrOutput = m_process->property("fullStderr").toString().trimmed();
         qWarning() << "GalleryDlWorker failed. Exit code:" << exitCode << "Stderr:" << stderrOutput;
         emit finished(m_id, false, tr("gallery-dl failed: %1").arg(stderrOutput), QString(), QVariantMap());
         return;

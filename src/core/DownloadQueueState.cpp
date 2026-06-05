@@ -28,12 +28,12 @@ QJsonArray DownloadQueueState::load()
     }
 
     if (file.open(QIODevice::ReadOnly)) {
-        QByteArray data = file.readAll();
+        const QByteArray data = file.readAll();
         file.close();
         QJsonParseError parseError;
-        QJsonDocument doc = QJsonDocument::fromJson(data, &parseError);
+        const QJsonDocument doc = QJsonDocument::fromJson(data, &parseError);
         if (parseError.error == QJsonParseError::NoError && doc.isArray() && !doc.array().isEmpty()) {
-            QJsonArray arr = doc.array();
+            const QJsonArray arr = doc.array();
             emit resumeDownloadsRequested(arr);
             return arr;
         } else if (parseError.error != QJsonParseError::NoError && !data.isEmpty()) {
@@ -48,42 +48,42 @@ void DownloadQueueState::save(const QList<DownloadItem>& activeItems, const QMap
     QJsonArray queueArray;
     for (const DownloadItem &item : activeItems) {
         QJsonObject obj;
-        obj[QStringLiteral("id")] = item.id;
-        obj[QStringLiteral("url")] = item.url;
-        obj[QStringLiteral("options")] = QJsonObject::fromVariantMap(item.options);
-        obj[QStringLiteral("metadata")] = QJsonObject::fromVariantMap(item.metadata);
-        obj[QStringLiteral("status")] = QStringLiteral("queued"); // Active items revert to queued on app start
-        obj[QStringLiteral("playlistIndex")] = item.playlistIndex;
-        obj[QStringLiteral("tempFilePath")] = item.tempFilePath;
-        obj[QStringLiteral("originalDownloadedFilePath")] = item.originalDownloadedFilePath;
+        obj.insert(QStringLiteral("id"), item.id);
+        obj.insert(QStringLiteral("url"), item.url);
+        obj.insert(QStringLiteral("options"), QJsonObject::fromVariantMap(item.options));
+        obj.insert(QStringLiteral("metadata"), QJsonObject::fromVariantMap(item.metadata));
+        obj.insert(QStringLiteral("status"), QStringLiteral("queued")); // Active items revert to queued on app start
+        obj.insert(QStringLiteral("playlistIndex"), item.playlistIndex);
+        obj.insert(QStringLiteral("tempFilePath"), item.tempFilePath);
+        obj.insert(QStringLiteral("originalDownloadedFilePath"), item.originalDownloadedFilePath);
         queueArray.append(obj);
     }
     for (const DownloadItem &item : pausedItems) {
         QJsonObject obj;
-        obj[QStringLiteral("id")] = item.id;
-        obj[QStringLiteral("url")] = item.url;
-        obj[QStringLiteral("options")] = QJsonObject::fromVariantMap(item.options);
-        obj[QStringLiteral("metadata")] = QJsonObject::fromVariantMap(item.metadata);
+        obj.insert(QStringLiteral("id"), item.id);
+        obj.insert(QStringLiteral("url"), item.url);
+        obj.insert(QStringLiteral("options"), QJsonObject::fromVariantMap(item.options));
+        obj.insert(QStringLiteral("metadata"), QJsonObject::fromVariantMap(item.metadata));
         if (item.options.value(QStringLiteral("is_stopped")).toBool() || item.options.value(QStringLiteral("is_failed")).toBool()) {
-            obj[QStringLiteral("status")] = QStringLiteral("stopped");
+            obj.insert(QStringLiteral("status"), QStringLiteral("stopped"));
         } else {
-            obj[QStringLiteral("status")] = QStringLiteral("paused");
+            obj.insert(QStringLiteral("status"), QStringLiteral("paused"));
         }
-        obj[QStringLiteral("playlistIndex")] = item.playlistIndex;
-        obj[QStringLiteral("tempFilePath")] = item.tempFilePath;
-        obj[QStringLiteral("originalDownloadedFilePath")] = item.originalDownloadedFilePath;
+        obj.insert(QStringLiteral("playlistIndex"), item.playlistIndex);
+        obj.insert(QStringLiteral("tempFilePath"), item.tempFilePath);
+        obj.insert(QStringLiteral("originalDownloadedFilePath"), item.originalDownloadedFilePath);
         queueArray.append(obj);
     }
     for (const auto& item : downloadQueue) {
         QJsonObject obj;
-        obj[QStringLiteral("id")] = item.id;
-        obj[QStringLiteral("url")] = item.url;
-        obj[QStringLiteral("options")] = QJsonObject::fromVariantMap(item.options);
-        obj[QStringLiteral("metadata")] = QJsonObject::fromVariantMap(item.metadata);
-        obj[QStringLiteral("status")] = QStringLiteral("queued");
-        obj[QStringLiteral("playlistIndex")] = item.playlistIndex;
-        obj[QStringLiteral("tempFilePath")] = item.tempFilePath;
-        obj[QStringLiteral("originalDownloadedFilePath")] = item.originalDownloadedFilePath;
+        obj.insert(QStringLiteral("id"), item.id);
+        obj.insert(QStringLiteral("url"), item.url);
+        obj.insert(QStringLiteral("options"), QJsonObject::fromVariantMap(item.options));
+        obj.insert(QStringLiteral("metadata"), QJsonObject::fromVariantMap(item.metadata));
+        obj.insert(QStringLiteral("status"), QStringLiteral("queued"));
+        obj.insert(QStringLiteral("playlistIndex"), item.playlistIndex);
+        obj.insert(QStringLiteral("tempFilePath"), item.tempFilePath);
+        obj.insert(QStringLiteral("originalDownloadedFilePath"), item.originalDownloadedFilePath);
         queueArray.append(obj);
     }
 
@@ -92,7 +92,7 @@ void DownloadQueueState::save(const QList<DownloadItem>& activeItems, const QMap
     } else {
         QSaveFile file(m_backupPath);
         if (file.open(QIODevice::WriteOnly)) {
-            file.write(QJsonDocument(queueArray).toJson());
+            file.write(QJsonDocument(queueArray).toJson(QJsonDocument::Compact));
             if (!file.commit()) {
                 qWarning() << "Failed to commit download queue backup file:" << file.errorString();
             }

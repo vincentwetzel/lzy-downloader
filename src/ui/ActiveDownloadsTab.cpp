@@ -38,12 +38,12 @@ void ActiveDownloadsTab::setupUi() {
 
     QHBoxLayout *toolbarLayout = new QHBoxLayout();
     m_cancelAllButton = new QPushButton(this);
-    m_cancelAllButton->setIcon(createColoredIcon(QStyle::SP_MediaStop, QColor("#ef4444")));
+    m_cancelAllButton->setIcon(createColoredIcon(QStyle::SP_MediaStop, QColor(QStringLiteral("#ef4444"))));
     m_cancelAllButton->setToolTip(tr("Stop All Active Downloads"));
     m_cancelAllButton->setFixedSize(32, 32);
 
     QPushButton *resumeAllButton = new QPushButton(this);
-    resumeAllButton->setIcon(createColoredIcon(QStyle::SP_MediaPlay, QColor("#22c55e")));
+    resumeAllButton->setIcon(createColoredIcon(QStyle::SP_MediaPlay, QColor(QStringLiteral("#22c55e"))));
     resumeAllButton->setObjectName(QStringLiteral("resumeAllButton"));
     resumeAllButton->setToolTip(tr("Resume all stopped or failed downloads."));
     resumeAllButton->setFixedSize(32, 32);
@@ -76,7 +76,7 @@ void ActiveDownloadsTab::setupUi() {
     });
 
     m_clearInactiveButton = new QPushButton(this);
-    m_clearInactiveButton->setIcon(createColoredIcon(QStyle::SP_TrashIcon, QColor("#64748b")));
+    m_clearInactiveButton->setIcon(createColoredIcon(QStyle::SP_TrashIcon, QColor(QStringLiteral("#64748b"))));
     m_clearInactiveButton->setToolTip(tr("Clear all inactive (completed, stopped, and failed) downloads."));
     m_clearInactiveButton->setFixedSize(32, 32);
     
@@ -118,7 +118,7 @@ void ActiveDownloadsTab::setupUi() {
 
     // Add folder buttons for quick access to download directories
     QPushButton *openTempFolderButton = new QPushButton(tr("Open Temporary Folder"), this);
-    openTempFolderButton->setIcon(createColoredIcon(QStyle::SP_DirIcon, QColor("#3b82f6")));
+    openTempFolderButton->setIcon(createColoredIcon(QStyle::SP_DirIcon, QColor(QStringLiteral("#3b82f6"))));
     openTempFolderButton->setToolTip(tr("Click here to open the folder where active downloads are temporarily stored."));
     connect(openTempFolderButton, &QPushButton::clicked, this, [this]() {
         QString tempDir = m_configManager->get(QStringLiteral("Paths"), QStringLiteral("temporary_downloads_directory")).toString();
@@ -132,7 +132,7 @@ void ActiveDownloadsTab::setupUi() {
     });
     
     QPushButton *openDownloadsFolderButton = new QPushButton(tr("Open Downloads Folder"), this);
-    openDownloadsFolderButton->setIcon(createColoredIcon(QStyle::SP_DirOpenIcon, QColor("#3b82f6")));
+    openDownloadsFolderButton->setIcon(createColoredIcon(QStyle::SP_DirOpenIcon, QColor(QStringLiteral("#3b82f6"))));
     openDownloadsFolderButton->setToolTip(tr("Click here to open the folder where all your finished downloads are saved."));
     connect(openDownloadsFolderButton, &QPushButton::clicked, this, [this]() {
         QString downloadsDir = m_configManager->get(QStringLiteral("Paths"), QStringLiteral("completed_downloads_directory")).toString();
@@ -161,7 +161,7 @@ void ActiveDownloadsTab::setupUi() {
     m_placeholderWidget = new QWidget(this);
     QVBoxLayout *placeholderLayout = new QVBoxLayout(m_placeholderWidget);
 
-    QLabel *iconLabel = new QLabel("📥", this);
+    QLabel *iconLabel = new QLabel(QStringLiteral("📥"), this);
     iconLabel->setAlignment(Qt::AlignCenter);
     QFont iconFont = iconLabel->font();
     iconFont.setPointSize(48);

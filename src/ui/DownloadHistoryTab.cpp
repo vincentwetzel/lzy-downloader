@@ -78,21 +78,23 @@ public:
         QVBoxLayout *infoLayout = new QVBoxLayout();
         
         QLabel *titleLabel = new QLabel(data.title.isEmpty() ? tr("Unknown Title") : data.title, this);
+        titleLabel->setTextFormat(Qt::PlainText);
         QFont titleFont = titleLabel->font();
         titleFont.setBold(true);
         titleLabel->setFont(titleFont);
         titleLabel->setWordWrap(true);
         
         QLabel *urlLabel = new QLabel(data.url, this);
+        urlLabel->setTextFormat(Qt::PlainText);
         QFont urlFont = urlLabel->font();
         urlFont.setPointSize(qMax(8, urlFont.pointSize() - 1));
         urlLabel->setFont(urlFont);
         
-        QString sizeStr = data.totalBytes > 0 ? QString::number(data.totalBytes / (1024.0 * 1024.0), 'f', 2) + " MB" : tr("Unknown Size");
+        QString sizeStr = data.totalBytes > 0 ? tr("%1 MB").arg(QString::number(data.totalBytes / (1024.0 * 1024.0), 'f', 2)) : tr("Unknown Size");
         
-        QString detailsText = QString("%1 • %2").arg(data.timestamp).arg(sizeStr);
+        QString detailsText = QStringLiteral("%1 • %2").arg(data.timestamp, sizeStr);
         if (!data.duration.isEmpty()) {
-            detailsText += QString(" • %1").arg(data.duration);
+            detailsText += QStringLiteral(" • %1").arg(data.duration);
         }
         
         QLabel *detailsLabel = new QLabel(detailsText, this);

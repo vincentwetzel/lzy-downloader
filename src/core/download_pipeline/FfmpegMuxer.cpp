@@ -17,7 +17,7 @@ FfmpegMuxer::FfmpegMuxer(QObject *parent)
     });
     connect(m_process, &QProcess::errorOccurred, this, [this](QProcess::ProcessError error) {
         if (error == QProcess::FailedToStart) {
-            emit mergeFailed("Failed to start ffmpeg. Is the executable missing?");
+            emit mergeFailed(tr("Failed to start ffmpeg. Is the executable missing?"));
         }
     });
 
@@ -25,7 +25,7 @@ FfmpegMuxer::FfmpegMuxer(QObject *parent)
         appendProcessOutput(m_process->readAllStandardOutput());
         appendProcessOutput(m_process->readAllStandardError());
         if (exitStatus == QProcess::CrashExit || exitCode != 0) {
-            QString errorMsg = "FFmpeg process failed. Error: " + m_process->errorString() + "\n" + m_processOutputTail;
+            QString errorMsg = tr("FFmpeg process failed. Error: %1\n%2").arg(m_process->errorString(), m_processOutputTail);
             emit mergeFailed(errorMsg);
             return;
         }
@@ -50,12 +50,12 @@ FfmpegMuxer::FfmpegMuxer(QObject *parent)
 void FfmpegMuxer::merge(const QString &ffmpegPath, const QStringList &inputFiles, const QString &outputFile, const QString &title, const QString &artworkPath, const QList<SubtitleFile> &subtitleFiles)
 {
     if (m_process->state() != QProcess::NotRunning) {
-        emit mergeFailed("FFmpeg is already running another job.");
+        emit mergeFailed(tr("FFmpeg is already running another job."));
         return;
     }
 
     if (inputFiles.isEmpty()) {
-        emit mergeFailed("No input files provided for merging.");
+        emit mergeFailed(tr("No input files provided for merging."));
         return;
     }
 
@@ -63,17 +63,16 @@ void FfmpegMuxer::merge(const QString &ffmpegPath, const QStringList &inputFiles
     m_currentSubtitleFiles = subtitleFiles;
     m_currentOutputFile = outputFile;
     m_processOutputTail.clear();
-    
-    bool hasArtwork = !artworkPath.isEmpty() && QFile::exists(artworkPath);
+
+    const bool hasArtwork = !artworkPath.isEmpty() && QFile::exists(artworkPath);
     if (hasArtwork) {
         m_currentInputFiles.append(artworkPath); // Append to list so it gets auto-deleted on cleanup!
     }
-    bool hasSubtitles = !subtitleFiles.isEmpty();
-    
-    QString ext = QFileInfo(outputFile).suffix().toLower();
-    bool supportsSubtitles = (ext == "mp4" || ext == "mkv" || ext == "webm" || ext == "mov" || ext == "m4v" || ext == "m4a");
-    if (hasSubtitles && !supportsSubtitles) {
-        hasSubtitles = false;
+
+    const QString ext = QFileInfo(outputFile).suffix().toLower();
+    const bool supportsSubtitles = (ext == QStringLiteral("mp4") || ext == QStringLiteral("mkv") || ext == QStringLiteral("webm") || ext == QStringLiteral("mov") || ext == QStringLiteral("m4v") || ext == QStringLiteral("m4a"));
+    const bool hasSubtitles = !subtitleFiles.isEmpty() && supportsSubtitles;
+    if (!subtitleFiles.isEmpty() && !supportsSubtitles) {
         qDebug() << "Output container does not support embedded subtitles. Ignoring.";
     }
 
@@ -88,75 +87,75 @@ void FfmpegMuxer::merge(const QString &ffmpegPath, const QStringList &inputFiles
             }
             emit mergeSuccess(outputFile);
         } else {
-            emit mergeFailed("Failed to rename single downloaded file to final output.");
+            emit mergeFailed(tr("Failed to rename single downloaded file to final output."));
         }
         return;
     }
 
     QStringList args;
-    args << "-nostdin";
-    
+    args << QStringLiteral("-nostdin");
+
     for (const QString &inputFile : inputFiles) {
-        args << "-i" << inputFile;
+        args << QStringLiteral("-i") << inputFile;
     }
 
     if (hasSubtitles) {
         for (const SubtitleFile &subFile : subtitleFiles) {
-            args << "-i" << subFile.path;
+            args << QStringLiteral("-i") << subFile.path;
         }
     }
 
     if (hasArtwork) {
-        args << "-i" << artworkPath;
+        args << QStringLiteral("-i") << artworkPath;
     }
 
     // Map all media inputs (Video/Audio)
     int streamIndex = 0;
     for (int i = 0; i < inputFiles.size(); ++i, ++streamIndex) {
-        args << "-map" << QString::number(i);
+        args << QStringLiteral("-map") << QString::number(i);
     }
 
     // Map subtitle inputs
     if (hasSubtitles) {
         for (int i = 0; i < subtitleFiles.size(); ++i, ++streamIndex) {
-            args << "-map" << QString::number(streamIndex);
+            args << QStringLiteral("-map") << QString::number(streamIndex);
         }
     }
 
     // Map the artwork as an attached picture stream
     if (hasArtwork) {
-        args << "-map" << QString::number(streamIndex);
+        args << QStringLiteral("-map") << QString::number(streamIndex);
     }
 
     // Copy media streams without re-encoding
-    args << "-c:v" << "copy" << "-c:a" << "copy";
-    
+    args << QStringLiteral("-c:v") << QStringLiteral("copy") << QStringLiteral("-c:a") << QStringLiteral("copy");
+
     if (hasSubtitles) {
         // MP4 requires mov_text, MKV/WebM handles SRT best
-        if (outputFile.endsWith(".mp4", Qt::CaseInsensitive) || outputFile.endsWith(".m4a", Qt::CaseInsensitive)) {
-            args << "-c:s" << "mov_text";
-        } else if (outputFile.endsWith(".webm", Qt::CaseInsensitive)) {
-            args << "-c:s" << "webvtt";
+        if (outputFile.endsWith(QStringLiteral(".mp4"), Qt::CaseInsensitive) || outputFile.endsWith(QStringLiteral(".m4a"), Qt::CaseInsensitive)) {
+            args << QStringLiteral("-c:s") << QStringLiteral("mov_text");
+        } else if (outputFile.endsWith(QStringLiteral(".webm"), Qt::CaseInsensitive)) {
+            args << QStringLiteral("-c:s") << QStringLiteral("webvtt");
         } else {
-            args << "-c:s" << "srt"; 
+            args << QStringLiteral("-c:s") << QStringLiteral("srt");
         }
 
         for (int i = 0; i < subtitleFiles.size(); ++i) {
-            args << QString("-metadata:s:s:%1").arg(i) << QString("language=%1").arg(subtitleFiles[i].language);
+            args << QStringLiteral("-metadata:s:s:%1").arg(i) << QStringLiteral("language=%1").arg(subtitleFiles[i].language);
         }
     }
 
     if (hasArtwork) {
         // If audio-only, artwork is the first video stream (v:0). If video+audio, it's the second (v:1).
-        bool isAudioOnly = (ext == "mp3" || ext == "m4a" || ext == "wav" || ext == "flac" || ext == "opus" || ext == "ogg" || ext == "aac");
-        args << QString("-disposition:v:%1").arg(isAudioOnly ? 0 : 1) << "attached_pic";
+        bool isAudioOnly = (ext == QStringLiteral("mp3") || ext == QStringLiteral("m4a") || ext == QStringLiteral("wav") || ext == QStringLiteral("flac") || ext == QStringLiteral("opus") || ext == QStringLiteral("ogg") || ext == QStringLiteral("aac"));
+        args << QStringLiteral("-disposition:v:%1").arg(isAudioOnly ? 0 : 1) << QStringLiteral("attached_pic");
     }
 
     if (!title.isEmpty()) {
-        args << "-metadata" << QString("title=%1").arg(title);
+        args << QStringLiteral("-metadata") << QStringLiteral("title=%1").arg(title);
     }
 
-    args << "-y" << outputFile;
+    args << QStringLiteral("-y") << outputFile;
 
     qInfo() << "[FfmpegMuxer] Starting ffmpeg merge for" << outputFile;
     m_process->start(ffmpegPath, args);

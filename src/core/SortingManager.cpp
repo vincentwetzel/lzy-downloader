@@ -169,9 +169,17 @@ QVariant SortingManager::metadataValueForField(const QString &field, const QVari
         {QStringLiteral("id"), {QStringLiteral("id"), QStringLiteral("display_id")}}
     };
 
-    const QStringList aliasCandidates = aliases.value(normalizedField, {normalizedField});
-    for (const QString &candidate : aliasCandidates) {
-        const QVariant value = metadataValueForKey(candidate, metadata);
+    auto it = aliases.constFind(normalizedField);
+    if (it != aliases.constEnd()) {
+        for (const QString &candidate : it.value()) {
+            const QVariant value = metadataValueForKey(candidate, metadata);
+            if (value.isValid() && !value.toString().trimmed().isEmpty() &&
+                value.toString().trimmed().toLower() != QStringLiteral("null") && value.toString().trimmed() != QStringLiteral("NA")) {
+                return value;
+            }
+        }
+    } else {
+        const QVariant value = metadataValueForKey(normalizedField, metadata);
         if (value.isValid() && !value.toString().trimmed().isEmpty() &&
             value.toString().trimmed().toLower() != QStringLiteral("null") && value.toString().trimmed() != QStringLiteral("NA")) {
             return value;
@@ -208,21 +216,21 @@ QString SortingManager::getSortedDirectory(const QVariantMap &videoMetadata, con
     for (int i = 0; i < size; ++i) {
         QString key = QStringLiteral("rule_%1").arg(i);
         
-        QString ruleName = m_configManager->get(QStringLiteral("SortingRules"), QStringLiteral("%1_name").arg(key)).toString();
-        QVariant appliesToVar = m_configManager->get(QStringLiteral("SortingRules"), QStringLiteral("%1_applies_to").arg(key));
+        QString ruleName = m_configManager->get(QStringLiteral("SortingRules"), key + QStringLiteral("_name")).toString();
+        QVariant appliesToVar = m_configManager->get(QStringLiteral("SortingRules"), key + QStringLiteral("_applies_to"));
         QString appliesTo = appliesToVar.isValid() ? appliesToVar.toString() : QStringLiteral("All Downloads");
-        QString targetFolder = m_configManager->get(QStringLiteral("SortingRules"), QStringLiteral("%1_target_folder").arg(key)).toString();
-        QString subfolderPattern = m_configManager->get(QStringLiteral("SortingRules"), QStringLiteral("%1_subfolder_pattern").arg(key)).toString();
+        QString targetFolder = m_configManager->get(QStringLiteral("SortingRules"), key + QStringLiteral("_target_folder")).toString();
+        QString subfolderPattern = m_configManager->get(QStringLiteral("SortingRules"), key + QStringLiteral("_subfolder_pattern")).toString();
         
         // Load conditions
-        int condSize = m_configManager->get(QStringLiteral("SortingRules"), QStringLiteral("%1_conditions_size").arg(key), 0).toInt();
+        int condSize = m_configManager->get(QStringLiteral("SortingRules"), key + QStringLiteral("_conditions_size"), 0).toInt();
         QJsonArray conditionsArray;
         for (int j = 0; j < condSize; ++j) {
             QString condKey = QStringLiteral("%1_condition_%2").arg(key).arg(j);
             QJsonObject cond;
-            cond[QStringLiteral("field")] = m_configManager->get(QStringLiteral("SortingRules"), QStringLiteral("%1_field").arg(condKey)).toString();
-            cond[QStringLiteral("operator")] = m_configManager->get(QStringLiteral("SortingRules"), QStringLiteral("%1_operator").arg(condKey)).toString();
-            cond[QStringLiteral("value")] = m_configManager->get(QStringLiteral("SortingRules"), QStringLiteral("%1_value").arg(condKey)).toString();
+            cond[QStringLiteral("field")] = m_configManager->get(QStringLiteral("SortingRules"), condKey + QStringLiteral("_field")).toString();
+            cond[QStringLiteral("operator")] = m_configManager->get(QStringLiteral("SortingRules"), condKey + QStringLiteral("_operator")).toString();
+            cond[QStringLiteral("value")] = m_configManager->get(QStringLiteral("SortingRules"), condKey + QStringLiteral("_value")).toString();
             conditionsArray.append(cond);
         }
         
@@ -388,7 +396,7 @@ QString SortingManager::parseAndReplaceTokens(const QString &pattern, const QVar
             value.toString().trimmed().toLower() != QStringLiteral("null") && value.toString().trimmed() != QStringLiteral("NA")) {
             result.replace(token, sanitize(value.toString()), Qt::CaseInsensitive);
         } else {
-            result.replace(token, QLatin1String("Unknown"), Qt::CaseInsensitive);
+            result.replace(token, QStringLiteral("Unknown"), Qt::CaseInsensitive);
         }
     }
 

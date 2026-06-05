@@ -10,6 +10,7 @@
 #include <QFileInfo>
 #include <QDir>
 #include <algorithm>
+#include <array>
 #include <QThread>
 
 ArchiveManager::ArchiveManager(ConfigManager *configManager, QObject *parent)
@@ -39,6 +40,10 @@ ArchiveManager::~ArchiveManager() {
         }
     }
     for (const QString &connName : connectionsToRemove) {
+        {
+            QSqlDatabase db = QSqlDatabase::database(connName, false);
+            if (db.isOpen()) db.close();
+        }
         QSqlDatabase::removeDatabase(connName);
     }
 }
@@ -79,6 +84,10 @@ void ArchiveManager::closeDatabase() {
         }
     }
     for (const QString &connName : connectionsToRemove) {
+        {
+            QSqlDatabase db = QSqlDatabase::database(connName, false);
+            if (db.isOpen()) db.close();
+        }
         QSqlDatabase::removeDatabase(connName);
     }
     qDebug() << "Archive database connections closed.";
@@ -135,16 +144,17 @@ void ArchiveManager::backfillIdentityColumns() {
                "OR (provider = 'youtube' AND (media_id IS NULL OR media_id = ''))"));
 
     db.transaction();
+    QSqlQuery updateQuery(db);
+    updateQuery.prepare(QStringLiteral("UPDATE downloads SET normalized_url = ?, provider = ?, media_id = ? WHERE url = ?"));
+
     while (query.next()) {
         QString url = query.value(0).toString();
         UrlIdentity identity = buildIdentity(url);
 
-        QSqlQuery updateQuery(db);
-        updateQuery.prepare(QStringLiteral("UPDATE downloads SET normalized_url = ?, provider = ?, media_id = ? WHERE url = ?"));
-        updateQuery.addBindValue(identity.normalizedUrl);
-        updateQuery.addBindValue(identity.provider);
-        updateQuery.addBindValue(identity.mediaId);
-        updateQuery.addBindValue(url);
+        updateQuery.bindValue(0, identity.normalizedUrl);
+        updateQuery.bindValue(1, identity.provider);
+        updateQuery.bindValue(2, identity.mediaId);
+        updateQuery.bindValue(3, url);
         updateQuery.exec();
     }
     db.commit();
@@ -230,30 +240,30 @@ QString ArchiveManager::extractVideoId(const QString &urlStr) const {
     QUrl url(urlStr);
     QString host = url.host().toLower();
 
+    static const QRegularExpression idRe(QStringLiteral("^[0-9A-Za-z_-]{11}$"));
+
     if (host.contains(QStringLiteral("youtube.com"))) {
         QUrlQuery query(url);
         QString v = query.queryItemValue(QStringLiteral("v"));
         if (!v.isEmpty()) {
-            static const QRegularExpression re(QStringLiteral("^[0-9A-Za-z_-]{11}$"));
-            if (re.match(v).hasMatch()) return v;
+            if (idRe.match(v).hasMatch()) return v;
         }
 
         static const QRegularExpression re(QStringLiteral(R"(/(?:shorts|live|embed)/([0-9A-Za-z_-]{11})(?:[/?#]|$))"));
         QRegularExpressionMatch match = re.match(url.path());
         if (match.hasMatch()) return match.captured(1);
-            
-            // Fallback patterns only for YouTube domains to prevent misclassifying generic URLs
-            static const QRegularExpression p1(QStringLiteral(R"((?:v=|/)([0-9A-Za-z_-]{11})(?:[/?#]|$))"));
-            QRegularExpressionMatch m1 = p1.match(urlStr);
-            if (m1.hasMatch()) return m1.captured(1);
+
+        // Fallback patterns only for YouTube domains to prevent misclassifying generic URLs
+        static const QRegularExpression p1(QStringLiteral(R"((?:v=|/)([0-9A-Za-z_-]{11})(?:[/?#]|$))"));
+        const QRegularExpressionMatch m1 = p1.match(urlStr);
+        if (m1.hasMatch()) return m1.captured(1);
     } else if (host.contains(QStringLiteral("youtu.be"))) {
         QString path = url.path();
         if (path.startsWith(QLatin1Char('/'))) path = path.mid(1);
         QStringList parts = path.split(QLatin1Char('/'));
         if (!parts.isEmpty()) {
             QString seg = parts.first();
-            static const QRegularExpression re(QStringLiteral("^[0-9A-Za-z_-]{11}$"));
-            if (re.match(seg).hasMatch()) return seg;
+            if (idRe.match(seg).hasMatch()) return seg;
         }
     }
 
@@ -283,12 +293,15 @@ QString ArchiveManager::normalizeUrl(const QString &urlStr) const {
 
     QStringList keptParams;
     if (host.contains(QStringLiteral("youtube")) || host.contains(QStringLiteral("youtu.be"))) {
-        const QSet<QString> dropParams = {
-            QStringLiteral("utm_source"), QStringLiteral("utm_medium"), QStringLiteral("utm_campaign"), QStringLiteral("utm_term"), QStringLiteral("utm_content"),
-            QStringLiteral("si"), QStringLiteral("feature"), QStringLiteral("pp")
+        static constexpr std::array<QStringView, 8> dropParams = {
+            u"utm_source", u"utm_medium", u"utm_campaign", u"utm_term", u"utm_content",
+            u"si", u"feature", u"pp"
         };
         for (const auto &item : queryItems) {
-            if (dropParams.contains(item.first.toLower())) continue;
+            auto it = std::ranges::find_if(dropParams, [&](QStringView p) {
+                return item.first.compare(p, Qt::CaseInsensitive) == 0;
+            });
+            if (it != dropParams.end()) continue;
             keptParams.append(QStringLiteral("%1=%2").arg(item.first, item.second));
         }
     }

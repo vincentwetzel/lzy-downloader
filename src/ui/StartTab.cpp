@@ -79,10 +79,6 @@ StartTab::StartTab(ConfigManager *configManager, ExtractorJsonParser *extractorJ
 StartTab::~StartTab() {
     delete m_ytDlpArgsBuilder;
     delete m_galleryDlArgsBuilder;
-    delete m_uiBuilder;
-    delete m_urlHandler;
-    delete m_downloadActions;
-    delete m_commandPreviewUpdater;
 }
 
 void StartTab::onExtractorsReady() {
