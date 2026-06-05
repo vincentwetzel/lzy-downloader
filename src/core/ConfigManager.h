@@ -11,13 +11,13 @@ class ConfigManager : public QObject {
 public:
     explicit ConfigManager(const QString &fileName, QObject *parent = nullptr); // Original, now explicit about fileName
     explicit ConfigManager(const QString &customPath, bool forTesting, QObject *parent = nullptr); // New, for custom paths or testing
-    QVariant get(const QString &section, const QString &key, const QVariant &defaultValue = QVariant());
+    QVariant get(const QString &section, const QString &key, const QVariant &defaultValue = QVariant()) const;
     bool set(const QString &section, const QString &key, const QVariant &value);
     void remove(const QString &section, const QString &key);
     void save();
     QString getConfigDir() const;
     void setDefaults();
-    QVariant getDefault(const QString &section, const QString &key);
+    QVariant getDefault(const QString &section, const QString &key) const;
     void resetToDefaults();
 
 signals:

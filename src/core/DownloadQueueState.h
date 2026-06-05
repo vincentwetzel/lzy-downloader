@@ -1,5 +1,4 @@
-#ifndef DOWNLOADQUEUESTATE_H
-#define DOWNLOADQUEUESTATE_H
+#pragma once
 
 #include "DownloadItem.h"
 #include <QObject>
@@ -21,5 +20,3 @@ signals:
 private:
     QString m_backupPath;
 };
-
-#endif // DOWNLOADQUEUESTATE_H

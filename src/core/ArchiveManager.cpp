@@ -30,22 +30,7 @@ ArchiveManager::ArchiveManager(ConfigManager *configManager, const QString &dbPa
 }
 
 ArchiveManager::~ArchiveManager() {
-    QStringList connectionsToRemove;
-    {
-        QMutexLocker locker(&m_mutex);
-        for (const QString &connName : QSqlDatabase::connectionNames()) {
-            if (connName.startsWith(QStringLiteral("archive_connection"))) {
-                connectionsToRemove.append(connName);
-            }
-        }
-    }
-    for (const QString &connName : connectionsToRemove) {
-        {
-            QSqlDatabase db = QSqlDatabase::database(connName, false);
-            if (db.isOpen()) db.close();
-        }
-        QSqlDatabase::removeDatabase(connName);
-    }
+    closeCurrentThreadDatabase();
 }
 
 QString ArchiveManager::getArchiveDbPath() const {
@@ -53,7 +38,7 @@ QString ArchiveManager::getArchiveDbPath() const {
 }
 
 QSqlDatabase ArchiveManager::getDatabase() {
-    const QString connectionName = QStringLiteral("archive_connection_%1").arg(reinterpret_cast<quintptr>(QThread::currentThreadId()));
+    const QString connectionName = currentThreadConnectionName();
     QSqlDatabase db = QSqlDatabase::database(connectionName, false);
     if (!db.isValid()) {
         db = QSqlDatabase::addDatabase(QStringLiteral("QSQLITE"), connectionName);
@@ -73,24 +58,31 @@ QSqlDatabase ArchiveManager::getDatabase() {
     return db;
 }
 
-void ArchiveManager::closeDatabase() {
-    QStringList connectionsToRemove;
+QString ArchiveManager::currentThreadConnectionName() const {
+    return QStringLiteral("archive_connection_%1").arg(reinterpret_cast<quintptr>(QThread::currentThreadId()));
+}
+
+void ArchiveManager::closeCurrentThreadDatabase() {
+    const QString connectionName = currentThreadConnectionName();
     {
         QMutexLocker locker(&m_mutex);
-        for (const QString &connName : QSqlDatabase::connectionNames()) {
-            if (connName.startsWith(QStringLiteral("archive_connection"))) {
-                connectionsToRemove.append(connName);
-            }
+        if (!QSqlDatabase::contains(connectionName)) {
+            return;
         }
     }
-    for (const QString &connName : connectionsToRemove) {
-        {
-            QSqlDatabase db = QSqlDatabase::database(connName, false);
-            if (db.isOpen()) db.close();
+
+    {
+        QSqlDatabase db = QSqlDatabase::database(connectionName, false);
+        if (db.isOpen()) {
+            db.close();
         }
-        QSqlDatabase::removeDatabase(connName);
     }
-    qDebug() << "Archive database connections closed.";
+    QSqlDatabase::removeDatabase(connectionName);
+}
+
+void ArchiveManager::closeDatabase() {
+    closeCurrentThreadDatabase();
+    qDebug() << "Archive database connection closed for current thread.";
 }
 
 void ArchiveManager::ensureSchema() {

@@ -1,5 +1,4 @@
-#ifndef SORTINGRULEDIALOG_H
-#define SORTINGRULEDIALOG_H
+#pragma once
 
 #include <QDialog>
 #include <QComboBox>
@@ -42,4 +41,3 @@ private:
     QPushButton *m_addConditionButton;
 };
 
-#endif // SORTINGRULEDIALOG_H

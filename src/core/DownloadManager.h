@@ -1,5 +1,4 @@
-#ifndef DOWNLOADMANAGER_H
-#define DOWNLOADMANAGER_H
+#pragma once
 
 #include <QObject>
 #include <QQueue>
@@ -133,4 +132,4 @@ private:
     DownloadQueueManager *m_queueManager;
 };
 
-#endif // DOWNLOADMANAGER_H
+

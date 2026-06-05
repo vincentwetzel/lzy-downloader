@@ -1,5 +1,4 @@
-#ifndef STARTTABUIBUILDER_H
-#define STARTTABUIBUILDER_H
+#pragma once
 
 #include <QObject>
 #include <QTextEdit>
@@ -41,5 +40,3 @@ private:
     QTextEdit *m_commandPreview;
     QPushButton *m_openDownloadsFolderButton;
 };
-
-#endif // STARTTABUIBUILDER_H

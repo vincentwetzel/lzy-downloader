@@ -17,6 +17,10 @@ StartTabUrlHandler::StartTabUrlHandler(ConfigManager *configManager, ExtractorJs
       m_uiBuilder(uiBuilder),
       m_typeSelectionDialog(nullptr)
 {
+    if (!m_uiBuilder) {
+        qCritical() << "CRITICAL ERROR: m_uiBuilder is null in StartTabUrlHandler constructor!";
+        return;
+    }
     // Connect URL input text changes to auto-switch download type
     if (m_uiBuilder->urlInput()) {
         connect(m_uiBuilder->urlInput(), &QTextEdit::textChanged, this, &StartTabUrlHandler::onUrlInputTextChanged);
@@ -32,9 +36,10 @@ StartTabUrlHandler::~StartTabUrlHandler()
 
 void StartTabUrlHandler::onExtractorsReady()
 {
+    if (!m_uiBuilder) return;
     if (m_uiBuilder->urlInput()) {
         m_uiBuilder->urlInput()->setEnabled(true);
-        m_uiBuilder->urlInput()->setPlaceholderText("Paste one or more media URLs (one per line)...");
+        m_uiBuilder->urlInput()->setPlaceholderText(tr("Paste one or more media URLs (one per line)..."));
     }
 }
 
@@ -45,6 +50,7 @@ bool StartTabUrlHandler::tryAutoPasteFromClipboard()
 
 void StartTabUrlHandler::focusUrlInput()
 {
+    if (!m_uiBuilder) return;
     if (m_uiBuilder->urlInput()) {
         m_uiBuilder->urlInput()->setFocus(Qt::OtherFocusReason);
     }
@@ -60,6 +66,7 @@ void StartTabUrlHandler::handleFocusInEvent(QFocusEvent *event)
 
 bool StartTabUrlHandler::handleEventFilter(QObject *obj, QEvent *event)
 {
+    if (!m_uiBuilder) return false;
     if (obj == m_uiBuilder->urlInput()) {
         if (event->type() == QEvent::MouseButtonPress || event->type() == QEvent::FocusIn) {
             checkClipboardForUrl();
@@ -77,8 +84,8 @@ void StartTabUrlHandler::onClipboardChangedWhileDialogIsOpen()
     if (text.isEmpty()) return;
 
     QString firstUrlStr = text.split('\n', Qt::SkipEmptyParts).first().trimmed();
-    if (!firstUrlStr.startsWith("http://", Qt::CaseInsensitive) && !firstUrlStr.startsWith("https://", Qt::CaseInsensitive)) {
-        firstUrlStr = "https://" + firstUrlStr;
+    if (!firstUrlStr.startsWith(QStringLiteral("http://"), Qt::CaseInsensitive) && !firstUrlStr.startsWith(QStringLiteral("https://"), Qt::CaseInsensitive)) {
+        firstUrlStr = QStringLiteral("https://%1").arg(firstUrlStr);
     }
     QUrl url(firstUrlStr);
     QString host = url.host().toLower();
@@ -91,7 +98,7 @@ void StartTabUrlHandler::onClipboardChangedWhileDialogIsOpen()
         QJsonArray domains = it.value().toObject()["domains"].toArray();
         for (const QJsonValue &domainValue : domains) {
             QString domainStr = domainValue.toString().toLower();
-            if (host == domainStr || host.endsWith("." + domainStr)) {
+            if (host == domainStr || host.endsWith(QStringLiteral(".") + domainStr)) {
                 inYtDlp = true;
                 break;
             }
@@ -114,11 +121,11 @@ void StartTabUrlHandler::onTypeSelectionDialogFinished(int /*result*/)
     if (clickedButton) {
         QString btnText = clickedButton->text();
         QString dataValue;
-        if (btnText.startsWith("Video")) dataValue = "video";
-        else if (btnText.startsWith("Audio Only")) dataValue = "audio";
-        else if (btnText.startsWith("View Video/Audio Formats")) dataValue = "formats";
+        if (btnText.startsWith(tr("Video"))) dataValue = QStringLiteral("video");
+        else if (btnText.startsWith(tr("Audio Only"))) dataValue = QStringLiteral("audio");
+        else if (btnText.startsWith(tr("View Video/Audio Formats"))) dataValue = QStringLiteral("formats");
 
-        if (!dataValue.isEmpty() && m_uiBuilder->downloadTypeCombo()) {
+        if (!dataValue.isEmpty() && m_uiBuilder && m_uiBuilder->downloadTypeCombo()) {
             int index = m_uiBuilder->downloadTypeCombo()->findData(dataValue);
             if (index != -1) {
                 m_uiBuilder->downloadTypeCombo()->setCurrentIndex(index);
@@ -132,6 +139,7 @@ void StartTabUrlHandler::onTypeSelectionDialogFinished(int /*result*/)
 
 bool StartTabUrlHandler::checkClipboardForUrl()
 {
+    if (!m_uiBuilder) return false;
     if (!m_uiBuilder->urlInput() || !m_uiBuilder->urlInput()->isEnabled()) {
         return false;
     }
@@ -150,8 +158,8 @@ bool StartTabUrlHandler::checkClipboardForUrl()
     }
 
     QString firstUrlStr = text.split('\n', Qt::SkipEmptyParts).first().trimmed();
-    if (!firstUrlStr.startsWith("http://", Qt::CaseInsensitive) && !firstUrlStr.startsWith("https://", Qt::CaseInsensitive)) {
-        firstUrlStr = "https://" + firstUrlStr;
+    if (!firstUrlStr.startsWith(QStringLiteral("http://"), Qt::CaseInsensitive) && !firstUrlStr.startsWith(QStringLiteral("https://"), Qt::CaseInsensitive)) {
+        firstUrlStr = QStringLiteral("https://%1").arg(firstUrlStr);
     }
     QUrl url(firstUrlStr);
     QString host = url.host().toLower();
@@ -172,37 +180,37 @@ bool StartTabUrlHandler::checkClipboardForUrl()
 
         if (support == ExtractorSupport::GalleryDlOnly) {
             if (m_uiBuilder->downloadTypeCombo()) {
-                int galleryIndex = m_uiBuilder->downloadTypeCombo()->findData("gallery");
+                int galleryIndex = m_uiBuilder->downloadTypeCombo()->findData(QStringLiteral("gallery"));
                 m_uiBuilder->downloadTypeCombo()->setCurrentIndex(galleryIndex);
                 m_lastAutoSwitchedUrl = text;
             }
         } else if (support == ExtractorSupport::YtDlpOnly) {
-            if (m_uiBuilder->downloadTypeCombo()->currentData().toString() == "gallery") {
+            if (m_uiBuilder->downloadTypeCombo() && m_uiBuilder->downloadTypeCombo()->currentData().toString() == QStringLiteral("gallery")) {
                 if (m_typeSelectionDialog) {
                     return true;
                 }
 
                 m_typeSelectionDialog = new QMessageBox(qobject_cast<QWidget*>(parent())); // Parent is StartTab
-                m_typeSelectionDialog->setWindowTitle("Download Type Selection");
-                m_typeSelectionDialog->setText("The pasted URL is likely for video/audio.\nPlease select a download type:");
+                m_typeSelectionDialog->setWindowTitle(tr("Download Type Selection"));
+                m_typeSelectionDialog->setText(tr("The pasted URL is likely for video/audio.\nPlease select a download type:"));
                 m_typeSelectionDialog->setIcon(QMessageBox::Question);
 
-                QStringList requiredYt = {"yt-dlp", "ffmpeg", "ffprobe", "deno"};
+                QStringList requiredYt = {QStringLiteral("yt-dlp"), QStringLiteral("ffmpeg"), QStringLiteral("ffprobe"), QStringLiteral("deno")};
                 bool hasMissingYt = false;
                 for (const QString &bin : requiredYt) {
                     QString source = ProcessUtils::findBinary(bin, m_configManager).source;
-                    if (source == "Not Found" || source == "Invalid Custom") {
+                    if (source == QStringLiteral("Not Found") || source == QStringLiteral("Invalid Custom")) {
                         hasMissingYt = true;
                         break;
                     }
                 }
                 
-                QString ytSource = ProcessUtils::findBinary("yt-dlp", m_configManager).source;
-                bool ytDlpOnlyMissing = (ytSource == "Not Found" || ytSource == "Invalid Custom");
+                QString ytSource = ProcessUtils::findBinary(QStringLiteral("yt-dlp"), m_configManager).source;
+                bool ytDlpOnlyMissing = (ytSource == QStringLiteral("Not Found") || ytSource == QStringLiteral("Invalid Custom"));
 
-                m_typeSelectionDialog->addButton(hasMissingYt ? "Video (missing binaries)" : "Video", QMessageBox::ActionRole);
-                m_typeSelectionDialog->addButton(hasMissingYt ? "Audio Only (missing binaries)" : "Audio Only", QMessageBox::ActionRole);
-                m_typeSelectionDialog->addButton(ytDlpOnlyMissing ? "View Video/Audio Formats (missing binaries)" : "View Video/Audio Formats", QMessageBox::ActionRole);
+                m_typeSelectionDialog->addButton(hasMissingYt ? tr("Video (missing binaries)") : tr("Video"), QMessageBox::ActionRole);
+                m_typeSelectionDialog->addButton(hasMissingYt ? tr("Audio Only (missing binaries)") : tr("Audio Only"), QMessageBox::ActionRole);
+                m_typeSelectionDialog->addButton(ytDlpOnlyMissing ? tr("View Video/Audio Formats (missing binaries)") : tr("View Video/Audio Formats"), QMessageBox::ActionRole);
                 m_typeSelectionDialog->addButton(QMessageBox::Cancel);
 
                 connect(m_typeSelectionDialog, &QDialog::finished, this, &StartTabUrlHandler::onTypeSelectionDialogFinished);
@@ -223,8 +231,8 @@ StartTabUrlHandler::ExtractorSupport StartTabUrlHandler::checkUrlExtractorSuppor
     QJsonObject galleryDlExtractors = m_extractorJsonParser->getGalleryDlExtractors();
 
     QString firstUrlStr = url.split('\n', Qt::SkipEmptyParts).first().trimmed();
-    if (!firstUrlStr.startsWith("http://", Qt::CaseInsensitive) && !firstUrlStr.startsWith("https://", Qt::CaseInsensitive)) {
-        firstUrlStr = "https://" + firstUrlStr;
+    if (!firstUrlStr.startsWith(QStringLiteral("http://"), Qt::CaseInsensitive) && !firstUrlStr.startsWith(QStringLiteral("https://"), Qt::CaseInsensitive)) {
+        firstUrlStr = QStringLiteral("https://%1").arg(firstUrlStr);
     }
     QUrl parsedUrl(firstUrlStr);
     QString host = parsedUrl.host().toLower();
@@ -238,7 +246,7 @@ StartTabUrlHandler::ExtractorSupport StartTabUrlHandler::checkUrlExtractorSuppor
         QJsonArray domains = it.value().toObject()["domains"].toArray();
         for (const QJsonValue &domainValue : domains) {
             QString domainStr = domainValue.toString().toLower();
-            if (host == domainStr || host.endsWith("." + domainStr)) {
+            if (host == domainStr || host.endsWith(QStringLiteral(".") + domainStr)) {
                 inYtDlp = true;
                 break;
             }
@@ -251,7 +259,7 @@ StartTabUrlHandler::ExtractorSupport StartTabUrlHandler::checkUrlExtractorSuppor
         QJsonArray domains = it.value().toObject()["domains"].toArray();
         for (const QJsonValue &domainValue : domains) {
             QString domainStr = domainValue.toString().toLower();
-            if (host == domainStr || host.endsWith("." + domainStr)) {
+            if (host == domainStr || host.endsWith(QStringLiteral(".") + domainStr)) {
                 inGalleryDl = true;
                 break;
             }
@@ -272,6 +280,7 @@ StartTabUrlHandler::ExtractorSupport StartTabUrlHandler::checkUrlExtractorSuppor
 
 void StartTabUrlHandler::autoSwitchDownloadType(const QString &url)
 {
+    if (!m_uiBuilder) return;
     if (url.isEmpty() || m_lastAutoSwitchedUrl == url) {
         return;
     }
@@ -280,8 +289,8 @@ void StartTabUrlHandler::autoSwitchDownloadType(const QString &url)
 
     switch (support) {
         case ExtractorSupport::YtDlpOnly:
-            if (m_uiBuilder->downloadTypeCombo() && m_uiBuilder->downloadTypeCombo()->currentData().toString() == "gallery") {
-                int videoIndex = m_uiBuilder->downloadTypeCombo()->findData("video");
+            if (m_uiBuilder->downloadTypeCombo() && m_uiBuilder->downloadTypeCombo()->currentData().toString() == QStringLiteral("gallery")) {
+                int videoIndex = m_uiBuilder->downloadTypeCombo()->findData(QStringLiteral("video"));
                 if (videoIndex != -1) {
                     m_uiBuilder->downloadTypeCombo()->setCurrentIndex(videoIndex);
                     m_lastAutoSwitchedUrl = url;
@@ -291,7 +300,7 @@ void StartTabUrlHandler::autoSwitchDownloadType(const QString &url)
 
         case ExtractorSupport::GalleryDlOnly:
             if (m_uiBuilder->downloadTypeCombo()) {
-                int galleryIndex = m_uiBuilder->downloadTypeCombo()->findData("gallery");
+                int galleryIndex = m_uiBuilder->downloadTypeCombo()->findData(QStringLiteral("gallery"));
                 if (galleryIndex != -1) {
                     m_uiBuilder->downloadTypeCombo()->setCurrentIndex(galleryIndex);
                     m_lastAutoSwitchedUrl = url;
@@ -313,7 +322,7 @@ void StartTabUrlHandler::onUrlInputTextChanged()
     }
     const QString text = m_uiBuilder->urlInput()->toPlainText();
     QString trimmed = text.trimmed();
-    if (trimmed.startsWith("http://", Qt::CaseInsensitive) || trimmed.startsWith("https://", Qt::CaseInsensitive)) {
+    if (trimmed.startsWith(QStringLiteral("http://"), Qt::CaseInsensitive) || trimmed.startsWith(QStringLiteral("https://"), Qt::CaseInsensitive)) {
         autoSwitchDownloadType(trimmed);
     }
     emit urlInputTextChanged(text); // Re-emit for StartTab's internal connections

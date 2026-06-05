@@ -1,5 +1,4 @@
-#ifndef SORTINGMANAGER_H
-#define SORTINGMANAGER_H
+#pragma once
 
 #include <QObject>
 #include <QVariantMap>
@@ -24,4 +23,3 @@ private:
     ConfigManager *m_configManager;
 };
 
-#endif // SORTINGMANAGER_H

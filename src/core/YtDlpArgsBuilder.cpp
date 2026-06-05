@@ -137,7 +137,7 @@ void appendForcedKeyframeCutArgs(QStringList &args, ConfigManager *configManager
 YtDlpArgsBuilder::YtDlpArgsBuilder() {
 }
 
-QString YtDlpArgsBuilder::getCodecMapping(const QString& codecName) {
+QString YtDlpArgsBuilder::getCodecMapping(const QString& codecName) const {
     const QString canonicalCodec = canonicalizeCodecSetting(codecName);
 
     if (canonicalCodec == QLatin1String("H.264 (AVC)")) return QStringLiteral("(avc|avc1|h264)");

@@ -222,7 +222,7 @@ void ConfigManager::cleanUpLegacyKeys() {
     }
 }
 
-QVariant ConfigManager::get(const QString &section, const QString &key, const QVariant &defaultValue) {
+QVariant ConfigManager::get(const QString &section, const QString &key, const QVariant &defaultValue) const {
     // The fallback for the QSettings object should be our application's default,
     // which in turn can have a fallback to the function's default parameter.
     QVariant appDefault = getDefault(section, key);
@@ -264,7 +264,7 @@ void ConfigManager::setDefaults() {
     }
 }
 
-QVariant ConfigManager::getDefault(const QString &section, const QString &key) {
+QVariant ConfigManager::getDefault(const QString &section, const QString &key) const {
     return m_defaultSettings.value(section, {}).value(key);
 }
 

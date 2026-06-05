@@ -1,5 +1,4 @@
-#ifndef YTDLPARGSBUILDER_H
-#define YTDLPARGSBUILDER_H
+#pragma once
 
 #include <QStringList>
 #include <QVariantMap>
@@ -14,8 +13,7 @@ public:
 
 private:
     // Translates UI codec names to yt-dlp format names
-    QString getCodecMapping(const QString& codecName);
+    QString getCodecMapping(const QString& codecName) const;
 
 };
 
-#endif // YTDLPARGSBUILDER_H

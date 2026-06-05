@@ -120,7 +120,7 @@ LzyDownloader/
   - Manages the `download_archive.db` SQLite database using `QtSql`.
   - Provides methods to check for existing downloads (`isInArchive`) and add new ones (`addToArchive`).
   - **Implements URL normalization logic identical to the Python version.**
-  - Closes matching thread-local SQLite connections before removing them, preventing lingering locks during shutdown and tests.
+  - Uses one SQLite connection per calling thread and closes/removes only the current thread's named connection during teardown, preventing lingering locks without removing a connection owned by another thread.
 
 ### 4.3 DownloadManager (`src/core/DownloadManager.h`)
 - **Responsibilities:**

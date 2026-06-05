@@ -1,5 +1,4 @@
-#ifndef MAINWINDOW_H
-#define MAINWINDOW_H
+#pragma once
 
 #include <QMainWindow>
 #include <QTabWidget>
@@ -109,4 +108,4 @@ private:
     qint64 m_lastAutoPasteTimestamp; // Timestamp of last auto-paste to enforce cooldown
 };
 
-#endif // MAINWINDOW_H
+

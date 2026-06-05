@@ -1,5 +1,4 @@
-#ifndef DOWNLOADFINALIZER_H
-#define DOWNLOADFINALIZER_H
+#pragma once
 
 #include <QObject>
 #include "DownloadItem.h"
@@ -29,5 +28,3 @@ private:
     SortingManager *m_sortingManager;
     ArchiveManager *m_archiveManager;
 };
-
-#endif // DOWNLOADFINALIZER_H

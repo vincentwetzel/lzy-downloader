@@ -86,7 +86,7 @@ static QString buildCategoryListStyleSheet(const QPalette &palette) {
     const QString highlightColor = palette.color(QPalette::Highlight).name();
     const QString highlightedTextColor = palette.color(QPalette::HighlightedText).name();
 
-    return QString(R"(
+    return QStringLiteral(R"(
         QListWidget {
             background: %1;
             border: none;
@@ -211,7 +211,7 @@ void AdvancedSettingsTab::setupUI() {
     consoleToggle->setChecked(m_configManager->get(QStringLiteral("General"), QStringLiteral("show_debug_console"), isDebug).toBool());
     
     bool ownsConsole = qApp->property("lzy_consoleAllocatedByUs").toBool();
-    if (GetConsoleWindow() != NULL && !ownsConsole) {
+    if (GetConsoleWindow() != nullptr && !ownsConsole) {
         consoleToggle->setToolTip(tr("Setting saved for next launch. (Cannot hide the console right now because the app was launched from an existing terminal.)"));
     } else {
         consoleToggle->setToolTip(tr("Show or hide the command prompt / debug console window while the application is running."));

@@ -1,5 +1,4 @@
-#ifndef STARTTABDOWNLOADACTIONS_H
-#define STARTTABDOWNLOADACTIONS_H
+#pragma once
 
 #include <QObject>
 #include <QMessageBox>
@@ -53,4 +52,3 @@ private:
     QString resolveExecutablePath(const QString &name) const;
 };
 
-#endif // STARTTABDOWNLOADACTIONS_H

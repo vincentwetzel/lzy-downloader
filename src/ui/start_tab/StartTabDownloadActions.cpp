@@ -27,6 +27,15 @@ StartTabDownloadActions::StartTabDownloadActions(ConfigManager *configManager, S
       m_galleryDlArgsBuilder(galleryDlArgsBuilder), // Keep for future use if needed, or remove if truly unused
       m_parentWidget(parent)
 {
+    if (!m_uiBuilder) {
+        qCritical() << "CRITICAL ERROR: m_uiBuilder is null in StartTabDownloadActions constructor!";
+        return;
+    }
+    if (!m_configManager) {
+        qCritical() << "CRITICAL ERROR: m_configManager is null in StartTabDownloadActions constructor!";
+        return;
+    }
+
     // Connect UI elements to slots
     if (m_uiBuilder->downloadButton()) {
         connect(m_uiBuilder->downloadButton(), &QPushButton::clicked, this, &StartTabDownloadActions::onDownloadButtonClicked);
@@ -39,7 +48,7 @@ StartTabDownloadActions::StartTabDownloadActions(ConfigManager *configManager, S
     }
 
     connect(m_configManager, &ConfigManager::settingChanged, this, [this](const QString &group, const QString &/*key*/, const QVariant &/*value*/) {
-        if (group == "Binaries" || group == "General") {
+        if (group == QStringLiteral("Binaries") || group == QStringLiteral("General")) {
             QTimer::singleShot(0, this, &StartTabDownloadActions::updateDynamicUI);
         }
     });

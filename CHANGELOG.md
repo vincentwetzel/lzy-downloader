@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- **Header hygiene cleanup**: Core and UI headers now consistently use `#pragma once`, and several helper APIs were made const-correct or explicit to match the repository coding standards.
+- **Start tab safety/i18n cleanup**: Start-tab URL handling, download actions, and command preview helpers now guard missing UI dependencies more defensively and wrap user-facing strings in Qt translation calls.
+
+### Fixed
+- **Archive connection teardown scope**: Archive database cleanup now closes/removes the current thread's Qt SQL connection by its thread-local name, avoiding cross-thread connection removal while still releasing SQLite handles on shutdown and tests.
+- **Logging cleanup safety**: Log-file open failure cleanup now routes the `QFile` through Qt deferred deletion instead of deleting a `QObject` directly.
+
+## [1.1.56] - 2026-06-05
+
+### Changed
 - **Playlist expansion naming cleanup**: Replaced the broad `PlaylistExpander` implementation with `PlaylistExpansionWorker` plus `PlaylistExpansionParser`, keeping async yt-dlp probing separate from queue-item JSON mapping.
 - **Stale source audit cleanup**: Removed unbuilt, unreferenced legacy helpers (`YtDlpJsonParser`, `YtDlpJsonExtractor`, `Aria2Daemon`, `FfmpegPostProcessor`, and `StringUtils`) so the source tree better matches the active architecture.
 - **Build source list cleanup**: Removed obsolete source entries from `LzyAppLib` and consolidated post-build copying of the two extractor domain lists into one CMake step.

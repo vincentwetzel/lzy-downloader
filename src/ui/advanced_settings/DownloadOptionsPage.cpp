@@ -31,10 +31,10 @@ const CutEncoderOption kCutEncoderOptions[] = {
 
 QString requiredFfmpegEncoder(const QString &id)
 {
-    if (id == "nvenc_h264") return "h264_nvenc";
-    if (id == "qsv_h264") return "h264_qsv";
-    if (id == "amf_h264") return "h264_amf";
-    if (id == "videotoolbox_h264") return "h264_videotoolbox";
+    if (id == QStringLiteral("nvenc_h264")) return QStringLiteral("h264_nvenc");
+    if (id == QStringLiteral("qsv_h264")) return QStringLiteral("h264_qsv");
+    if (id == QStringLiteral("amf_h264")) return QStringLiteral("h264_amf");
+    if (id == QStringLiteral("videotoolbox_h264")) return QStringLiteral("h264_videotoolbox");
     return QString();
 }
 }

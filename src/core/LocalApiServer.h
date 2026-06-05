@@ -1,5 +1,4 @@
-#ifndef LOCALAPISERVER_H
-#define LOCALAPISERVER_H
+#pragma once
 
 #include <QObject>
 #include <QTcpServer>
@@ -43,5 +42,3 @@ private:
     void handleRequest(QTcpSocket *socket, const QByteArray &requestData);
     void sendHttpResponse(QTcpSocket *socket, int statusCode, const QString &statusText, const QByteArray &body);
 };
-
-#endif // LOCALAPISERVER_H

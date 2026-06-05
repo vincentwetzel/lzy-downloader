@@ -1,5 +1,4 @@
-#ifndef ADVANCEDSETTINGSTAB_H
-#define ADVANCEDSETTINGSTAB_H
+#pragma once
 
 #include "core/ConfigManager.h"
 #include <QtWidgets/QWidget>
@@ -47,4 +46,3 @@ protected:
     void changeEvent(QEvent *event) override;
 };
 
-#endif // ADVANCEDSETTINGSTAB_H

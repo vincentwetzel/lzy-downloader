@@ -21,7 +21,7 @@
 
 QString MainWindow::appVersion() const
 {
-    return QString(APP_VERSION_STRING);
+    return QStringLiteral(APP_VERSION_STRING);
 }
 
 void MainWindow::onLocalApiEnqueueRequested(const QString &url, const QString &type, const QString &jobId)

@@ -49,7 +49,7 @@ void applyConsoleState(bool show)
 {
     HWND consoleWindow = GetConsoleWindow();
     if (show) {
-        if (consoleWindow == NULL) {
+        if (consoleWindow == nullptr) {
             if (AllocConsole()) {
                 s_consoleAllocatedByUs = true;
                 QCoreApplication::instance()->setProperty("lzy_consoleAllocatedByUs", true);
@@ -62,7 +62,7 @@ void applyConsoleState(bool show)
             ShowWindow(consoleWindow, SW_SHOW);
         }
     } else {
-        if (consoleWindow != NULL && s_consoleAllocatedByUs) {
+        if (consoleWindow != nullptr && s_consoleAllocatedByUs) {
             ShowWindow(consoleWindow, SW_HIDE);
         }
     }

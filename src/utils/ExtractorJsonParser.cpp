@@ -9,11 +9,6 @@
 #include <QtConcurrent>
 #include <QFuture>
 
-namespace {
-    const QString YTDLP_EXTRACTORS_FILE = "extractors_yt-dlp.json";
-    const QString GALLERYDL_EXTRACTORS_FILE = "extractors_gallery-dl.json";
-}
-
 ExtractorJsonParser::ExtractorJsonParser(QObject *parent) : QObject(parent)
 {
     m_loader = new QFutureWatcher<QPair<QJsonObject, QJsonObject>>(this);
@@ -58,6 +53,9 @@ void ExtractorJsonParser::startGeneration()
 
 QPair<QJsonObject, QJsonObject> ExtractorJsonParser::loadExtractors()
 {
+    static const QString YTDLP_EXTRACTORS_FILE = QStringLiteral("extractors_yt-dlp.json");
+    static const QString GALLERYDL_EXTRACTORS_FILE = QStringLiteral("extractors_gallery-dl.json");
+
     const QString appDir = QCoreApplication::applicationDirPath();
     const QString ytDlpPath = QDir(appDir).filePath(YTDLP_EXTRACTORS_FILE);
     const QString galleryDlPath = QDir(appDir).filePath(GALLERYDL_EXTRACTORS_FILE);

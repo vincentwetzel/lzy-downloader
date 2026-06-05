@@ -1,5 +1,4 @@
-#ifndef GALLERYDLUPDATER_H
-#define GALLERYDLUPDATER_H
+#pragma once
 
 #include <QObject>
 #include <QNetworkAccessManager>
@@ -47,4 +46,3 @@ private:
     ConfigManager *m_configManager;
 };
 
-#endif // GALLERYDLUPDATER_H

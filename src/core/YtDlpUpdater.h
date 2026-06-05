@@ -1,5 +1,4 @@
-#ifndef YTDLPUPDATER_H
-#define YTDLPUPDATER_H
+#pragma once
 
 #include <QObject>
 #include <QNetworkAccessManager>
@@ -49,4 +48,3 @@ private:
     ConfigManager *m_configManager;
 };
 
-#endif // YTDLPUPDATER_H

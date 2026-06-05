@@ -1,5 +1,4 @@
-#ifndef TOGGLESWITCH_H
-#define TOGGLESWITCH_H
+#pragma once
 
 #include <QAbstractButton>
 #include <QPropertyAnimation>
@@ -40,4 +39,3 @@ private:
     QColor m_trackColorOnHover = QColor("#005a9e");
 };
 
-#endif // TOGGLESWITCH_H

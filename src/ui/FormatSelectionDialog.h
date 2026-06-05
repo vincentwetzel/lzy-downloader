@@ -1,5 +1,4 @@
-#ifndef FORMATSELECTIONDIALOG_H
-#define FORMATSELECTIONDIALOG_H
+#pragma once
 
 #include <QDialog>
 #include <QVariantMap>
@@ -28,4 +27,3 @@ private:
     QLabel *m_selectionSummary;
 };
 
-#endif // FORMATSELECTIONDIALOG_H

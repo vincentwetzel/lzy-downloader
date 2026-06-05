@@ -1,5 +1,4 @@
-#ifndef SORTINGTAB_H
-#define SORTINGTAB_H
+#pragma once
 
 #include <QWidget>
 #include <QTableWidget> // Changed from QListWidget
@@ -38,4 +37,3 @@ private:
     QPushButton *m_moveDownButton; // New button
 };
 
-#endif // SORTINGTAB_H

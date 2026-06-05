@@ -1,5 +1,4 @@
-#ifndef MAINWINDOWUIBUILDER_H
-#define MAINWINDOWUIBUILDER_H
+#pragma once
 
 #include <QObject>
 #include <QTabWidget>
@@ -40,5 +39,3 @@ private:
     QLabel *m_errorDownloadsLabel;
     ToggleSwitch *m_exitAfterSwitch;
 };
-
-#endif // MAINWINDOWUIBUILDER_H

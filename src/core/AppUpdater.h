@@ -1,5 +1,4 @@
-#ifndef APPUPDATER_H
-#define APPUPDATER_H
+#pragma once
 
 #include <QObject>
 #include <QNetworkAccessManager>
@@ -33,5 +32,3 @@ private:
     QString m_currentVersion;
     QNetworkAccessManager *m_networkManager;
 };
-
-#endif // APPUPDATER_H

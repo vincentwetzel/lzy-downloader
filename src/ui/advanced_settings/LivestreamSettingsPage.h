@@ -1,5 +1,4 @@
-#ifndef LIVESTREAMSETTINGSPAGE_H
-#define LIVESTREAMSETTINGSPAGE_H
+#pragma once
 
 #include <QWidget>
 #include <QVariantMap>
@@ -37,5 +36,3 @@ private:
     
     void setupUI();
 };
-
-#endif // LIVESTREAMSETTINGSPAGE_H

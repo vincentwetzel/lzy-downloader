@@ -1,5 +1,4 @@
-#ifndef STARTTABCOMMANDPREVIEWUPDATER_H
-#define STARTTABCOMMANDPREVIEWUPDATER_H
+#pragma once
 
 #include <QObject>
 #include <QTextEdit>
@@ -35,4 +34,3 @@ private:
     QString resolveExecutablePath(const QString &name) const;
 };
 
-#endif // STARTTABCOMMANDPREVIEWUPDATER_H

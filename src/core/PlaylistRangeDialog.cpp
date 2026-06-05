@@ -39,8 +39,8 @@ void PlaylistRangeDialog::setupUi() {
     m_listWidget = new QListWidget(this);
     m_listWidget->setSelectionMode(QAbstractItemView::NoSelection);
     
-    for (int i = 0; i < m_playlistItems.size(); ++i) {
-        const QVariantMap &item = m_playlistItems.at(i);
+    int i = 0;
+    for (const QVariantMap &item : m_playlistItems) {
         QString title = item.value(QStringLiteral("title")).toString();
         if (title.isEmpty()) {
             title = tr("Item %1").arg(i + 1);
@@ -50,6 +50,7 @@ void PlaylistRangeDialog::setupUi() {
         listItem->setFlags(listItem->flags() | Qt::ItemIsUserCheckable);
         listItem->setCheckState(Qt::Checked); // Default to all selected
         listItem->setData(Qt::UserRole, i);   // Store the original index
+        i++;
     }
     mainLayout->addWidget(m_listWidget);
 

@@ -1,5 +1,4 @@
-#ifndef STARTUPWORKER_H
-#define STARTUPWORKER_H
+#pragma once
 
 #include <QObject>
 #include <QStringList>
@@ -47,4 +46,3 @@ private:
     bool m_extractorsCheckDone;
 };
 
-#endif // STARTUPWORKER_H

@@ -1,5 +1,4 @@
-#ifndef STARTTAB_H
-#define STARTTAB_H
+#pragma once
 
 #include <QWidget>
 #include <QTextEdit>
@@ -77,4 +76,3 @@ private:
     QString m_lastAutoSwitchedUrl;
 };
 
-#endif // STARTTAB_H

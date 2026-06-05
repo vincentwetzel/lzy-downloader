@@ -43,6 +43,7 @@ This document outlines the specifications for the C++ port of the LzyDownloader 
 - **Database**: `download_archive.db` (SQLite).
 - **Schema**: Must match the Python version's schema exactly.
 - **Logic**: URL normalization and duplicate detection logic must be identical to the Python version.
+- **Threading**: SQLite access must use Qt SQL connections scoped to the calling thread. Archive shutdown/cleanup must close and remove only the current thread's connection so tests and shutdown release locks without touching connections owned by other threads.
 
 ### 2.4. User Interface (Qt Widgets)
 - **Main Window**: Tabbed interface with a footer containing links to GitHub and Discord.

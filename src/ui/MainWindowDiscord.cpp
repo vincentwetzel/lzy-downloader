@@ -79,8 +79,8 @@ void MainWindow::connectDiscordWebhookSignals()
     QSharedPointer<QList<QString>> queuedJobs = QSharedPointer<QList<QString>>::create();
 
     auto updateQueuePositions = [sendDiscordWebhook, webhookStates, webhookTimestamps, queuedJobs]() {
-        for (int i = 0; i < queuedJobs->size(); ++i) {
-            QString qId = queuedJobs->at(i);
+        int i = 0;
+        for (const QString &qId : *queuedJobs) {
             if (webhookStates->contains(qId)) {
                 QVariantMap &qState = (*webhookStates)[qId];
                 int oldPos = qState.value(QStringLiteral("queue_position"), 0).toInt();
@@ -91,6 +91,7 @@ void MainWindow::connectDiscordWebhookSignals()
                     sendDiscordWebhook(qId, qState);
                 }
             }
+            i++;
         }
     };
 

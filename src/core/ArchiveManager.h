@@ -1,5 +1,4 @@
-#ifndef ARCHIVEMANAGER_H
-#define ARCHIVEMANAGER_H
+#pragma once
 
 #include <QObject>
 #include <QSqlDatabase>
@@ -30,6 +29,8 @@ private:
     void backfillIdentityColumns();
 
     QSqlDatabase getDatabase();
+    QString currentThreadConnectionName() const;
+    void closeCurrentThreadDatabase();
 
     struct UrlIdentity {
         QString provider;
@@ -41,5 +42,3 @@ private:
     QString extractVideoId(const QString &url) const;
     QString normalizeUrl(const QString &url) const;
 };
-
-#endif // ARCHIVEMANAGER_H

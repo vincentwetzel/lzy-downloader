@@ -1,5 +1,4 @@
-#ifndef GALLERYDLARGSBUILDER_H
-#define GALLERYDLARGSBUILDER_H
+#pragma once
 
 #include <QStringList>
 #include <QVariantMap>
@@ -7,7 +6,7 @@
 
 class GalleryDlArgsBuilder {
 public:
-    GalleryDlArgsBuilder(ConfigManager *configManager);
+    explicit GalleryDlArgsBuilder(ConfigManager *configManager);
 
     QStringList build(const QString &url, const QVariantMap &options);
 
@@ -15,4 +14,3 @@ private:
     ConfigManager *m_configManager;
 };
 
-#endif // GALLERYDLARGSBUILDER_H

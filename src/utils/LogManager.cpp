@@ -144,7 +144,7 @@ void LogManager::installHandler() {
     logFile = new QFile(logPath);
     if (!logFile->open(QIODevice::WriteOnly | QIODevice::Text)) {
         std::cerr << "Failed to open log file: " << logPath.toStdString() << std::endl;
-        delete logFile;
+        logFile->deleteLater();
         logFile = nullptr;
         // We don't return here, so console logging will still work
     }

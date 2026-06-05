@@ -1,5 +1,4 @@
-#ifndef DOWNLOADITEM_H
-#define DOWNLOADITEM_H
+#pragma once
 
 #include <QString>
 #include <QVariantMap>
@@ -13,5 +12,3 @@ struct DownloadItem {
     QVariantMap metadata;
     int playlistIndex = -1;
 };
-
-#endif // DOWNLOADITEM_H

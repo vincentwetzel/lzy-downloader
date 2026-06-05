@@ -174,8 +174,8 @@ void DownloadHistoryTab::loadHistory(const QString &filePath) {
         QJsonDocument doc = QJsonDocument::fromJson(file.readAll());
         if (doc.isArray()) {
             QJsonArray arr = doc.array();
-            for (int i = 0; i < arr.size(); ++i) {
-                QJsonObject obj = arr[i].toObject();
+            for (const QJsonValue &val : arr) {
+                QJsonObject obj = val.toObject();
                 HistoryItemData data;
                 data.id = obj[QStringLiteral("id")].toString();
                 data.title = obj[QStringLiteral("title")].toString();

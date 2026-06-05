@@ -1,5 +1,4 @@
-#ifndef ACTIVEDOWNLOADSTAB_H
-#define ACTIVEDOWNLOADSTAB_H
+#pragma once
 
 #include <QWidget>
 #include <QMap>
@@ -65,4 +64,3 @@ private:
     QMap<QString, QWidget*> m_expandingPlaylists;
 };
 
-#endif // ACTIVEDOWNLOADSTAB_H

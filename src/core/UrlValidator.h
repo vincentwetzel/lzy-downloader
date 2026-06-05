@@ -1,5 +1,4 @@
-#ifndef URLVALIDATOR_H
-#define URLVALIDATOR_H
+#pragma once
 
 #include <QObject>
 #include <QProcess>
@@ -22,5 +21,3 @@ private:
     ConfigManager *m_configManager;
     QProcess *m_process;
 };
-
-#endif // URLVALIDATOR_H

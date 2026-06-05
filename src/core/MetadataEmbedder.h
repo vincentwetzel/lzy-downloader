@@ -1,5 +1,4 @@
-#ifndef METADATAEMBEDDER_H
-#define METADATAEMBEDDER_H
+#pragma once
 
 #include <QObject>
 #include <QByteArray>
@@ -45,4 +44,3 @@ private:
     QVariantMap m_extraMetadata;
 };
 
-#endif // METADATAEMBEDDER_H

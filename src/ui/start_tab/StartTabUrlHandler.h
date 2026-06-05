@@ -1,5 +1,4 @@
-#ifndef STARTTABURLHANDLER_H
-#define STARTTABURLHANDLER_H
+#pragma once
 
 #include <QObject>
 #include <QClipboard>
@@ -53,5 +52,3 @@ private:
     ExtractorSupport checkUrlExtractorSupport(const QString &url) const;
     void autoSwitchDownloadType(const QString &url);
 };
-
-#endif // STARTTABURLHANDLER_H

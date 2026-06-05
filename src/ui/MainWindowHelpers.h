@@ -1,5 +1,4 @@
-#ifndef MAINWINDOWHELPERS_H
-#define MAINWINDOWHELPERS_H
+#pragma once
 
 #include <QCoreApplication>
 #include <QString>
@@ -52,4 +51,3 @@ inline void applyNonInteractiveDownloadDefaults(QVariantMap &options)
 
 }
 
-#endif // MAINWINDOWHELPERS_H
