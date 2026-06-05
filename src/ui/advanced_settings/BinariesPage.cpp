@@ -43,7 +43,7 @@ BinariesPage::BinariesPage(ConfigManager *configManager, QWidget *parent)
     layout->setContentsMargins(0, 0, 0, 0);
 
     QGroupBox *group = new QGroupBox(tr("External Binaries"), scrollWidget);
-    group->setToolTip(tr("Review detected binary locations, browse for custom executables, or launch an installer option."));
+    group->setToolTip(tr("Review detected tool locations, choose manual executable paths, install missing tools, or update installed tools."));
     QVBoxLayout *groupLayout = new QVBoxLayout(group);
 
     QLabel *introLabel = new QLabel(
@@ -57,6 +57,7 @@ BinariesPage::BinariesPage(ConfigManager *configManager, QWidget *parent)
     introLabel->setWordWrap(true);
     introLabel->setTextFormat(Qt::RichText);
     introLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    introLabel->setToolTip(tr("Explains which external tools are required, which are optional, and how Browse, Clear Path, Install, and Refresh affect detection."));
     groupLayout->addWidget(introLabel);
 
     QPushButton *refreshButton = new QPushButton(tr("Refresh All Statuses"), scrollWidget);
@@ -132,7 +133,7 @@ void BinariesPage::setupRow(QVBoxLayout *layout,
     QLabel *statusLabel = new QLabel(rowGroup);
     statusLabel->setWordWrap(true);
     statusLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
-    statusLabel->setToolTip(tr("Shows whether %1 was found automatically, configured manually, or is missing.").arg(labelText));
+    statusLabel->setToolTip(tr("Shows whether %1 was found automatically, found through a manual override, or is missing.").arg(labelText));
     statusLabel->setAlignment(Qt::AlignTop | Qt::AlignLeft);
 
     QSizePolicy labelPolicy = statusLabel->sizePolicy();
@@ -143,6 +144,7 @@ void BinariesPage::setupRow(QVBoxLayout *layout,
     QLabel *versionLabel = new QLabel(tr("Version: Unknown"), rowGroup);
     versionLabel->setWordWrap(true);
     versionLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    versionLabel->setToolTip(tr("Detected version reported by %1. Shows Unknown until a version check succeeds.").arg(labelText));
     versionLabel->setAlignment(Qt::AlignTop | Qt::AlignLeft);
 
     QString description;
@@ -154,7 +156,7 @@ void BinariesPage::setupRow(QVBoxLayout *layout,
     else if (binaryName == QStringLiteral("aria2c")) description = tr("Accelerates downloads using multiple connections.");
 
     QLabel *descLabel = new QLabel(QStringLiteral("<i>%1</i>").arg(description), rowGroup);
-    descLabel->setToolTip(tr("A brief description of what this binary does."));
+    descLabel->setToolTip(tr("What LzyDownloader uses %1 for.").arg(labelText));
     descLabel->setWordWrap(true);
     descLabel->setAlignment(Qt::AlignTop | Qt::AlignLeft);
 
@@ -191,8 +193,8 @@ void BinariesPage::setupRow(QVBoxLayout *layout,
     descLabel->setFont(childFont);
 
     browseButton->setToolTip(tr("Choose a specific %1 executable from disk to set a manual override.").arg(labelText));
-    clearButton->setToolTip(tr("Clear the manual path override and revert to auto-detection."));
-    installButton->setToolTip(tr("Open installer options for %1.").arg(labelText));
+    clearButton->setToolTip(tr("Remove the saved manual path for %1 and return to automatic detection.").arg(labelText));
+    installButton->setToolTip(tr("Open detected package-manager options or the official download page for %1.").arg(labelText));
 
     QHBoxLayout *buttonLayout = new QHBoxLayout();
     buttonLayout->setSpacing(8);
@@ -760,24 +762,24 @@ void BinariesPage::refreshBinaryStatus(const QString &binaryName) {
         const QString requiredText = isOptional ? tr("This is an optional enhancement.") : tr("This binary is required for core functionality.");
 
         const QString statusPrefix = isOptional
-            ? QStringLiteral("⚠️ <span style='color: #d97706;'>Missing</span>")
-            : QStringLiteral("❌ <span style='color: #dc2626;'>Missing</span>");
+            ? QStringLiteral("<span style='color: #d97706;'>Missing optional tool</span>")
+            : QStringLiteral("<span style='color: #dc2626;'>Missing required tool</span>");
 
         statusLabel->setText(tr("<b>Status:</b> %1. %2").arg(statusPrefix, requiredText));
         versionLabel->setText(tr("Version: Unknown"));
     } else if (foundBinary.source == QStringLiteral("Invalid Custom")) {
         const bool isOptional = m_optionalBinaries.contains(binaryName);
         const QString statusPrefix = isOptional
-            ? QStringLiteral("⚠️ <span style='color: #d97706;'>Not Found</span>")
-            : QStringLiteral("❌ <span style='color: #dc2626;'>Not Found</span>");
+            ? QStringLiteral("<span style='color: #d97706;'>Manual path not found for optional tool</span>")
+            : QStringLiteral("<span style='color: #dc2626;'>Manual path not found for required tool</span>");
         statusLabel->setText(tr("<b>Status:</b> %1 (invalid manual override)<br><b>Path:</b> %2").arg(statusPrefix, displayPath));
         versionLabel->setText(tr("Version: Unknown"));
     } else if (foundBinary.source == QStringLiteral("Custom")) {
-        const QString statusPrefix = QStringLiteral("✅ <span style='color: #16a34a;'>Found</span>");
+        const QString statusPrefix = QStringLiteral("<span style='color: #16a34a;'>Found</span>");
         statusLabel->setText(tr("<b>Status:</b> %1 (manual override)<br><b>Path:</b> %2").arg(statusPrefix, displayPath));
         fetchBinaryVersion(binaryName, foundBinary.path);
     } else {
-        const QString statusPrefix = QStringLiteral("✅ <span style='color: #16a34a;'>Found</span>");
+        const QString statusPrefix = QStringLiteral("<span style='color: #16a34a;'>Found</span>");
         statusLabel->setText(tr("<b>Status:</b> %1 (auto-detected via %2)<br><b>Path:</b> %3").arg(statusPrefix, foundBinary.source, displayPath));
         fetchBinaryVersion(binaryName, foundBinary.path);
     }

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(LzyDownloader VERSION 1.1.54 LANGUAGES CXX)
+project(LzyDownloader VERSION 1.1.55 LANGUAGES CXX)
 enable_testing()
 
 set(_qt_search_prefixes "")
@@ -140,7 +140,8 @@ add_library(LzyAppLib STATIC
     src/core/GalleryDlWorker.cpp
     src/core/LocalApiServer.cpp
     src/core/MetadataEmbedder.cpp
-    src/core/PlaylistExpander.cpp
+    src/core/PlaylistExpansionParser.cpp
+    src/core/PlaylistExpansionWorker.cpp
     src/core/PlaylistRangeDialog.cpp
     src/core/ProcessUtils.cpp
     src/core/SortingManager.cpp

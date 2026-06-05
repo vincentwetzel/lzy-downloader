@@ -18,12 +18,12 @@ ConfigurationPage::ConfigurationPage(ConfigManager *configManager, QWidget *pare
     layout->setContentsMargins(0, 0, 0, 0);
 
     QGroupBox *configGroup = new QGroupBox(tr("Configuration"), this);
-    configGroup->setToolTip(tr("General application settings including download locations and theme."));
+    configGroup->setToolTip(tr("Set the folders LzyDownloader uses, the app theme, and optional local API access."));
     QFormLayout *configLayout = new QFormLayout(configGroup);
 
     m_completedDirInput = new QLineEdit(this);
     m_completedDirInput->setReadOnly(true);
-    m_completedDirInput->setToolTip(tr("This is where your finished downloads will be saved. Click 'Browse' to change it."));
+    m_completedDirInput->setToolTip(tr("Finished downloads are moved here after the temporary file is verified."));
     m_browseCompletedBtn = new QPushButton(tr("Browse..."), this);
     m_browseCompletedBtn->setToolTip(tr("Click to choose a different folder for your completed downloads."));
     QHBoxLayout *completedLayout = new QHBoxLayout();
@@ -35,7 +35,7 @@ ConfigurationPage::ConfigurationPage(ConfigManager *configManager, QWidget *pare
 
     m_tempDirInput = new QLineEdit(this);
     m_tempDirInput->setReadOnly(true);
-    m_tempDirInput->setToolTip(tr("This is a temporary folder used during downloads. You usually don't need to change this."));
+    m_tempDirInput->setToolTip(tr("Downloads are written here first, then verified and moved to the output folder. Use a fast drive with enough free space."));
     m_browseTempBtn = new QPushButton(tr("Browse..."), this);
     m_browseTempBtn->setToolTip(tr("Click to choose a different temporary folder for downloads."));
     QHBoxLayout *tempLayout = new QHBoxLayout();
@@ -53,7 +53,7 @@ ConfigurationPage::ConfigurationPage(ConfigManager *configManager, QWidget *pare
     configLayout->addRow(themeLabel, m_themeCombo);
 
     m_enableApiServerCheck = new QCheckBox(tr("Enable Local API Server"), this);
-    m_enableApiServerCheck->setToolTip(tr("Allows external applications (like a local Discord bot) to send download links directly to this app via port 8765."));
+    m_enableApiServerCheck->setToolTip(tr("Allow trusted local apps to enqueue downloads through 127.0.0.1:8765 using the app's API token."));
     configLayout->addRow("", m_enableApiServerCheck);
 
     layout->addWidget(configGroup);

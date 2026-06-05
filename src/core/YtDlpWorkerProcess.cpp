@@ -391,6 +391,11 @@ void YtDlpWorker::readInfoJsonWithRetry() {
         updateData.insert(QStringLiteral("duration_string"), obj.value(QStringLiteral("duration_string")).toString());
     }
 
+    if (obj.contains(QStringLiteral("is_live")) && obj.value(QStringLiteral("is_live")).isBool()) {
+        updateData.insert(QStringLiteral("is_live"), obj.value(QStringLiteral("is_live")).toBool());
+        qDebug() << "Extracted is_live from info.json:" << obj.value(QStringLiteral("is_live")).toBool();
+    }
+
     // Extract thumbnail path if available from the info.json
     const QString waitThumbnailPrefix = QStringLiteral("%1_wait_thumbnail").arg(m_id);
     const bool hasWaitThumbnail = !m_thumbnailPath.isEmpty() && QFileInfo(m_thumbnailPath).fileName().startsWith(waitThumbnailPrefix);

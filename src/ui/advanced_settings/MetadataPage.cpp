@@ -14,22 +14,22 @@ MetadataPage::MetadataPage(ConfigManager *configManager, QWidget *parent)
     layout->setContentsMargins(0, 0, 0, 0);
 
     QGroupBox *metadataGroup = new QGroupBox(tr("Metadata / Thumbnails"), this);
-    metadataGroup->setToolTip(tr("Control how metadata and thumbnails are handled for downloaded files."));
+    metadataGroup->setToolTip(tr("Control tags, artwork, thumbnail conversion, and playlist album grouping for completed files."));
     QFormLayout *metadataLayout = new QFormLayout(metadataGroup);
 
     m_embedMetadataCheck = new ToggleSwitch(this);
-    m_embedMetadataCheck->setToolTip(tr("Embed media metadata (title, artist, etc.) into the final downloaded file."));
+    m_embedMetadataCheck->setToolTip(tr("Write tags such as title, artist, album, track number, and upload metadata into the final media file when supported."));
     m_embedThumbnailCheck = new ToggleSwitch(this);
-    m_embedThumbnailCheck->setToolTip(tr("Embed the downloaded thumbnail/artwork directly into the media file."));
+    m_embedThumbnailCheck->setToolTip(tr("Store the downloaded thumbnail or artwork inside the media file when the output format supports it."));
     m_highQualityThumbnailCheck = new ToggleSwitch(this);
-    m_highQualityThumbnailCheck->setToolTip(tr("Request a higher quality thumbnail extraction when converting artwork."));
+    m_highQualityThumbnailCheck->setToolTip(tr("Use FFmpeg for cleaner thumbnail conversion when artwork must be embedded or converted."));
     m_cropThumbnailCheck = new ToggleSwitch(this);
     m_cropThumbnailCheck->setToolTip(tr("Crop rectangular video thumbnails into a 1:1 square for better audio-player compatibility."));
     m_generateFolderJpgCheck = new ToggleSwitch(this);
     m_generateFolderJpgCheck->setToolTip(tr("Save the playlist's thumbnail as 'folder.jpg' in the output directory alongside the audio files."));
     m_forcePlaylistAsAlbumSwitch = new ToggleSwitch(this);
     m_convertThumbnailsCombo = new QComboBox(this);
-    m_convertThumbnailsCombo->setToolTip(tr("Convert the downloaded thumbnail to a specific image format."));
+    m_convertThumbnailsCombo->setToolTip(tr("Choose whether downloaded artwork should be converted before embedding or saving. None keeps the original image format."));
     m_convertThumbnailsCombo->addItems({tr("None"), QStringLiteral("jpg"), QStringLiteral("png")});
 
     m_forcePlaylistAsAlbumSwitch->setToolTip(tr("When enabled for audio playlist downloads, this forces the 'album' metadata tag\n"
@@ -47,7 +47,7 @@ MetadataPage::MetadataPage(ConfigManager *configManager, QWidget *parent)
     addFormRow(tr("Use high-quality thumbnail converter"), m_highQualityThumbnailCheck);
     addFormRow(tr("Crop audio thumbnails to square"), m_cropThumbnailCheck);
     addFormRow(tr("Generate folder.jpg for audio playlists"), m_generateFolderJpgCheck);
-    addFormRow(tr("Force Playlist as Single Album"), m_forcePlaylistAsAlbumSwitch);
+    addFormRow(tr("Force playlist as single album"), m_forcePlaylistAsAlbumSwitch);
     addFormRow(tr("Convert thumbnails to:"), m_convertThumbnailsCombo);
 
     layout->addWidget(metadataGroup);

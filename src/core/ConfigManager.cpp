@@ -92,6 +92,23 @@ void ConfigManager::commonInitialization() {
         m_settings->setValue(QStringLiteral("General/exit_after"), false);
         m_settings->sync();
     }
+
+    // Enforce safe minimums for livestream wait intervals to prevent IP bans
+    int waitMin = m_settings->value(QStringLiteral("Livestream/wait_for_video_min"), 60).toInt();
+    int waitMax = m_settings->value(QStringLiteral("Livestream/wait_for_video_max"), 300).toInt();
+    bool changedWait = false;
+    if (waitMin < 15) {
+        waitMin = 15;
+        m_settings->setValue(QStringLiteral("Livestream/wait_for_video_min"), waitMin);
+        changedWait = true;
+    }
+    if (waitMax <= waitMin) {
+        m_settings->setValue(QStringLiteral("Livestream/wait_for_video_max"), waitMin + 45);
+        changedWait = true;
+    }
+    if (changedWait) {
+        m_settings->sync();
+    }
 }
 
 void ConfigManager::initializeDefaultSettings() {

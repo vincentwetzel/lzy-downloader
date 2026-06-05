@@ -222,7 +222,7 @@ FoundBinary resolveBinary(const QString& name, ConfigManager* configManager)
     }
 
     qDebug() << "[ProcessUtils]" << name << "NOT FOUND - searching all PATH directories for" << exeName;
-    
+
     // Final diagnostic: manually search PATH
     QString pathEnv = QProcessEnvironment::systemEnvironment().value(QStringLiteral("PATH"));
     QStringList pathDirs = pathEnv.split(QDir::listSeparator(), Qt::SkipEmptyParts);
@@ -234,7 +234,7 @@ FoundBinary resolveBinary(const QString& name, ConfigManager* configManager)
             return {QDir::toNativeSeparators(candidate), QStringLiteral("System PATH")};
         }
     }
-    
+
     return {name, QStringLiteral("Not Found")};
 }
 
@@ -290,10 +290,14 @@ void terminateProcessTree(QProcess *process, int /*gracefulTimeoutMs*/) {
 
 #ifdef Q_OS_WIN
     if (pid > 0) {
-        QProcess::startDetached(QStringLiteral("taskkill.exe"), {QStringLiteral("/PID"), QString::number(pid), QStringLiteral("/T"), QStringLiteral("/F")});
+        // Run taskkill synchronously to ensure it enumerates and kills child processes (like ffmpeg)
+        // BEFORE the parent process is killed. Using startDetached + process->kill() causes a race
+        // condition where the parent dies instantly and taskkill orphans the children.
+        QProcess killer;
+        killer.start(QStringLiteral("taskkill.exe"), {QStringLiteral("/PID"), QString::number(pid), QStringLiteral("/T"), QStringLiteral("/F")});
+        killer.waitForFinished(2000);
     }
-    
-    // Force immediate kill without waiting if we are aborting
+
     process->kill();
 #else
     process->kill();
@@ -305,13 +309,24 @@ void sendGracefulInterrupt(qint64 pid) {
     qInfo() << "[ProcessUtils] Sending graceful interrupt to PID" << pid;
 
 #ifdef Q_OS_WIN
+    // Disable CTRL+C handling for our process permanently.
+    // GenerateConsoleCtrlEvent is asynchronous, so restoring the handler immediately
+    // afterwards causes a race condition where the OS kills the app before FreeConsole finishes.
+    SetConsoleCtrlHandler(nullptr, TRUE);
+
     if (AttachConsole(static_cast<DWORD>(pid))) {
-        SetConsoleCtrlHandler(nullptr, TRUE);
         GenerateConsoleCtrlEvent(CTRL_C_EVENT, 0);
+        // Allow the async signal a brief moment to be delivered to the target process
+        Sleep(50);
         FreeConsole();
-        SetConsoleCtrlHandler(nullptr, FALSE);
     } else {
-        qWarning() << "[ProcessUtils] Failed to attach console to PID" << pid << "for graceful interrupt. Error:" << GetLastError();
+        DWORD err = GetLastError();
+        if (err == ERROR_ACCESS_DENIED) {
+            // Already attached to a console (e.g. Debug Console). Send to process group directly.
+            GenerateConsoleCtrlEvent(CTRL_C_EVENT, static_cast<DWORD>(pid));
+        } else {
+            qWarning() << "[ProcessUtils] Failed to attach console to PID" << pid << "for graceful interrupt. Error:" << err;
+        }
     }
 #else
     kill(pid, SIGINT);
@@ -327,14 +342,14 @@ QString fetchFfmpegVersion(const QString& execPath) {
     process.start(execPath, QStringList{QStringLiteral("-version")});
     if (process.waitForFinished(3000)) {
         QString output = QString::fromUtf8(process.readAllStandardOutput());
-        
+
         // Match specific clean patterns: YYYY-MM-DD, semantic version (e.g., 6.0, 4.4.1), or N-builds
         static const QRegularExpression re(QStringLiteral("(?:ffmpeg|ffprobe) version ([0-9]{4}-[0-9]{2}-[0-9]{2}|[0-9]+\\.[0-9]+(?:\\.[0-9]+)?|[Nn]-[0-9]+)"));
         QRegularExpressionMatch match = re.match(output);
         if (match.hasMatch()) {
             return match.captured(1);
         }
-        
+
         // Fallback: take the first sequence of characters before a hyphen or space
         static const QRegularExpression fallbackRe(QStringLiteral("(?:ffmpeg|ffprobe) version ([^- ]+)"));
         QRegularExpressionMatch fallbackMatch = fallbackRe.match(output);

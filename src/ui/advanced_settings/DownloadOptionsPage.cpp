@@ -64,34 +64,34 @@ DownloadOptionsPage::DownloadOptionsPage(ConfigManager *configManager, QWidget *
     m_externalDownloaderCombo = new QComboBox(this);
     m_externalDownloaderCombo->addItem(tr("yt-dlp (default)"), QStringLiteral("ytdlp"));
     m_externalDownloaderCombo->addItem(tr("aria2c"), QStringLiteral("aria2c"));
-    m_externalDownloaderCombo->setToolTip(tr("Choose the downloader to use for downloads.\n"
-                                          "yt-dlp: Default downloader built into yt-dlp.\n"
-                                          "aria2c: External downloader for faster multi-connection downloads."));
+    m_externalDownloaderCombo->setToolTip(tr("Choose the transfer engine.\n"
+                                          "yt-dlp: Reliable default downloader.\n"
+                                          "aria2c: Optional external downloader that can be faster on some sites by using multiple connections."));
     
     m_sponsorBlockCheck = new ToggleSwitch(this);
-    m_sponsorBlockCheck->setToolTip(tr("Automatically remove or skip sponsored segments using the SponsorBlock API."));
+    m_sponsorBlockCheck->setToolTip(tr("Ask yt-dlp to remove supported SponsorBlock segments, such as sponsor reads, when segment data is available."));
     m_embedChaptersCheck = new ToggleSwitch(this);
-    m_embedChaptersCheck->setToolTip(tr("Embed chapter markers into the video file if available."));
+    m_embedChaptersCheck->setToolTip(tr("Store chapter markers inside the final video file when the site provides them."));
     m_splitChaptersCheck = new ToggleSwitch(this);
-    m_splitChaptersCheck->setToolTip(tr("Split the video into separate files based on its chapters."));
+    m_splitChaptersCheck->setToolTip(tr("Create one output file per chapter instead of one full-length file when chapter data is available."));
     m_downloadSectionsCheck = new ToggleSwitch(this);
-    m_downloadSectionsCheck->setToolTip(tr("Prompt to download only a specific time range or chapter instead of the full video."));
+    m_downloadSectionsCheck->setToolTip(tr("Before each video download, ask whether to download only selected time ranges or chapters."));
     m_ffmpegCutEncoderCombo = new QComboBox(this);
-    m_ffmpegCutEncoderCombo->setToolTip(tr("Choose the FFmpeg video encoder yt-dlp uses when accurate SponsorBlock or section cuts require re-encoding. Hardware presets favor speed so users can leave SponsorBlock enabled for large videos."));
+    m_ffmpegCutEncoderCombo->setToolTip(tr("Choose the FFmpeg encoder used when accurate SponsorBlock or section cuts require re-encoding. Hardware choices appear only when detected locally."));
     m_ffmpegCutCustomArgsInput = new QLineEdit(this);
     m_ffmpegCutCustomArgsInput->setPlaceholderText(tr("e.g., -c:v h264_nvenc -preset p1 -cq 24 -multipass disabled"));
-    m_ffmpegCutCustomArgsInput->setToolTip(tr("Optional FFmpeg output arguments for yt-dlp's cut-normalization pass. Used only when the encoder mode is Custom."));
+    m_ffmpegCutCustomArgsInput->setToolTip(tr("Advanced: FFmpeg output arguments used only when FFmpeg cut encoder is set to Custom. Leave blank unless you know the exact encoder flags you want."));
     populateFfmpegCutEncoderCombo();
     m_singleLineCommandPreviewCheck = new ToggleSwitch(this);
-    m_singleLineCommandPreviewCheck->setToolTip(tr("Display the yt-dlp command preview as a single scrolling line instead of wrapping."));
+    m_singleLineCommandPreviewCheck->setToolTip(tr("Show the yt-dlp command preview as one horizontal line instead of wrapping across multiple lines."));
     m_restrictFilenamesCheck = new ToggleSwitch(this);
-    m_restrictFilenamesCheck->setToolTip(tr("Restrict filenames to ASCII characters, avoiding spaces and special characters."));
+    m_restrictFilenamesCheck->setToolTip(tr("Ask yt-dlp to use simpler ASCII-only filenames with fewer special characters. Helpful for older tools and network drives."));
 
     m_prefixPlaylistIndicesCheck = new ToggleSwitch(this);
-    m_prefixPlaylistIndicesCheck->setToolTip(tr("Automatically add a numbered prefix (e.g., '01 - ') to files downloaded from a playlist to preserve their original order."));
+    m_prefixPlaylistIndicesCheck->setToolTip(tr("Add a playlist number prefix such as '01 - ' so downloaded playlist files stay in source order."));
 
     m_autoClearCompletedCheck = new ToggleSwitch(this);
-    m_autoClearCompletedCheck->setToolTip(tr("Automatically remove downloads from the Active list once they finish successfully."));
+    m_autoClearCompletedCheck->setToolTip(tr("Remove successful downloads from the Active Downloads list automatically. Download History still keeps completed entries."));
     m_autoPasteModeCombo = new QComboBox(this);
     m_autoPasteModeCombo->addItems({
         tr("Disabled"),
@@ -100,12 +100,12 @@ DownloadOptionsPage::DownloadOptionsPage(ConfigManager *configManager, QWidget *
         tr("Auto-paste & enqueue on app focus"),
         tr("Auto-paste & enqueue on new URL in clipboard")
     });
-    m_autoPasteModeCombo->setToolTip(tr("Controls when URLs are auto-pasted from clipboard.\n"
-                                      "Enqueue modes will only add NEW URLs (duplicates are prevented)."));
+    m_autoPasteModeCombo->setToolTip(tr("Choose when clipboard URLs are copied into the Start tab.\n"
+                                      "Enqueue modes also add new URLs to the queue automatically; duplicates are skipped."));
 
     m_geoProxyInput = new QLineEdit(this);
     m_geoProxyInput->setPlaceholderText(QStringLiteral("e.g., http://proxy.server:port"));
-    m_geoProxyInput->setToolTip(tr("Use this proxy server for geo-verification if a video is restricted in your region."));
+    m_geoProxyInput->setToolTip(tr("Optional proxy used only for yt-dlp geo-verification checks, for example http://host:port. Leave blank for normal downloads."));
 
     auto addFormRow = [&](QFormLayout *formLayout, const QString& labelText, QWidget* field) {
         QLabel* label = new QLabel(labelText, this);
@@ -114,21 +114,21 @@ DownloadOptionsPage::DownloadOptionsPage(ConfigManager *configManager, QWidget *
     };
 
     QGroupBox *engineGroup = new QGroupBox(tr("Downloader"), scrollWidget);
-    engineGroup->setToolTip(tr("Choose the download engine and network options."));
+    engineGroup->setToolTip(tr("Choose the transfer engine and optional network settings used by yt-dlp."));
     QFormLayout *engineLayout = new QFormLayout(engineGroup);
     addFormRow(engineLayout, tr("Downloader engine:"), m_externalDownloaderCombo);
     addFormRow(engineLayout, tr("Geo-verification proxy:"), m_geoProxyInput);
     contentLayout->addWidget(engineGroup);
 
     QGroupBox *automationGroup = new QGroupBox(tr("Queue & Clipboard"), scrollWidget);
-    automationGroup->setToolTip(tr("Small workflow helpers for adding and clearing downloads."));
+    automationGroup->setToolTip(tr("Set clipboard automation and whether completed downloads leave the Active Downloads list automatically."));
     QFormLayout *automationLayout = new QFormLayout(automationGroup);
     addFormRow(automationLayout, tr("Auto-paste URL behavior:"), m_autoPasteModeCombo);
     addFormRow(automationLayout, tr("Auto-clear completed downloads"), m_autoClearCompletedCheck);
     contentLayout->addWidget(automationGroup);
 
     QGroupBox *chaptersGroup = new QGroupBox(tr("Chapters, Sections & SponsorBlock"), scrollWidget);
-    chaptersGroup->setToolTip(tr("Control chapter markers, chapter splitting, selected section downloads, and SponsorBlock cuts."));
+    chaptersGroup->setToolTip(tr("Control chapter markers, chapter-based splitting, selected section downloads, and SponsorBlock cutting."));
     QFormLayout *chaptersLayout = new QFormLayout(chaptersGroup);
     addFormRow(chaptersLayout, tr("Enable SponsorBlock"), m_sponsorBlockCheck);
     addFormRow(chaptersLayout, tr("Embed video chapters"), m_embedChaptersCheck);
@@ -139,7 +139,7 @@ DownloadOptionsPage::DownloadOptionsPage(ConfigManager *configManager, QWidget *
     contentLayout->addWidget(chaptersGroup);
 
     QGroupBox *filenameGroup = new QGroupBox(tr("Display & Filenames"), scrollWidget);
-    filenameGroup->setToolTip(tr("Control command preview display and filename compatibility."));
+    filenameGroup->setToolTip(tr("Control command preview wrapping and filename compatibility for downloaded files."));
     QFormLayout *filenameLayout = new QFormLayout(filenameGroup);
     addFormRow(filenameLayout, tr("Single-line command preview"), m_singleLineCommandPreviewCheck);
     addFormRow(filenameLayout, tr("Restrict filenames"), m_restrictFilenamesCheck);

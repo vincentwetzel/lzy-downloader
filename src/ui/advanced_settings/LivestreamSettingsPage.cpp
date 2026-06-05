@@ -38,14 +38,16 @@ void LivestreamSettingsPage::setupUI() {
     m_waitForVideoCheck->setToolTip(tr("If the livestream hasn't started yet, keep retrying instead of failing immediately."));
     
     m_waitMinSpin = new QSpinBox(this);
-    m_waitMinSpin->setRange(1, 3600);
+    m_waitMinSpin->setRange(15, 3600);
     m_waitMinSpin->setSuffix(tr(" s"));
-    m_waitMinSpin->setToolTip(tr("Minimum seconds to wait between retries."));
+    m_waitMinSpin->setToolTip(tr("Minimum seconds to wait between checks. (Minimum 15s, Default 60s)\n"
+                                 "Setting this too low may cause the platform to temporarily block your IP address for spamming."));
     
     m_waitMaxSpin = new QSpinBox(this);
-    m_waitMaxSpin->setRange(1, 3600);
+    m_waitMaxSpin->setRange(30, 3600);
     m_waitMaxSpin->setSuffix(tr(" s"));
-    m_waitMaxSpin->setToolTip(tr("Maximum seconds to wait between retries."));
+    m_waitMaxSpin->setToolTip(tr("Maximum seconds to wait between checks. (Default 300s)\n"
+                                 "The application dynamically scales up to this maximum wait time if the stream is scheduled far in the future to protect your IP."));
     
     QLabel *waitLabel = new QLabel(tr("Wait for video to start"), this);
     waitLabel->setWordWrap(true);
@@ -54,11 +56,11 @@ void LivestreamSettingsPage::setupUI() {
     waitLayout->addWidget(m_waitForVideoCheck);
     waitLayout->addSpacing(15);
     QLabel *minLabel = new QLabel(tr("Min:"), this);
-    minLabel->setToolTip(tr("Minimum seconds to wait between retries."));
+    minLabel->setToolTip(m_waitMinSpin->toolTip());
     waitLayout->addWidget(minLabel);
     waitLayout->addWidget(m_waitMinSpin);
     QLabel *maxLabel = new QLabel(tr("Max:"), this);
-    maxLabel->setToolTip(tr("Maximum seconds to wait between retries."));
+    maxLabel->setToolTip(m_waitMaxSpin->toolTip());
     waitLayout->addWidget(maxLabel);
     waitLayout->addWidget(m_waitMaxSpin);
     waitLayout->addStretch();

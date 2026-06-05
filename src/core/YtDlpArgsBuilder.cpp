@@ -244,6 +244,10 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
             int minWait = options.value(QStringLiteral("livestream_wait_min"), configManager->get(QStringLiteral("Livestream"), QStringLiteral("wait_for_video_min"))).toInt();
             int maxWait = options.value(QStringLiteral("livestream_wait_max"), configManager->get(QStringLiteral("Livestream"), QStringLiteral("wait_for_video_max"))).toInt();
 
+            // Guardrail to prevent IP bans if the UI or options bypass the ConfigManager limits
+            if (minWait < 15) minWait = 15;
+            if (maxWait <= minWait) maxWait = minWait + 45;
+
             rawArgs << QStringLiteral("--wait-for-video=%1-%2")
                        .arg(minWait)
                        .arg(maxWait);
@@ -354,7 +358,7 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
         }
     }
     const ProcessUtils::FoundBinary aria2Binary = ProcessUtils::findBinary(QStringLiteral("aria2c"), configManager);
-    if (configManager->get(QStringLiteral("Metadata"), QStringLiteral("use_aria2c"), false).toBool() && aria2Binary.source != QLatin1String("Not Found") && aria2Binary.source != QLatin1String("Invalid Custom")) {
+    if (!isLivestream && configManager->get(QStringLiteral("Metadata"), QStringLiteral("use_aria2c"), false).toBool() && aria2Binary.source != QLatin1String("Not Found") && aria2Binary.source != QLatin1String("Invalid Custom")) {
         QString aria2cPath = aria2Binary.path;
         QStringList aria2Args;
         aria2Args << QStringLiteral("--summary-interval=1");

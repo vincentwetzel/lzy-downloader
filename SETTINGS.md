@@ -12,6 +12,7 @@ This document provides a complete reference for all configuration settings used 
 - [Paths](#paths)
 - [Video](#video)
 - [Audio](#audio)
+- [Livestream](#livestream)
 - [Metadata](#metadata)
 - [Subtitles](#subtitles)
 - [Binaries](#binaries)
@@ -136,8 +137,8 @@ Settings specific to downloading live broadcasts.
 |-----|------|---------|-------------|
 | `live_from_start` | Boolean | `false` | Record the livestream from the beginning instead of the current live edge. |
 | `wait_for_video` | Boolean | `true` | Wait for an upcoming livestream to start instead of failing immediately. |
-| `wait_for_video_min` | Integer | `60` | Minimum seconds to wait between retries. |
-| `wait_for_video_max` | Integer | `300` | Maximum seconds to wait between retries. |
+| `wait_for_video_min` | Integer | `60` | Minimum seconds to wait between retries. Startup and argument construction clamp this to at least `15` seconds. |
+| `wait_for_video_max` | Integer | `300` | Maximum seconds to wait between retries. Startup and argument construction ensure this is greater than `wait_for_video_min`; invalid values become `wait_for_video_min + 45`. |
 | `download_as` | String | `MPEG-TS` | Format to download the livestream. Options: `MPEG-TS`, `MKV`. |
 | `use_part` | Boolean | `true` | Use `.part` files during download. |
 | `quality` | String | `best` | Quality of the livestream. Options: `best`, `1080p`, `720p`, etc. |
@@ -151,7 +152,7 @@ Settings for embedding metadata, thumbnails, and chapter information into downlo
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `use_aria2c` | Boolean | `true` | Use aria2c as an external downloader for segmented, concurrent downloads. |
+| `use_aria2c` | Boolean | `true` | Use aria2c as an external downloader for segmented, concurrent non-livestream downloads. Livestreams are forced through yt-dlp's native downloader so wait/finish-now behavior remains reliable. |
 | `embed_chapters` | Boolean | `true` | Embed chapter markers into video files when available. |
 | `embed_metadata` | Boolean | `true` | Embed metadata (title, artist, description, etc.) into downloaded files. |
 | `embed_thumbnail` | Boolean | `true` | Embed thumbnail images into downloaded files as cover art. |
@@ -293,7 +294,7 @@ Active, paused, and stopped downloads are automatically serialized to a JSON fil
 
 When launched with `--server`, `--headless`, or `--background`, queue runtime state is isolated under `Server/`, for example `%LOCALAPPDATA%\LzyDownloader\Server\downloads_backup.json` on Windows.
 
-Stopped and failed entries also retain the latest known temporary file paths needed for resume and cleanup workflows. This allows the Active Downloads tab's `Clear Temp Files` action to remove tracked partial media, sidecar metadata, thumbnails, and downloader state files even after an app restart.
+Stopped and failed entries also retain the latest known temporary file paths needed for resume and cleanup workflows. This allows the Active Downloads tab's `Clear Temp` action to remove tracked partial media, sidecar metadata, thumbnails, and downloader state files even after an app restart.
 
 ## Local API Token Location
 

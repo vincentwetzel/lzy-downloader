@@ -245,6 +245,9 @@ bool DownloadQueueManager::cancelQueuedOrPausedDownload(const QString &id) {
 
             if (!cleanupPaths.isEmpty()) {
                 QThread *cleanupThread = QThread::create([cleanupPaths, id]() {
+                    // Wait a moment for process handles to be released, especially after a cancellation.
+                    QThread::msleep(2000);
+
                     QSet<QString> visitedDirs;
                     for (const QString &cleanupPath : cleanupPaths) {
                         const QFileInfo anchor(cleanupPath);

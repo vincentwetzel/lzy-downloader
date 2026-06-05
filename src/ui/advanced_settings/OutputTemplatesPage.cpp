@@ -57,44 +57,44 @@ OutputTemplatesPage::OutputTemplatesPage(ConfigManager *configManager, QWidget *
     };
 
     QGroupBox *ytDlpGroup = new QGroupBox(tr("yt-dlp Filename Templates"), this);
-    ytDlpGroup->setToolTip(tr("Define custom filename patterns for video and audio downloads using yt-dlp templates."));
+    ytDlpGroup->setToolTip(tr("Define output filename patterns for video and audio downloads using yt-dlp template fields."));
     QGridLayout *ytDlpLayout = new QGridLayout(ytDlpGroup);
 
     QLabel* videoPatternLabel = new QLabel(tr("Video Pattern:"), this);
-    videoPatternLabel->setToolTip(tr("The filename pattern for video downloads."));
+    videoPatternLabel->setToolTip(tr("Template used to name video downloads. Include %(ext)s so yt-dlp can set the final extension."));
     ytDlpLayout->addWidget(videoPatternLabel, 0, 0);
     m_videoOutputTemplateInput = new QLineEdit(this);
     m_videoOutputTemplateInput->setMinimumHeight(30);
-    m_videoOutputTemplateInput->setToolTip(tr("The filename pattern for video downloads."));
+    m_videoOutputTemplateInput->setToolTip(tr("Template used to name video downloads. Example: %(title)s [%(id)s].%(ext)s"));
     ytDlpLayout->addWidget(m_videoOutputTemplateInput, 0, 1);
     m_videoTemplateTokensCombo = new QComboBox(this);
     m_videoTemplateTokensCombo->addItem(tr("Insert token..."), QStringLiteral(""));
     m_videoTemplateTokensCombo->setMaximumWidth(180);
-    m_videoTemplateTokensCombo->setToolTip(tr("Insert a yt-dlp metadata token into the video template."));
+    m_videoTemplateTokensCombo->setToolTip(tr("Insert a yt-dlp metadata field at the cursor position in the video template."));
     m_videoTemplateTokensCombo->addItems(ytDlpTokens);
     ytDlpLayout->addWidget(m_videoTemplateTokensCombo, 0, 2);
     m_saveVideoTemplateButton = new QPushButton(tr("Save"), this);
-    m_saveVideoTemplateButton->setToolTip(tr("Save and validate the video template."));
+    m_saveVideoTemplateButton->setToolTip(tr("Validate this video template with yt-dlp, then save it if it is valid."));
     ytDlpLayout->addWidget(m_saveVideoTemplateButton, 0, 3);
     QPushButton *resetVideoButton = new QPushButton(tr("Reset"), this);
     resetVideoButton->setToolTip(tr("Reset the video template to its default value."));
     ytDlpLayout->addWidget(resetVideoButton, 0, 4);
 
     QLabel* audioPatternLabel = new QLabel(tr("Audio Pattern:"), this);
-    audioPatternLabel->setToolTip(tr("The filename pattern for audio downloads."));
+    audioPatternLabel->setToolTip(tr("Template used to name audio downloads. Include %(ext)s so yt-dlp can set the final extension."));
     ytDlpLayout->addWidget(audioPatternLabel, 1, 0);
     m_audioOutputTemplateInput = new QLineEdit(this);
     m_audioOutputTemplateInput->setMinimumHeight(30);
-    m_audioOutputTemplateInput->setToolTip(tr("The filename pattern for audio downloads."));
+    m_audioOutputTemplateInput->setToolTip(tr("Template used to name audio downloads. Example: %(playlist_index)s - %(title)s.%(ext)s"));
     ytDlpLayout->addWidget(m_audioOutputTemplateInput, 1, 1);
     m_audioTemplateTokensCombo = new QComboBox(this);
     m_audioTemplateTokensCombo->addItem(tr("Insert token..."), QStringLiteral(""));
     m_audioTemplateTokensCombo->setMaximumWidth(180);
-    m_audioTemplateTokensCombo->setToolTip(tr("Insert a yt-dlp metadata token into the audio template."));
+    m_audioTemplateTokensCombo->setToolTip(tr("Insert a yt-dlp metadata field at the cursor position in the audio template."));
     m_audioTemplateTokensCombo->addItems(ytDlpTokens);
     ytDlpLayout->addWidget(m_audioTemplateTokensCombo, 1, 2);
     m_saveAudioTemplateButton = new QPushButton(tr("Save"), this);
-    m_saveAudioTemplateButton->setToolTip(tr("Save and validate the audio template."));
+    m_saveAudioTemplateButton->setToolTip(tr("Validate this audio template with yt-dlp, then save it if it is valid."));
     ytDlpLayout->addWidget(m_saveAudioTemplateButton, 1, 3);
     QPushButton *resetAudioButton = new QPushButton(tr("Reset"), this);
     resetAudioButton->setToolTip(tr("Reset the audio template to its default value."));
@@ -102,19 +102,19 @@ OutputTemplatesPage::OutputTemplatesPage(ConfigManager *configManager, QWidget *
     layout->addWidget(ytDlpGroup);
 
     QGroupBox *galleryDlGroup = new QGroupBox(tr("gallery-dl Filename Template"), this);
-    galleryDlGroup->setToolTip(tr("Define custom filename patterns for gallery downloads using gallery-dl templates."));
+    galleryDlGroup->setToolTip(tr("Define output paths and filenames for gallery downloads using gallery-dl template fields."));
     QHBoxLayout *galleryDlControlsLayout = new QHBoxLayout(galleryDlGroup);
     QLabel* galleryPatternLabel = new QLabel(tr("Gallery Pattern:"), this);
-    galleryPatternLabel->setToolTip(tr("The filename pattern for gallery downloads."));
+    galleryPatternLabel->setToolTip(tr("Template used to name gallery downloads. It may include folders, such as {category}/{id}_{filename}.{extension}."));
     galleryDlControlsLayout->addWidget(galleryPatternLabel);
     m_galleryDlOutputTemplateInput = new QLineEdit(this);
     m_galleryDlOutputTemplateInput->setMinimumHeight(30);
-    m_galleryDlOutputTemplateInput->setToolTip(tr("The filename pattern for gallery downloads."));
+    m_galleryDlOutputTemplateInput->setToolTip(tr("Template used to name gallery downloads. Include {extension} so gallery-dl can keep the correct file type."));
     galleryDlControlsLayout->addWidget(m_galleryDlOutputTemplateInput, 1); // Stretch factor 1
     m_galleryDlTemplateTokensCombo = new QComboBox(this);
     m_galleryDlTemplateTokensCombo->addItem(tr("Insert token..."), QStringLiteral(""));
     m_galleryDlTemplateTokensCombo->setMaximumWidth(180);
-    m_galleryDlTemplateTokensCombo->setToolTip(tr("Insert a gallery-dl metadata token into the gallery template."));
+    m_galleryDlTemplateTokensCombo->setToolTip(tr("Insert a gallery-dl metadata field at the cursor position in the gallery template."));
     m_galleryDlTemplateTokensCombo->addItems({
         QStringLiteral("{category}"), QStringLiteral("{subcategory}"), QStringLiteral("{id}"), QStringLiteral("{filename}"), QStringLiteral("{extension}"),
         QStringLiteral("{title}"), QStringLiteral("{description}"), QStringLiteral("{date}"), QStringLiteral("{date:%Y-%m-%d}"),
@@ -128,7 +128,7 @@ OutputTemplatesPage::OutputTemplatesPage(ConfigManager *configManager, QWidget *
     });
     galleryDlControlsLayout->addWidget(m_galleryDlTemplateTokensCombo, 0); // No stretch
     m_saveGalleryDlTemplateButton = new QPushButton(tr("Save"), this);
-    m_saveGalleryDlTemplateButton->setToolTip(tr("Save the gallery template."));
+    m_saveGalleryDlTemplateButton->setToolTip(tr("Save the gallery template. gallery-dl will validate fields when a gallery download runs."));
     galleryDlControlsLayout->addWidget(m_saveGalleryDlTemplateButton);
     QPushButton *resetGalleryDlButton = new QPushButton(tr("Reset"), this);
     resetGalleryDlButton->setToolTip(tr("Reset the gallery template to its default value."));

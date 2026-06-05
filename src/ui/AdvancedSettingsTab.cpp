@@ -134,7 +134,7 @@ void AdvancedSettingsTab::setupUI() {
     m_categoryList->setUniformItemSizes(true);
     m_categoryList->setSpacing(2);
     applyCategoryListStyleSheet();
-    m_categoryList->setToolTip(tr("Switch between advanced setting sections."));
+    m_categoryList->setToolTip(tr("Choose which group of advanced settings to edit."));
     auto addPage = [this](const QString &title, QWidget *page, const QString &tooltip) {
         auto *item = new QListWidgetItem(title);
         item->setToolTip(tooltip);
@@ -157,27 +157,27 @@ void AdvancedSettingsTab::setupUI() {
               configPage,
               new AuthenticationPage(m_configManager, this)
           }, this),
-          tr("Start here: folders, theme, local API, and login cookie access.") },
+          tr("Start here for download folders, theme, local API access, and browser cookies.") },
         { tr("Formats"),
           new SettingsSectionPage({
               new VideoSettingsPage(m_configManager, this),
               new AudioSettingsPage(m_configManager, this),
               new LivestreamSettingsPage(m_configManager, this)
           }, this),
-          tr("Default video, audio, and livestream quality/format choices.") },
+          tr("Set the default quality, codec, and container choices for videos, audio, and livestreams.") },
         { tr("Download Flow"),
           new DownloadOptionsPage(m_configManager, this),
-          tr("Downloader engine, automation, clipping, chapters, filenames, and proxy behavior.") },
+          tr("Control the downloader engine, clipboard automation, clipping, chapters, filenames, and proxy behavior.") },
         { tr("Files & Tags"),
           new SettingsSectionPage({
               new OutputTemplatesPage(m_configManager, this),
               new MetadataPage(m_configManager, this),
               new SubtitlesPage(m_configManager, this)
           }, this),
-          tr("Filename templates, metadata, artwork, and subtitles.") },
+          tr("Control output naming, embedded metadata, artwork, playlist album tags, and subtitles.") },
         { tr("External Tools"),
           new BinariesPage(m_configManager, this),
-          tr("Manage paths, versions, installs, and updates for external dependencies.") }
+          tr("Check and manage yt-dlp, FFmpeg, gallery-dl, aria2c, Deno, and other external tools.") }
     };
 
     for (const auto &descriptor : descriptors) {
@@ -226,7 +226,7 @@ void AdvancedSettingsTab::setupUI() {
     bottomLayout->addStretch();
 
     m_restoreDefaultsButton = new QPushButton(tr("Restore defaults"), this);
-    m_restoreDefaultsButton->setToolTip(tr("Reset all advanced settings to defaults."));
+    m_restoreDefaultsButton->setToolTip(tr("Reset every Advanced Settings option to its default value. You will be asked to confirm first."));
     bottomLayout->addWidget(m_restoreDefaultsButton);
     mainLayout->addLayout(bottomLayout);
     connect(m_restoreDefaultsButton, &QPushButton::clicked, this, &AdvancedSettingsTab::restoreDefaults);

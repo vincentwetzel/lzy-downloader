@@ -1,6 +1,6 @@
 #include "DownloadManager.h"
 #include "DownloadQueueManager.h"
-#include "PlaylistExpander.h"
+#include "PlaylistExpansionWorker.h"
 #include <QUuid>
 #include <QDebug>
 #include <QMetaObject>
@@ -13,7 +13,7 @@ bool isNonInteractiveRequest(const QVariantMap &options)
 }
 
 void DownloadManager::onPlaylistDetected(const QString &url, int itemCount, const QVariantMap &options, const QList<QVariantMap> &expandedItems) {
-    PlaylistExpander *expander = qobject_cast<PlaylistExpander*>(sender());
+    PlaylistExpansionWorker *expander = qobject_cast<PlaylistExpansionWorker*>(sender());
     QVariantMap storedOptions = options;
     if (expander) {
         storedOptions = expander->property("options").toMap();
@@ -144,7 +144,7 @@ void DownloadManager::processPlaylistSelection(const QString &url, const QString
 }
 
 void DownloadManager::onPlaylistExpanded(const QString &originalUrl, const QList<QVariantMap> &expandedItems, const QString &error) {
-    PlaylistExpander *expander = qobject_cast<PlaylistExpander*>(sender());
+    PlaylistExpansionWorker *expander = qobject_cast<PlaylistExpansionWorker*>(sender());
     QVariantMap options;
     QString queueId;
     if (expander) {

@@ -13,27 +13,27 @@ AudioSettingsPage::AudioSettingsPage(ConfigManager *configManager, QWidget *pare
     layout->setContentsMargins(0, 0, 0, 0);
 
     QGroupBox *audioGroup = new QGroupBox(tr("Default Audio Settings"), this);
-    audioGroup->setToolTip(tr("Set the default audio-only download options, or switch to runtime selection to choose exact formats when each download is queued."));
+    audioGroup->setToolTip(tr("Set defaults for audio-only downloads. Choose Select at Runtime when you want to pick exact audio streams for each queued URL."));
     QFormLayout *audioLayout = new QFormLayout(audioGroup);
 
     m_audioQualityCombo = new QComboBox(this);
-    m_audioQualityCombo->setToolTip(tr("Pick the default audio quality. Choose 'Select at Runtime' to hide the rest of these defaults and pick exact formats when you queue a download."));
+    m_audioQualityCombo->setToolTip(tr("Choose the target audio quality. 'best' lets yt-dlp choose the best available stream; Select at Runtime opens a format picker when you queue a URL."));
     m_audioQualityCombo->addItems({tr("Select at Runtime"), QStringLiteral("best"), QStringLiteral("320k"), QStringLiteral("256k"), QStringLiteral("192k"), QStringLiteral("128k"), QStringLiteral("96k"), QStringLiteral("64k"), QStringLiteral("32k"), QStringLiteral("worst")});
     QLabel *qualityLabel = new QLabel(tr("Quality:"), this);
     qualityLabel->setToolTip(m_audioQualityCombo->toolTip());
     audioLayout->addRow(qualityLabel, m_audioQualityCombo);
 
     m_audioCodecLabel = new QLabel(tr("Codec:"), this);
-    m_audioCodecLabel->setToolTip(tr("Choose the default audio codec used when runtime selection is off."));
+    m_audioCodecLabel->setToolTip(tr("Choose the preferred audio codec when runtime selection is off."));
     m_audioCodecCombo = new QComboBox(this);
     m_audioCodecCombo->setToolTip(tr("Choose the audio format (codec). Opus is modern and efficient, MP3 is very common, FLAC is for lossless quality."));
     m_audioCodecCombo->addItems({tr("Default"), QStringLiteral("Opus"), QStringLiteral("AAC"), QStringLiteral("Vorbis"), QStringLiteral("MP3"), QStringLiteral("FLAC"), QStringLiteral("WAV"), QStringLiteral("ALAC"), QStringLiteral("AC3"), QStringLiteral("EAC3"), QStringLiteral("DTS"), QStringLiteral("PCM")});
     audioLayout->addRow(m_audioCodecLabel, m_audioCodecCombo);
 
     m_audioExtLabel = new QLabel(tr("Extension:"), this);
-    m_audioExtLabel->setToolTip(tr("Select the default file extension used when runtime selection is off."));
+    m_audioExtLabel->setToolTip(tr("Choose the output container or extension for the selected audio codec."));
     m_audioExtCombo = new QComboBox(this);
-    m_audioExtCombo->setToolTip(tr("Select the file type for your audio... This changes automatically based on the audio codec."));
+    m_audioExtCombo->setToolTip(tr("Choose the final audio file type. Available choices update automatically based on the selected codec."));
     m_audioExtCombo->addItems({QStringLiteral("mp3"), QStringLiteral("m4a"), QStringLiteral("opus"), QStringLiteral("wav"), QStringLiteral("flac")});
     audioLayout->addRow(m_audioExtLabel, m_audioExtCombo);
 

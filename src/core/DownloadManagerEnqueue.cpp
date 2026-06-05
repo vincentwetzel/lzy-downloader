@@ -1,6 +1,6 @@
 #include "DownloadManager.h"
 #include "DownloadQueueManager.h"
-#include "PlaylistExpander.h"
+#include "PlaylistExpansionWorker.h"
 #include "core/ProcessUtils.h"
 #include <QUuid>
 #include <QDebug>
@@ -29,7 +29,7 @@ void DownloadManager::enqueueDownload(const QString &url, const QVariantMap &opt
     // Check if URL is already in any state (prevents duplicate enqueuing)
     const bool overrideArchive = effectiveOptions.value(QStringLiteral("override_archive"), false).toBool();
     const DownloadQueueManager::DuplicateStatus status = m_queueManager->getDuplicateStatus(url, m_activeItems);
-    
+
     if (status != DownloadQueueManager::NotDuplicate) {
         // If it's only in completed and override is enabled, allow it
         if (status == DownloadQueueManager::DuplicateCompleted && overrideArchive) {
@@ -71,6 +71,16 @@ void DownloadManager::enqueueDownload(const QString &url, const QVariantMap &opt
 
     const QString downloadType = effectiveOptions.value(QStringLiteral("type"), QStringLiteral("video")).toString();
 
+    // Pre-emptively detect obvious livestreams by URL so YtDlpArgsBuilder can apply livestream args
+    if (!effectiveOptions.contains(QStringLiteral("is_live"))) {
+        const QString lowerUrl = url.toLower();
+        if (lowerUrl.contains(QStringLiteral("/live")) ||
+            (lowerUrl.contains(QStringLiteral("twitch.tv/")) && !lowerUrl.contains(QStringLiteral("/videos/")) && !lowerUrl.contains(QStringLiteral("/clip/"))) ||
+            (lowerUrl.contains(QStringLiteral("kick.com/")) && !lowerUrl.contains(QStringLiteral("/video/")))) {
+            effectiveOptions.insert(QStringLiteral("is_live"), true);
+        }
+    }
+
     // Intercept for runtime format selection before doing anything else
     bool needsRuntimeSelection = false;
     if (downloadType == QStringLiteral("video")) {
@@ -111,7 +121,7 @@ void DownloadManager::enqueueDownload(const QString &url, const QVariantMap &opt
         uiData.insert(QStringLiteral("options"), effectiveOptions);
         emit downloadAddedToQueue(uiData);
 
-        PlaylistExpander *expander = new PlaylistExpander(url, m_configManager, this);
+        PlaylistExpansionWorker *expander = new PlaylistExpansionWorker(url, m_configManager, this);
         expander->setProperty("options", effectiveOptions);
         expander->setProperty("queueId", item.id); // Store queue ID for later
 
@@ -119,8 +129,8 @@ void DownloadManager::enqueueDownload(const QString &url, const QVariantMap &opt
         // queue cannot start downloading the original playlist URL first.
         m_queueManager->m_pendingExpansions[item.id] = url;
         m_queueManager->enqueueDownload(item, false); // Enqueue as placeholder, not a "new" item for UI
-        connect(expander, &PlaylistExpander::expansionFinished, this, &DownloadManager::onPlaylistExpanded);
-        connect(expander, &PlaylistExpander::playlistDetected, this, &DownloadManager::onPlaylistDetected);
+        connect(expander, &PlaylistExpansionWorker::expansionFinished, this, &DownloadManager::onPlaylistExpanded);
+        connect(expander, &PlaylistExpansionWorker::playlistDetected, this, &DownloadManager::onPlaylistDetected);
 
         QString playlistLogic = effectiveOptions.value(QStringLiteral("playlist_logic"), QStringLiteral("Ask")).toString();
         expander->startExpansion(playlistLogic);
@@ -169,7 +179,7 @@ void DownloadManager::fetchInfoForSections(const QString &url, const QVariantMap
         }
         process->deleteLater();
     });
-    
+
     connect(process, &QProcess::errorOccurred, this, [this, process, url, options](QProcess::ProcessError error) {
         if (error == QProcess::FailedToStart) {
             qWarning() << "Failed to start yt-dlp for sections info, enqueuing without them.";
@@ -190,7 +200,7 @@ void DownloadManager::fetchInfoForSections(const QString &url, const QVariantMap
             process->setProperty("timed_out", true);
             ProcessUtils::terminateProcessTree(process);
             process->kill();
-            
+
             QVariantMap newOptions = options;
             newOptions.insert(QStringLiteral("download_sections_set"), true); // Prevent re-triggering
             enqueueDownload(url, newOptions);
@@ -202,15 +212,15 @@ void DownloadManager::fetchInfoForSections(const QString &url, const QVariantMap
 void DownloadManager::fetchFormatsForSelection(const QString &url, const QVariantMap &options) {
     QProcess *process = new QProcess(this);
     const QString ytDlpPath = ProcessUtils::findBinary(QStringLiteral("yt-dlp"), m_configManager).path;
-    
+
     QStringList args;
     args << QStringLiteral("--dump-json") << QStringLiteral("--no-playlist") << url;
-    
+
     const QString cookiesBrowser = m_configManager->get(QStringLiteral("General"), QStringLiteral("cookies_from_browser"), QStringLiteral("None")).toString();
     if (cookiesBrowser != QStringLiteral("None")) {
         args << QStringLiteral("--cookies-from-browser") << cookiesBrowser.toLower();
     }
-    
+
     connect(process, &QProcess::finished, this, [this, process, url, options](int exitCode, QProcess::ExitStatus exitStatus) {
         if (process->property("timed_out").toBool()) {
             process->deleteLater();
@@ -246,7 +256,7 @@ void DownloadManager::fetchFormatsForSelection(const QString &url, const QVarian
         }
         process->deleteLater();
     });
-    
+
     connect(process, &QProcess::errorOccurred, this, [this, process, url](QProcess::ProcessError error) {
         if (error == QProcess::FailedToStart) {
             qWarning() << "yt-dlp failed to start for formats lookup.";

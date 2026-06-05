@@ -20,7 +20,7 @@ AuthenticationPage::AuthenticationPage(ConfigManager *configManager, QWidget *pa
     layout->setContentsMargins(0, 0, 0, 0);
 
     QGroupBox *authGroup = new QGroupBox(tr("Authentication Access"), this);
-    authGroup->setToolTip(tr("Settings for accessing content that requires login, using browser cookies."));
+    authGroup->setToolTip(tr("Use browser cookies so yt-dlp and gallery-dl can access sites where you are already signed in."));
     QFormLayout *authLayout = new QFormLayout(authGroup);
 
     QStringList installedBrowsers = BrowserUtils::getInstalledBrowsers();
@@ -43,7 +43,7 @@ AuthenticationPage::AuthenticationPage(ConfigManager *configManager, QWidget *pa
     orderedBrowsers.append(tr("None"));
 
     m_cookiesBrowserCombo = new QComboBox(this);
-    m_cookiesBrowserCombo->setToolTip(tr("Choose a web browser to get your login cookies from."));
+    m_cookiesBrowserCombo->setToolTip(tr("Choose the browser whose cookies should be used for video, audio, and gallery downloads. Pick None for public-only downloads."));
     m_cookiesBrowserCombo->addItems(orderedBrowsers);
     QLabel *cookiesLabel = new QLabel(tr("Cookies from browser:"), this);
     cookiesLabel->setToolTip(m_cookiesBrowserCombo->toolTip());

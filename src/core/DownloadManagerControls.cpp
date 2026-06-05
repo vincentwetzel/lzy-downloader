@@ -1,7 +1,7 @@
 #include "DownloadManager.h"
 #include "DownloadQueueManager.h"
 #include "GalleryDlWorker.h"
-#include "PlaylistExpander.h"
+#include "PlaylistExpansionWorker.h"
 #include "YtDlpArgsBuilder.h"
 #include "YtDlpWorker.h"
 #include "core/ProcessUtils.h"
@@ -21,9 +21,9 @@ void DownloadManager::cancelDownload(const QString &id) {
     if (m_queueManager->m_pendingExpansions.contains(id)) {
         m_queueManager->m_pendingExpansions.remove(id);
         
-        // Find and terminate the background PlaylistExpander process
-        const QList<PlaylistExpander*> expanders = findChildren<PlaylistExpander*>();
-        for (PlaylistExpander *expander : expanders) {
+        // Find and terminate the background playlist expansion process
+        const QList<PlaylistExpansionWorker*> expanders = findChildren<PlaylistExpansionWorker*>();
+        for (PlaylistExpansionWorker *expander : expanders) {
             if (expander->property("queueId").toString() == id) {
                 expander->disconnect(this);
                 const QList<QProcess*> processes = expander->findChildren<QProcess*>();

@@ -11,7 +11,7 @@
 
 class SortingManager;
 class ArchiveManager;
-class PlaylistExpander;
+class PlaylistExpansionWorker;
 class DownloadFinalizer;
 class DownloadQueueManager;
 class DownloadQueueState;

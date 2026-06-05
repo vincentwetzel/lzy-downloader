@@ -27,34 +27,34 @@ VideoSettingsPage::VideoSettingsPage(ConfigManager *configManager, QWidget *pare
     layout->setContentsMargins(0, 0, 0, 0);
 
     QGroupBox *videoGroup = new QGroupBox(tr("Default Video Settings"), this);
-    videoGroup->setToolTip(tr("Set the default video download options, or switch to runtime selection to choose formats when each download is added."));
+    videoGroup->setToolTip(tr("Set defaults for video downloads. Choose Select at Runtime when you want to pick exact streams for each queued URL."));
     QFormLayout *videoLayout = new QFormLayout(videoGroup);
 
     m_videoQualityCombo = new QComboBox(this);
-    m_videoQualityCombo->setToolTip(tr("Pick the default picture quality for video downloads. Choose 'Select at Runtime' to hide the rest of these defaults and pick exact formats when you queue a download."));
+    m_videoQualityCombo->setToolTip(tr("Choose the target video quality. 'best' lets yt-dlp choose the best available stream; Select at Runtime opens a format picker when you queue a URL."));
     m_videoQualityCombo->addItems({tr("Select at Runtime"), QStringLiteral("best"), QStringLiteral("2160p"), QStringLiteral("1440p"), QStringLiteral("1080p"), QStringLiteral("720p"), QStringLiteral("480p"), QStringLiteral("360p"), QStringLiteral("240p"), QStringLiteral("144p"), QStringLiteral("worst")});
     QLabel *qualityLabel = new QLabel(tr("Quality:"), this);
     qualityLabel->setToolTip(m_videoQualityCombo->toolTip());
     videoLayout->addRow(qualityLabel, m_videoQualityCombo);
 
     m_videoCodecLabel = new QLabel(tr("Codec:"), this);
-    m_videoCodecLabel->setToolTip(tr("Choose the default video codec used when runtime selection is off."));
+    m_videoCodecLabel->setToolTip(tr("Choose the preferred video codec when runtime selection is off."));
     m_videoCodecCombo = new QComboBox(this);
-    m_videoCodecCombo->setToolTip(tr("Choose the video format (codec). This affects file size and compatibility. H.264 is common, H.265 is newer and smaller, AV1/VP9 are often used for web videos."));
+    m_videoCodecCombo->setToolTip(tr("Choose the preferred video codec. H.264 is the safest for compatibility; H.265 and AV1 can be smaller but may not play everywhere."));
     m_videoCodecCombo->addItems({tr("Default"), QStringLiteral("H.264 (AVC)"), QStringLiteral("H.265 (HEVC)"), QStringLiteral("VP9"), QStringLiteral("AV1"), QStringLiteral("ProRes (Archive)"), QStringLiteral("Theora")});
     videoLayout->addRow(m_videoCodecLabel, m_videoCodecCombo);
 
     m_videoExtLabel = new QLabel(tr("Extension:"), this);
-    m_videoExtLabel->setToolTip(tr("Select the file type for your video... changes automatically based on codec."));
+    m_videoExtLabel->setToolTip(tr("Choose the output container for the selected video codec."));
     m_videoExtCombo = new QComboBox(this);
-    m_videoExtCombo->setToolTip(tr("Select the file type for your video... changes automatically based on codec."));
+    m_videoExtCombo->setToolTip(tr("Choose the final video file container. Available choices update automatically based on the selected codec."));
     m_videoExtCombo->addItems({QStringLiteral("mp4"), QStringLiteral("mkv"), QStringLiteral("webm")});
     videoLayout->addRow(m_videoExtLabel, m_videoExtCombo);
 
     m_videoAudioCodecLabel = new QLabel(tr("Audio Codec:"), this);
-    m_videoAudioCodecLabel->setToolTip(tr("Choose the default audio codec used inside video downloads when runtime selection is off."));
+    m_videoAudioCodecLabel->setToolTip(tr("Choose the preferred audio codec to include inside video downloads."));
     m_videoAudioCodecCombo = new QComboBox(this);
-    m_videoAudioCodecCombo->setToolTip(tr("Choose the audio format (codec) that will be included in your video file."));
+    m_videoAudioCodecCombo->setToolTip(tr("Choose the audio codec included in the final video file. Default lets yt-dlp pick the best compatible stream."));
     m_videoAudioCodecCombo->addItems({tr("Default"), QStringLiteral("AAC"), QStringLiteral("Opus"), QStringLiteral("Vorbis"), QStringLiteral("MP3"), QStringLiteral("FLAC"), QStringLiteral("PCM")});
     videoLayout->addRow(m_videoAudioCodecLabel, m_videoAudioCodecCombo);
 

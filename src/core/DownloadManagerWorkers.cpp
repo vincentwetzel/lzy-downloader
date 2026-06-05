@@ -44,6 +44,11 @@ void appendCleanupCandidate(QVariantMap &options, const QString &path)
 void DownloadManager::onWorkerProgress(const QString &id, const QVariantMap &progressData) {
     if (m_activeItems.contains(id)) {
         DownloadItem &item = m_activeItems[id];
+
+        if (progressData.contains(QStringLiteral("is_live"))) {
+            item.options.insert(QStringLiteral("is_live"), progressData.value(QStringLiteral("is_live")));
+        }
+
         const QString currentFile = progressData.value(QStringLiteral("current_file")).toString().trimmed();
         if (!currentFile.isEmpty()) {
             const QString normalizedCurrentFile = QDir::fromNativeSeparators(currentFile);
