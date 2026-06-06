@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.58] - 2026-06-06
+
 ### Changed
 - **Header hygiene cleanup**: Core and UI headers now consistently use `#pragma once`, and several helper APIs were made const-correct or explicit to match the repository coding standards.
 - **Start tab safety/i18n cleanup**: Start-tab URL handling, download actions, and command preview helpers now guard missing UI dependencies more defensively and wrap user-facing strings in Qt translation calls.
