@@ -38,7 +38,7 @@ QString appendSectionLabelToTemplate(const QString &outputTemplate, const QStrin
 
     const QString suffix = QStringLiteral(" [section %1]").arg(cleanedLabel);
     const QString extToken = QStringLiteral(".%(ext)s");
-    const int extIndex = outputTemplate.lastIndexOf(extToken);
+    const qsizetype extIndex = outputTemplate.lastIndexOf(extToken);
     if (extIndex >= 0) {
         return QStringLiteral("%1%2%3").arg(outputTemplate.left(extIndex), suffix, outputTemplate.mid(extIndex));
     }
@@ -218,7 +218,7 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
         if (quality.toLower() == QLatin1String("best") || quality.toLower() == QLatin1String("worst")) {
             rawArgs << QStringLiteral("-f") << quality.toLower();
         } else {
-            QString res = quality.split(' ').first().remove('p');
+            QString res = quality.split(QLatin1Char(' ')).first().remove(QLatin1Char('p'));
             rawArgs << QStringLiteral("-f") << QStringLiteral("bestvideo[height<=?%1]+bestaudio/best").arg(res);
         }
 
@@ -281,7 +281,7 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
         if (videoQuality.toLower() == QLatin1String("best") || videoQuality.toLower() == QLatin1String("worst")) {
             videoFormatSelector = QStringLiteral("%1video").arg(videoQuality.toLower());
         } else {
-            videoFormatSelector += QStringLiteral("[height<=?%1]").arg(videoQuality.split(' ').first().remove('p'));
+            videoFormatSelector += QStringLiteral("[height<=?%1]").arg(videoQuality.split(QLatin1Char(' ')).first().remove(QLatin1Char('p')));
         }
         if (videoCodecSetting != QLatin1String("Default")) videoFormatSelector += QStringLiteral("[vcodec~='(?i)%1']").arg(vcodec);
 
@@ -390,7 +390,8 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
         rawArgs << QStringLiteral("--parse-metadata") << QStringLiteral("%1:%(lzy_id)s").arg(internalId);
     }
 
-    bool forceSingleAlbum = (downloadType == QLatin1String("audio") && configManager->get(QStringLiteral("Metadata"), QStringLiteral("force_playlist_as_album"), false).toBool() && options.value(QStringLiteral("playlist_index"), -1).toInt() > 0);
+    bool isAudioPlaylist = (downloadType == QLatin1String("audio") && (options.value(QStringLiteral("playlist_index"), -1).toInt() > 0 || !options.value(QStringLiteral("playlist_title")).toString().isEmpty() || options.value(QStringLiteral("is_playlist")).toBool()));
+    bool forceSingleAlbum = (isAudioPlaylist && configManager->get(QStringLiteral("Metadata"), QStringLiteral("force_playlist_as_album"), false).toBool());
     if (forceSingleAlbum) {
         const QString playlistTitle = options.value(QStringLiteral("playlist_title")).toString().trimmed();
         if (!playlistTitle.isEmpty()) {
@@ -404,9 +405,10 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
     const QStringList supportedThumbnailExts = {QStringLiteral("mp3"), QStringLiteral("mkv"), QStringLiteral("mka"), QStringLiteral("ogg"), QStringLiteral("opus"), QStringLiteral("flac"), QStringLiteral("m4a"), QStringLiteral("mp4"), QStringLiteral("m4v"), QStringLiteral("mov")};
     
     bool embedThumb = configManager->get(QStringLiteral("Metadata"), QStringLiteral("embed_thumbnail"), true).toBool();
-    bool genFolderJpg = (downloadType == QLatin1String("audio") && configManager->get(QStringLiteral("Metadata"), QStringLiteral("generate_folder_jpg"), false).toBool() && options.value(QStringLiteral("playlist_index"), -1).toInt() > 0);
+    bool genFolderJpg = (isAudioPlaylist && configManager->get(QStringLiteral("Metadata"), QStringLiteral("generate_folder_jpg"), false).toBool());
 
-    bool canEmbed = embedThumb && supportedThumbnailExts.contains(finalOutputExtension, Qt::CaseInsensitive);
+    bool isAudioDefaultCodec = (downloadType == QLatin1String("audio") && !rawArgs.contains(QStringLiteral("--audio-format")));
+    bool canEmbed = embedThumb && (isAudioDefaultCodec || supportedThumbnailExts.contains(finalOutputExtension, Qt::CaseInsensitive));
     // We want to write a thumbnail for the UI even if we can't embed it.
     bool shouldWrite = (downloadType == QLatin1String("video") || downloadType == QLatin1String("audio") || isLivestream || genFolderJpg);
 

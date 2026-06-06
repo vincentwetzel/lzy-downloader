@@ -24,6 +24,13 @@ FfmpegMuxer::FfmpegMuxer(QObject *parent)
     connect(m_process, &QProcess::finished, this, [this](int exitCode, QProcess::ExitStatus exitStatus) {
         appendProcessOutput(m_process->readAllStandardOutput());
         appendProcessOutput(m_process->readAllStandardError());
+
+        QByteArray remaining = m_process->property("rawOutputBuffer").toByteArray();
+        if (!remaining.isEmpty()) {
+            m_processOutputTail += QString::fromUtf8(remaining);
+            m_process->setProperty("rawOutputBuffer", QByteArray());
+        }
+
         if (exitStatus == QProcess::CrashExit || exitCode != 0) {
             QString errorMsg = tr("FFmpeg process failed. Error: %1\n%2").arg(m_process->errorString(), m_processOutputTail);
             emit mergeFailed(errorMsg);
@@ -79,7 +86,7 @@ void FfmpegMuxer::merge(const QString &ffmpegPath, const QStringList &inputFiles
     // If there is only one file, and no metadata/artwork/subtitles, no merging is needed
     if (inputFiles.size() == 1 && title.isEmpty() && !hasArtwork && !hasSubtitles) {
         if (QFile::exists(outputFile)) QFile::remove(outputFile);
-        if (QFile::rename(inputFiles.first(), outputFile)) {
+        if (QFile::rename(inputFiles.first(), outputFile) || (QFile::copy(inputFiles.first(), outputFile) && QFile::remove(inputFiles.first()))) {
             for (const SubtitleFile &subFile : m_currentSubtitleFiles) {
                 if (QFile::exists(subFile.path)) {
                     QFile::remove(subFile.path);
@@ -110,14 +117,14 @@ void FfmpegMuxer::merge(const QString &ffmpegPath, const QStringList &inputFiles
     }
 
     // Map all media inputs (Video/Audio)
-    int streamIndex = 0;
-    for (int i = 0; i < inputFiles.size(); ++i, ++streamIndex) {
+    qsizetype streamIndex = 0;
+    for (qsizetype i = 0; i < inputFiles.size(); ++i, ++streamIndex) {
         args << QStringLiteral("-map") << QString::number(i);
     }
 
     // Map subtitle inputs
     if (hasSubtitles) {
-        for (int i = 0; i < subtitleFiles.size(); ++i, ++streamIndex) {
+        for (qsizetype i = 0; i < subtitleFiles.size(); ++i, ++streamIndex) {
             args << QStringLiteral("-map") << QString::number(streamIndex);
         }
     }
@@ -140,7 +147,7 @@ void FfmpegMuxer::merge(const QString &ffmpegPath, const QStringList &inputFiles
             args << QStringLiteral("-c:s") << QStringLiteral("srt");
         }
 
-        for (int i = 0; i < subtitleFiles.size(); ++i) {
+        for (qsizetype i = 0; i < subtitleFiles.size(); ++i) {
             args << QStringLiteral("-metadata:s:s:%1").arg(i) << QStringLiteral("language=%1").arg(subtitleFiles[i].language);
         }
     }
@@ -167,7 +174,16 @@ void FfmpegMuxer::appendProcessOutput(const QByteArray &data)
         return;
     }
 
-    m_processOutputTail += QString::fromUtf8(data);
+    QByteArray buffer = m_process->property("rawOutputBuffer").toByteArray();
+    buffer.append(data);
+
+    qsizetype lastDelimiter = qMax(buffer.lastIndexOf('\n'), buffer.lastIndexOf('\r'));
+    if (lastDelimiter != -1) {
+        m_processOutputTail += QString::fromUtf8(buffer.constData(), lastDelimiter + 1);
+        buffer.remove(0, lastDelimiter + 1);
+    }
+    m_process->setProperty("rawOutputBuffer", buffer);
+
     constexpr qsizetype maxTailLength = 12000;
     if (m_processOutputTail.size() > maxTailLength) {
         m_processOutputTail = m_processOutputTail.right(maxTailLength);
@@ -178,5 +194,6 @@ void FfmpegMuxer::cancel() {
     if (m_process->state() != QProcess::NotRunning) {
         qInfo() << "[FfmpegMuxer] Cancelling ffmpeg merge for" << m_currentOutputFile;
         ProcessUtils::terminateProcessTree(m_process);
+        m_process->kill(); // Forcefully kill the QProcess instance as fallback
     }
 }

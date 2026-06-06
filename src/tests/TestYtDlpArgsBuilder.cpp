@@ -97,5 +97,45 @@ void TestYtDlpArgsBuilder::testLivestreamArguments() {
     QVERIFY(!args.contains(QStringLiteral("--merge-output-format")));
 }
 
+void TestYtDlpArgsBuilder::testAudioThumbnailEmbedding() {
+    ConfigManager *mockConfig = getConfigManager();
+    mockConfig->set(QStringLiteral("Metadata"), QStringLiteral("embed_thumbnail"), true);
+    mockConfig->set(QStringLiteral("Metadata"), QStringLiteral("crop_audio_thumbnails"), true);
+    mockConfig->set(QStringLiteral("Audio"), QStringLiteral("audio_extension"), QStringLiteral("aac")); // Regression test for Default codec + unsupported config extension
+
+    YtDlpArgsBuilder builder;
+
+    QVariantMap options;
+    options[QStringLiteral("type")] = QStringLiteral("audio");
+
+    QStringList args = builder.build(mockConfig, QUrl(TEST_URL).toString(), options);
+
+    QVERIFY(args.contains(QStringLiteral("--embed-thumbnail")));
+}
+
+void TestYtDlpArgsBuilder::testAudioPlaylistFolderJpg() {
+    ConfigManager *mockConfig = getConfigManager();
+    mockConfig->set(QStringLiteral("Metadata"), QStringLiteral("generate_folder_jpg"), true);
+
+    YtDlpArgsBuilder builder;
+
+    QVariantMap options;
+    options[QStringLiteral("type")] = QStringLiteral("audio");
+    options[QStringLiteral("id")] = QStringLiteral("uuid123");
+    options[QStringLiteral("playlist_title")] = QStringLiteral("My Playlist");
+
+    QStringList args = builder.build(mockConfig, QUrl(TEST_URL).toString(), options);
+
+    QVERIFY(args.contains(QStringLiteral("--write-thumbnail")));
+    bool hasFolderJpg = false;
+    for (const QString &arg : args) {
+        if (arg.startsWith(QStringLiteral("thumbnail:")) && arg.contains(QStringLiteral("uuid123_folder.%(ext)s"))) {
+            hasFolderJpg = true;
+            break;
+        }
+    }
+    QVERIFY(hasFolderJpg);
+}
+
 // Generates the main() function for the test executable
 QTEST_MAIN(TestYtDlpArgsBuilder)

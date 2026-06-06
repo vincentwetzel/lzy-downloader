@@ -29,8 +29,8 @@ Application-wide settings that control theme, cookie handling, clipboard behavio
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `output_template` | String | `%(title)s [%(uploader)s][%(upload_date>%Y-%m-%d)s][%(id)s].%(ext)s` | Default filename template for yt-dlp downloads. Used as fallback when type-specific templates are not set. |
-| `output_template_video` | String | *(empty; inherits `output_template`)* | Optional video-specific yt-dlp filename template. Validated with `yt-dlp` before saving. |
-| `output_template_audio` | String | *(empty; inherits `output_template`)* | Optional audio-specific yt-dlp filename template. Validated with `yt-dlp` before saving. |
+| `output_template_video` | String | *(empty; inherits `output_template`)* | Optional video-specific yt-dlp filename template. Validated asynchronously with `yt-dlp` before saving. |
+| `output_template_audio` | String | *(empty; inherits `output_template`)* | Optional audio-specific yt-dlp filename template. Validated asynchronously with `yt-dlp` before saving. |
 | `gallery_output_template` | String | `{category}/{id}_{filename}.{extension}` | Filename template for gallery-dl downloads. Uses gallery-dl's own template syntax. |
 | `theme` | String | `System` | Application visual theme. Options: `System`, `Light`, `Dark`. |
 | `cookies_from_browser` | String | `None` | Browser to extract cookies from for video/audio downloads. Options: installed browser names (e.g., `Firefox`, `Chrome`) or `None`. |
@@ -159,8 +159,8 @@ Settings for embedding metadata, thumbnails, and chapter information into downlo
 | `high_quality_thumbnail` | Boolean | `true` | Use a higher-quality thumbnail source when available. |
 | `convert_thumbnail_to` | String | `jpg` | Convert embedded thumbnails to this format. Options: `None`, `jpg`, `png`. |
 | `crop_artwork_to_square` | Boolean | `true` | Crop audio thumbnails to square aspect ratio. |
-| `generate_folder_jpg` | Boolean | `false` | Generate a `folder.jpg` file for audio playlists. |
-| `force_playlist_as_album` | Boolean | `false` | For audio playlist downloads, force the `album` tag to the playlist title and `album_artist` to `Various Artists`. |
+| `generate_folder_jpg` | Boolean | `true` | Generate a `folder.jpg` file for audio playlists. Playlist detection uses playlist index, playlist title, or explicit playlist flags. |
+| `force_playlist_as_album` | Boolean | `false` | For audio playlist downloads, force the `album` tag to the playlist title and `album_artist` to `Various Artists`. Playlist detection uses playlist index, playlist title, or explicit playlist flags. |
 
 ---
 
@@ -205,7 +205,7 @@ Manual path overrides for external executables. If not set, the application auto
 
 > **Binary Resolution Order:** The application searches in this order: (1) User-configured path, (2) System PATH, (3) User-local install locations (e.g., `~/.deno/bin`, scoop shims, WindowsApps, Chocolatey).
 
-The External Tools page can also run install/update commands through detected package managers. WinGet updates use exact package IDs where available (`yt-dlp.yt-dlp`, `mikf.gallery-dl`, `Gyan.FFmpeg`, `aria2.aria2`, `DenoLand.Deno`), Deno standalone updates use `deno upgrade`, and cancellable progress dialogs preserve command output for troubleshooting.
+The External Tools page can also run install/update commands through detected package managers. WinGet updates use exact package IDs where available (`yt-dlp.yt-dlp`, `mikf.gallery-dl`, `Gyan.FFmpeg`, `aria2.aria2`, `DenoLand.Deno`), Deno standalone updates use `deno upgrade`, and cancellable progress dialogs preserve command output for troubleshooting. Version checks are bounded by short watchdogs, and install/update helpers close stdin so package aliases cannot hang waiting for input.
 
 ---
 
@@ -376,4 +376,4 @@ If a required binary (`yt-dlp`, `ffmpeg`, `ffprobe`, `deno`) is not found, LzyDo
 
 ---
 
-*Last updated: May 28, 2026 — LzyDownloader C++ Port*
+*Last updated: June 5, 2026 - LzyDownloader C++ Port*

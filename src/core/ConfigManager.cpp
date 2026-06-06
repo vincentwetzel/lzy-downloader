@@ -149,7 +149,7 @@ void ConfigManager::initializeDefaultSettings() {
     m_defaultSettings[QStringLiteral("Metadata")][QStringLiteral("high_quality_thumbnail")] = true;
     m_defaultSettings[QStringLiteral("Metadata")][QStringLiteral("convert_thumbnail_to")] = QStringLiteral("jpg");
     m_defaultSettings[QStringLiteral("Metadata")][QStringLiteral("crop_artwork_to_square")] = true;
-    m_defaultSettings[QStringLiteral("Metadata")][QStringLiteral("generate_folder_jpg")] = false;
+    m_defaultSettings[QStringLiteral("Metadata")][QStringLiteral("generate_folder_jpg")] = true;
     m_defaultSettings[QStringLiteral("Subtitles")][QStringLiteral("languages")] = QStringLiteral("en");
     m_defaultSettings[QStringLiteral("Subtitles")][QStringLiteral("embed_subtitles")] = true;
     m_defaultSettings[QStringLiteral("Subtitles")][QStringLiteral("write_subtitles")] = false;
@@ -227,11 +227,11 @@ QVariant ConfigManager::get(const QString &section, const QString &key, const QV
     // which in turn can have a fallback to the function's default parameter.
     QVariant appDefault = getDefault(section, key);
     QVariant finalFallback = appDefault.isValid() ? appDefault : defaultValue;
-    return m_settings->value(section + QLatin1Char('/') + key, finalFallback);
+    return m_settings->value(QStringLiteral("%1/%2").arg(section, key), finalFallback);
 }
 
 bool ConfigManager::set(const QString &section, const QString &key, const QVariant &value) {
-    QString fullKey = section + QLatin1Char('/') + key;
+    const QString fullKey = QStringLiteral("%1/%2").arg(section, key);
     if (m_settings->contains(fullKey) && m_settings->value(fullKey) == value) {
         return true;
     }
@@ -241,7 +241,7 @@ bool ConfigManager::set(const QString &section, const QString &key, const QVaria
 }
 
 void ConfigManager::remove(const QString &section, const QString &key) {
-    QString fullKey = section + QLatin1Char('/') + key;
+    const QString fullKey = QStringLiteral("%1/%2").arg(section, key);
     if (m_settings->contains(fullKey)) {
         m_settings->remove(fullKey);
         emit settingChanged(section, key, QVariant());

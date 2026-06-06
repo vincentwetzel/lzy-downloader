@@ -201,7 +201,7 @@ void DownloadQueueManager::enqueueDownload(const DownloadItem &item, bool isNew)
 }
 
 bool DownloadQueueManager::removePendingExpansionPlaceholder(const QString &id) {
-    for (int i = 0; i < m_downloadQueue.size(); ++i) {
+    for (qsizetype i = 0; i < m_downloadQueue.size(); ++i) {
         if (m_downloadQueue.at(i).id == id) {
             m_downloadQueue.takeAt(i);
             m_pendingExpansions.remove(id);
@@ -217,7 +217,7 @@ bool DownloadQueueManager::removePendingExpansionPlaceholder(const QString &id) 
 }
 
 bool DownloadQueueManager::cancelQueuedOrPausedDownload(const QString &id) {
-    for (int i = 0; i < m_downloadQueue.size(); ++i) {
+    for (qsizetype i = 0; i < m_downloadQueue.size(); ++i) {
         if (m_downloadQueue.at(i).id == id) {
             DownloadItem item = m_downloadQueue.takeAt(i);
             item.options.insert(QStringLiteral("is_stopped"), true);
@@ -313,7 +313,7 @@ bool DownloadQueueManager::cancelQueuedOrPausedDownload(const QString &id) {
 }
 
 bool DownloadQueueManager::pauseQueuedDownload(const QString &id, DownloadItem &pausedItem) {
-    for (int i = 0; i < m_downloadQueue.size(); ++i) {
+    for (qsizetype i = 0; i < m_downloadQueue.size(); ++i) {
         if (m_downloadQueue.at(i).id == id) {
             pausedItem = m_downloadQueue.takeAt(i);
             m_pausedItems.insert(id, pausedItem);
@@ -341,7 +341,7 @@ bool DownloadQueueManager::unpauseDownload(const QString &id) {
 }
 
 void DownloadQueueManager::moveDownloadUp(const QString &id) {
-    for (int i = 1; i < m_downloadQueue.size(); ++i) { // Can't move 0 up
+    for (qsizetype i = 1; i < m_downloadQueue.size(); ++i) { // Can't move 0 up
         if (m_downloadQueue.at(i).id == id) {
             m_downloadQueue.swapItemsAt(i, i - 1);
             emitQueueCountsChanged();
@@ -351,7 +351,7 @@ void DownloadQueueManager::moveDownloadUp(const QString &id) {
 }
 
 void DownloadQueueManager::moveDownloadDown(const QString &id) {
-    for (int i = 0; i < m_downloadQueue.size() - 1; ++i) { // Can't move last down
+    for (qsizetype i = 0; i < m_downloadQueue.size() - 1; ++i) { // Can't move last down
         if (m_downloadQueue.at(i).id == id) {
             m_downloadQueue.swapItemsAt(i, i + 1);
             emitQueueCountsChanged();
@@ -437,7 +437,7 @@ void DownloadQueueManager::processResumeDownloadsSelection(const QJsonArray &arr
 }
 
 DownloadItem DownloadQueueManager::takeNextQueuedDownload() {
-    for (int i = 0; i < m_downloadQueue.size(); ++i) {
+    for (qsizetype i = 0; i < m_downloadQueue.size(); ++i) {
         if (!m_pendingExpansions.contains(m_downloadQueue.at(i).id)) {
             DownloadItem item = m_downloadQueue.takeAt(i);
             emitQueueCountsChanged();

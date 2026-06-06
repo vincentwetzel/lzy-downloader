@@ -12,7 +12,11 @@ StartupWorker::StartupWorker(ConfigManager *configManager, ExtractorJsonParser *
       m_galleryDlCheckDone(false),
       m_extractorsCheckDone(false)
 {
-    connect(m_extractorJsonParser, &ExtractorJsonParser::extractorsReady, this, &StartupWorker::onExtractorsReady);
+    if (m_extractorJsonParser) {
+        connect(m_extractorJsonParser, &ExtractorJsonParser::extractorsReady, this, &StartupWorker::onExtractorsReady);
+    } else {
+        qWarning() << "StartupWorker initialized with null ExtractorJsonParser.";
+    }
 }
 
 StartupWorker::~StartupWorker()
@@ -91,7 +95,9 @@ void StartupWorker::onYtDlpUpdateFinished(Updater::UpdateStatus status, const QS
     qInfo() << QStringLiteral("Starting extractor list generation.");
     
     // Ensure we cross thread boundaries safely, as the parser lives on the main thread
-    QMetaObject::invokeMethod(m_extractorJsonParser, &ExtractorJsonParser::startGeneration, Qt::QueuedConnection);
+    if (m_extractorJsonParser) {
+        QMetaObject::invokeMethod(m_extractorJsonParser, &ExtractorJsonParser::startGeneration, Qt::QueuedConnection);
+    }
 
     this->checkAllFinished();
 }

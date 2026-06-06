@@ -1,4 +1,5 @@
 #include "OutputTemplatesPage.h"
+#include <QPointer>
 #include "core/ConfigManager.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -10,35 +11,80 @@
 #include <QPushButton>
 #include <QMessageBox>
 #include <QProcess>
+#include <QTimer>
 #include <QSignalBlocker>
+#include <functional>
 #include "core/ProcessUtils.h"
 
 namespace {
-    bool validateYtDlpTemplate(QWidget* parent, ConfigManager* configManager, const QString& templateStr) {
+    void validateYtDlpTemplateAsync(QWidget* parent, ConfigManager* configManager, const QString& templateStr, std::function<void(bool)> callback) {
         QString ytDlpPath = ProcessUtils::findBinary(QStringLiteral("yt-dlp"), configManager).path;
         if (ytDlpPath.isEmpty()) {
             QMessageBox::warning(parent, QObject::tr("Missing Binary"), QObject::tr("yt-dlp executable not found. Cannot validate template."));
-            return false;
+            callback(false);
+            return;
         }
 
-        QProcess process;
-        ProcessUtils::setProcessEnvironment(process);
-        process.start(ytDlpPath, QStringList() << QStringLiteral("-o") << templateStr << QStringLiteral("dummy:"));
-        if (!process.waitForStarted(2000)) {
-            QMessageBox::warning(parent, QObject::tr("Process Error"), QObject::tr("Failed to start yt-dlp to validate the template. Please check your yt-dlp installation."));
-            return false;
-        }
-        if (!process.waitForFinished(5000)) {
-            ProcessUtils::terminateProcessTree(&process);
-            QMessageBox::warning(parent, QObject::tr("Validation Timeout"), QObject::tr("yt-dlp took too long to validate the template (exceeded 5 seconds)."));
-            return false;
-        }
-        QString err = process.readAllStandardError();
-        if (err.contains(QStringLiteral("error:"), Qt::CaseInsensitive) && (err.contains(QStringLiteral("template"), Qt::CaseInsensitive) || err.contains(QStringLiteral("missing"), Qt::CaseInsensitive))) {
-            QMessageBox::warning(parent, QObject::tr("Invalid Template"), QObject::tr("yt-dlp rejected the template:\n%1").arg(err.trimmed()));
-            return false;
-        }
-        return true;
+        QProcess *process = new QProcess(parent);
+        ProcessUtils::setProcessEnvironment(*process);
+
+        QTimer *timeoutTimer = new QTimer(process);
+        timeoutTimer->setSingleShot(true);
+        constexpr int VALIDATION_TIMEOUT_MS = 5000;
+        timeoutTimer->setInterval(VALIDATION_TIMEOUT_MS);
+
+        QPointer<QWidget> safeParent(parent);
+        process->setProperty("callback_invoked", false);
+
+        auto safeCallback = [safeParent, process, callback](bool valid) {
+            if (!safeParent) return; // Prevent callback execution if the UI was destroyed
+            if (!process->property("callback_invoked").toBool()) {
+                process->setProperty("callback_invoked", true);
+                callback(valid);
+            }
+        };
+
+        QObject::connect(timeoutTimer, &QTimer::timeout, process, [safeParent, process, safeCallback]() {
+            ProcessUtils::terminateProcessTree(process);
+            process->kill();
+            if (safeParent) {
+                QMessageBox::warning(safeParent, QObject::tr("Validation Timeout"), QObject::tr("yt-dlp took too long to validate the template (exceeded %1 seconds).").arg(VALIDATION_TIMEOUT_MS / 1000));
+            }
+            safeCallback(false);
+        });
+
+        QObject::connect(process, &QProcess::errorOccurred, process, [safeParent, process, timeoutTimer, safeCallback](QProcess::ProcessError error) {
+            if (error == QProcess::FailedToStart) {
+                timeoutTimer->stop();
+                if (safeParent) {
+                    QMessageBox::warning(safeParent, QObject::tr("Process Error"), QObject::tr("Failed to start yt-dlp to validate the template. Please check your yt-dlp installation."));
+                }
+                safeCallback(false);
+                process->deleteLater();
+            }
+        });
+
+        QObject::connect(process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished), process, [safeParent, process, timeoutTimer, safeCallback](int, QProcess::ExitStatus) {
+            timeoutTimer->stop();
+            if (process->property("callback_invoked").toBool()) {
+                process->deleteLater();
+                return;
+            }
+
+            QString err = process->readAllStandardError();
+            if (err.contains(QStringLiteral("error:"), Qt::CaseInsensitive) && (err.contains(QStringLiteral("template"), Qt::CaseInsensitive) || err.contains(QStringLiteral("missing"), Qt::CaseInsensitive))) {
+                if (safeParent) {
+                    QMessageBox::warning(safeParent, QObject::tr("Invalid Template"), QObject::tr("yt-dlp rejected the template:\n%1").arg(err.trimmed()));
+                }
+                safeCallback(false);
+            } else {
+                safeCallback(true);
+            }
+            process->deleteLater();
+        });
+
+        process->start(ytDlpPath, QStringList() << QStringLiteral("-o") << templateStr << QStringLiteral("dummy:"));
+        timeoutTimer->start();
     }
 }
 
@@ -187,24 +233,28 @@ void OutputTemplatesPage::validateAndSaveVideoTemplate() {
     QString templateStr = m_videoOutputTemplateInput->text();
     if (templateStr.isEmpty()) { QMessageBox::warning(this, tr("Invalid Template"), tr("Template cannot be empty.")); return; }
 
-    if (!validateYtDlpTemplate(this, m_configManager, templateStr)) {
-        return;
-    }
-
-    m_configManager->set(QStringLiteral("General"), QStringLiteral("output_template_video"), templateStr);
-    QMessageBox::information(this, tr("Saved"), tr("Video output filename pattern saved."));
+    m_saveVideoTemplateButton->setEnabled(false);
+    validateYtDlpTemplateAsync(this, m_configManager, templateStr, [this, templateStr](bool isValid) {
+        m_saveVideoTemplateButton->setEnabled(true);
+        if (isValid) {
+            m_configManager->set(QStringLiteral("General"), QStringLiteral("output_template_video"), templateStr);
+            QMessageBox::information(this, tr("Saved"), tr("Video output filename pattern saved."));
+        }
+    });
 }
 
 void OutputTemplatesPage::validateAndSaveAudioTemplate() {
     QString templateStr = m_audioOutputTemplateInput->text();
     if (templateStr.isEmpty()) { QMessageBox::warning(this, tr("Invalid Template"), tr("Template cannot be empty.")); return; }
 
-    if (!validateYtDlpTemplate(this, m_configManager, templateStr)) {
-        return;
-    }
-
-    m_configManager->set(QStringLiteral("General"), QStringLiteral("output_template_audio"), templateStr);
-    QMessageBox::information(this, tr("Saved"), tr("Audio output filename pattern saved."));
+    m_saveAudioTemplateButton->setEnabled(false);
+    validateYtDlpTemplateAsync(this, m_configManager, templateStr, [this, templateStr](bool isValid) {
+        m_saveAudioTemplateButton->setEnabled(true);
+        if (isValid) {
+            m_configManager->set(QStringLiteral("General"), QStringLiteral("output_template_audio"), templateStr);
+            QMessageBox::information(this, tr("Saved"), tr("Audio output filename pattern saved."));
+        }
+    });
 }
 
 void OutputTemplatesPage::validateAndSaveGalleryDlTemplate() {

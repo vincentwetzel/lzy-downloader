@@ -216,21 +216,21 @@ QString SortingManager::getSortedDirectory(const QVariantMap &videoMetadata, con
     for (int i = 0; i < size; ++i) {
         QString key = QStringLiteral("rule_%1").arg(i);
         
-        QString ruleName = m_configManager->get(QStringLiteral("SortingRules"), key + QStringLiteral("_name")).toString();
-        QVariant appliesToVar = m_configManager->get(QStringLiteral("SortingRules"), key + QStringLiteral("_applies_to"));
+        QString ruleName = m_configManager->get(QStringLiteral("SortingRules"), QStringLiteral("%1_name").arg(key)).toString();
+        QVariant appliesToVar = m_configManager->get(QStringLiteral("SortingRules"), QStringLiteral("%1_applies_to").arg(key));
         QString appliesTo = appliesToVar.isValid() ? appliesToVar.toString() : QStringLiteral("All Downloads");
-        QString targetFolder = m_configManager->get(QStringLiteral("SortingRules"), key + QStringLiteral("_target_folder")).toString();
-        QString subfolderPattern = m_configManager->get(QStringLiteral("SortingRules"), key + QStringLiteral("_subfolder_pattern")).toString();
+        QString targetFolder = m_configManager->get(QStringLiteral("SortingRules"), QStringLiteral("%1_target_folder").arg(key)).toString();
+        QString subfolderPattern = m_configManager->get(QStringLiteral("SortingRules"), QStringLiteral("%1_subfolder_pattern").arg(key)).toString();
         
         // Load conditions
-        int condSize = m_configManager->get(QStringLiteral("SortingRules"), key + QStringLiteral("_conditions_size"), 0).toInt();
+        int condSize = m_configManager->get(QStringLiteral("SortingRules"), QStringLiteral("%1_conditions_size").arg(key), 0).toInt();
         QJsonArray conditionsArray;
         for (int j = 0; j < condSize; ++j) {
             QString condKey = QStringLiteral("%1_condition_%2").arg(key).arg(j);
             QJsonObject cond;
-            cond[QStringLiteral("field")] = m_configManager->get(QStringLiteral("SortingRules"), condKey + QStringLiteral("_field")).toString();
-            cond[QStringLiteral("operator")] = m_configManager->get(QStringLiteral("SortingRules"), condKey + QStringLiteral("_operator")).toString();
-            cond[QStringLiteral("value")] = m_configManager->get(QStringLiteral("SortingRules"), condKey + QStringLiteral("_value")).toString();
+            cond[QStringLiteral("field")] = m_configManager->get(QStringLiteral("SortingRules"), QStringLiteral("%1_field").arg(condKey)).toString();
+            cond[QStringLiteral("operator")] = m_configManager->get(QStringLiteral("SortingRules"), QStringLiteral("%1_operator").arg(condKey)).toString();
+            cond[QStringLiteral("value")] = m_configManager->get(QStringLiteral("SortingRules"), QStringLiteral("%1_value").arg(condKey)).toString();
             conditionsArray.append(cond);
         }
         

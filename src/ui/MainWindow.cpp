@@ -3,12 +3,12 @@
 #include "MainWindowHelpers.h"
 #include "MainWindowUiBuilder.h"
 
-#include "core/ConfigManager.h"
 #include "core/ArchiveManager.h"
-#include "core/DownloadManager.h"
 #include "core/AppUpdater.h"
-#include "core/UrlValidator.h"
+#include "core/ConfigManager.h"
+#include "core/DownloadManager.h"
 #include "core/StartupWorker.h"
+#include "core/UrlValidator.h"
 #include "core/download_pipeline/YtDlpDownloadInfoExtractor.h"
 #include "utils/BinaryFinder.h"
 

@@ -69,7 +69,7 @@ QStringList PlaylistExpansionWorker::buildProbeArguments(const QString &playlist
     QStringList args = builder.build(m_configManager, m_url, m_options);
 
     const auto removeArgWithValue = [&args](const QString &flag) {
-        int index = args.indexOf(flag);
+        qsizetype index = args.indexOf(flag);
         while (index != -1) {
             args.removeAt(index);
             if (index < args.size()) {
@@ -116,9 +116,9 @@ void PlaylistExpansionWorker::onProcessFinished(int exitCode, QProcess::ExitStat
         const QString stderrOutput = QString::fromUtf8(m_process->readAllStandardError());
         QString errorMessage = tr("Failed to expand playlist.");
 
-        const int errIdx = stderrOutput.indexOf(QStringLiteral("ERROR:"));
+        const qsizetype errIdx = stderrOutput.indexOf(QStringLiteral("ERROR:"));
         if (errIdx != -1) {
-            const int endIdx = stderrOutput.indexOf('\n', errIdx);
+            const qsizetype endIdx = stderrOutput.indexOf(QLatin1Char('\n'), errIdx);
             errorMessage = QStringLiteral("%1\n%2").arg(errorMessage, stderrOutput.mid(errIdx, endIdx == -1 ? -1 : endIdx - errIdx).trimmed());
         }
 

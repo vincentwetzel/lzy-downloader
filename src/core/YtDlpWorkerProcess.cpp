@@ -1,6 +1,6 @@
 #include "YtDlpWorker.h"
 
-#include "ConfigManager.h"
+#include "core/ConfigManager.h"
 
 #include <QDebug>
 #include <QDir>
@@ -155,6 +155,8 @@ void YtDlpWorker::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatu
             } else {
                 qWarning() << "Failed to clean up info.json file:" << m_infoJsonPath;
             }
+
+            m_infoJsonPath.clear(); // Clear the path so any pending readInfoJsonWithRetry timers abort cleanly
         }
 
         // Use the full metadata that was already parsed from info.json during readInfoJsonWithRetry
@@ -189,6 +191,10 @@ void YtDlpWorker::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatu
     }
 
     if (!success) {
+        if (exitStatus == QProcess::CrashExit) {
+            message = QStringLiteral("%1\n%2").arg(message, tr("Process crashed: %1").arg(m_process->errorString()));
+        }
+
         if (!m_errorLines.isEmpty()) {
             message = QStringLiteral("%1\n%2").arg(message, m_errorLines.join(QLatin1Char('\n')).left(200));
         } else {
@@ -240,13 +246,36 @@ void YtDlpWorker::onProcessError(QProcess::ProcessError error) {
         return;
     }
 
-    if (error == QProcess::FailedToStart || error == QProcess::Crashed ||
-        error == QProcess::ReadError || error == QProcess::WriteError) {
+    // Crashed, ReadError, and WriteError will eventually emit finished() anyway.
+    // We only need to manually emit finished and abort if the process FailedToStart,
+    // because finished() is never emitted in that state.
+    if (error == QProcess::FailedToStart) {
         m_finishEmitted = true;
-        const QString message = tr("Download failed.\nyt-dlp process error (%1): %2")
-                                    .arg(static_cast<int>(error))
+        const QString message = tr("Failed to start yt-dlp process. Please check your yt-dlp installation.\nError: %1")
                                     .arg(m_process->errorString());
         qWarning() << message;
+
+        // Clean up orphaned wait thumbnail on failure
+        const QString waitThumbnailPrefix = QStringLiteral("%1_wait_thumbnail").arg(m_id);
+        if (!m_thumbnailPath.isEmpty() && QFileInfo(m_thumbnailPath).fileName().startsWith(waitThumbnailPrefix)) {
+            QFile::remove(m_thumbnailPath);
+            m_thumbnailPath.clear();
+        }
+
+        // Try to clean up empty UUID directory since finished() won't run
+        if (m_configManager) {
+            QString resolvedTempDir = m_configManager->get(QStringLiteral("Paths"), QStringLiteral("temporary_downloads_directory")).toString();
+            if (resolvedTempDir.isEmpty()) {
+                const QString completedDir = m_configManager->get(QStringLiteral("Paths"), QStringLiteral("completed_downloads_directory")).toString();
+                if (!completedDir.isEmpty()) {
+                    resolvedTempDir = QDir(completedDir).filePath(QStringLiteral("temp_downloads"));
+                }
+            }
+            if (!resolvedTempDir.isEmpty()) {
+                QDir().rmdir(QDir(resolvedTempDir).filePath(m_id));
+            }
+        }
+
         emit finished(m_id, false, message, QString(), QString(), QVariantMap());
     }
 }
@@ -272,14 +301,21 @@ void YtDlpWorker::parseProcessBuffer(QByteArray &buffer, const QByteArray &newDa
     const qsizetype lastDelimiter = qMax(buffer.lastIndexOf('\n'), buffer.lastIndexOf('\r'));
     if (lastDelimiter == -1) return;
 
-    static const QRegularExpression newlineRegex(QStringLiteral("[\\r\\n]"));
-    const QString linesStr = QString::fromUtf8(buffer.constData(), lastDelimiter + 1);
-    const QStringList lines = linesStr.split(newlineRegex, Qt::SkipEmptyParts);
-    buffer.remove(0, lastDelimiter + 1);
-
-    for (const QString &line : lines) {
-        handleOutputLine(line.trimmed());
+    qsizetype start = 0;
+    for (qsizetype i = 0; i <= lastDelimiter; ++i) {
+        const char c = buffer.at(i);
+        if (c == '\n' || c == '\r') {
+            if (i > start) {
+                const QString line = QString::fromUtf8(buffer.data() + start, i - start).trimmed();
+                if (!line.isEmpty()) {
+                    handleOutputLine(line);
+                }
+            }
+            start = i + 1;
+        }
     }
+
+    buffer.remove(0, lastDelimiter + 1);
 }
 
 void YtDlpWorker::parseStandardOutput(const QByteArray &output) {
@@ -385,7 +421,7 @@ void YtDlpWorker::readInfoJsonWithRetry() {
         qDebug() << "Extracted title from info.json:" << m_videoTitle;
     }
 
-    if (obj.contains(QStringLiteral("duration"))) {
+    if (obj.contains(QStringLiteral("duration")) && obj.value(QStringLiteral("duration")).isDouble()) {
         updateData.insert(QStringLiteral("duration"), obj.value(QStringLiteral("duration")).toDouble());
     } else if (obj.contains(QStringLiteral("duration_string")) && obj.value(QStringLiteral("duration_string")).isString()) {
         updateData.insert(QStringLiteral("duration_string"), obj.value(QStringLiteral("duration_string")).toString());

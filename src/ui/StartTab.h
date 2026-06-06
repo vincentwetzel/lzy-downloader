@@ -13,6 +13,7 @@
 #include "utils/ExtractorJsonParser.h"
 #include "core/YtDlpArgsBuilder.h"
 #include "core/GalleryDlArgsBuilder.h"
+#include <memory>
 
 class QEvent;
 class QFocusEvent;
@@ -64,8 +65,8 @@ private:
 
     ConfigManager *m_configManager;
     ExtractorJsonParser *m_extractorJsonParser;
-    YtDlpArgsBuilder *m_ytDlpArgsBuilder;
-    GalleryDlArgsBuilder *m_galleryDlArgsBuilder;
+    std::unique_ptr<YtDlpArgsBuilder> m_ytDlpArgsBuilder;
+    std::unique_ptr<GalleryDlArgsBuilder> m_galleryDlArgsBuilder;
 
     StartTabUiBuilder *m_uiBuilder;
     StartTabUrlHandler *m_urlHandler;

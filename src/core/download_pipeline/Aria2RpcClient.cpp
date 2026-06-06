@@ -82,8 +82,15 @@ void Aria2RpcClient::sendRpcRequest(const QString& method, const QJsonArray& par
     QNetworkReply* reply = m_netManager->post(request, data);
     connect(reply, &QNetworkReply::finished, this, [this, reply, callback, errorCallback] {
         if (reply->error() == QNetworkReply::NoError) {
-            QJsonDocument responseDoc = QJsonDocument::fromJson(reply->readAll());
-            if (responseDoc.isObject()) {
+            QJsonParseError parseError;
+            QJsonDocument responseDoc = QJsonDocument::fromJson(reply->readAll(), &parseError);
+            if (parseError.error != QJsonParseError::NoError) {
+                qWarning() << "Failed to parse Aria2 RPC JSON response:" << parseError.errorString();
+                if (errorCallback) {
+                    errorCallback(tr("Failed to parse RPC response: %1").arg(parseError.errorString()));
+                }
+                emit rpcError(tr("RPC Parse Error: %1").arg(parseError.errorString()));
+            } else if (responseDoc.isObject()) {
                 QJsonObject responseObj = responseDoc.object();
                 if (responseObj.contains(QStringLiteral("error"))) {
                     QString errMsg = responseObj[QStringLiteral("error")].toObject()[QStringLiteral("message")].toString();

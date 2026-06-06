@@ -10,10 +10,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - **Header hygiene cleanup**: Core and UI headers now consistently use `#pragma once`, and several helper APIs were made const-correct or explicit to match the repository coding standards.
 - **Start tab safety/i18n cleanup**: Start-tab URL handling, download actions, and command preview helpers now guard missing UI dependencies more defensively and wrap user-facing strings in Qt translation calls.
+- **Dependency baseline pinning**: The vcpkg manifest now pins a builtin baseline so manifest-mode source builds resolve dependencies reproducibly.
+- **Audio playlist artwork default**: `Metadata/generate_folder_jpg` now defaults to enabled, and audio playlist detection also honors playlist metadata beyond just positive playlist indices.
+- **Process-output memory bounds**: Long-running yt-dlp, gallery-dl, and FFmpeg output buffering now keeps bounded tails or buffered complete lines to avoid unbounded memory growth during livestreams and large galleries.
 
 ### Fixed
 - **Archive connection teardown scope**: Archive database cleanup now closes/removes the current thread's Qt SQL connection by its thread-local name, avoiding cross-thread connection removal while still releasing SQLite handles on shutdown and tests.
 - **Logging cleanup safety**: Log-file open failure cleanup now routes the `QFile` through Qt deferred deletion instead of deleting a `QObject` directly.
+- **Output template validation responsiveness**: Video/audio template validation now runs `yt-dlp` asynchronously with a watchdog and guarded callbacks, keeping Advanced Settings responsive while validation is in progress.
+- **Download history persistence**: `download_history.json` is now loaded with explicit JSON validation and saved atomically with `QSaveFile`.
+- **gallery-dl failure reporting**: The gallery worker now flushes remaining stdout/stderr at process exit, preserves a bounded stderr tail, reports crash details, and treats platform-neutral `gallery-dl` resolution consistently through `ProcessUtils`.
+- **JSON parser diagnostics**: Aria2 RPC and yt-dlp metadata extraction now report JSON parse errors explicitly instead of silently treating malformed output as an empty response.
+- **FFmpeg mux fallback**: Single-input muxing now falls back to copy/remove if a direct rename fails, improving cross-volume and filesystem-boundary moves.
 
 ## [1.1.56] - 2026-06-05
 

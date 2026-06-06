@@ -14,7 +14,7 @@ This document describes how to build, package, and release the C++ version of Lz
 
 3. **Qt 6**
    - Required for building the application.
-   - The manifest build path uses vcpkg; keep `vcpkg.json` synchronized with the app version before release.
+   - The manifest build path uses vcpkg; keep `vcpkg.json` synchronized with the app version before release and keep its `builtin-baseline` pinned for reproducible dependency resolution.
 
 4. **Git & GitHub**
    - Repo: https://github.com/vincentwetzel/lzy-downloader
@@ -37,7 +37,7 @@ This will update `extractors_yt-dlp.json` and `extractors_gallery-dl.json`. Both
 
 Update the version in `CMakeLists.txt` (`project(VERSION x.y.z)`). This is the single source of truth for the release version. The app version is generated from there into `version.h`, used by the Windows resources, and passed into the NSIS installer build by `build_release.ps1`.
 
-Also update `vcpkg.json` `version-string` to the same version and ensure `CHANGELOG.md` has the release notes under the matching dated version heading.
+Also update `vcpkg.json` `version-string` to the same version, keep its `builtin-baseline` pinned to the intended vcpkg commit, and ensure `CHANGELOG.md` has the release notes under the matching dated version heading.
 
 **Release rule:** Do not manually rename the installer `.exe` to fix a version mismatch. If the setup filename version is wrong, fix the release inputs/scripts and rebuild so the installer filename, Windows app version, and uninstall `DisplayVersion` all match the same `CMakeLists.txt` version.
 
@@ -104,6 +104,7 @@ Navigate to https://github.com/vincentwetzel/lzy-downloader/releases and:
 - [ ] Extractor refresh scripts completed without prompts or manual keypresses
 - [ ] Version number updated in `CMakeLists.txt`
 - [ ] `vcpkg.json` `version-string` matches `CMakeLists.txt`
+- [ ] `vcpkg.json` `builtin-baseline` is pinned to the intended vcpkg commit
 - [ ] `CHANGELOG.md` has the release notes under the matching dated version
 - [ ] Installer was rebuilt from the current `CMakeLists.txt` version (`build_release.ps1` or `makensis /DAPP_VERSION=...`), not manually renamed afterward
 - [ ] Release build completed (`build_release.ps1` or equivalent manual steps)

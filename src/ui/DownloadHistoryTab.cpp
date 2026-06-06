@@ -20,6 +20,7 @@
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QFile>
+#include <QSaveFile>
 
 // A widget to represent a single history item
 class DownloadHistoryItemWidget : public QFrame {
@@ -171,20 +172,46 @@ void DownloadHistoryTab::loadHistory(const QString &filePath) {
     
     QFile file(m_historyFilePath);
     if (file.open(QIODevice::ReadOnly)) {
-        QJsonDocument doc = QJsonDocument::fromJson(file.readAll());
+        QJsonParseError parseError;
+        QJsonDocument doc = QJsonDocument::fromJson(file.readAll(), &parseError);
+        if (parseError.error != QJsonParseError::NoError) {
+            qWarning() << "Failed to parse download history JSON from" << m_historyFilePath << "Error:" << parseError.errorString();
+            file.close();
+            return;
+        }
+
         if (doc.isArray()) {
             QJsonArray arr = doc.array();
             for (const QJsonValue &val : arr) {
+                if (!val.isObject()) {
+                    continue;
+                }
                 QJsonObject obj = val.toObject();
                 HistoryItemData data;
-                data.id = obj[QStringLiteral("id")].toString();
-                data.title = obj[QStringLiteral("title")].toString();
-                data.url = obj[QStringLiteral("url")].toString();
-                data.filePath = obj[QStringLiteral("filePath")].toString();
-                data.timestamp = obj[QStringLiteral("timestamp")].toString();
-                data.thumbnailPath = obj[QStringLiteral("thumbnailPath")].toString();
-                data.totalBytes = obj[QStringLiteral("totalBytes")].toVariant().toLongLong();
-                data.duration = obj[QStringLiteral("duration")].toString();
+                if (obj.contains(QStringLiteral("id")) && obj[QStringLiteral("id")].isString()) {
+                    data.id = obj[QStringLiteral("id")].toString();
+                }
+                if (obj.contains(QStringLiteral("title")) && obj[QStringLiteral("title")].isString()) {
+                    data.title = obj[QStringLiteral("title")].toString();
+                }
+                if (obj.contains(QStringLiteral("url")) && obj[QStringLiteral("url")].isString()) {
+                    data.url = obj[QStringLiteral("url")].toString();
+                }
+                if (obj.contains(QStringLiteral("filePath")) && obj[QStringLiteral("filePath")].isString()) {
+                    data.filePath = obj[QStringLiteral("filePath")].toString();
+                }
+                if (obj.contains(QStringLiteral("timestamp")) && obj[QStringLiteral("timestamp")].isString()) {
+                    data.timestamp = obj[QStringLiteral("timestamp")].toString();
+                }
+                if (obj.contains(QStringLiteral("thumbnailPath")) && obj[QStringLiteral("thumbnailPath")].isString()) {
+                    data.thumbnailPath = obj[QStringLiteral("thumbnailPath")].toString();
+                }
+                if (obj.contains(QStringLiteral("totalBytes")) && (obj[QStringLiteral("totalBytes")].isDouble() || obj[QStringLiteral("totalBytes")].isNull())) {
+                    data.totalBytes = obj[QStringLiteral("totalBytes")].toVariant().toLongLong();
+                }
+                if (obj.contains(QStringLiteral("duration")) && obj[QStringLiteral("duration")].isString()) {
+                    data.duration = obj[QStringLiteral("duration")].toString();
+                }
                 m_historyItems.append(data);
             }
         }
@@ -223,10 +250,12 @@ void DownloadHistoryTab::saveHistory() const {
         arr.append(obj);
     }
     
-    QFile file(m_historyFilePath);
+    QSaveFile file(m_historyFilePath);
     if (file.open(QIODevice::WriteOnly)) {
         file.write(QJsonDocument(arr).toJson());
-        file.close();
+        if (!file.commit()) {
+            qWarning() << "Failed to commit download history to" << m_historyFilePath;
+        }
     }
 }
 

@@ -65,9 +65,9 @@ void UrlValidator::onProcessFinished(int exitCode, QProcess::ExitStatus exitStat
         QString stderrOutput = QString::fromUtf8(m_process->readAllStandardError());
         qWarning().noquote() << "UrlValidator yt-dlp stderr:" << stderrOutput.trimmed();
         error = tr("yt-dlp encountered an error.");
-        int errIdx = stderrOutput.indexOf(QStringLiteral("ERROR:"));
+        qsizetype errIdx = stderrOutput.indexOf(QStringLiteral("ERROR:"));
         if (errIdx != -1) {
-            int endIdx = stderrOutput.indexOf('\n', errIdx);
+            qsizetype endIdx = stderrOutput.indexOf(QLatin1Char('\n'), errIdx);
             error = stderrOutput.mid(errIdx, endIdx == -1 ? -1 : endIdx - errIdx).trimmed();
         }
     }

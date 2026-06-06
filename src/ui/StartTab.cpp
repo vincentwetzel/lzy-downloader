@@ -34,10 +34,15 @@
 #include "SupportedSitesDialog.h"
 
 StartTab::StartTab(ConfigManager *configManager, ExtractorJsonParser *extractorJsonParser, QWidget *parent) : QWidget(parent), m_configManager(configManager), m_extractorJsonParser(extractorJsonParser), m_uiBuilder(nullptr) {
-    m_ytDlpArgsBuilder = new YtDlpArgsBuilder();
-    m_galleryDlArgsBuilder = new GalleryDlArgsBuilder(m_configManager);
+    m_ytDlpArgsBuilder = std::make_unique<YtDlpArgsBuilder>();
+    m_galleryDlArgsBuilder = std::make_unique<GalleryDlArgsBuilder>(m_configManager);
 
-    connect(m_extractorJsonParser, &ExtractorJsonParser::extractorsReady, this, &StartTab::onExtractorsReady);
+    if (m_extractorJsonParser) {
+        connect(m_extractorJsonParser, &ExtractorJsonParser::extractorsReady, this, &StartTab::onExtractorsReady);
+    } else {
+        qWarning() << "StartTab initialized with null ExtractorJsonParser.";
+    }
+
     connect(m_configManager, &ConfigManager::settingChanged, this, [this](const QString &section, const QString &/*key*/, const QVariant &/*value*/){
         // The command preview only cares about settings that influence the download args
         if (section != QStringLiteral("SortingRules")) {
@@ -53,10 +58,12 @@ StartTab::StartTab(ConfigManager *configManager, ExtractorJsonParser *extractorJ
     setupUI(); // UI elements are created here using the builder
 
     m_urlHandler = new StartTabUrlHandler(m_configManager, m_extractorJsonParser, m_uiBuilder, this);
-    m_downloadActions = new StartTabDownloadActions(m_configManager, m_uiBuilder, m_ytDlpArgsBuilder, m_galleryDlArgsBuilder, this);
-    m_commandPreviewUpdater = new StartTabCommandPreviewUpdater(m_configManager, m_uiBuilder, m_ytDlpArgsBuilder, m_galleryDlArgsBuilder, this);
+    m_downloadActions = new StartTabDownloadActions(m_configManager, m_uiBuilder, m_ytDlpArgsBuilder.get(), m_galleryDlArgsBuilder.get(), this);
+    m_commandPreviewUpdater = new StartTabCommandPreviewUpdater(m_configManager, m_uiBuilder, m_ytDlpArgsBuilder.get(), m_galleryDlArgsBuilder.get(), this);
 
-    connect(m_extractorJsonParser, &ExtractorJsonParser::extractorsReady, m_urlHandler, &StartTabUrlHandler::onExtractorsReady);
+    if (m_extractorJsonParser) {
+        connect(m_extractorJsonParser, &ExtractorJsonParser::extractorsReady, m_urlHandler, &StartTabUrlHandler::onExtractorsReady);
+    }
     connect(m_urlHandler, &StartTabUrlHandler::urlInputTextChanged, this, &StartTab::updateCommandPreview); // StartTab still needs to know for command preview
     connect(m_downloadActions, &StartTabDownloadActions::updateCommandPreview, this, &StartTab::updateCommandPreview); // Download actions might trigger preview update
     connect(m_downloadActions, &StartTabDownloadActions::downloadRequested, this, &StartTab::downloadRequested);
@@ -77,8 +84,6 @@ StartTab::StartTab(ConfigManager *configManager, ExtractorJsonParser *extractorJ
 }
 
 StartTab::~StartTab() {
-    delete m_ytDlpArgsBuilder;
-    delete m_galleryDlArgsBuilder;
 }
 
 void StartTab::onExtractorsReady() {

@@ -1,5 +1,4 @@
-#ifndef BINARYFINDER_H
-#define BINARYFINDER_H
+#pragma once
 
 #include <QString>
 #include <QMap>
@@ -23,5 +22,3 @@ public:
 private:
     static QStringList getExtendedSearchPaths();
 };
-
-#endif // BINARYFINDER_H

@@ -23,12 +23,16 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
         return;
     }
 
-    m_allOutputLines.append(normalizedLine); // Store all output lines
+    m_allOutputLines.append(normalizedLine);
+    // Optimization: Keep only the last 100 lines to prevent unbounded memory growth on long livestreams
+    if (m_allOutputLines.size() > 100) {
+        m_allOutputLines.removeFirst();
+    }
 
     emit outputReceived(m_id, normalizedLine);
 
     if (normalizedLine.startsWith(QStringLiteral("LZY_FINAL_PATH:"))) {
-        constexpr int prefixLen = 15; // length of "LZY_FINAL_PATH:"
+        constexpr qsizetype prefixLen = 15; // length of "LZY_FINAL_PATH:"
         m_finalFilename = normalizedLine.mid(prefixLen).trimmed();
         qDebug() << "Captured precise Final Path:" << m_finalFilename;
         return; // No need to process this line further
@@ -161,43 +165,48 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
                 QNetworkReply *reply = manager->get(request);
                 connect(reply, &QNetworkReply::finished, this, [this, reply, manager]() {
                     if (reply->error() == QNetworkReply::NoError) {
-                        QString tempDir;
-                        if (m_configManager) {
-                            tempDir = m_configManager->get(QStringLiteral("Paths"), QStringLiteral("temporary_downloads_directory")).toString();
-                            if (tempDir.isEmpty()) {
-                                const QString completedDir = m_configManager->get(QStringLiteral("Paths"), QStringLiteral("completed_downloads_directory")).toString();
-                                if (!completedDir.isEmpty()) {
-                                    tempDir = QDir(completedDir).filePath(QStringLiteral("temp_downloads"));
+                        const int statusCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+                        if (statusCode >= 200 && statusCode < 300) {
+                            QString tempDir;
+                            if (m_configManager) {
+                                tempDir = m_configManager->get(QStringLiteral("Paths"), QStringLiteral("temporary_downloads_directory")).toString();
+                                if (tempDir.isEmpty()) {
+                                    const QString completedDir = m_configManager->get(QStringLiteral("Paths"), QStringLiteral("completed_downloads_directory")).toString();
+                                    if (!completedDir.isEmpty()) {
+                                        tempDir = QDir(completedDir).filePath(QStringLiteral("temp_downloads"));
+                                    }
                                 }
                             }
-                        }
 
-                        if (!tempDir.isEmpty()) {
-                            QDir().mkpath(tempDir);
-                            const QString ext = reply->url().path().endsWith(QStringLiteral(".webp"), Qt::CaseInsensitive) ? QStringLiteral(".webp") : QStringLiteral(".jpg");
-                            const QString newThumbPath = QDir(tempDir).filePath(QStringLiteral("%1_wait_thumbnail%2").arg(m_id, ext));
-                            QFile file(newThumbPath);
-                            if (file.open(QIODevice::WriteOnly)) {
-                                const QByteArray data = reply->readAll();
-                                if (!data.isEmpty()) {
-                                    file.write(data);
-                                    file.close();
-                                    m_thumbnailPath = QDir::toNativeSeparators(newThumbPath);
-                                    qDebug() << "[YtDlpWorker] Pre-wait thumbnail downloaded to:" << m_thumbnailPath;
+                            if (!tempDir.isEmpty()) {
+                                QDir().mkpath(tempDir);
+                                const QString ext = reply->url().path().endsWith(QStringLiteral(".webp"), Qt::CaseInsensitive) ? QStringLiteral(".webp") : QStringLiteral(".jpg");
+                                const QString newThumbPath = QDir(tempDir).filePath(QStringLiteral("%1_wait_thumbnail%2").arg(m_id, ext));
+                                QFile file(newThumbPath);
+                                if (file.open(QIODevice::WriteOnly)) {
+                                    const QByteArray data = reply->readAll();
+                                    if (!data.isEmpty()) {
+                                        file.write(data);
+                                        file.close();
+                                        m_thumbnailPath = QDir::toNativeSeparators(newThumbPath);
+                                        qDebug() << "[YtDlpWorker] Pre-wait thumbnail downloaded to:" << m_thumbnailPath;
 
-                                    QVariantMap pd;
-                                    pd.insert(QStringLiteral("progress"), -1);
-                                    pd.insert(QStringLiteral("status"), tr("Waiting for livestream to start..."));
-                                    pd.insert(QStringLiteral("title"), m_videoTitle);
-                                    pd.insert(QStringLiteral("thumbnail_path"), m_thumbnailPath);
-                                    emit progressUpdated(m_id, pd);
-                                } else {
-                                    file.close();
-                                    file.remove();
+                                        QVariantMap pd;
+                                        pd.insert(QStringLiteral("progress"), -1);
+                                        pd.insert(QStringLiteral("status"), tr("Waiting for livestream to start..."));
+                                        pd.insert(QStringLiteral("title"), m_videoTitle);
+                                        pd.insert(QStringLiteral("thumbnail_path"), m_thumbnailPath);
+                                        emit progressUpdated(m_id, pd);
+                                    } else {
+                                        file.close();
+                                        file.remove();
+                                    }
                                 }
+                            } else {
+                                qWarning() << "[YtDlpWorker] Failed to resolve temporary directory for pre-wait thumbnail.";
                             }
                         } else {
-                            qWarning() << "[YtDlpWorker] Failed to resolve temporary directory for pre-wait thumbnail.";
+                            qWarning() << "[YtDlpWorker] Failed to download pre-wait thumbnail, HTTP status:" << statusCode;
                         }
                     } else {
                         qWarning() << "[YtDlpWorker] Failed to download pre-wait thumbnail:" << reply->errorString();
@@ -277,7 +286,7 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
             QStringList fetchArgs;
 
             fetchArgs << QStringLiteral("--dump-single-json") << QStringLiteral("--flat-playlist") << QStringLiteral("--ignore-errors") << url;
-            const int cookieIdx = m_args.indexOf(QStringLiteral("--cookies-from-browser"));
+            const qsizetype cookieIdx = m_args.indexOf(QStringLiteral("--cookies-from-browser"));
             if (cookieIdx != -1 && cookieIdx + 1 < m_args.size()) {
                 fetchArgs << QStringLiteral("--cookies-from-browser") << m_args[cookieIdx + 1];
             }
@@ -354,7 +363,7 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
         QString originalPath = thumbnailMatch.captured(1);
         const QString format = thumbnailMatch.captured(2);
 
-        const int extIndex = originalPath.lastIndexOf(QLatin1Char('.'));
+        const qsizetype extIndex = originalPath.lastIndexOf(QLatin1Char('.'));
         if (extIndex != -1) {
             originalPath.truncate(extIndex + 1);
             originalPath.append(format);
@@ -375,6 +384,17 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
         qDebug() << "Detected info.json path and initiating retry mechanism:" << m_infoJsonPath;
         m_infoJsonRetryCount = 0; // Reset retry count for a new file
         readInfoJsonWithRetry(); // Start the retry mechanism
+    }
+
+    // Capture raw thumbnail paths (in case they don't need conversion and bypass ThumbnailsConvertor)
+    static const QRegularExpression rawThumbnailRegex(QStringLiteral("\\[info\\] (?:Writing video thumbnail.* to|Video thumbnail.* is already present in):\\s+(.+)$"));
+    const QRegularExpressionMatch rawThumbnailMatch = rawThumbnailRegex.match(normalizedLine);
+    if (rawThumbnailMatch.hasMatch()) {
+        m_thumbnailPath = QDir::toNativeSeparators(rawThumbnailMatch.captured(1).trimmed());
+        QVariantMap updateData;
+        updateData.insert(QStringLiteral("thumbnail_path"), m_thumbnailPath);
+        qDebug() << "[LOG] YtDlpWorker: Found raw thumbnail path for" << m_id << ":" << m_thumbnailPath;
+        emit progressUpdated(m_id, updateData);
     }
 
     // Capture subtitle sidecar paths so they are tracked for cleanup
@@ -433,6 +453,11 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
 }
 
 QString YtDlpWorker::normalizeConsoleLine(const QString &line) const {
+    // High-frequency optimization: bypass the regex engine entirely if no ANSI characters are present
+    if (!line.contains(QLatin1Char('\x1B'))) {
+        return line; // Already trimmed by upstream buffer parser
+    }
+
     QString normalized = line;
     static const QRegularExpression ansiRegex(QStringLiteral("\\x1B\\[[0-9;]*[A-Za-z]"));
     normalized.remove(ansiRegex);

@@ -10,4 +10,6 @@ private slots:
     void testBasicVideoArguments();
     void testSponsorBlockArguments();
     void testLivestreamArguments();
+    void testAudioThumbnailEmbedding();
+    void testAudioPlaylistFolderJpg();
 };

@@ -55,7 +55,7 @@ void YtDlpWorker::start() {
     // Force yt-dlp to emit its native progress lines even when it is not attached
     // to a TTY. If an older caller still passed a custom progress template, drop
     // it so the worker can consistently parse yt-dlp's default output.
-    int pt_index = m_args.indexOf(QStringLiteral("--progress-template"));
+    qsizetype pt_index = m_args.indexOf(QStringLiteral("--progress-template"));
     if (pt_index != -1) {
         m_args.removeAt(pt_index); // remove flag
         if (pt_index < m_args.size()) {
@@ -76,15 +76,16 @@ void YtDlpWorker::start() {
     qDebug() << "Working directory set to:" << workingDirPath;
 
     // Log full command for debugging
-    QString fullCommand = QStringLiteral("\"%1\"").arg(ytDlpPath);
+    QStringList commandParts;
+    commandParts << QStringLiteral("\"%1\"").arg(ytDlpPath);
     for (const QString &arg : m_args) {
-        if (arg.contains(' ')) {
-            fullCommand += QStringLiteral(" \"%1\"").arg(arg);
+        if (arg.contains(QLatin1Char(' '))) {
+            commandParts << QStringLiteral("\"%1\"").arg(arg);
         } else {
-            fullCommand += QStringLiteral(" %1").arg(arg);
+            commandParts << arg;
         }
     }
-    qDebug() << "Full yt-dlp command:" << fullCommand;
+    qDebug() << "Full yt-dlp command:" << commandParts.join(QLatin1Char(' '));
     
     // Connect state change signals for diagnostics
     connect(m_process, &QProcess::stateChanged, this, [this](QProcess::ProcessState state) {

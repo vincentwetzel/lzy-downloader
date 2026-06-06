@@ -155,7 +155,7 @@ void LocalApiServer::onReadyRead()
         return;
     }
 
-    int headerEnd = buffer.indexOf(QByteArrayLiteral("\r\n\r\n"));
+    qsizetype headerEnd = buffer.indexOf(QByteArrayLiteral("\r\n\r\n"));
     if (headerEnd != -1) {
         int contentLength = 0;
 
@@ -188,7 +188,7 @@ void LocalApiServer::onReadyRead()
 
 void LocalApiServer::handleRequest(QTcpSocket *socket, const QByteArray &requestData)
 {
-    const int bodyIndex = requestData.indexOf(QByteArrayLiteral("\r\n\r\n"));
+    const qsizetype bodyIndex = requestData.indexOf(QByteArrayLiteral("\r\n\r\n"));
     const QByteArray headersData = (bodyIndex != -1) ? requestData.left(bodyIndex) : requestData;
     const QByteArray bodyData = (bodyIndex != -1) ? requestData.mid(bodyIndex + 4) : QByteArray();
 

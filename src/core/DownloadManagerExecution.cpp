@@ -25,7 +25,7 @@ QString youtubeVideoIdFromUrl(const QString &urlString)
     const QUrl url(urlString);
     const QString host = url.host().toLower();
     if (host.contains(QStringLiteral("youtu.be"))) {
-        const QString id = url.path().section('/', 1, 1);
+        const QString id = url.path().section(QLatin1Char('/'), 1, 1);
         return id.left(11);
     }
 
@@ -35,8 +35,8 @@ QString youtubeVideoIdFromUrl(const QString &urlString)
             return queryId.left(11);
         }
 
-        const QStringList parts = url.path().split('/', Qt::SkipEmptyParts);
-        for (int i = 0; i + 1 < parts.size(); ++i) {
+        const QStringList parts = url.path().split(QLatin1Char('/'), Qt::SkipEmptyParts);
+        for (qsizetype i = 0; i + 1 < parts.size(); ++i) {
             const QString marker = parts.at(i).toLower();
             if (marker == QStringLiteral("shorts") || marker == QStringLiteral("embed") || marker == QStringLiteral("live")) {
                 return parts.at(i + 1).left(11);

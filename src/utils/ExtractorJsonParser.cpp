@@ -90,6 +90,11 @@ QJsonObject ExtractorJsonParser::loadExtractorsFromFile(const QString &path) con
         return QJsonObject();
     }
 
-    QJsonDocument doc = QJsonDocument::fromJson(fileContent);
+    QJsonParseError parseError;
+    QJsonDocument doc = QJsonDocument::fromJson(fileContent, &parseError);
+    if (parseError.error != QJsonParseError::NoError) {
+        qWarning() << "ExtractorJsonParser: Failed to parse JSON from" << path << "Error:" << parseError.errorString();
+        return QJsonObject();
+    }
     return doc.object();
 }

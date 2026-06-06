@@ -68,12 +68,12 @@ This document outlines the specifications for the C++ port of the LzyDownloader 
     - **Organization**: Settings are grouped into logical sections:
         - **Configuration**: Output folder, Temporary folder, Theme, Enable Local API Server.
         - **Authentication Access**: Cookies from browser (Video/Audio), Cookies from browser (Galleries). The cookie access check is handled directly within `AdvancedSettingsTab` using `QProcess`, with a 30-second timeout and improved logging. The check uses a specific YouTube Shorts URL for more reliable validation.
-        - **Output Template**: Filename Pattern (with "Insert token...", "Save", and "Reset" buttons). The "Save" button validates video/audio templates using `yt-dlp` with explicit start/finish timeouts. Blank video/audio templates inherit the current shared default, while gallery templates use gallery-dl syntax and reset to the factory gallery default.
+        - **Output Template**: Filename Pattern (with "Insert token...", "Save", and "Reset" buttons). The "Save" button validates video/audio templates asynchronously using `yt-dlp` with explicit timeouts and guarded callbacks so the settings page remains responsive. Blank video/audio templates inherit the current shared default, while gallery templates use gallery-dl syntax and reset to the factory gallery default.
         - **Download Options**: External Downloader (aria2c), Enable SponsorBlock, Restrict filenames, Embed video chapters, Enable Download Sections, and the multi-mode auto-paste setting.
         - **Metadata / Thumbnails**: Embed metadata, Embed thumbnail, Use high-quality thumbnail converter, Convert thumbnails to, Force Playlist as Single Album.
         - **Livestream Settings**: Record from beginning, Wait for video (with min/max intervals). The app dynamically scales these wait intervals for streams hours away vs seconds away, clamps the minimum wait interval to at least 15 seconds, and repairs invalid max/min pairs. Download As (MPEG-TS or MKV), Use .part files, Quality, Convert To.
         - **Subtitles**: Subtitle language (using full words in a combo box), Embed subtitles in video, Write subtitles (separate file), Include automatically-generated subtitles, Subtitle file format (greyed out if "Embed subtitles in video" is selected).
-        - **External Binaries**: Per-binary status rows for `yt-dlp`, `ffmpeg`, `ffprobe`, `gallery-dl`, `aria2c`, and `deno`, with brief explanations of what each tool does, auto-detection status, manual `Browse` overrides, and `Install` actions that offer detected package-manager commands plus manual-download links. yt-dlp install suggestions should prefer nightly-capable commands where the platform supports them and clearly label stable-only package-manager options. Install and update progress dialogs must use the app-managed process environment, allow cancellation by terminating the process tree, quote command paths with spaces, and report permission-denied failures clearly.
+        - **External Binaries**: Per-binary status rows for `yt-dlp`, `ffmpeg`, `ffprobe`, `gallery-dl`, `aria2c`, and `deno`, with brief explanations of what each tool does, auto-detection status, manual `Browse` overrides, and `Install` actions that offer detected package-manager commands plus manual-download links. yt-dlp install suggestions should prefer nightly-capable commands where the platform supports them and clearly label stable-only package-manager options. Install and update progress dialogs must use the app-managed process environment, allow cancellation by terminating the process tree, quote command paths with spaces, close stdin for helper processes, guard dialog callbacks after destruction, and report permission-denied failures clearly. Version checks must be bounded by a short timeout.
         - **Restore defaults** button.
     - **Navigation Styling**: The left column uses a palette-aware `QListWidget` whose stylesheet is rebuilt on palette changes so the category list stays compact and theme-consistent without reverting to a plain scrollbar-heavy layout.
     - **Saving Behavior**: Most settings auto-save on change. The "Output Template" requires a dedicated "Save" button.
@@ -129,6 +129,7 @@ This document outlines the specifications for the C++ port of the LzyDownloader 
   - Pre-download extraction/setup stages should drive the main bar into an indeterminate state instead of leaving a stale queued `0%` display on screen
   - UTF-8 filenames and metadata
   - **The progress bar MUST update correctly regardless of which downloader (native or aria2c) is active**
+- **Process Output Bounds**: Long-running process wrappers must avoid retaining unbounded stdout/stderr. Workers may keep recent diagnostic tails, but livestreams, large galleries, and mux failures must not grow memory linearly with process output.
 - **Progress Bar Color Coding**: The UI progress bar MUST use color-coding to provide clear visual feedback on download state:
   - **Colorless/Default** (no custom stylesheet): When download is queued, initializing, or in indeterminate state (progress < 0)
   - **Light Blue** (`#3b82f6`): While actively downloading (0% < progress < 100%)
@@ -163,6 +164,7 @@ This document outlines the specifications for the C++ port of the LzyDownloader 
 - **Active item actions**: Active rows must label destructive cancellation separately from livestream finalization. `Cancel` discards partial files, while `Stop & Save` is shown for livestreams and sends a graceful interrupt so the captured media can continue through normal finalization.
 - **Runtime Format Selection**: When Advanced Settings `Quality` is set to `Select at Runtime` for video or audio downloads, the app must asynchronously fetch format metadata with `yt-dlp` and present a structured selection dialog. Selecting multiple formats must enqueue one download per selected format.
 - **Encoding Robustness**: Worker process environment must force UTF-8 text output (`PYTHONUTF8=1`, `PYTHONIOENCODING=utf-8`) so Unicode filenames are preserved in stdout/stderr parsing.
+- **JSON Robustness**: Downloader-adjacent JSON parsing (`info.json`, aria2 RPC responses, queue/history files, and yt-dlp metadata probes) must check `QJsonParseError` and surface parse failures clearly instead of treating malformed data as empty success.
 
 ### 2.6. Post-Processing
 - **File Lifecycle:**
@@ -176,6 +178,7 @@ This document outlines the specifications for the C++ port of the LzyDownloader 
     - Final file movement must be Unicode-safe and shell-independent (use Qt file APIs with copy/remove fallback for cross-volume moves).
 - **Audio Playlist Tagging**: For audio downloads from a playlist, `ffmpeg` must be used as a post-processing step to embed the `track` number metadata into the completed file.
 - **Filename Prefixing**: Audio files from playlists must have their filenames prefixed with a zero-padded track number (e.g., `01 - Title.mp3`).
+- **Audio Playlist Artwork**: Audio playlist downloads should generate `folder.jpg` by default and should treat playlist metadata (`playlist_title`, `is_playlist`, or playlist index) as enough context to enable playlist artwork/tag behavior.
 - **Sorting Path Sanitization**: Sorting destination tokens must replace illegal filesystem characters with safe separators and collapse repeated spaces so metadata such as titles, album names, and uploader fields remain readable while still preventing path traversal or invalid paths.
 
 ### 2.7. Updaters & Deployment
@@ -190,6 +193,7 @@ This document outlines the specifications for the C++ port of the LzyDownloader 
 - **Binaries**: The application does not bundle external binaries. It requires the user to have `ffmpeg`, `ffprobe`, `deno`, and `yt-dlp` installed. `gallery-dl` and `aria2c` are optional.
 - **Qt Image Plugins**: Windows builds must deploy the Qt `imageformats` plugins required to display active-download thumbnails and converted artwork, including JPEG, PNG, WebP, and ICO support.
 - **Qt TLS Runtime**: Windows builds must deploy OpenSSL runtime DLLs (`libcrypto-3-x64.dll`, `libssl-3-x64.dll`) beside the executable when Qt's OpenSSL backend requires them.
+- **vcpkg Reproducibility**: Manifest-mode builds must pin a `builtin-baseline` in `vcpkg.json`; release version bumps must keep `version-string` synchronized with `CMakeLists.txt`.
 
 ### 2.8. Logging
 - A structured file logger (`LzyDownloader_YYYY-MM-dd_HH-mm-ss.log`) must be implemented to capture application output for debugging.

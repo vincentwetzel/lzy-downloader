@@ -211,7 +211,7 @@ void MetadataEmbedder::appendProcessOutput(const QByteArray &data)
     QByteArray buffer = m_process->property("lzy_utf8_buffer").toByteArray();
     buffer.append(data);
 
-    int lastDelimiter = qMax(buffer.lastIndexOf('\n'), buffer.lastIndexOf('\r'));
+    qsizetype lastDelimiter = qMax(buffer.lastIndexOf('\n'), buffer.lastIndexOf('\r'));
     if (lastDelimiter != -1) {
         m_processOutputTail += QString::fromUtf8(buffer.left(lastDelimiter + 1));
         buffer.remove(0, lastDelimiter + 1);

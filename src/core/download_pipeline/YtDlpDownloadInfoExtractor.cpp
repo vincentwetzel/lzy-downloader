@@ -20,10 +20,17 @@ YtDlpDownloadInfoExtractor::YtDlpDownloadInfoExtractor(QObject *parent)
         }
 
         QByteArray jsonData = m_process->readAllStandardOutput();
-        QJsonDocument doc = QJsonDocument::fromJson(jsonData);
+        QJsonParseError parseError;
+        QJsonDocument doc = QJsonDocument::fromJson(jsonData, &parseError);
+
+        if (parseError.error != QJsonParseError::NoError) {
+            qWarning() << "Failed to parse yt-dlp JSON output:" << parseError.errorString();
+            emit extractionFailed(tr("Failed to parse yt-dlp JSON output: %1").arg(parseError.errorString()));
+            return;
+        }
 
         if (!doc.isObject()) {
-            emit extractionFailed(tr("Failed to parse yt-dlp JSON output."));
+            emit extractionFailed(tr("Failed to parse yt-dlp JSON output. Expected an object."));
             return;
         }
 

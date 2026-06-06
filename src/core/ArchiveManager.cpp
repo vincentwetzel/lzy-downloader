@@ -1,17 +1,21 @@
 #include "ArchiveManager.h"
-#include <QSqlQuery>
-#include <QSqlError>
-#include <QSqlRecord>
+
+// Qt headers
 #include <QDateTime>
+#include <QDebug>
+#include <QDir>
+#include <QFileInfo>
+#include <QRegularExpression>
+#include <QSqlError>
+#include <QSqlQuery>
+#include <QSqlRecord>
+#include <QThread>
 #include <QUrl>
 #include <QUrlQuery>
-#include <QRegularExpression>
-#include <QDebug>
-#include <QFileInfo>
-#include <QDir>
+
+// C++ standard library
 #include <algorithm>
 #include <array>
-#include <QThread>
 
 ArchiveManager::ArchiveManager(ConfigManager *configManager, QObject *parent)
     : ArchiveManager(configManager, QDir(configManager->getConfigDir()).filePath(QStringLiteral("download_archive.db")), false, parent) {
@@ -296,6 +300,10 @@ QString ArchiveManager::normalizeUrl(const QString &urlStr) const {
             if (it != dropParams.end()) continue;
             keptParams.append(QStringLiteral("%1=%2").arg(item.first, item.second));
         }
+    } else {
+        for (const auto &item : queryItems) {
+            keptParams.append(QStringLiteral("%1=%2").arg(item.first, item.second));
+        }
     }
 
     QString queryString;
@@ -303,5 +311,5 @@ QString ArchiveManager::normalizeUrl(const QString &urlStr) const {
         queryString = QStringLiteral("?") + keptParams.join(QStringLiteral("&"));
     }
 
-    return (host + path + queryString).toLower();
+    return host + path + queryString;
 }

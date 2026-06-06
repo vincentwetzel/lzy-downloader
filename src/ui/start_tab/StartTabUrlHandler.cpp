@@ -92,6 +92,8 @@ void StartTabUrlHandler::onClipboardChangedWhileDialogIsOpen()
 
     if (host.isEmpty()) return;
 
+    if (!m_extractorJsonParser) return;
+
     QJsonObject ytDlpExtractors = m_extractorJsonParser->getYtDlpExtractors();
     bool inYtDlp = false;
     for (auto it = ytDlpExtractors.begin(); it != ytDlpExtractors.end(); ++it) {
@@ -149,6 +151,8 @@ bool StartTabUrlHandler::checkClipboardForUrl()
     if (text.isEmpty() || m_uiBuilder->urlInput()->toPlainText().trimmed() == text) {
         return false;
     }
+
+    if (!m_extractorJsonParser) return false;
 
     QJsonObject ytDlpExtractors = m_extractorJsonParser->getYtDlpExtractors();
     QJsonObject galleryDlExtractors = m_extractorJsonParser->getGalleryDlExtractors();
@@ -227,6 +231,8 @@ bool StartTabUrlHandler::checkClipboardForUrl()
 
 StartTabUrlHandler::ExtractorSupport StartTabUrlHandler::checkUrlExtractorSupport(const QString &url) const
 {
+    if (!m_extractorJsonParser) return ExtractorSupport::None;
+
     QJsonObject ytDlpExtractors = m_extractorJsonParser->getYtDlpExtractors();
     QJsonObject galleryDlExtractors = m_extractorJsonParser->getGalleryDlExtractors();
 

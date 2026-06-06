@@ -71,7 +71,7 @@ void YtDlpWorker::inferRequestedTransfersFromFormatList(const QString &formatLis
         return;
     }
 
-    for (int i = 0; i < parts.size(); ++i) {
+    for (qsizetype i = 0; i < parts.size(); ++i) {
         const QString part = parts.at(i).trimmed();
         if (part.isEmpty()) {
             continue;
@@ -167,7 +167,7 @@ int YtDlpWorker::inferPrimaryStreamIndexFromPath(const QString &path) const {
     }
 
     const QString formatIdFromPath = match.captured(1).trimmed().toLower();
-    for (int i = 0; i < m_requestedTransferFormatIds.size(); ++i) {
+    for (qsizetype i = 0; i < m_requestedTransferFormatIds.size(); ++i) {
         const QString requestedFormatId = m_requestedTransferFormatIds.at(i).trimmed().toLower();
         if (!requestedFormatId.isEmpty() && requestedFormatId == formatIdFromPath) {
             return i;
@@ -185,7 +185,7 @@ int YtDlpWorker::inferPrimaryStreamIndexFromTotalBytes(double totalBytes) const 
     int bestIndex = -1;
     double bestRelativeDiff = std::numeric_limits<double>::max();
 
-    for (int i = 0; i < m_requestedTransferSizes.size(); ++i) {
+    for (qsizetype i = 0; i < m_requestedTransferSizes.size(); ++i) {
         const double plannedSize = m_requestedTransferSizes.at(i);
         if (plannedSize <= 0.0) {
             continue;
@@ -242,7 +242,7 @@ QString YtDlpWorker::inferPrimaryStreamStatusFromMetadata(int index) const {
     if (m_requestedTransferStatuses.isEmpty()) {
         return tr("Downloading...");
     }
-    const int boundedIndex = qBound(0, index, m_requestedTransferStatuses.size() - 1);
+    const qsizetype boundedIndex = qBound(qsizetype(0), static_cast<qsizetype>(index), m_requestedTransferStatuses.size() - 1);
     return m_requestedTransferStatuses.at(boundedIndex);
 }
 
