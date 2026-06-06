@@ -61,6 +61,8 @@ void FormatSelectionDialog::setupUI() {
 void FormatSelectionDialog::populateTable(const QVariantMap &infoDict, const QString& downloadType) {
     if (!infoDict.contains(QStringLiteral("formats"))) return;
 
+    m_table->setUpdatesEnabled(false);
+
     QVariantList formats = infoDict.value(QStringLiteral("formats")).toList();
     
     // formats in yt-dlp are generally from worst to best, so we'll iterate backwards to put best on top
@@ -79,11 +81,11 @@ void FormatSelectionDialog::populateTable(const QVariantMap &infoDict, const QSt
         if (acodec == QStringLiteral("none")) acodec = QString();
         
         double filesize = format.value(QStringLiteral("filesize")).toDouble();
-        if (filesize == 0) filesize = format.value(QStringLiteral("filesize_approx")).toDouble();
+        if (filesize <= 0.0) filesize = format.value(QStringLiteral("filesize_approx")).toDouble();
         
         QString sizeStr;
         if (filesize > 0) {
-            sizeStr = tr("%1 MB").arg(QString::number(filesize / (1024 * 1024), 'f', 2));
+            sizeStr = tr("%1 MB").arg(QString::number(filesize / (1024.0 * 1024.0), 'f', 2));
         } else {
             sizeStr = tr("Unknown");
         }
@@ -125,6 +127,8 @@ void FormatSelectionDialog::populateTable(const QVariantMap &infoDict, const QSt
             onSelectionChanged();
         });
     }
+
+    m_table->setUpdatesEnabled(true);
 }
 
 void FormatSelectionDialog::onSelectionChanged() {

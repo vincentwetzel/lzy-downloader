@@ -60,7 +60,7 @@ void StartTabUiBuilder::build(QWidget *parentWidget, QVBoxLayout *mainLayout)
     topLayout->addWidget(m_openDownloadsFolderButton);
     mainLayout->addLayout(topLayout);
 
-    QLabel *cookieWarningLabel = new QLabel(tr("⚠️ Warning: No browser selected for cookies. Video/Audio downloads may fail. We strongly recommend you use firefox cookies."), parentWidget);
+    QLabel *cookieWarningLabel = new QLabel(tr("⚠️ Warning: No browser selected for cookies. Video/Audio downloads may fail. We strongly recommend you use Firefox cookies."), parentWidget);
     cookieWarningLabel->setObjectName(QStringLiteral("cookieWarningLabel"));
     cookieWarningLabel->setStyleSheet(QStringLiteral("color: #E6A23C; font-weight: bold;"));
     cookieWarningLabel->setWordWrap(true);
@@ -129,8 +129,8 @@ void StartTabUiBuilder::build(QWidget *parentWidget, QVBoxLayout *mainLayout)
     m_maxConcurrentCombo->addItem(QStringLiteral("6"), QStringLiteral("6"));
     m_maxConcurrentCombo->addItem(QStringLiteral("7"), QStringLiteral("7"));
     m_maxConcurrentCombo->addItem(QStringLiteral("8"), QStringLiteral("8"));
-    m_maxConcurrentCombo->addItem(tr("1 (short sleep)"), QStringLiteral("1 (short sleep)"));
-    m_maxConcurrentCombo->addItem(tr("1 (long sleep)"), QStringLiteral("1 (long sleep)"));
+    m_maxConcurrentCombo->addItem(tr("1 (short sleep, 5s)"), QStringLiteral("1 (short sleep)"));
+    m_maxConcurrentCombo->addItem(tr("1 (long sleep, 30s)"), QStringLiteral("1 (long sleep)"));
     m_maxConcurrentCombo->setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::Fixed);
     settingsLayout->addWidget(m_maxConcurrentCombo);
 

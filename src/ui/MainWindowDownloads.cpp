@@ -248,7 +248,8 @@ void MainWindow::onYtDlpErrorPopup(const QString &id, const QString &errorType, 
     if (cleanError.startsWith(QStringLiteral("ERROR: "))) {
         cleanError = cleanError.mid(7);
     }
-    cleanError.remove(QRegularExpression(QStringLiteral("^\\[[^\\]]+\\]\\s*")));
+    static const QRegularExpression prefixRe(QStringLiteral("^\\[[^\\]]+\\]\\s*"));
+    cleanError.remove(prefixRe);
 
     if (errorType == QStringLiteral("scheduled_livestream")) {
         if (nonInteractive) {

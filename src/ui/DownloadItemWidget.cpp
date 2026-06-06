@@ -15,14 +15,25 @@
 #include <QNetworkReply>
 #include <QNetworkRequest>
 #include <QUrl>
+#include <QPropertyAnimation>
+#include <QMap>
+#include <QPair>
 
 static QIcon createColoredIcon(QStyle::StandardPixmap sp, const QColor &color) {
+    static QMap<QPair<int, QRgb>, QIcon> cache;
+    QPair<int, QRgb> key = qMakePair(static_cast<int>(sp), color.rgba());
+    if (cache.contains(key)) {
+        return cache.value(key);
+    }
+
     QPixmap pixmap = QApplication::style()->standardIcon(sp).pixmap(32, 32);
     if (pixmap.isNull()) return QIcon();
     QPainter painter(&pixmap);
     painter.setCompositionMode(QPainter::CompositionMode_SourceIn);
     painter.fillRect(pixmap.rect(), color);
-    return QIcon(pixmap);
+    QIcon icon(pixmap);
+    cache.insert(key, icon);
+    return icon;
 }
 
 DownloadItemWidget::DownloadItemWidget(const QVariantMap &itemData, QWidget *parent)
@@ -164,6 +175,9 @@ void DownloadItemWidget::setupUi() {
         clearTempButton->setEnabled(false);
         clearTempButton->setText(tr("Files Cleared"));
         if (m_progressBar) {
+            if (QPropertyAnimation *anim = m_progressBar->findChild<QPropertyAnimation*>(QStringLiteral("progressAnim"))) {
+                anim->stop();
+            }
             m_progressBar->setRange(0, 100);
             m_progressBar->setValue(0);
             m_progressBar->setProgressText(tr("0% (Files Cleared)"));
@@ -224,6 +238,9 @@ void DownloadItemWidget::updateProgress(const QVariantMap &progressData) {
         int progress = progressData[QStringLiteral("progress")].toInt();
         if (progress < 0) {
             // Indeterminate state (queued/starting) - colorless/default
+            if (QPropertyAnimation *anim = m_progressBar->findChild<QPropertyAnimation*>(QStringLiteral("progressAnim"))) {
+                anim->stop();
+            }
             m_progressBar->setRange(0, 0);
             m_progressBar->setStyleSheet("");
             m_progressBar->setProgressText("");
@@ -240,12 +257,25 @@ void DownloadItemWidget::updateProgress(const QVariantMap &progressData) {
                                        m_statusLabel->text().contains(QStringLiteral("Embedding"), Qt::CaseInsensitive) ||
                                        m_statusLabel->text() == tr("Complete"))) {
             // Still in post-processing / finalizing phase - teal (animated)
+            if (QPropertyAnimation *anim = m_progressBar->findChild<QPropertyAnimation*>(QStringLiteral("progressAnim"))) {
+                anim->stop();
+            }
             m_progressBar->setRange(0, 0);
             m_progressBar->setStyleSheet(QStringLiteral("QProgressBar::chunk { background-color: #008080; }"));
             m_progressBar->setProgressText(tr("Finalizing..."));
         } else {
             m_progressBar->setRange(0, 100);
-            m_progressBar->setValue(progress);
+            QPropertyAnimation *anim = m_progressBar->findChild<QPropertyAnimation*>(QStringLiteral("progressAnim"));
+            if (!anim) {
+                anim = new QPropertyAnimation(m_progressBar, QByteArrayLiteral("value"), m_progressBar);
+                anim->setObjectName(QStringLiteral("progressAnim"));
+                anim->setEasingCurve(QEasingCurve::OutQuad);
+            }
+            anim->stop();
+            anim->setDuration(300);
+            anim->setStartValue(m_progressBar->value());
+            anim->setEndValue(progress);
+            anim->start();
 
             // Actively downloading - light blue for all active transfers
             m_progressBar->setStyleSheet(QStringLiteral("QProgressBar::chunk { background-color: #3b82f6; }"));
@@ -261,7 +291,7 @@ void DownloadItemWidget::updateProgress(const QVariantMap &progressData) {
                 parts << progressData[QStringLiteral("speed")].toString();
             }
             if (progressData.contains(QStringLiteral("eta"))) {
-            parts << tr("ETA %1").arg(progressData[QStringLiteral("eta")].toString());
+                parts << tr("ETA %1").arg(progressData[QStringLiteral("eta")].toString());
             }
             m_progressBar->setProgressText(parts.join(QStringLiteral("  ")));
         }
@@ -271,12 +301,22 @@ void DownloadItemWidget::updateProgress(const QVariantMap &progressData) {
         m_overallProgressBar->show();
         m_overallProgressLabel->show();
         m_overallProgressBar->setRange(0, 100);
-        m_overallProgressBar->setValue(overallProgress);
+        QPropertyAnimation *anim = m_overallProgressBar->findChild<QPropertyAnimation*>(QStringLiteral("overallProgressAnim"));
+        if (!anim) {
+            anim = new QPropertyAnimation(m_overallProgressBar, QByteArrayLiteral("value"), m_overallProgressBar);
+            anim->setObjectName(QStringLiteral("overallProgressAnim"));
+            anim->setEasingCurve(QEasingCurve::OutQuad);
+        }
+        anim->stop();
+        anim->setDuration(300);
+        anim->setStartValue(m_overallProgressBar->value());
+        anim->setEndValue(overallProgress);
+        anim->start();
         m_overallProgressBar->setStyleSheet(QStringLiteral("QProgressBar::chunk { background-color: #64748b; }"));
 
         QString overallLabel = tr("Overall %1%").arg(overallProgress);
         if (progressData.contains(QStringLiteral("overall_downloaded_size")) && progressData.contains(QStringLiteral("overall_total_size"))) {
-            overallLabel = tr("%1  %2/%3").arg(overallLabel, progressData[QStringLiteral("overall_downloaded_size")].toString(), progressData[QStringLiteral("overall_total_size")].toString());
+            overallLabel = QStringLiteral("%1  %2/%3").arg(overallLabel, progressData[QStringLiteral("overall_downloaded_size")].toString(), progressData[QStringLiteral("overall_total_size")].toString());
         }
         m_overallProgressLabel->setText(overallLabel);
     } else if (progressData.contains(QStringLiteral("progress")) && progressData[QStringLiteral("progress")].toInt() < 0) {
@@ -296,10 +336,18 @@ void DownloadItemWidget::setThumbnail(const QString &imagePath) {
     m_currentThumbnailPath = imagePath;
 
     if (imagePath.startsWith(QStringLiteral("http://")) || imagePath.startsWith(QStringLiteral("https://"))) {
-        QNetworkAccessManager *manager = new QNetworkAccessManager(this);
-        QNetworkRequest request((QUrl(imagePath)));
+        QNetworkAccessManager *manager = qApp->findChild<QNetworkAccessManager*>(QStringLiteral("sharedThumbnailManager"));
+        if (!manager) {
+            manager = new QNetworkAccessManager(qApp);
+            manager->setObjectName(QStringLiteral("sharedThumbnailManager"));
+        }
+        QNetworkRequest request(QUrl(imagePath));
+        request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
+        request.setHeader(QNetworkRequest::UserAgentHeader, QStringLiteral("LzyDownloader"));
+        request.setTransferTimeout(15000);
         QNetworkReply *reply = manager->get(request);
-        connect(reply, &QNetworkReply::finished, this, [this, reply, manager]() {
+        connect(reply, &QNetworkReply::finished, reply, &QNetworkReply::deleteLater);
+        connect(reply, &QNetworkReply::finished, this, [this, reply]() {
             if (reply->error() == QNetworkReply::NoError) {
                 QPixmap pixmap;
                 if (pixmap.loadFromData(reply->readAll())) {
@@ -307,8 +355,6 @@ void DownloadItemWidget::setThumbnail(const QString &imagePath) {
                     m_thumbnailLabel->setPixmap(scaled);
                 }
             }
-            reply->deleteLater();
-            manager->deleteLater();
         });
         return;
     }
@@ -362,11 +408,17 @@ void DownloadItemWidget::setFinished(bool success, const QString &message) {
         }
     } else {
         m_statusLabel->setStyleSheet(QString());
+        if (QPropertyAnimation *anim = m_progressBar->findChild<QPropertyAnimation*>(QStringLiteral("progressAnim"))) {
+            anim->stop();
+        }
         m_progressBar->setRange(0, 100);
         m_progressBar->setValue(100);
         m_progressBar->setStyleSheet(QStringLiteral("QProgressBar::chunk { background-color: #22c55e; }"));
         m_progressBar->setProgressText(tr("Complete"));
         if (m_overallProgressBar->isVisible()) {
+            if (QPropertyAnimation *anim = m_overallProgressBar->findChild<QPropertyAnimation*>(QStringLiteral("overallProgressAnim"))) {
+                anim->stop();
+            }
             m_overallProgressBar->setRange(0, 100);
             m_overallProgressBar->setValue(100);
             m_overallProgressBar->setStyleSheet(QStringLiteral("QProgressBar::chunk { background-color: #94a3b8; }"));
@@ -391,6 +443,9 @@ void DownloadItemWidget::setCancelled() {
     m_clearButton->show();
     m_statusLabel->setStyleSheet(QStringLiteral("color: #dc2626;"));
     m_statusLabel->setText(tr("Cancelled"));
+    if (QPropertyAnimation *anim = m_progressBar->findChild<QPropertyAnimation*>(QStringLiteral("progressAnim"))) {
+        anim->stop();
+    }
     if (m_progressBar->maximum() == 0) m_progressBar->setRange(0, 100); // Exit indeterminate mode
     m_progressBar->setStyleSheet(QStringLiteral("QProgressBar { color: #dc2626; } QProgressBar::chunk { background-color: #dc2626; }"));
     m_progressBar->setProgressText(tr("Cancelled"));

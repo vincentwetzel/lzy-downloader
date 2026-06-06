@@ -47,6 +47,9 @@ QUrl selectInstallerAsset(const QJsonArray &assets)
     QUrl fallbackExeUrl;
 
     for (const QJsonValue &value : assets) {
+        if (!value.isObject()) {
+            continue;
+        }
         const QJsonObject asset = value.toObject();
         const QString assetName = asset[QStringLiteral("name")].toString();
         const QUrl downloadUrl(asset[QStringLiteral("browser_download_url")].toString());
@@ -134,9 +137,18 @@ void AppUpdater::onCheckFinished(QNetworkReply *reply) {
     }
 
     const QString latestVersion = normalizeVersionString(release[QStringLiteral("tag_name")].toString());
-    QString releaseNotes = release[QStringLiteral("body")].toString();
+    
+    QString releaseNotes;
+    if (release.contains(QStringLiteral("body")) && release[QStringLiteral("body")].isString()) {
+        releaseNotes = release[QStringLiteral("body")].toString();
+    }
 
     if (isNewerVersion(latestVersion, m_currentVersion)) {
+        if (!release.contains(QStringLiteral("assets")) || !release[QStringLiteral("assets")].isArray()) {
+            emit updateCheckFailed(tr("Invalid release JSON format: missing assets."));
+            reply->deleteLater();
+            return;
+        }
         const QUrl downloadUrl = selectInstallerAsset(release[QStringLiteral("assets")].toArray());
         if (downloadUrl.isValid()) {
             emit updateAvailable(latestVersion, releaseNotes, downloadUrl);

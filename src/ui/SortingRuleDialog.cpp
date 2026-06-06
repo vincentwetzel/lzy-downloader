@@ -71,10 +71,14 @@ public:
         mainLayout->addWidget(m_valueStackedWidget);
 
         connect(m_fieldCombo, &QComboBox::currentIndexChanged, this, [this](int index) {
-            onFieldChanged(m_fieldCombo->itemData(index).toString());
+            if (index >= 0) {
+                onFieldChanged(m_fieldCombo->itemData(index).toString());
+            }
         });
         connect(m_operatorCombo, &QComboBox::currentIndexChanged, this, [this](int index) {
-            onOperatorChanged(m_operatorCombo->itemData(index).toString());
+            if (index >= 0) {
+                onOperatorChanged(m_operatorCombo->itemData(index).toString());
+            }
         });
 
         // Initial state setup
@@ -341,8 +345,9 @@ void SortingRuleDialog::setRule(const QVariantMap &rule) {
         else if (appliesTo.compare(QStringLiteral("audio_playlist"), Qt::CaseInsensitive) == 0) appliesTo = QStringLiteral("Audio Playlist Downloads");
         else if (appliesTo.compare(QStringLiteral("any"), Qt::CaseInsensitive) == 0 || appliesTo.compare(QStringLiteral("all"), Qt::CaseInsensitive) == 0) appliesTo = QStringLiteral("All Downloads");
         
-        for (int i = 0; i < m_appliesToDropdown->count(); ++i) {
-            m_appliesToDropdown->setCurrentIndex(m_appliesToDropdown->findData(appliesTo));
+        const int idx = m_appliesToDropdown->findData(appliesTo);
+        if (idx >= 0) {
+            m_appliesToDropdown->setCurrentIndex(idx);
         }
     }
 
@@ -387,7 +392,7 @@ QVariantMap SortingRuleDialog::getRule() const {
             }
         }
     }
-    rule["conditions"] = conditions;
+    rule[QStringLiteral("conditions")] = conditions;
     return rule;
 }
 
@@ -401,7 +406,8 @@ void SortingRuleDialog::browseTargetFolder() {
 }
 
 void SortingRuleDialog::addCondition(const QVariantMap &condition) {
-    ConditionWidget *conditionWidget = new ConditionWidget(m_conditionsContainer);
+    QWidget *containerWidget = new QWidget(m_conditionsContainer);
+    ConditionWidget *conditionWidget = new ConditionWidget(containerWidget);
     if (!condition.isEmpty()) {
         conditionWidget->setCondition(condition);
     }
@@ -417,13 +423,13 @@ void SortingRuleDialog::addCondition(const QVariantMap &condition) {
     hbox->addWidget(conditionWidget, 1);
     hbox->addWidget(removeButton);
 
-    QWidget *containerWidget = new QWidget(m_conditionsContainer);
     containerWidget->setLayout(hbox);
 
     // Insert before the stretch
     m_conditionsLayout->insertWidget(m_conditionsLayout->count() - 1, containerWidget);
 
     connect(removeButton, &QPushButton::clicked, this, [this, containerWidget]() {
+        m_conditionsLayout->removeWidget(containerWidget);
         containerWidget->deleteLater();
     });
 }
@@ -475,15 +481,15 @@ bool SortingRuleDialog::validateSubfolderPattern(const QString &pattern, QString
     static const QRegularExpression re(QStringLiteral("\\{([^}]+)\\}"));
     auto it = re.globalMatch(pattern);
 
-    const QSet<QString> validTokens = {
-        "id", "title", "uploader", "uploader_id", "uploader_url",
-        "upload_date", "license", "creator", "alt_title", "album",
-        "display_id", "description", "tags", "categories", "duration",
-        "channel", "channel_id", "channel_url", "extractor", "webpage_url",
-        "playlist", "playlist_title", "playlist_id", "playlist_index",
-        "artist", "track", "album_artist", "release_year", "release_date",
+    static const QSet<QString> validTokens = {
+        QStringLiteral("id"), QStringLiteral("title"), QStringLiteral("uploader"), QStringLiteral("uploader_id"), QStringLiteral("uploader_url"),
+        QStringLiteral("upload_date"), QStringLiteral("license"), QStringLiteral("creator"), QStringLiteral("alt_title"), QStringLiteral("album"),
+        QStringLiteral("display_id"), QStringLiteral("description"), QStringLiteral("tags"), QStringLiteral("categories"), QStringLiteral("duration"),
+        QStringLiteral("channel"), QStringLiteral("channel_id"), QStringLiteral("channel_url"), QStringLiteral("extractor"), QStringLiteral("webpage_url"),
+        QStringLiteral("playlist"), QStringLiteral("playlist_title"), QStringLiteral("playlist_id"), QStringLiteral("playlist_index"),
+        QStringLiteral("artist"), QStringLiteral("track"), QStringLiteral("album_artist"), QStringLiteral("release_year"), QStringLiteral("release_date"),
         // Custom tokens for date parts
-        "upload_year", "upload_month", "upload_day"
+        QStringLiteral("upload_year"), QStringLiteral("upload_month"), QStringLiteral("upload_day")
     };
 
     while (it.hasNext()) {

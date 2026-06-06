@@ -17,10 +17,10 @@
 #include <QSizePolicy>
 #include <QMessageBox> // For QMessageBox
 
-const QString GITHUB_PROJECT_URL = QStringLiteral("https://github.com/vincentwetzel/LzyDownloader");
-const QString DEVELOPER_DISCORD_URL_PART1 = QStringLiteral("https://discord.gg/");
-const QString DEVELOPER_DISCORD_URL_PART2 = QStringLiteral("NfWaqK");
-const QString DEVELOPER_DISCORD_URL_PART3 = QStringLiteral("gYRG");
+constexpr const char* GITHUB_PROJECT_URL = "https://github.com/vincentwetzel/LzyDownloader";
+constexpr const char* DEVELOPER_DISCORD_URL_PART1 = "https://discord.gg/";
+constexpr const char* DEVELOPER_DISCORD_URL_PART2 = "NfWaqK";
+constexpr const char* DEVELOPER_DISCORD_URL_PART3 = "gYRG";
 
 MainWindowUiBuilder::MainWindowUiBuilder(ConfigManager *configManager, QObject *parent)
     : QObject(parent),
@@ -45,7 +45,7 @@ void MainWindowUiBuilder::build(QMainWindow *mainWindow, QVBoxLayout *mainLayout
 
     QComboBox *languageCombo = new QComboBox(mainWindow);
     languageCombo->setToolTip(tr("Select Application Language"));
-    QStringList languagesWithFlags = {
+    static const QStringList languagesWithFlags = {
         QStringLiteral("🇺🇸 English"), QStringLiteral("🇪🇸 Spanish"), QStringLiteral("🇵🇹 Portuguese"), QStringLiteral("🇷🇺 Russian"), QStringLiteral("🇩🇪 German"), QStringLiteral("🇫🇷 French"),
         QStringLiteral("🇮🇹 Italian"), QStringLiteral("🇨🇳 Mandarin"), QStringLiteral("🇮🇳 Hindi"), QStringLiteral("🇧🇩 Bengali"), QStringLiteral("🇯🇵 Japanese"), QStringLiteral("🇵🇰 Western Punjabi"),
         QStringLiteral("🇹🇷 Turkish"), QStringLiteral("🇻🇳 Vietnamese"), QStringLiteral("🇭🇰 Yue Chinese"), QStringLiteral("🇪🇬 Egyptian Arabic"), QStringLiteral("🇨🇳 Wu Chinese"),
@@ -92,14 +92,14 @@ void MainWindowUiBuilder::build(QMainWindow *mainWindow, QVBoxLayout *mainLayout
 
     QVBoxLayout *footerContainer = new QVBoxLayout();
     QHBoxLayout *footerTopRow = new QHBoxLayout();
-    QLabel *githubLink = new QLabel(tr("<a href=\"%1\">Source Code</a>").arg(GITHUB_PROJECT_URL));
+    QLabel *githubLink = new QLabel(tr("<a href=\"%1\">Source Code</a>").arg(QLatin1String(GITHUB_PROJECT_URL)));
     githubLink->setOpenExternalLinks(true);
     githubLink->setToolTip(tr("Visit the project's source code repository on GitHub."));
 
     QLabel *discordLink = new QLabel(tr("<a href=\"%1%2%3\"><img src=\":/ui/assets/discord.png\" alt=\"Developer Discord\" width=\"24\" height=\"24\"></a>")
-                                         .arg(DEVELOPER_DISCORD_URL_PART1)
-                                         .arg(DEVELOPER_DISCORD_URL_PART2)
-                                         .arg(DEVELOPER_DISCORD_URL_PART3));
+                                         .arg(QLatin1String(DEVELOPER_DISCORD_URL_PART1))
+                                         .arg(QLatin1String(DEVELOPER_DISCORD_URL_PART2))
+                                         .arg(QLatin1String(DEVELOPER_DISCORD_URL_PART3)));
     discordLink->setOpenExternalLinks(true);
     discordLink->setToolTip(tr("Join the developer Discord server."));
 

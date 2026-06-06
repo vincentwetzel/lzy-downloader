@@ -11,6 +11,7 @@
 #include <QLineEdit>
 #include <QStandardItemModel>
 #include <QRegularExpression>
+#include <utility>
 
 DownloadSectionsDialog::DownloadSectionsDialog(const QVariantMap &infoDict, QWidget *parent)
     : QDialog(parent)
@@ -134,7 +135,7 @@ QWidget* DownloadSectionsDialog::createSectionWidget()
     QComboBox *chapterCombo = new QComboBox(chapterWidget);
     chapterCombo->setObjectName(QStringLiteral("chapterCombo"));
     chapterCombo->setToolTip(tr("Select a chapter to download."));
-    for (const QVariant &chapter : m_chapters) {
+    for (const QVariant &chapter : std::as_const(m_chapters)) {
         QVariantMap chapterMap = chapter.toMap();
         if (chapterMap.contains(QStringLiteral("title"))) {
             chapterCombo->addItem(chapterMap[QStringLiteral("title")].toString());
@@ -168,10 +169,10 @@ QString DownloadSectionsDialog::getFilenameLabel() const
             return QString();
         }
 
-        value.replace(':', '-');
-        value.replace('/', '-');
-        value.replace('\\', '-');
-        value.replace(' ', '_');
+        value.replace(QLatin1Char(':'), QLatin1Char('-'));
+        value.replace(QLatin1Char('/'), QLatin1Char('-'));
+        value.replace(QLatin1Char('\\'), QLatin1Char('-'));
+        value.replace(QLatin1Char(' '), QLatin1Char('_'));
         
         static const QRegularExpression illegalCharsRe(QStringLiteral(R"([<>:"/\\|?*])"));
         static const QRegularExpression multipleUnderscoresRe(QStringLiteral(R"(_{2,})"));
@@ -226,7 +227,7 @@ QString DownloadSectionsDialog::getFilenameLabel() const
 
     QString label = labels.mid(0, 3).join(QStringLiteral("__"));
     if (labels.size() > 3) {
-        label += QStringLiteral("__plus_%1_more").arg(labels.size() - 3);
+        label = QStringLiteral("%1__plus_%2_more").arg(label).arg(labels.size() - 3);
     }
     return label.left(90);
 }
@@ -272,5 +273,5 @@ QString DownloadSectionsDialog::getSectionsString() const
         }
     }
 
-    return sectionStrings.join('+');
+    return sectionStrings.join(QLatin1Char('+'));
 }

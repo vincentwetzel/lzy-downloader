@@ -97,6 +97,8 @@ void StartupWorker::onYtDlpUpdateFinished(Updater::UpdateStatus status, const QS
     // Ensure we cross thread boundaries safely, as the parser lives on the main thread
     if (m_extractorJsonParser) {
         QMetaObject::invokeMethod(m_extractorJsonParser, &ExtractorJsonParser::startGeneration, Qt::QueuedConnection);
+    } else {
+        m_extractorsCheckDone = true;
     }
 
     this->checkAllFinished();

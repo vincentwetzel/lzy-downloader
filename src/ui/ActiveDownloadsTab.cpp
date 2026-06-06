@@ -48,28 +48,31 @@ void ActiveDownloadsTab::setupUi() {
     resumeAllButton->setToolTip(tr("Resume all stopped or failed downloads."));
     resumeAllButton->setFixedSize(32, 32);
     connect(resumeAllButton, &QPushButton::clicked, this, [this]() {
-        QList<DownloadItemWidget*> widgetsToResume;
+        QStringList idsToResume;
         for (int i = 0; i < m_downloadsLayout->count(); ++i) {
             if (QWidget *widget = m_downloadsLayout->itemAt(i)->widget()) {
                 if (DownloadItemWidget *itemWidget = qobject_cast<DownloadItemWidget*>(widget)) {
                     if (itemWidget->isFinished() && !itemWidget->isSuccessful()) {
-                        widgetsToResume.append(itemWidget);
+                        idsToResume.append(itemWidget->getId());
                     }
                 }
             }
         }
         
-        if (widgetsToResume.isEmpty()) return;
+        if (idsToResume.isEmpty()) return;
 
         if (QMessageBox::question(this, tr("Resume All"), tr("Are you sure you want to resume all stopped or failed downloads?"), QMessageBox::Yes | QMessageBox::No) == QMessageBox::No) {
             return;
         }
 
-        for (DownloadItemWidget *itemWidget : widgetsToResume) {
-            for (QPushButton *btn : itemWidget->findChildren<QPushButton*>()) {
-                if (btn->toolTip() == tr("Resume") || btn->toolTip() == tr("Retry")) {
-                    btn->click();
-                    break;
+        for (const QString &id : idsToResume) {
+            if (m_downloadItems.contains(id)) {
+                DownloadItemWidget *itemWidget = m_downloadItems[id];
+                for (QPushButton *btn : itemWidget->findChildren<QPushButton*>()) {
+                    if (btn->toolTip() == tr("Resume") || btn->toolTip() == tr("Retry")) {
+                        btn->click();
+                        break;
+                    }
                 }
             }
         }

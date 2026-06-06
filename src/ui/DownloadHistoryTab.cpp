@@ -21,6 +21,7 @@
 #include <QJsonObject>
 #include <QFile>
 #include <QSaveFile>
+#include <QCoreApplication>
 
 // A widget to represent a single history item
 class DownloadHistoryItemWidget : public QFrame {
@@ -40,10 +41,18 @@ public:
         
         if (!data.thumbnailPath.isEmpty()) {
             if (data.thumbnailPath.startsWith(QStringLiteral("http://")) || data.thumbnailPath.startsWith(QStringLiteral("https://"))) {
-                QNetworkAccessManager *manager = new QNetworkAccessManager(this);
+                QNetworkAccessManager *manager = qApp->findChild<QNetworkAccessManager*>(QStringLiteral("sharedThumbnailManager"));
+                if (!manager) {
+                    manager = new QNetworkAccessManager(qApp);
+                    manager->setObjectName(QStringLiteral("sharedThumbnailManager"));
+                }
                 QNetworkRequest request(QUrl(data.thumbnailPath));
+                request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
+                request.setHeader(QNetworkRequest::UserAgentHeader, QStringLiteral("LzyDownloader"));
+                request.setTransferTimeout(15000);
                 QNetworkReply *reply = manager->get(request);
-                connect(reply, &QNetworkReply::finished, this, [this, thumbnailLabel, reply, manager]() {
+                connect(reply, &QNetworkReply::finished, reply, &QNetworkReply::deleteLater);
+                connect(reply, &QNetworkReply::finished, this, [thumbnailLabel, reply]() {
                     if (reply->error() == QNetworkReply::NoError) {
                         QPixmap pixmap;
                         if (pixmap.loadFromData(reply->readAll())) {
@@ -54,8 +63,6 @@ public:
                     } else {
                         thumbnailLabel->setText(tr("No Image"));
                     }
-                    reply->deleteLater();
-                    manager->deleteLater();
                 });
             } else if (QFileInfo::exists(data.thumbnailPath)) {
                 QImageReader reader(data.thumbnailPath);
@@ -93,9 +100,11 @@ public:
         
         QString sizeStr = data.totalBytes > 0 ? tr("%1 MB").arg(QString::number(data.totalBytes / (1024.0 * 1024.0), 'f', 2)) : tr("Unknown Size");
         
-        QString detailsText = QStringLiteral("%1 • %2").arg(data.timestamp, sizeStr);
+        QString detailsText;
         if (!data.duration.isEmpty()) {
-            detailsText += QStringLiteral(" • %1").arg(data.duration);
+            detailsText = tr("%1 • %2 • %3").arg(data.timestamp, sizeStr, data.duration);
+        } else {
+            detailsText = tr("%1 • %2").arg(data.timestamp, sizeStr);
         }
         
         QLabel *detailsLabel = new QLabel(detailsText, this);
@@ -227,10 +236,14 @@ void DownloadHistoryTab::loadHistory(const QString &filePath) {
     }
     m_listLayout->addStretch();
     
+    m_scrollWidget->setUpdatesEnabled(false);
+
     for (int i = m_historyItems.size() - 1; i >= 0; --i) {
         DownloadHistoryItemWidget *itemWidget = new DownloadHistoryItemWidget(m_historyItems[i], m_scrollWidget);
         m_listLayout->insertWidget(0, itemWidget);
     }
+
+    m_scrollWidget->setUpdatesEnabled(true);
 }
 
 void DownloadHistoryTab::saveHistory() const {
@@ -283,6 +296,7 @@ void DownloadHistoryTab::clearHistory() {
     m_historyItems.clear();
     saveHistory();
     
+    m_scrollWidget->setUpdatesEnabled(false);
     QLayoutItem *item;
     while ((item = m_listLayout->takeAt(0)) != nullptr) {
         if (item->widget()) {
@@ -291,4 +305,5 @@ void DownloadHistoryTab::clearHistory() {
         delete item;
     }
     m_listLayout->addStretch();
+    m_scrollWidget->setUpdatesEnabled(true);
 }

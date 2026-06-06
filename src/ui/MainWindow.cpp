@@ -19,11 +19,6 @@
 #include <QFile>
 #include <QThread>
 
-const QStringList REPO_URLS = {
-    QStringLiteral("https://api.github.com/repos/vincentwetzel/lzy-downloader"),
-    QStringLiteral("https://api.github.com/repos/vincentwetzel/MediaDownloader")
-};
-
 MainWindow::MainWindow(ExtractorJsonParser *extractorJsonParser, QWidget *parent)
     : QMainWindow(parent), m_configManager(nullptr), m_archiveManager(nullptr), m_downloadManager(nullptr),
       m_appUpdater(nullptr), m_urlValidator(nullptr), m_startupWorker(nullptr), m_startupThread(nullptr),
@@ -52,14 +47,18 @@ MainWindow::MainWindow(ExtractorJsonParser *extractorJsonParser, QWidget *parent
 
     m_archiveManager = new ArchiveManager(m_configManager, this);
     m_downloadManager = new DownloadManager(m_configManager, this);
-    m_appUpdater = new AppUpdater(REPO_URLS, QStringLiteral(APP_VERSION_STRING), this);
+    const QStringList repoUrls = {
+        QStringLiteral("https://api.github.com/repos/vincentwetzel/lzy-downloader"),
+        QStringLiteral("https://api.github.com/repos/vincentwetzel/MediaDownloader")
+    };
+    m_appUpdater = new AppUpdater(repoUrls, QStringLiteral(APP_VERSION_STRING), this);
     m_urlValidator = new UrlValidator(m_configManager, this);
     m_clipboard = QApplication::clipboard(); // Initialize QClipboard
 
     // --- Dynamic Binary Discovery ---
     QMap<QString, QString> foundBinaries = BinaryFinder::findAllBinaries();
     for (auto it = foundBinaries.constBegin(); it != foundBinaries.constEnd(); ++it) {
-        QString configKey = it.key() + QStringLiteral("_path");
+        QString configKey = QStringLiteral("%1_path").arg(it.key());
         QString currentPath = m_configManager->get(QStringLiteral("Binaries"), configKey).toString();
         // If current path is empty or invalid, update it
         if (currentPath.isEmpty() || !QFile::exists(currentPath)) {
@@ -99,9 +98,6 @@ MainWindow::MainWindow(ExtractorJsonParser *extractorJsonParser, QWidget *parent
 }
 
 MainWindow::~MainWindow() {
-    if (m_startupWorker) {
-        m_startupWorker->deleteLater();
-    }
     if (m_startupThread && m_startupThread->isRunning()) {
         m_startupThread->quit();
         m_startupThread->wait();

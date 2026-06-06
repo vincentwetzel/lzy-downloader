@@ -10,7 +10,7 @@ ToggleSwitch::ToggleSwitch(QWidget *parent)
     setFixedSize(50, 24);
     m_offset = m_padding + m_handleRadius;
 
-    m_animation = new QPropertyAnimation(this, "m_offset", this);
+    m_animation = new QPropertyAnimation(this, QByteArrayLiteral("m_offset"), this);
     m_animation->setDuration(120);
     m_animation->setEasingCurve(QEasingCurve::InOutSine);
 
@@ -34,7 +34,7 @@ void ToggleSwitch::paintEvent(QPaintEvent *event) {
     int start = m_padding + m_handleRadius;
     int end = width() - m_handleRadius - m_padding;
     int targetOffset = isChecked() ? end : start;
-    if (m_offset != targetOffset) {
+    if (m_offset != targetOffset && m_animation->state() != QAbstractAnimation::Running) {
         m_offset = targetOffset;
     }
     

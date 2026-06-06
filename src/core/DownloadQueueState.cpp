@@ -33,9 +33,18 @@ QJsonArray DownloadQueueState::load()
         QJsonParseError parseError;
         const QJsonDocument doc = QJsonDocument::fromJson(data, &parseError);
         if (parseError.error == QJsonParseError::NoError && doc.isArray() && !doc.array().isEmpty()) {
-            const QJsonArray arr = doc.array();
-            emit resumeDownloadsRequested(arr);
-            return arr;
+            QJsonArray validArray;
+            for (const QJsonValue &val : doc.array()) {
+                if (val.isObject()) {
+                    validArray.append(val);
+                } else {
+                    qWarning() << "Skipping invalid non-object element in download queue backup file.";
+                }
+            }
+            if (!validArray.isEmpty()) {
+                emit resumeDownloadsRequested(validArray);
+                return validArray;
+            }
         } else if (parseError.error != QJsonParseError::NoError && !data.isEmpty()) {
             qWarning() << "Failed to parse download queue backup file:" << parseError.errorString();
         }

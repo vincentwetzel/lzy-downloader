@@ -71,7 +71,7 @@ void RuntimeSelectionDialog::populateData() {
         m_videoList->addItem(tr("Default (Use Settings)"));
         m_videoList->item(0)->setData(Qt::UserRole, QString());
         m_videoList->setCurrentRow(0);
-        for (const QVariant &f : formats) {
+        for (const QVariant &f : std::as_const(formats)) {
             QVariantMap fmt = f.toMap();
             QString vcodec = fmt.value(QStringLiteral("vcodec")).toString();
             if (vcodec != QStringLiteral("none") && !vcodec.isEmpty()) {
@@ -87,7 +87,7 @@ void RuntimeSelectionDialog::populateData() {
         m_audioList->addItem(tr("Default (Use Settings)"));
         m_audioList->item(0)->setData(Qt::UserRole, QString());
         m_audioList->setCurrentRow(0);
-        for (const QVariant &f : formats) {
+        for (const QVariant &f : std::as_const(formats)) {
             QVariantMap fmt = f.toMap();
             QString acodec = fmt.value(QStringLiteral("acodec")).toString();
             if (acodec != QStringLiteral("none") && !acodec.isEmpty()) {
@@ -103,7 +103,7 @@ void RuntimeSelectionDialog::populateData() {
         QStringList allLangs = subtitles.keys();
         for (const QString& k : automatic_captions.keys()) if (!allLangs.contains(k)) allLangs.append(k);
         allLangs.sort();
-        for (const QString &lang : allLangs) {
+        for (const QString &lang : std::as_const(allLangs)) {
             QString autoGenText = (automatic_captions.contains(lang) && !subtitles.contains(lang)) ? tr(" (Auto-generated)") : QString();
             QString label = QStringLiteral("%1%2").arg(lang, autoGenText);
             QListWidgetItem *item = new QListWidgetItem(label);

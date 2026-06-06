@@ -301,9 +301,14 @@ void DownloadFinalizer::finalize(const QString &id, DownloadItem item) {
         sendProgress(DownloadFinalizer::tr("Applying sorting rules..."));
 
         QString finalDir;
-        if (sortingManager) {
-            finalDir = QDir(sortingManager->getSortedDirectory(item.metadata, item.options)).absolutePath();
-        } else {
+        bool sortingOk = false;
+        QMetaObject::invokeMethod(QCoreApplication::instance(), [&finalDir, &sortingOk, sortingManager, meta = item.metadata, opts = item.options]() {
+            if (sortingManager) {
+                finalDir = QDir(sortingManager->getSortedDirectory(meta, opts)).absolutePath();
+                sortingOk = true;
+            }
+        }, Qt::BlockingQueuedConnection);
+        if (!sortingOk || finalDir.isEmpty()) {
             finalDir = fileInfo.absolutePath(); // fallback if sorting manager is dead
         }
 

@@ -14,6 +14,32 @@
 #include <QVariantList>
 #include <chrono>
 
+namespace {
+    [[nodiscard]] QString resolveTempDirectory(ConfigManager* configManager) {
+        if (!configManager) {
+            return QString();
+        }
+        QString tempDir = configManager->get(QStringLiteral("Paths"), QStringLiteral("temporary_downloads_directory")).toString();
+        if (tempDir.isEmpty()) {
+            const QString completedDir = configManager->get(QStringLiteral("Paths"), QStringLiteral("completed_downloads_directory")).toString();
+            if (!completedDir.isEmpty()) {
+                tempDir = QDir(completedDir).filePath(QStringLiteral("temp_downloads"));
+            }
+        }
+        return tempDir;
+    }
+
+    void cleanupWaitThumbnail(QString& thumbnailPath, const QString& id) {
+        const QString waitThumbnailPrefix = QStringLiteral("%1_wait_thumbnail").arg(id);
+        if (!thumbnailPath.isEmpty() && QFileInfo(thumbnailPath).fileName().startsWith(waitThumbnailPrefix)) {
+            if (QFile::exists(thumbnailPath) && !QFile::remove(thumbnailPath)) {
+                qWarning() << "Failed to clean up orphaned wait thumbnail:" << thumbnailPath;
+            }
+            thumbnailPath.clear();
+        }
+    }
+}
+
 void YtDlpWorker::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatus) {
     if (m_finishEmitted) {
         return;
@@ -47,16 +73,7 @@ void YtDlpWorker::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatu
     QString postprocessorWarning;
 
     // Resolve temporary directory once for all fallback logic in this scope
-    QString resolvedTempDir;
-    if (m_configManager) {
-        resolvedTempDir = m_configManager->get(QStringLiteral("Paths"), QStringLiteral("temporary_downloads_directory")).toString();
-        if (resolvedTempDir.isEmpty()) {
-            const QString completedDir = m_configManager->get(QStringLiteral("Paths"), QStringLiteral("completed_downloads_directory")).toString();
-            if (!completedDir.isEmpty()) {
-                resolvedTempDir = QDir(completedDir).filePath(QStringLiteral("temp_downloads"));
-            }
-        }
-    }
+    const QString resolvedTempDir = resolveTempDirectory(m_configManager);
 
     // Check if we are waiting for a user prompt (scheduled livestream)
     if (!success && m_errorEmitted && !m_promptDelayActive) {
@@ -150,10 +167,12 @@ void YtDlpWorker::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatu
                 jsonFile.close();
             }
 
-            if (jsonFile.remove()) {
-                qDebug() << "Cleaned up info.json file:" << m_infoJsonPath;
-            } else {
-                qWarning() << "Failed to clean up info.json file:" << m_infoJsonPath;
+            if (jsonFile.exists()) {
+                if (jsonFile.remove()) {
+                    qDebug() << "Cleaned up info.json file:" << m_infoJsonPath;
+                } else {
+                    qWarning() << "Failed to clean up info.json file:" << m_infoJsonPath;
+                }
             }
 
             m_infoJsonPath.clear(); // Clear the path so any pending readInfoJsonWithRetry timers abort cleanly
@@ -204,13 +223,7 @@ void YtDlpWorker::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatu
             }
         }
 
-        // Clean up orphaned wait thumbnail on failure
-        if (!m_thumbnailPath.isEmpty() && QFileInfo(m_thumbnailPath).fileName().startsWith(waitThumbnailPrefix)) {
-            if (!QFile::remove(m_thumbnailPath)) {
-                qWarning() << "Failed to clean up orphaned wait thumbnail:" << m_thumbnailPath;
-            }
-            m_thumbnailPath.clear();
-        }
+        cleanupWaitThumbnail(m_thumbnailPath, m_id);
     }
 
     // Try to clean up empty UUID directory if yt-dlp failed before writing anything,
@@ -255,25 +268,12 @@ void YtDlpWorker::onProcessError(QProcess::ProcessError error) {
                                     .arg(m_process->errorString());
         qWarning() << message;
 
-        // Clean up orphaned wait thumbnail on failure
-        const QString waitThumbnailPrefix = QStringLiteral("%1_wait_thumbnail").arg(m_id);
-        if (!m_thumbnailPath.isEmpty() && QFileInfo(m_thumbnailPath).fileName().startsWith(waitThumbnailPrefix)) {
-            QFile::remove(m_thumbnailPath);
-            m_thumbnailPath.clear();
-        }
+        cleanupWaitThumbnail(m_thumbnailPath, m_id);
 
         // Try to clean up empty UUID directory since finished() won't run
-        if (m_configManager) {
-            QString resolvedTempDir = m_configManager->get(QStringLiteral("Paths"), QStringLiteral("temporary_downloads_directory")).toString();
-            if (resolvedTempDir.isEmpty()) {
-                const QString completedDir = m_configManager->get(QStringLiteral("Paths"), QStringLiteral("completed_downloads_directory")).toString();
-                if (!completedDir.isEmpty()) {
-                    resolvedTempDir = QDir(completedDir).filePath(QStringLiteral("temp_downloads"));
-                }
-            }
-            if (!resolvedTempDir.isEmpty()) {
-                QDir().rmdir(QDir(resolvedTempDir).filePath(m_id));
-            }
+        const QString resolvedTempDir = resolveTempDirectory(m_configManager);
+        if (!resolvedTempDir.isEmpty()) {
+            QDir().rmdir(QDir(resolvedTempDir).filePath(m_id));
         }
 
         emit finished(m_id, false, message, QString(), QString(), QVariantMap());
@@ -306,7 +306,7 @@ void YtDlpWorker::parseProcessBuffer(QByteArray &buffer, const QByteArray &newDa
         const char c = buffer.at(i);
         if (c == '\n' || c == '\r') {
             if (i > start) {
-                const QString line = QString::fromUtf8(buffer.data() + start, i - start).trimmed();
+                const QString line = QString::fromUtf8(buffer.constData() + start, i - start).trimmed();
                 if (!line.isEmpty()) {
                     handleOutputLine(line);
                 }
@@ -444,7 +444,7 @@ void YtDlpWorker::readInfoJsonWithRetry() {
                 if (thumbObj.contains(QStringLiteral("filepath")) && thumbObj.value(QStringLiteral("filepath")).isString()) {
                     const QString newThumb = QDir::toNativeSeparators(thumbObj.value(QStringLiteral("filepath")).toString());
                     if (hasWaitThumbnail && newThumb != m_thumbnailPath) {
-                        if (!QFile::remove(m_thumbnailPath)) { // Clean up the wait thumbnail since we found a real one
+                        if (QFile::exists(m_thumbnailPath) && !QFile::remove(m_thumbnailPath)) { // Clean up the wait thumbnail since we found a real one
                             qWarning() << "Failed to clean up wait thumbnail:" << m_thumbnailPath;
                         }
                     }

@@ -178,7 +178,7 @@ QStringList MissingBinariesDialog::unresolvedBinaries() const
     QStringList unresolved;
     for (const QString &binaryName : m_binaryNames) {
         const ProcessUtils::FoundBinary foundBinary = ProcessUtils::resolveBinary(binaryName, m_configManager);
-            if (foundBinary.source == QStringLiteral("Not Found") || foundBinary.source == QStringLiteral("Invalid Custom")) {
+        if (foundBinary.source == QStringLiteral("Not Found") || foundBinary.source == QStringLiteral("Invalid Custom")) {
             unresolved << binaryName;
         }
     }

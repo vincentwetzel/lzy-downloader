@@ -354,35 +354,40 @@ QString SortingManager::getSortedDirectory(const QVariantMap &videoMetadata, con
 }
 
 QString SortingManager::parseAndReplaceTokens(const QString &pattern, const QVariantMap &metadata) {
-    QString result = pattern;
-
-    // Handle special date tokens first
-    QString dateStr = metadataValueForKey(QStringLiteral("release_date"), metadata).toString();
-    if (dateStr.isEmpty() || dateStr.length() != 8) {
-        dateStr = metadataValueForKey(QStringLiteral("upload_date"), metadata).toString();
-    }
-    
-    if (dateStr.length() == 8) {
-        result.replace(QStringLiteral("{upload_year}"), dateStr.left(4), Qt::CaseInsensitive);
-        result.replace(QStringLiteral("{upload_month}"), dateStr.mid(4, 2), Qt::CaseInsensitive);
-        result.replace(QStringLiteral("{upload_day}"), dateStr.right(2), Qt::CaseInsensitive);
-    } else {
-        result.replace(QStringLiteral("{upload_year}"), QStringLiteral("Unknown Year"), Qt::CaseInsensitive);
-        result.replace(QStringLiteral("{upload_month}"), QStringLiteral("Unknown Month"), Qt::CaseInsensitive);
-        result.replace(QStringLiteral("{upload_day}"), QStringLiteral("Unknown Day"), Qt::CaseInsensitive);
-    }
+    QString result;
+    int lastPos = 0;
 
     // Use regex to find all {token} patterns
     static const QRegularExpression re(QStringLiteral("\\{([^}]+)\\}"));
     auto it = re.globalMatch(pattern);
+    
     while (it.hasNext()) {
         QRegularExpressionMatch match = it.next();
-        QString token = match.captured(0); // e.g., "{title}"
+        
+        // Append the literal text before this token
+        result += pattern.mid(lastPos, match.capturedStart() - lastPos);
+        lastPos = match.capturedEnd();
+        
         QString key = match.captured(1);   // e.g., "title"
 
         if (key.compare(QStringLiteral("upload_year"), Qt::CaseInsensitive) == 0 ||
             key.compare(QStringLiteral("upload_month"), Qt::CaseInsensitive) == 0 ||
             key.compare(QStringLiteral("upload_day"), Qt::CaseInsensitive) == 0) {
+            
+            QString dateStr = metadataValueForKey(QStringLiteral("release_date"), metadata).toString();
+            if (dateStr.isEmpty() || dateStr.length() != 8) {
+                dateStr = metadataValueForKey(QStringLiteral("upload_date"), metadata).toString();
+            }
+            
+            if (dateStr.length() == 8) {
+                if (key.compare(QStringLiteral("upload_year"), Qt::CaseInsensitive) == 0) result += dateStr.left(4);
+                else if (key.compare(QStringLiteral("upload_month"), Qt::CaseInsensitive) == 0) result += dateStr.mid(4, 2);
+                else if (key.compare(QStringLiteral("upload_day"), Qt::CaseInsensitive) == 0) result += dateStr.right(2);
+            } else {
+                if (key.compare(QStringLiteral("upload_year"), Qt::CaseInsensitive) == 0) result += QStringLiteral("Unknown Year");
+                else if (key.compare(QStringLiteral("upload_month"), Qt::CaseInsensitive) == 0) result += QStringLiteral("Unknown Month");
+                else if (key.compare(QStringLiteral("upload_day"), Qt::CaseInsensitive) == 0) result += QStringLiteral("Unknown Day");
+            }
             continue;
         }
 
@@ -394,11 +399,14 @@ QString SortingManager::parseAndReplaceTokens(const QString &pattern, const QVar
 
         if (value.isValid() && !value.toString().trimmed().isEmpty() && 
             value.toString().trimmed().toLower() != QStringLiteral("null") && value.toString().trimmed() != QStringLiteral("NA")) {
-            result.replace(token, sanitize(value.toString()), Qt::CaseInsensitive);
+            result += sanitize(value.toString());
         } else {
-            result.replace(token, QStringLiteral("Unknown"), Qt::CaseInsensitive);
+            result += QStringLiteral("Unknown");
         }
     }
+
+    // Append any remaining text after the last token
+    result += pattern.mid(lastPos);
 
     return result;
 }

@@ -40,7 +40,7 @@ void MainWindow::connectDiscordWebhookSignals()
         currentStatus.replace(QLatin1Char('\n'), QLatin1Char(' ')).remove(QLatin1Char('\r'));
         
         if (currentStatus.length() > 200) {
-            currentStatus = currentStatus.left(197) + QStringLiteral("...");
+            currentStatus = QStringLiteral("%1...").arg(currentStatus.left(197));
         }
         
         json[QStringLiteral("status")] = currentStatus;
@@ -55,9 +55,11 @@ void MainWindow::connectDiscordWebhookSignals()
 
         QNetworkRequest request(QUrl(QStringLiteral("http://127.0.0.1:8766/webhook")));
         request.setHeader(QNetworkRequest::ContentTypeHeader, QStringLiteral("application/json"));
+        request.setTransferTimeout(15000);
 
         QNetworkReply *reply = discordNetworkManager->post(request, payload);
-        QObject::connect(reply, &QNetworkReply::finished, reply, [reply, jobId]() {
+        QObject::connect(reply, &QNetworkReply::finished, reply, &QNetworkReply::deleteLater);
+        QObject::connect(reply, &QNetworkReply::finished, this, [reply, jobId]() {
             if (reply->error() != QNetworkReply::NoError) {
                 bool isHostClosed = (reply->error() == QNetworkReply::RemoteHostClosedError);
                 int httpStatus = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
@@ -70,7 +72,6 @@ void MainWindow::connectDiscordWebhookSignals()
                 int statusCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
                 qDebug() << "Discord Webhook success for job:" << jobId << "HTTP Status:" << statusCode;
             }
-            reply->deleteLater();
         });
     };
 

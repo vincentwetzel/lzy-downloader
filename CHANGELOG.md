@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Progress rendering polish**: Active download rows now animate main and overall progress changes, cache tinted standard icons, and stop progress animations explicitly when rows enter indeterminate, cleared, cancelled, or completed states.
+- **Shared thumbnail networking**: Active downloads and download history now reuse an app-owned thumbnail network manager with safer redirect policy, a LzyDownloader user agent, and request timeouts instead of creating short-lived managers per thumbnail.
+- **Sorting UI persistence polish**: Sorting rule loading/saving now batches table repaints, preserves selection after add/edit, stores condition keys consistently, and guards empty combo indices while editing rules.
+
+### Fixed
+- **Updater JSON validation**: App update checks now ignore malformed release assets, tolerate missing release-note bodies, and fail clearly if a newer release response has no valid assets array.
+- **Queue backup restore validation**: Queue restore now skips non-object entries in `downloads_backup.json` instead of passing malformed backup elements into resume handling.
+- **Finalizer thread affinity**: Sorting-rule resolution during finalization is marshaled back to the application thread before worker-thread file moves continue, avoiding direct cross-thread access to UI-owned sorting state.
+- **yt-dlp cleanup robustness**: Failed or interrupted yt-dlp workers now share a single temporary-directory fallback path, clean orphaned wait thumbnails only when they exist, avoid duplicate `info.json` removal warnings, and parse buffered UTF-8 lines from stable byte pointers.
+- **Sorting token replacement**: Sorting subfolder token expansion now replaces each token occurrence independently, so case-insensitive duplicate tokens and date helper tokens cannot accidentally rewrite unrelated literal text.
+- **Startup worker teardown**: Startup checks now delete the worker when the thread finishes and mark extractor generation done if no extractor parser is available, preventing startup completion from hanging.
+- **Discord bridge request cleanup**: Local Discord bridge posts now use explicit timeouts and let replies clean themselves up through Qt deferred deletion.
+
 ## [1.1.58] - 2026-06-06
 
 ### Changed

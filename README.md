@@ -12,12 +12,12 @@ A lightweight, high-performance desktop application for downloading media (video
 - 🖼️ **Gallery Support** — Download image galleries from supported sites (e.g., Instagram, Twitter) via `gallery-dl`
 - 🎨 **Advanced Settings** — Quality selection, format filtering, SponsorBlock integration, metadata embedding
 - 🎛️ **Runtime Format Selection** — Optionally prompt for specific video/audio qualities on every download, supporting multiple simultaneous format selections for the same media
-- 🔄 **App Updates** — Checks GitHub Releases for newer installers and prompts before downloading
+- 🔄 **App Updates** — Checks validated GitHub Releases for newer installers and prompts before downloading
 - 🔌 **Local API** — Optional localhost API for trusted local integrations such as Discord bots
 - 📊 **Concurrent Downloads** — Queue and manage multiple downloads simultaneously
-- ⏸️ **Pause & Resume** — Safely stop downloads, preserve partial `.part` files, and resume them across application restarts
+- ⏸️ **Pause & Resume** — Safely stop downloads, preserve partial `.part` files, and resume validated queue backups across application restarts
 - 🧰 **External Binaries Manager** — Detect, version-check, install, and update `yt-dlp`, `gallery-dl`, `ffmpeg`, `ffprobe`, `aria2c`, and `deno` from inside the app, with package-manager-aware commands and cancellable install/update logs
-- 🖼️ **Thumbnail Embedding** — Automatic thumbnail download and embedding for videos and audio
+- 🖼️ **Thumbnail Embedding** — Automatic thumbnail download, bounded preview loading, and embedding for videos and audio
 - 🌐 **Browser Cookies** — Use saved cookies from Firefox, Chrome, Edge, or other browsers for age-restricted content
 - 📂 **Smart Sorting** — Automatically organize downloads into subfolders based on uploader, playlist, date, or custom patterns
 

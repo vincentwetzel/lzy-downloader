@@ -70,7 +70,7 @@ void SortingTab::setupUI() {
 }
 
 void SortingTab::populateRow(int row, const QVariantMap &ruleMap) {
-    QTableWidgetItem *priorityItem = new QTableWidgetItem("");
+    QTableWidgetItem *priorityItem = new QTableWidgetItem(QString());
     // Store the map directly in the user role
     priorityItem->setData(Qt::UserRole, ruleMap);
     m_rulesTable->setItem(row, 0, priorityItem);
@@ -112,6 +112,7 @@ void SortingTab::populateRow(int row, const QVariantMap &ruleMap) {
 
 void SortingTab::loadRules() {
     m_rulesTable->setRowCount(0);
+    m_rulesTable->setUpdatesEnabled(false);
     int size = m_configManager->get(QStringLiteral("SortingRules"), QStringLiteral("size"), 0).toInt();
 
     bool rulesPurged = false;
@@ -130,7 +131,7 @@ void SortingTab::loadRules() {
         else if (appliesTo.compare(QStringLiteral("Video Playlist Downloads"), Qt::CaseInsensitive) == 0) appliesTo = QStringLiteral("video_playlist");
         else if (appliesTo.compare(QStringLiteral("Audio Playlist Downloads"), Qt::CaseInsensitive) == 0) appliesTo = QStringLiteral("audio_playlist");
         else if (appliesTo.compare(QStringLiteral("All Downloads"), Qt::CaseInsensitive) == 0) appliesTo = QStringLiteral("any");
-        else if (appliesTo == QStringLiteral("all")) appliesTo = QStringLiteral("any");
+        else if (appliesTo.compare(QStringLiteral("all"), Qt::CaseInsensitive) == 0) appliesTo = QStringLiteral("any");
         
         if (rawAppliesTo != appliesTo) {
             rulesPurged = true; // Force save to upgrade legacy config rules
@@ -144,7 +145,7 @@ void SortingTab::loadRules() {
         QVariantList conditions;
         for (int j = 0; j < condSize; ++j) {
             QVariantMap cond;
-            QString condKey = key + QStringLiteral("_condition_%1").arg(j);
+            QString condKey = QStringLiteral("%1_condition_%2").arg(key).arg(j);
             cond[QStringLiteral("field")] = m_configManager->get(QStringLiteral("SortingRules"), condKey + QStringLiteral("_field")).toString();
             cond[QStringLiteral("operator")] = m_configManager->get(QStringLiteral("SortingRules"), condKey + QStringLiteral("_operator")).toString();
             cond[QStringLiteral("value")] = m_configManager->get(QStringLiteral("SortingRules"), condKey + QStringLiteral("_value")).toString();
@@ -174,6 +175,7 @@ void SortingTab::loadRules() {
         qInfo() << "Purging invalid/legacy rules from settings.";
         saveRules();
     }
+    m_rulesTable->setUpdatesEnabled(true);
 }
 
 void SortingTab::saveRules() {
@@ -200,7 +202,7 @@ void SortingTab::saveRules() {
         
         for (int j = 0; j < conditions.size(); ++j) {
             QVariantMap cond = conditions[j].toMap();
-            QString condKey = baseKey + QStringLiteral("_condition_%1").arg(j);
+            QString condKey = QStringLiteral("%1_condition_%2").arg(baseKey).arg(j);
             m_configManager->set(QStringLiteral("SortingRules"), condKey + QStringLiteral("_field"), cond[QStringLiteral("field")]);
             m_configManager->set(QStringLiteral("SortingRules"), condKey + QStringLiteral("_operator"), cond[QStringLiteral("operator")]);
             m_configManager->set(QStringLiteral("SortingRules"), condKey + QStringLiteral("_value"), cond[QStringLiteral("value")]);
@@ -208,7 +210,7 @@ void SortingTab::saveRules() {
         
         // Purge leftover conditions if the rule shrunk
         for (int j = conditions.size(); j < oldCondSize; ++j) {
-            QString condKey = baseKey + QStringLiteral("_condition_%1").arg(j);
+            QString condKey = QStringLiteral("%1_condition_%2").arg(baseKey).arg(j);
             m_configManager->remove(QStringLiteral("SortingRules"), condKey + QStringLiteral("_field"));
             m_configManager->remove(QStringLiteral("SortingRules"), condKey + QStringLiteral("_operator"));
             m_configManager->remove(QStringLiteral("SortingRules"), condKey + QStringLiteral("_value"));
@@ -229,7 +231,7 @@ void SortingTab::saveRules() {
         int oldCondSize = m_configManager->get(QStringLiteral("SortingRules"), baseKey + QStringLiteral("_conditions_size"), 0).toInt();
         m_configManager->remove(QStringLiteral("SortingRules"), baseKey + QStringLiteral("_conditions_size"));
         for (int j = 0; j < qMax(oldCondSize, 20); ++j) {
-            QString condKey = baseKey + QStringLiteral("_condition_%1").arg(j);
+            QString condKey = QStringLiteral("%1_condition_%2").arg(baseKey).arg(j);
             m_configManager->remove(QStringLiteral("SortingRules"), condKey + QStringLiteral("_field"));
             m_configManager->remove(QStringLiteral("SortingRules"), condKey + QStringLiteral("_operator"));
             m_configManager->remove(QStringLiteral("SortingRules"), condKey + QStringLiteral("_value"));
@@ -247,6 +249,7 @@ void SortingTab::addRule() {
         m_rulesTable->insertRow(row);
         populateRow(row, rule);
         updatePriorityNumbers();
+        m_rulesTable->setCurrentCell(row, 0); // Select the newly added rule
         saveRules();
     }
 }
@@ -267,6 +270,7 @@ void SortingTab::editRule() {
             if (originalRule != newRule) {
                 populateRow(currentRow, newRule);
                 updatePriorityNumbers();
+                m_rulesTable->setCurrentCell(currentRow, 0); // Restore selection after item recreation
                 saveRules();
                 qDebug() << "Sorting rule changed, saving to disk.";
             } else {
@@ -274,14 +278,14 @@ void SortingTab::editRule() {
             }
         }
     } else {
-    QMessageBox::warning(this, tr("Edit Rule"), tr("Please select a rule to edit."));
+        QMessageBox::warning(this, tr("Edit Rule"), tr("Please select a rule to edit."));
     }
 }
 
 void SortingTab::deleteRule() {
     int currentRow = m_rulesTable->currentRow();
     if (currentRow >= 0) {
-        if (QMessageBox::question(this, tr("Delete Rule"), tr("Are you sure you want to remove this rule?"), QMessageBox::Yes|QMessageBox::No) == QMessageBox::Yes) {
+        if (QMessageBox::question(this, tr("Delete Rule"), tr("Are you sure you want to remove this rule?"), QMessageBox::Yes | QMessageBox::No) == QMessageBox::Yes) {
             m_rulesTable->removeRow(currentRow);
             updatePriorityNumbers();
             saveRules();

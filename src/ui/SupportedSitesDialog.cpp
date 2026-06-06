@@ -52,8 +52,8 @@ void SupportedSitesDialog::loadExtractors() {
             for (auto it = root.begin(); it != root.end(); ++it) {
                 if (it.value().isObject()) {
                     QJsonObject extObj = it.value().toObject();
-                    if (extObj.contains(QStringLiteral("domains")) && extObj[QStringLiteral("domains")].isArray()) {
-                        for (const QJsonValue& val : extObj[QStringLiteral("domains")].toArray()) {
+                    if (extObj.contains(QStringLiteral("domains")) && extObj.value(QStringLiteral("domains")).isArray()) {
+                        for (const QJsonValue& val : extObj.value(QStringLiteral("domains")).toArray()) {
                             if (val.isString()) {
                                 m_domainMap[val.toString()] |= flag; // Automatically alphabetized by QMap
                             }

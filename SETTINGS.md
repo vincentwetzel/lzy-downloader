@@ -296,6 +296,8 @@ When launched with `--server`, `--headless`, or `--background`, queue runtime st
 
 Stopped and failed entries also retain the latest known temporary file paths needed for resume and cleanup workflows. This allows the Active Downloads tab's `Clear Temp` action to remove tracked partial media, sidecar metadata, thumbnails, and downloader state files even after an app restart.
 
+On restore, the queue loader validates that each `downloads_backup.json` array entry is an object. Malformed non-object entries are skipped and logged rather than being resumed.
+
 ## Local API Token Location
 
 When `General/enable_local_api` is enabled in GUI mode, or when `--server`, `--headless`, or `--background` explicitly starts the API, the API token is stored as `api_token.txt` in the app-local data directory:
@@ -376,4 +378,4 @@ If a required binary (`yt-dlp`, `ffmpeg`, `ffprobe`, `deno`) is not found, LzyDo
 
 ---
 
-*Last updated: June 5, 2026 - LzyDownloader C++ Port*
+*Last updated: June 6, 2026 - LzyDownloader C++ Port*

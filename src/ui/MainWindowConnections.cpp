@@ -71,7 +71,7 @@ void applyConsoleState(bool show)
 #endif
 
 namespace {
-const QString GITHUB_PROJECT_URL = QStringLiteral("https://github.com/vincentwetzel/lzy-downloader");
+constexpr const char* GITHUB_PROJECT_URL = "https://github.com/vincentwetzel/lzy-downloader";
 }
 
 void MainWindow::setupLocalApiServer()
@@ -155,7 +155,7 @@ void MainWindow::connectAppUpdaterSignals()
                     statusBar()->showMessage(tr("Downloading update..."));
                     m_appUpdater->downloadAndInstall(downloadUrl);
                 } else if (msgBox.clickedButton() == viewReleaseButton) {
-                QDesktopServices::openUrl(QUrl(GITHUB_PROJECT_URL + QStringLiteral("/releases/latest")));
+                    QDesktopServices::openUrl(QUrl(QStringLiteral("%1/releases/latest").arg(QLatin1String(GITHUB_PROJECT_URL))));
                 }
             });
 
@@ -519,6 +519,7 @@ void MainWindow::connectStartupWorkerSignals()
     m_startupWorker->moveToThread(m_startupThread);
     connect(m_startupThread, &QThread::started, m_startupWorker, &StartupWorker::start);
     connect(m_startupWorker, &StartupWorker::finished, m_startupThread, &QThread::quit);
+    connect(m_startupThread, &QThread::finished, m_startupWorker, &QObject::deleteLater);
     connect(m_startupWorker, &StartupWorker::binariesChecked, this, [this](const QStringList &missingBinaries) {
         if (!missingBinaries.isEmpty() && !m_nonInteractiveLaunch) {
             showMissingBinariesDialog(missingBinaries);
