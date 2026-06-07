@@ -373,7 +373,9 @@ void DownloadFinalizer::finalize(const QString &id, DownloadItem item) {
                 
                 if (entry.isFile()) {
                     if (QFile::exists(newDestPath)) {
-                        QFile::remove(newDestPath);
+                        if (!QFile::remove(newDestPath)) {
+                            qWarning() << "Failed to remove existing file before gallery move:" << newDestPath;
+                        }
                     }
                     if (QFile::rename(entry.absoluteFilePath(), newDestPath) || (QFile::copy(entry.absoluteFilePath(), newDestPath) && QFile::remove(entry.absoluteFilePath()))) {
                         finalPath = newDestPath;

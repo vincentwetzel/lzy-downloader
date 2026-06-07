@@ -72,7 +72,7 @@ File system locations for download directories.
 | `completed_downloads_directory` | String | *(user prompt on first launch)* | The directory where finished downloads are moved to after verification. |
 | `temporary_downloads_directory` | String | *(derived from completed_downloads_directory)* | The directory used for active/in-progress downloads. Automatically set when `completed_downloads_directory` is updated. |
 
-> **Note:** The `temporary_downloads_directory` is automatically derived from the `completed_downloads_directory` if not explicitly set. Runtime cleanup code uses the same `<completed_downloads_directory>/temp_downloads` fallback when removing empty per-download UUID folders or moving wait-state thumbnails into managed cleanup scope. Downloads follow a lifecycle: download to temp dir → verify file stability → move to completed directory.
+> **Note:** The `temporary_downloads_directory` is automatically derived from the `completed_downloads_directory` if not explicitly set. Runtime cleanup code uses the same `<completed_downloads_directory>/temp_downloads` fallback when removing empty per-download UUID folders, locating fallback `info.json` metadata inside the per-download UUID folder, or moving wait-state thumbnails into managed cleanup scope. Downloads follow a lifecycle: download to temp dir -> verify file stability -> move to completed directory.
 
 ---
 

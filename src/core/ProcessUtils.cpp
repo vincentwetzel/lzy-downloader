@@ -14,6 +14,7 @@
 #include <windows.h>
 #else
 #include <signal.h>
+#include <sys/types.h>
 #endif
 #include <QMutex>
 
@@ -280,7 +281,7 @@ void setProcessEnvironment(QProcess &process) {
 #endif
 }
 
-void terminateProcessTree(QProcess *process, int /*gracefulTimeoutMs*/) {
+void terminateProcessTree(QProcess *process, int gracefulTimeoutMs) {
     if (!process || process->state() == QProcess::NotRunning) {
         return;
     }
@@ -295,11 +296,12 @@ void terminateProcessTree(QProcess *process, int /*gracefulTimeoutMs*/) {
         // condition where the parent dies instantly and taskkill orphans the children.
         QProcess killer;
         killer.start(QStringLiteral("taskkill.exe"), {QStringLiteral("/PID"), QString::number(pid), QStringLiteral("/T"), QStringLiteral("/F")});
-        killer.waitForFinished(2000);
+        killer.waitForFinished(gracefulTimeoutMs > 0 ? gracefulTimeoutMs : 2000);
     }
 
     process->kill();
 #else
+    Q_UNUSED(gracefulTimeoutMs)
     process->kill();
 #endif
 }
@@ -329,7 +331,7 @@ void sendGracefulInterrupt(qint64 pid) {
         }
     }
 #else
-    kill(pid, SIGINT);
+    kill(static_cast<pid_t>(pid), SIGINT);
 #endif
 }
 
@@ -357,9 +359,13 @@ QString fetchFfmpegVersion(const QString& execPath) {
             return fallbackMatch.captured(1);
         }
     } else {
-        qWarning() << "[ProcessUtils] fetchFfmpegVersion timed out for" << execPath;
-        process.kill();
-        process.waitForFinished();
+        if (process.state() != QProcess::NotRunning) {
+            qWarning() << "[ProcessUtils] fetchFfmpegVersion timed out for" << execPath;
+            process.kill();
+            process.waitForFinished(1000);
+        } else {
+            qWarning() << "[ProcessUtils] fetchFfmpegVersion failed to start for" << execPath << ":" << process.errorString();
+        }
     }
     return QStringLiteral("Unknown");
 }

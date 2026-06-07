@@ -171,7 +171,7 @@ int YtDlpWorker::inferPrimaryStreamIndexFromPath(const QString &path) const {
     for (qsizetype i = 0; i < m_requestedTransferFormatIds.size(); ++i) {
         const QString requestedFormatId = m_requestedTransferFormatIds.at(i).trimmed().toLower();
         if (!requestedFormatId.isEmpty() && requestedFormatId == formatIdFromPath) {
-            return i;
+            return static_cast<int>(i);
         }
     }
 
@@ -195,7 +195,7 @@ int YtDlpWorker::inferPrimaryStreamIndexFromTotalBytes(double totalBytes) const 
         const double relativeDiff = qAbs(plannedSize - totalBytes) / qMax(plannedSize, totalBytes);
         if (relativeDiff < bestRelativeDiff) {
             bestRelativeDiff = relativeDiff;
-            bestIndex = i;
+            bestIndex = static_cast<int>(i);
         }
     }
 
@@ -247,7 +247,7 @@ QString YtDlpWorker::inferPrimaryStreamStatusFromMetadata(int index) const {
     return m_requestedTransferStatuses.at(boundedIndex);
 }
 
-void YtDlpWorker::updateInferredTransferStage(double percentage, double downloadedBytes, double totalBytes) {
+void YtDlpWorker::updateInferredTransferStage(double percentage, double /*downloadedBytes*/, double totalBytes) {
     if (m_currentTransferIsAuxiliary) {
         return;
     }
@@ -361,17 +361,9 @@ bool YtDlpWorker::handleLifecycleStatusLine(const QString &line) {
         return true;
     }
     if (line.startsWith(QStringLiteral("[youtube]")) || line.startsWith(QStringLiteral("[generic]")) || line.startsWith(QStringLiteral("[info]"))) {
-        if (line.contains(QStringLiteral("Extracting URL"), Qt::CaseInsensitive) ||
-            line.contains(QStringLiteral("Downloading webpage"), Qt::CaseInsensitive) ||
-            line.contains(QStringLiteral("Downloading android"), Qt::CaseInsensitive) ||
-            line.contains(QStringLiteral("Downloading player"), Qt::CaseInsensitive) ||
-            line.contains(QStringLiteral("Downloading m3u8"), Qt::CaseInsensitive) ||
-            line.contains(QStringLiteral("Downloading API JSON"), Qt::CaseInsensitive) ||
-            line.contains(QStringLiteral("Downloading initial data API JSON"), Qt::CaseInsensitive) ||
-            line.contains(QStringLiteral("Downloading tv client config"), Qt::CaseInsensitive) ||
-            line.contains(QStringLiteral("Downloading web creator player API JSON"), Qt::CaseInsensitive) ||
-            line.contains(QStringLiteral("Downloading ios player API JSON"), Qt::CaseInsensitive) ||
-            line.contains(QStringLiteral("Solving JS challenges"), Qt::CaseInsensitive)) {
+        static const QRegularExpression extractRe(QStringLiteral("Extracting URL|Downloading webpage|Downloading android|Downloading player|Downloading m3u8|Downloading API JSON|Downloading initial data API JSON|Downloading tv client config|Downloading web creator player API JSON|Downloading ios player API JSON|Solving JS challenges"), QRegularExpression::CaseInsensitiveOption);
+        
+        if (extractRe.match(line).hasMatch()) {
             emitStatusUpdate(tr("Extracting media information..."), -1);
             return true;
         }

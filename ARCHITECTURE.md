@@ -162,8 +162,8 @@ LzyDownloader/
 - **Responsibilities:**
   - Executes `yt-dlp` commands using `QProcess`.
   - Keeps startup and binary-resolution logic in `YtDlpWorker.cpp`.
-  - Splits process completion, shared stdout/stderr buffering, `info.json` cleanup, and buffered metadata reading into `YtDlpWorkerProcess.cpp`.
-  - Splits output-line orchestration and wait-state title/thumbnail fetching into `YtDlpWorkerOutput.cpp`, which routes prefix-specific `[info]`, `[download]`, `FILE:`, and thumbnail converter lines before handing remaining output to progress parsers.
+  - Splits process completion, shared stdout/stderr buffering, `info.json` cleanup, and buffered metadata reading into `YtDlpWorkerProcess.cpp`; final partial output is flushed through the same UTF-8 line parser, and metadata reads can fall back to scanning the per-download UUID temp directory for `*.info.json`.
+  - Splits output-line orchestration and wait-state title/thumbnail fetching into `YtDlpWorkerOutput.cpp`, which routes prefix-specific `[info]`, `[download]`, `FILE:`, and thumbnail converter lines before handing remaining output to progress parsers, while keeping bounded diagnostic output without per-line shift overhead.
   - Splits native yt-dlp and aria2 progress parsing into `YtDlpWorkerProgress.cpp`, including shared progress metadata population, fragment-aware percentage overrides, and aggregate primary-stream progress calculation.
   - Splits transfer target classification and stream-stage inference into `YtDlpWorkerTransfers.cpp`, including suffix-based auxiliary transfer detection for metadata, thumbnails, and subtitles.
 
@@ -182,8 +182,8 @@ LzyDownloader/
   - Captures `stderr` for error reporting and progress. Captures `stdout` for the final file path (`--print after_move:filepath`).
   - **Caches full metadata from `info.json`** in `m_fullMetadata` when `readInfoJsonWithRetry()` successfully parses the file, ensuring all fields (uploader, channel, tags, etc.) are available for sorting rule evaluation when the download completes.
   - Includes diagnostic logging for process state changes, stderr/stdout data received, and progress parsing.
-  - Reads `info.json` via a retry mechanism (up to 5 attempts with 500ms delays) to extract video title and metadata.
-  - Falls back from an unset `temporary_downloads_directory` to `<completed_downloads_directory>/temp_downloads` when removing empty UUID folders or moving wait thumbnails into managed cleanup scope.
+  - Reads `info.json` via a retry mechanism (up to 5 attempts with 500ms delays) to extract video title and metadata, falling back to a UUID-directory scan when yt-dlp writes the file under an unexpected final name.
+  - Falls back from an unset `temporary_downloads_directory` to `<completed_downloads_directory>/temp_downloads` when removing empty UUID folders or moving wait thumbnails into managed cleanup scope; wait-state thumbnails are only removed when they match the worker-owned filename prefix.
 
 ### 4.5 YtDlpUpdater (`src/core/YtDlpUpdater.h`)
 - **Responsibilities:**

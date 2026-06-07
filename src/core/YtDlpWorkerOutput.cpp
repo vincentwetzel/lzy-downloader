@@ -24,16 +24,17 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
     }
 
     m_allOutputLines.append(normalizedLine);
-    // Optimization: Keep only the last 100 lines to prevent unbounded memory growth on long livestreams
-    if (m_allOutputLines.size() > 100) {
-        m_allOutputLines.removeFirst();
+    // Optimization: Batch-remove to prevent unbounded memory growth while avoiding O(N) array shifts on every single line
+    constexpr qsizetype MAX_LINES = 150;
+    if (m_allOutputLines.size() > MAX_LINES) {
+        m_allOutputLines.remove(0, MAX_LINES - 100); // Keep the last 100 lines
     }
 
     emit outputReceived(m_id, normalizedLine);
 
     if (normalizedLine.startsWith(QStringLiteral("LZY_FINAL_PATH:"))) {
-        constexpr qsizetype prefixLen = 15; // length of "LZY_FINAL_PATH:"
-        m_finalFilename = normalizedLine.mid(prefixLen).trimmed();
+        static const QString prefix = QStringLiteral("LZY_FINAL_PATH:");
+        m_finalFilename = normalizedLine.mid(prefix.length()).trimmed();
         qDebug() << "Captured precise Final Path:" << m_finalFilename;
         return; // No need to process this line further
     }
@@ -180,7 +181,9 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
                                 if (file.open(QIODevice::WriteOnly)) {
                                     const QByteArray data = reply->readAll();
                                     if (!data.isEmpty()) {
-                                        file.write(data);
+                                        if (file.write(data) == -1) {
+                                            qWarning() << "[YtDlpWorker] Failed to write pre-wait thumbnail:" << file.errorString();
+                                        }
                                         file.close();
                                         m_thumbnailPath = QDir::toNativeSeparators(newThumbPath);
                                         qDebug() << "[YtDlpWorker] Pre-wait thumbnail downloaded to:" << m_thumbnailPath;
@@ -193,7 +196,9 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
                                         emit progressUpdated(m_id, pd);
                                     } else {
                                         file.close();
-                                        file.remove();
+                                        if (!file.remove()) {
+                                            qWarning() << "[YtDlpWorker] Failed to remove empty pre-wait thumbnail file:" << newThumbPath;
+                                        }
                                     }
                                 }
                             } else {
@@ -435,7 +440,7 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
     }
 
     if (normalizedLine.startsWith(QStringLiteral("[download]"))) {
-        static const QRegularExpression destinationRegex(QStringLiteral("^\\[download\\]\\s+Destination:\\s+(.+)$"));
+        static const QRegularExpression destinationRegex(QStringLiteral("\\[download\\]\\s+Destination:\\s+(.+)"));
         const QRegularExpressionMatch destinationMatch = destinationRegex.match(normalizedLine);
         if (destinationMatch.hasMatch()) {
             const QString filename = destinationMatch.captured(1).trimmed();
@@ -447,7 +452,7 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
             return;
         }
 
-        static const QRegularExpression totalFragmentsRegex(QStringLiteral("^\\[download\\]\\s+Total fragments:\\s+(\\d+).*$"));
+        static const QRegularExpression totalFragmentsRegex(QStringLiteral("\\[download\\]\\s+Total fragments:\\s+(\\d+)"));
         const QRegularExpressionMatch totalFragmentsMatch = totalFragmentsRegex.match(normalizedLine);
         if (totalFragmentsMatch.hasMatch()) {
             const QString segmentCount = totalFragmentsMatch.captured(1);

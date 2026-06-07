@@ -27,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Sorting metadata filtering**: Sorting rules now consistently ignore empty, `null`, and `NA` metadata values across aliases, playlist-title fallbacks, and token expansion.
 - **Startup worker teardown**: Startup checks now delete the worker when the thread finishes and mark extractor generation done if no extractor parser is available, preventing startup completion from hanging.
 - **Discord bridge request cleanup**: Local Discord bridge posts now use explicit timeouts and let replies clean themselves up through Qt deferred deletion.
+- **yt-dlp metadata and thumbnail cleanup**: yt-dlp workers now flush trailing stdout/stderr through the shared UTF-8 line parser, recover `info.json` by scanning the UUID temp directory if the expected path is stale, move wait-state thumbnails into managed cleanup scope when possible, and surface file cleanup/write failures instead of silently ignoring them.
 
 ## [1.1.58] - 2026-06-06
 
