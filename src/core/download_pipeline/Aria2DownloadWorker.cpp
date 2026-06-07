@@ -4,6 +4,7 @@
 #include <QFileInfo>
 #include <QPointer>
 #include <QDebug>
+#include <QCoreApplication>
 #include "core/YtDlpArgsBuilder.h"
 
 namespace {
@@ -70,7 +71,7 @@ void Aria2DownloadWorker::start(const QString& ytDlpPath, const QString& ffmpegP
 
     // Remove conflicting args for JSON extraction
     extractionArgs.removeAll(QStringLiteral("--print"));
-    extractionArgs.removeAll(QStringLiteral("after_move:filepath"));
+    extractionArgs.removeAll(QStringLiteral("after_move:LZY_FINAL_PATH:%(filepath)s"));
 
     extractionArgs << QStringLiteral("--dump-json");
 
@@ -216,7 +217,7 @@ void Aria2DownloadWorker::onDownloadProgress(const QString& gid, qint64 complete
 
     if (totalSize > 0) {
         const int percent = static_cast<int>((totalCompleted * 100) / totalSize);
-        const QString speedStr = totalSpeed > 1048576 ? tr("%1 MB/s").arg(QString::number(totalSpeed / 1048576.0, 'f', 2)) : tr("%1 KB/s").arg(QString::number(totalSpeed / 1024));
+        const QString speedStr = totalSpeed >= 1048576 ? tr("%1 MB/s").arg(QString::number(totalSpeed / 1048576.0, 'f', 2)) : tr("%1 KB/s").arg(QString::number(totalSpeed / 1024.0, 'f', 1));
         emit progressUpdated(percent, speedStr);
         emit statusTextChanged(tr("Downloading..."));
     }
@@ -281,7 +282,7 @@ void Aria2DownloadWorker::cleanupPartialFiles() {
     const QString info = m_finalFileName.isEmpty() ? QString() : QDir(m_saveDir).filePath(QFileInfo(m_finalFileName).completeBaseName() + QStringLiteral(".info.json"));
 
     // Delay file deletion so aria2c/ffmpeg have time to release OS file locks
-    QTimer::singleShot(500, [parts, subs, thumb, info]() {
+    QTimer::singleShot(500, qApp, [parts, subs, thumb, info]() {
         for (const QString& partFile : parts) {
             QFile::remove(partFile);
             QFile::remove(partFile + QStringLiteral(".aria2"));

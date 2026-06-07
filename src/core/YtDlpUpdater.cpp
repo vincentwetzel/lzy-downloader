@@ -125,13 +125,14 @@ void YtDlpUpdater::onReleaseCheckFinished() {
 
     QJsonObject release = doc.object();
 
-    if (!release.contains(QStringLiteral("tag_name")) || !release[QStringLiteral("tag_name")].isString()) {
+    const QJsonValue tagVal = release.value(QStringLiteral("tag_name"));
+    if (!tagVal.isString()) {
         emit updateFinished(Updater::UpdateStatus::Error, tr("Invalid release JSON format: missing tag_name."));
         reply->deleteLater();
         return;
     }
 
-    const QString remoteVersionTag = release[QStringLiteral("tag_name")].toString();
+    const QString remoteVersionTag = tagVal.toString();
     const QString normalizedRemoteVersion = normalizeVersion(remoteVersionTag);
     const QString comparisonVersion = m_cachedVersion.isEmpty() ? m_currentLocalVersion : m_cachedVersion;
     const QString normalizedComparisonVersion = normalizeVersion(comparisonVersion);
@@ -142,19 +143,29 @@ void YtDlpUpdater::onReleaseCheckFinished() {
         return;
     }
 
-    if (!release.contains(QStringLiteral("assets")) || !release[QStringLiteral("assets")].isArray()) {
+    const QJsonValue assetsVal = release.value(QStringLiteral("assets"));
+    if (!assetsVal.isArray()) {
         emit updateFinished(Updater::UpdateStatus::Error, tr("Invalid release JSON format: missing assets."));
         reply->deleteLater();
         return;
     }
 
-    QJsonArray assets = release[QStringLiteral("assets")].toArray();
+    const QJsonArray assets = assetsVal.toArray();
     QUrl downloadUrl;
+    
+#ifdef Q_OS_WIN
+    const QString expectedAssetName = QStringLiteral("yt-dlp.exe");
+#elif defined(Q_OS_MACOS)
+    const QString expectedAssetName = QStringLiteral("yt-dlp_macos");
+#else
+    const QString expectedAssetName = QStringLiteral("yt-dlp");
+#endif
+
     for (const QJsonValue &value : assets) {
         if (value.isObject()) {
             QJsonObject asset = value.toObject();
-            if (asset.contains(QStringLiteral("name")) && asset.value(QStringLiteral("name")).isString() &&
-                asset.value(QStringLiteral("name")).toString() == QStringLiteral("yt-dlp.exe")) {
+            const QJsonValue nameVal = asset.value(QStringLiteral("name"));
+            if (nameVal.isString() && nameVal.toString() == expectedAssetName) {
                 downloadUrl = QUrl(asset.value(QStringLiteral("browser_download_url")).toString());
                 break;
             }
@@ -178,7 +189,7 @@ void YtDlpUpdater::onReleaseCheckFinished() {
         });
         connect(dlReply, &QNetworkReply::finished, this, &YtDlpUpdater::onDownloadFinished);
     } else {
-        emit updateFinished(Updater::UpdateStatus::Error, tr("yt-dlp.exe not found in release assets."));
+        emit updateFinished(Updater::UpdateStatus::Error, tr("Target executable not found in release assets."));
     }
 
     reply->deleteLater();

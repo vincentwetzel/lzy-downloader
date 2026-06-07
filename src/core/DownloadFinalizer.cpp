@@ -69,7 +69,7 @@ bool hasCleanupStemBoundary(const QString &fileName, const QString &stem)
     }
 
     const QChar next = fileName.at(stem.size());
-    return next == '.' || next == '[' || next == ' ' || next == '_' || next == '-';
+    return next == QLatin1Char('.') || next == QLatin1Char('[') || next == QLatin1Char(' ') || next == QLatin1Char('_') || next == QLatin1Char('-');
 }
 
 void cleanupTempFiles(const DownloadItem &item, const QDir &tempDir, const QString &mediaInfoJsonPath)

@@ -50,7 +50,7 @@ void PlaylistExpansionWorker::startExpansion(const QString &playlistLogic)
     qDebug() << "PlaylistExpansionWorker executing command: yt-dlp" << args;
     m_process->start(ytDlpBinary.path, args);
 
-    QTimer::singleShot(std::chrono::seconds(45), m_process, [this]() {
+    QTimer::singleShot(std::chrono::seconds(45), this, [this]() {
         if (m_process->state() != QProcess::NotRunning) {
             m_process->setProperty("timed_out", true);
             ProcessUtils::terminateProcessTree(m_process);

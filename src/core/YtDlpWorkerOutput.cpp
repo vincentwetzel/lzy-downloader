@@ -120,12 +120,6 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
         return;
     }
 
-    static const QRegularExpression formatListRegex(QStringLiteral("^\\[info\\].*Downloading\\s+\\d+\\s+format\\(s\\):\\s+(.+)$"));
-    const QRegularExpressionMatch formatListMatch = formatListRegex.match(normalizedLine);
-    if (formatListMatch.hasMatch()) {
-        inferRequestedTransfersFromFormatList(formatListMatch.captured(1).trimmed());
-    }
-
     if (handleAria2CommandLine(normalizedLine)) {
         return;
     }
@@ -245,12 +239,14 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
                         const QJsonDocument doc = QJsonDocument::fromJson(reply->readAll(), &parseError);
                         if (parseError.error == QJsonParseError::NoError && doc.isObject()) {
                             const QJsonObject obj = doc.object();
-                            if (obj.contains(QStringLiteral("title")) && obj.value(QStringLiteral("title")).isString()) {
-                                m_videoTitle = obj.value(QStringLiteral("title")).toString();
+                            const QJsonValue titleVal = obj.value(QStringLiteral("title"));
+                            if (titleVal.isString()) {
+                                m_videoTitle = titleVal.toString();
                             }
                             QString thumbUrl;
-                            if (obj.contains(QStringLiteral("thumbnail_url")) && obj.value(QStringLiteral("thumbnail_url")).isString()) {
-                                thumbUrl = obj.value(QStringLiteral("thumbnail_url")).toString();
+                            const QJsonValue thumbUrlVal = obj.value(QStringLiteral("thumbnail_url"));
+                            if (thumbUrlVal.isString()) {
+                                thumbUrl = thumbUrlVal.toString();
                             }
 
                             qDebug() << "[YtDlpWorker] oEmbed title:" << m_videoTitle << "thumb:" << thumbUrl;
@@ -299,8 +295,9 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
                     if (parseError.error == QJsonParseError::NoError && doc.isObject()) {
                         const QJsonObject obj = doc.object();
                         m_fullMetadata = obj.toVariantMap();
-                        if (obj.contains(QStringLiteral("title")) && obj.value(QStringLiteral("title")).isString()) {
-                            m_videoTitle = obj.value(QStringLiteral("title")).toString();
+                        const QJsonValue titleVal = obj.value(QStringLiteral("title"));
+                        if (titleVal.isString()) {
+                            m_videoTitle = titleVal.toString();
                             qDebug() << "[YtDlpWorker] Pre-wait title fetched:" << m_videoTitle;
 
                             // Immediately update the UI with the title before we wait for the thumbnail
@@ -315,13 +312,17 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
                         }
 
                         QString thumbUrl;
-                        if (obj.contains(QStringLiteral("thumbnails")) && obj.value(QStringLiteral("thumbnails")).isArray()) {
-                            const QJsonArray thumbs = obj.value(QStringLiteral("thumbnails")).toArray();
+                        const QJsonValue thumbnailsVal = obj.value(QStringLiteral("thumbnails"));
+                        if (thumbnailsVal.isArray()) {
+                            const QJsonArray thumbs = thumbnailsVal.toArray();
                             if (!thumbs.isEmpty() && thumbs.last().isObject()) {
                                 thumbUrl = thumbs.last().toObject().value(QStringLiteral("url")).toString();
                             }
-                        } else if (obj.contains(QStringLiteral("thumbnail")) && obj.value(QStringLiteral("thumbnail")).isString()) {
-                            thumbUrl = obj.value(QStringLiteral("thumbnail")).toString();
+                        } else {
+                            const QJsonValue thumbnailVal = obj.value(QStringLiteral("thumbnail"));
+                            if (thumbnailVal.isString()) {
+                                thumbUrl = thumbnailVal.toString();
+                            }
                         }
 
                         if (!thumbUrl.isEmpty()) {
@@ -357,94 +358,111 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
     return;
     }
 
-    static const QRegularExpression thumbnailRegex(QStringLiteral("\\[ThumbnailsConvertor\\] Converting thumbnail \"([^\"]+)\" to (\\w+)"));
-    const QRegularExpressionMatch thumbnailMatch = thumbnailRegex.match(normalizedLine);
-    if (thumbnailMatch.hasMatch()) {
-        QString originalPath = thumbnailMatch.captured(1);
-        const QString format = thumbnailMatch.captured(2);
+    if (normalizedLine.startsWith(QStringLiteral("[ThumbnailsConvertor]"))) {
+        static const QRegularExpression thumbnailRegex(QStringLiteral("\\[ThumbnailsConvertor\\] Converting thumbnail \"([^\"]+)\" to (\\w+)"));
+        const QRegularExpressionMatch thumbnailMatch = thumbnailRegex.match(normalizedLine);
+        if (thumbnailMatch.hasMatch()) {
+            QString originalPath = thumbnailMatch.captured(1);
+            const QString format = thumbnailMatch.captured(2);
 
-        const qsizetype extIndex = originalPath.lastIndexOf(QLatin1Char('.'));
-        if (extIndex != -1) {
-            originalPath.truncate(extIndex + 1);
-            originalPath.append(format);
+            const qsizetype extIndex = originalPath.lastIndexOf(QLatin1Char('.'));
+            if (extIndex != -1) {
+                originalPath.truncate(extIndex + 1);
+                originalPath.append(format);
+            }
+            m_thumbnailPath = QDir::toNativeSeparators(originalPath);
+            QVariantMap updateData;
+            updateData.insert(QStringLiteral("thumbnail_path"), m_thumbnailPath);
+            qDebug() << "[LOG] YtDlpWorker: Found converted thumbnail path for" << m_id << ":" << m_thumbnailPath;
+            emit progressUpdated(m_id, updateData);
         }
-        m_thumbnailPath = QDir::toNativeSeparators(originalPath);
-        QVariantMap updateData;
-        updateData.insert(QStringLiteral("thumbnail_path"), m_thumbnailPath);
-        qDebug() << "[LOG] YtDlpWorker: Found converted thumbnail path for" << m_id << ":" << m_thumbnailPath;
-        emit progressUpdated(m_id, updateData);
+        return;
     }
 
-    // 1. Capture the info.json file path and store it, then initiate retry mechanism
-    static const QRegularExpression infoJsonRegex(QStringLiteral("\\[info\\] (?:Writing video metadata as JSON to|Video metadata is already present in|Video description metadata is already present in):\\s*(.*\\.info\\.json)"));
-    const QRegularExpressionMatch infoJsonMatch = infoJsonRegex.match(normalizedLine);
-    if (infoJsonMatch.hasMatch()) {
-        m_infoJsonPath = QDir::toNativeSeparators(infoJsonMatch.captured(1).trimmed());
+    if (normalizedLine.startsWith(QStringLiteral("[info]"))) {
+        static const QRegularExpression formatListRegex(QStringLiteral("^\\[info\\].*Downloading\\s+\\d+\\s+format\\(s\\):\\s+(.+)$"));
+        const QRegularExpressionMatch formatListMatch = formatListRegex.match(normalizedLine);
+        if (formatListMatch.hasMatch()) {
+            inferRequestedTransfersFromFormatList(formatListMatch.captured(1).trimmed());
+        }
 
-        qDebug() << "Detected info.json path and initiating retry mechanism:" << m_infoJsonPath;
-        m_infoJsonRetryCount = 0; // Reset retry count for a new file
-        readInfoJsonWithRetry(); // Start the retry mechanism
-    }
+        // 1. Capture the info.json file path and store it, then initiate retry mechanism
+        static const QRegularExpression infoJsonRegex(QStringLiteral("\\[info\\] (?:Writing video metadata as JSON to|Video metadata is already present in|Video description metadata is already present in):\\s*(.*\\.info\\.json)"));
+        const QRegularExpressionMatch infoJsonMatch = infoJsonRegex.match(normalizedLine);
+        if (infoJsonMatch.hasMatch()) {
+            m_infoJsonPath = QDir::toNativeSeparators(infoJsonMatch.captured(1).trimmed());
 
-    // Capture raw thumbnail paths (in case they don't need conversion and bypass ThumbnailsConvertor)
-    static const QRegularExpression rawThumbnailRegex(QStringLiteral("\\[info\\] (?:Writing video thumbnail.* to|Video thumbnail.* is already present in):\\s+(.+)$"));
-    const QRegularExpressionMatch rawThumbnailMatch = rawThumbnailRegex.match(normalizedLine);
-    if (rawThumbnailMatch.hasMatch()) {
-        m_thumbnailPath = QDir::toNativeSeparators(rawThumbnailMatch.captured(1).trimmed());
-        QVariantMap updateData;
-        updateData.insert(QStringLiteral("thumbnail_path"), m_thumbnailPath);
-        qDebug() << "[LOG] YtDlpWorker: Found raw thumbnail path for" << m_id << ":" << m_thumbnailPath;
-        emit progressUpdated(m_id, updateData);
-    }
+            qDebug() << "Detected info.json path and initiating retry mechanism:" << m_infoJsonPath;
+            m_infoJsonRetryCount = 0; // Reset retry count for a new file
+            readInfoJsonWithRetry(); // Start the retry mechanism
+        }
 
-    // Capture subtitle sidecar paths so they are tracked for cleanup
-    static const QRegularExpression subtitleRegex(QStringLiteral("\\[info\\] (?:Writing video subtitles to|Video subtitles are already present in):\\s+(.+)$"));
-    const QRegularExpressionMatch subtitleMatch = subtitleRegex.match(normalizedLine);
-    if (subtitleMatch.hasMatch()) {
-        const QString subtitlePath = subtitleMatch.captured(1).trimmed();
-        updateTransferTarget(subtitlePath);
-        emitStatusUpdate(statusForCurrentTransfer());
-    }
+        // Capture raw thumbnail paths (in case they don't need conversion and bypass ThumbnailsConvertor)
+        static const QRegularExpression rawThumbnailRegex(QStringLiteral("\\[info\\] (?:Writing video thumbnail.* to|Video thumbnail.* is already present in):\\s+(.+)$"));
+        const QRegularExpressionMatch rawThumbnailMatch = rawThumbnailRegex.match(normalizedLine);
+        if (rawThumbnailMatch.hasMatch()) {
+            m_thumbnailPath = QDir::toNativeSeparators(rawThumbnailMatch.captured(1).trimmed());
+            QVariantMap updateData;
+            updateData.insert(QStringLiteral("thumbnail_path"), m_thumbnailPath);
+            qDebug() << "[LOG] YtDlpWorker: Found raw thumbnail path for" << m_id << ":" << m_thumbnailPath;
+            emit progressUpdated(m_id, updateData);
+        }
 
-    static const QRegularExpression ariaFileRegex(QStringLiteral("^FILE:\\s+(.+)$"));
-    const QRegularExpressionMatch ariaFileMatch = ariaFileRegex.match(normalizedLine);
-    if (ariaFileMatch.hasMatch()) {
-        const QString previousTarget = m_currentTransferTarget;
-        const QString previousStatus = m_currentTransferStatus;
-        const QString filename = ariaFileMatch.captured(1).trimmed();
-        updateTransferTarget(filename);
-        if (m_currentTransferTarget != previousTarget || m_currentTransferStatus != previousStatus) {
+        // Capture subtitle sidecar paths so they are tracked for cleanup
+        static const QRegularExpression subtitleRegex(QStringLiteral("\\[info\\] (?:Writing video subtitles to|Video subtitles are already present in):\\s+(.+)$"));
+        const QRegularExpressionMatch subtitleMatch = subtitleRegex.match(normalizedLine);
+        if (subtitleMatch.hasMatch()) {
+            const QString subtitlePath = subtitleMatch.captured(1).trimmed();
+            updateTransferTarget(subtitlePath);
             emitStatusUpdate(statusForCurrentTransfer());
         }
         return;
     }
 
-    static const QRegularExpression destinationRegex(QStringLiteral("^\\[download\\]\\s+Destination:\\s+(.+)$"));
-    const QRegularExpressionMatch destinationMatch = destinationRegex.match(normalizedLine);
-    if (destinationMatch.hasMatch()) {
-        const QString filename = destinationMatch.captured(1).trimmed();
-        updateTransferTarget(filename);
-        emitStatusUpdate(statusForCurrentTransfer());
-        if (!m_currentTransferIsAuxiliary && m_originalDownloadedFilename.isEmpty()) {
-            m_originalDownloadedFilename = filename;
+    if (normalizedLine.startsWith(QStringLiteral("FILE:"))) {
+        static const QRegularExpression ariaFileRegex(QStringLiteral("^FILE:\\s+(.+)$"));
+        const QRegularExpressionMatch ariaFileMatch = ariaFileRegex.match(normalizedLine);
+        if (ariaFileMatch.hasMatch()) {
+            const QString previousTarget = m_currentTransferTarget;
+            const QString previousStatus = m_currentTransferStatus;
+            const QString filename = ariaFileMatch.captured(1).trimmed();
+            updateTransferTarget(filename);
+            if (m_currentTransferTarget != previousTarget || m_currentTransferStatus != previousStatus) {
+                emitStatusUpdate(statusForCurrentTransfer());
+            }
+            return;
         }
     }
 
-    static const QRegularExpression totalFragmentsRegex(QStringLiteral("^\\[download\\]\\s+Total fragments:\\s+(\\d+).*$"));
-    const QRegularExpressionMatch totalFragmentsMatch = totalFragmentsRegex.match(normalizedLine);
-    if (totalFragmentsMatch.hasMatch()) {
-        const QString segmentCount = totalFragmentsMatch.captured(1);
-        const QString transferStatus = statusForCurrentTransfer();
-        QString segmentStatus;
-        if (transferStatus.contains(QStringLiteral("audio"), Qt::CaseInsensitive)) {
-            segmentStatus = tr("Downloading %1 audio segment(s)...").arg(segmentCount);
-        } else if (transferStatus.contains(QStringLiteral("video"), Qt::CaseInsensitive)) {
-            segmentStatus = tr("Downloading %1 video segment(s)...").arg(segmentCount);
-        } else {
-            segmentStatus = tr("Downloading %1 segment(s)...").arg(segmentCount);
+    if (normalizedLine.startsWith(QStringLiteral("[download]"))) {
+        static const QRegularExpression destinationRegex(QStringLiteral("^\\[download\\]\\s+Destination:\\s+(.+)$"));
+        const QRegularExpressionMatch destinationMatch = destinationRegex.match(normalizedLine);
+        if (destinationMatch.hasMatch()) {
+            const QString filename = destinationMatch.captured(1).trimmed();
+            updateTransferTarget(filename);
+            emitStatusUpdate(statusForCurrentTransfer());
+            if (!m_currentTransferIsAuxiliary && m_originalDownloadedFilename.isEmpty()) {
+                m_originalDownloadedFilename = filename;
+            }
+            return;
         }
-        emitStatusUpdate(segmentStatus);
-        return;
+
+        static const QRegularExpression totalFragmentsRegex(QStringLiteral("^\\[download\\]\\s+Total fragments:\\s+(\\d+).*$"));
+        const QRegularExpressionMatch totalFragmentsMatch = totalFragmentsRegex.match(normalizedLine);
+        if (totalFragmentsMatch.hasMatch()) {
+            const QString segmentCount = totalFragmentsMatch.captured(1);
+            const QString transferStatus = statusForCurrentTransfer();
+            QString segmentStatus;
+            if (transferStatus.contains(QStringLiteral("audio"), Qt::CaseInsensitive)) {
+                segmentStatus = tr("Downloading %1 audio segment(s)...").arg(segmentCount);
+            } else if (transferStatus.contains(QStringLiteral("video"), Qt::CaseInsensitive)) {
+                segmentStatus = tr("Downloading %1 video segment(s)...").arg(segmentCount);
+            } else {
+                segmentStatus = tr("Downloading %1 segment(s)...").arg(segmentCount);
+            }
+            emitStatusUpdate(segmentStatus);
+            return;
+        }
     }
 
     if (!parseYtDlpProgressLine(normalizedLine)) {

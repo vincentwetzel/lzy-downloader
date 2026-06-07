@@ -15,11 +15,12 @@ void YtDlpWorker::updateTransferTarget(const QString &path) {
     m_currentTransferIsAuxiliary = isAuxiliaryTransferTarget(m_currentTransferTarget);
 
     if (m_currentTransferIsAuxiliary) {
+        const QString suffix = QFileInfo(m_currentTransferTarget).suffix().toLower();
         if (m_currentTransferTarget.endsWith(QStringLiteral(".info.json"), Qt::CaseInsensitive)) {
             m_currentTransferStatus = tr("Downloading metadata...");
-        } else if (m_currentTransferTarget.contains(QStringLiteral(".jpg"), Qt::CaseInsensitive) || m_currentTransferTarget.contains(QStringLiteral(".jpeg"), Qt::CaseInsensitive) || m_currentTransferTarget.contains(QStringLiteral(".png"), Qt::CaseInsensitive) || m_currentTransferTarget.contains(QStringLiteral(".webp"), Qt::CaseInsensitive) || m_currentTransferTarget.contains(QStringLiteral(".avif"), Qt::CaseInsensitive)) {
+        } else if (suffix == QStringLiteral("jpg") || suffix == QStringLiteral("jpeg") || suffix == QStringLiteral("png") || suffix == QStringLiteral("webp") || suffix == QStringLiteral("avif") || suffix == QStringLiteral("gif")) {
             m_currentTransferStatus = tr("Downloading thumbnail...");
-        } else if (m_currentTransferTarget.contains(QStringLiteral(".srt"), Qt::CaseInsensitive) || m_currentTransferTarget.contains(QStringLiteral(".vtt"), Qt::CaseInsensitive) || m_currentTransferTarget.contains(QStringLiteral(".ass"), Qt::CaseInsensitive) || m_currentTransferTarget.contains(QStringLiteral(".lrc"), Qt::CaseInsensitive) || m_currentTransferTarget.contains(QStringLiteral(".sbv"), Qt::CaseInsensitive)) {
+        } else if (suffix == QStringLiteral("srt") || suffix == QStringLiteral("vtt") || suffix == QStringLiteral("ass") || suffix == QStringLiteral("lrc") || suffix == QStringLiteral("sbv")) {
             m_currentTransferStatus = tr("Downloading subtitles...");
         } else {
             m_currentTransferStatus = tr("Downloading auxiliary file...");

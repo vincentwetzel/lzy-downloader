@@ -75,7 +75,8 @@ bool sponsorBlockResponseHasSegmentsForVideo(const QByteArray &data, const QStri
 
     for (const QJsonValue &value : document.array()) {
         const QJsonObject object = value.toObject();
-        if (!object.value(QStringLiteral("videoID")).toString().isEmpty() && object.value(QStringLiteral("videoID")).toString() != videoId) {
+        const QString respVideoId = object.value(QStringLiteral("videoID")).toString();
+        if (!respVideoId.isEmpty() && respVideoId != videoId) {
             continue;
         }
         if (object.value(QStringLiteral("segments")).isArray()) {

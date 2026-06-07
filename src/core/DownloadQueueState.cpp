@@ -32,9 +32,10 @@ QJsonArray DownloadQueueState::load()
         file.close();
         QJsonParseError parseError;
         const QJsonDocument doc = QJsonDocument::fromJson(data, &parseError);
-        if (parseError.error == QJsonParseError::NoError && doc.isArray() && !doc.array().isEmpty()) {
+        const QJsonArray arr = doc.array();
+        if (parseError.error == QJsonParseError::NoError && doc.isArray() && !arr.isEmpty()) {
             QJsonArray validArray;
-            for (const QJsonValue &val : doc.array()) {
+            for (const QJsonValue &val : arr) {
                 if (val.isObject()) {
                     validArray.append(val);
                 } else {
@@ -55,45 +56,30 @@ QJsonArray DownloadQueueState::load()
 void DownloadQueueState::save(const QList<DownloadItem>& activeItems, const QMap<QString, DownloadItem>& pausedItems, const QQueue<DownloadItem>& downloadQueue)
 {
     QJsonArray queueArray;
-    for (const DownloadItem &item : activeItems) {
+
+    auto appendItem = [&queueArray](const DownloadItem &item, const QString &status) {
         QJsonObject obj;
         obj.insert(QStringLiteral("id"), item.id);
         obj.insert(QStringLiteral("url"), item.url);
         obj.insert(QStringLiteral("options"), QJsonObject::fromVariantMap(item.options));
         obj.insert(QStringLiteral("metadata"), QJsonObject::fromVariantMap(item.metadata));
-        obj.insert(QStringLiteral("status"), QStringLiteral("queued")); // Active items revert to queued on app start
+        obj.insert(QStringLiteral("status"), status);
         obj.insert(QStringLiteral("playlistIndex"), item.playlistIndex);
         obj.insert(QStringLiteral("tempFilePath"), item.tempFilePath);
         obj.insert(QStringLiteral("originalDownloadedFilePath"), item.originalDownloadedFilePath);
         queueArray.append(obj);
+    };
+
+    for (const DownloadItem &item : activeItems) {
+        appendItem(item, QStringLiteral("queued")); // Active items revert to queued on app start
     }
     for (const DownloadItem &item : pausedItems) {
-        QJsonObject obj;
-        obj.insert(QStringLiteral("id"), item.id);
-        obj.insert(QStringLiteral("url"), item.url);
-        obj.insert(QStringLiteral("options"), QJsonObject::fromVariantMap(item.options));
-        obj.insert(QStringLiteral("metadata"), QJsonObject::fromVariantMap(item.metadata));
-        if (item.options.value(QStringLiteral("is_stopped")).toBool() || item.options.value(QStringLiteral("is_failed")).toBool()) {
-            obj.insert(QStringLiteral("status"), QStringLiteral("stopped"));
-        } else {
-            obj.insert(QStringLiteral("status"), QStringLiteral("paused"));
-        }
-        obj.insert(QStringLiteral("playlistIndex"), item.playlistIndex);
-        obj.insert(QStringLiteral("tempFilePath"), item.tempFilePath);
-        obj.insert(QStringLiteral("originalDownloadedFilePath"), item.originalDownloadedFilePath);
-        queueArray.append(obj);
+        const QString status = (item.options.value(QStringLiteral("is_stopped")).toBool() || item.options.value(QStringLiteral("is_failed")).toBool())
+            ? QStringLiteral("stopped") : QStringLiteral("paused");
+        appendItem(item, status);
     }
     for (const auto& item : downloadQueue) {
-        QJsonObject obj;
-        obj.insert(QStringLiteral("id"), item.id);
-        obj.insert(QStringLiteral("url"), item.url);
-        obj.insert(QStringLiteral("options"), QJsonObject::fromVariantMap(item.options));
-        obj.insert(QStringLiteral("metadata"), QJsonObject::fromVariantMap(item.metadata));
-        obj.insert(QStringLiteral("status"), QStringLiteral("queued"));
-        obj.insert(QStringLiteral("playlistIndex"), item.playlistIndex);
-        obj.insert(QStringLiteral("tempFilePath"), item.tempFilePath);
-        obj.insert(QStringLiteral("originalDownloadedFilePath"), item.originalDownloadedFilePath);
-        queueArray.append(obj);
+        appendItem(item, QStringLiteral("queued"));
     }
 
     if (queueArray.isEmpty()) {

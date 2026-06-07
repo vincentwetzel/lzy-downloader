@@ -11,13 +11,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Progress rendering polish**: Active download rows now animate main and overall progress changes, cache tinted standard icons, and stop progress animations explicitly when rows enter indeterminate, cleared, cancelled, or completed states.
 - **Shared thumbnail networking**: Active downloads and download history now reuse an app-owned thumbnail network manager with safer redirect policy, a LzyDownloader user agent, and request timeouts instead of creating short-lived managers per thumbnail.
 - **Sorting UI persistence polish**: Sorting rule loading/saving now batches table repaints, preserves selection after add/edit, stores condition keys consistently, and guards empty combo indices while editing rules.
+- **Hot-path parser cleanup**: yt-dlp output handling now gates expensive regex parsing by line prefix, shares common progress metadata population, and trims noisy per-line debug logging while preserving detailed native and aria2 progress data.
+- **Qt-native cleanup polish**: Queue state serialization, sorting metadata lookup, yt-dlp argument building, and progress size math now use more direct Qt/STL helpers to reduce duplicate code and avoidable allocations.
 
 ### Fixed
 - **Updater JSON validation**: App update checks now ignore malformed release assets, tolerate missing release-note bodies, and fail clearly if a newer release response has no valid assets array.
+- **yt-dlp updater asset selection**: yt-dlp self-updates now look for the correct release asset on Windows, macOS, and Linux instead of assuming only `yt-dlp.exe`.
 - **Queue backup restore validation**: Queue restore now skips non-object entries in `downloads_backup.json` instead of passing malformed backup elements into resume handling.
 - **Finalizer thread affinity**: Sorting-rule resolution during finalization is marshaled back to the application thread before worker-thread file moves continue, avoiding direct cross-thread access to UI-owned sorting state.
 - **yt-dlp cleanup robustness**: Failed or interrupted yt-dlp workers now share a single temporary-directory fallback path, clean orphaned wait thumbnails only when they exist, avoid duplicate `info.json` removal warnings, and parse buffered UTF-8 lines from stable byte pointers.
+- **Async cleanup ownership**: Playlist expansion timeouts and aria2 partial-file cleanup timers are now owned by long-lived application objects, preventing callbacks from targeting deleted process objects.
+- **Playlist entry URL resolution**: YouTube playlist expansion now builds watch URLs from real entry IDs only, avoiding invalid watch URLs when yt-dlp provides only a source URL fallback.
+- **Section normalization failure cleanup**: Failed section-clip normalization now removes the temporary replacement file if the original cannot be replaced.
 - **Sorting token replacement**: Sorting subfolder token expansion now replaces each token occurrence independently, so case-insensitive duplicate tokens and date helper tokens cannot accidentally rewrite unrelated literal text.
+- **Sorting metadata filtering**: Sorting rules now consistently ignore empty, `null`, and `NA` metadata values across aliases, playlist-title fallbacks, and token expansion.
 - **Startup worker teardown**: Startup checks now delete the worker when the thread finishes and mark extractor generation done if no extractor parser is available, preventing startup completion from hanging.
 - **Discord bridge request cleanup**: Local Discord bridge posts now use explicit timeouts and let replies clean themselves up through Qt deferred deletion.
 

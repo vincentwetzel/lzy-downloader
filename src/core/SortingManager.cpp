@@ -86,6 +86,12 @@ QVariantMap mergedSortingMetadata(const QVariantMap &metadata, const QVariantMap
     return combined;
 }
 
+bool isValidMetadataString(const QVariant &val) {
+    if (!val.isValid()) return false;
+    const QString str = val.toString().trimmed();
+    return !str.isEmpty() && str.compare(QStringLiteral("null"), Qt::CaseInsensitive) != 0 && str != QStringLiteral("NA");
+}
+
 bool hasPlaylistContext(const QVariantMap &metadata, const QVariantMap &downloadOptions) {
     Q_UNUSED(metadata);
 
@@ -100,12 +106,7 @@ bool hasPlaylistContext(const QVariantMap &metadata, const QVariantMap &download
 }
 
 QString SortingManager::normalizedMetadataKey(const QString &key) const {
-    QString normalized = key.trimmed().toLower();
-    static const QRegularExpression nonAlphaNumRe(QStringLiteral("[^a-z0-9]+"));
-    static const QRegularExpression trimRe(QStringLiteral("^_+|_+$"));
-    normalized.replace(nonAlphaNumRe, QStringLiteral("_"));
-    normalized.remove(trimRe);
-    return normalized;
+    return normalizedRuleText(key);
 }
 
 QVariant SortingManager::metadataValueForKey(const QString &key, const QVariantMap &metadata) const {
@@ -113,12 +114,13 @@ QVariant SortingManager::metadataValueForKey(const QString &key, const QVariantM
         return QVariant();
     }
 
-    if (metadata.contains(key)) {
-        return metadata.value(key);
+    auto it = metadata.constFind(key);
+    if (it != metadata.constEnd()) {
+        return it.value();
     }
 
     const QString normalizedNeedle = normalizedMetadataKey(key);
-    for (auto it = metadata.constBegin(); it != metadata.constEnd(); ++it) {
+    for (it = metadata.constBegin(); it != metadata.constEnd(); ++it) {
         if (normalizedMetadataKey(it.key()) == normalizedNeedle) {
             return it.value();
         }
@@ -136,13 +138,11 @@ QVariant SortingManager::metadataValueForField(const QString &field, const QVari
 
     if (normalizedField == QStringLiteral("playlist_title") || normalizedField == QStringLiteral("playlist")) {
         const QVariant playlistTitle = metadataValueForKey(QStringLiteral("playlist_title"), metadata);
-        if (playlistTitle.isValid() && !playlistTitle.toString().trimmed().isEmpty() && 
-            playlistTitle.toString().trimmed().toLower() != QStringLiteral("null") && playlistTitle.toString().trimmed() != QStringLiteral("NA")) {
+        if (isValidMetadataString(playlistTitle)) {
             return playlistTitle;
         }
         const QVariant playlist = metadataValueForKey(QStringLiteral("playlist"), metadata);
-        if (playlist.isValid() && !playlist.toString().trimmed().isEmpty() && 
-            playlist.toString().trimmed().toLower() != QStringLiteral("null") && playlist.toString().trimmed() != QStringLiteral("NA")) {
+        if (isValidMetadataString(playlist)) {
             return playlist;
         }
         return QVariant();
@@ -150,14 +150,12 @@ QVariant SortingManager::metadataValueForField(const QString &field, const QVari
 
     if (normalizedField == QStringLiteral("album")) {
         const QVariant album = metadataValueForKey(QStringLiteral("album"), metadata);
-        if (album.isValid() && !album.toString().trimmed().isEmpty() && 
-            album.toString().trimmed().toLower() != QStringLiteral("null") && album.toString().trimmed() != QStringLiteral("NA")) {
+        if (isValidMetadataString(album)) {
             return album;
         }
 
         const QVariant playlistTitle = metadataValueForField(QStringLiteral("playlist_title"), metadata);
-        if (playlistTitle.isValid() && !playlistTitle.toString().trimmed().isEmpty() && 
-            playlistTitle.toString().trimmed().toLower() != QStringLiteral("null") && playlistTitle.toString().trimmed() != QStringLiteral("NA")) {
+        if (isValidMetadataString(playlistTitle)) {
             return playlistTitle;
         }
         return QVariant();
@@ -173,15 +171,13 @@ QVariant SortingManager::metadataValueForField(const QString &field, const QVari
     if (it != aliases.constEnd()) {
         for (const QString &candidate : it.value()) {
             const QVariant value = metadataValueForKey(candidate, metadata);
-            if (value.isValid() && !value.toString().trimmed().isEmpty() &&
-                value.toString().trimmed().toLower() != QStringLiteral("null") && value.toString().trimmed() != QStringLiteral("NA")) {
+            if (isValidMetadataString(value)) {
                 return value;
             }
         }
     } else {
         const QVariant value = metadataValueForKey(normalizedField, metadata);
-        if (value.isValid() && !value.toString().trimmed().isEmpty() &&
-            value.toString().trimmed().toLower() != QStringLiteral("null") && value.toString().trimmed() != QStringLiteral("NA")) {
+        if (isValidMetadataString(value)) {
             return value;
         }
     }
@@ -220,19 +216,6 @@ QString SortingManager::getSortedDirectory(const QVariantMap &videoMetadata, con
         QVariant appliesToVar = m_configManager->get(QStringLiteral("SortingRules"), QStringLiteral("%1_applies_to").arg(key));
         QString appliesTo = appliesToVar.isValid() ? appliesToVar.toString() : QStringLiteral("All Downloads");
         QString targetFolder = m_configManager->get(QStringLiteral("SortingRules"), QStringLiteral("%1_target_folder").arg(key)).toString();
-        QString subfolderPattern = m_configManager->get(QStringLiteral("SortingRules"), QStringLiteral("%1_subfolder_pattern").arg(key)).toString();
-        
-        // Load conditions
-        int condSize = m_configManager->get(QStringLiteral("SortingRules"), QStringLiteral("%1_conditions_size").arg(key), 0).toInt();
-        QJsonArray conditionsArray;
-        for (int j = 0; j < condSize; ++j) {
-            QString condKey = QStringLiteral("%1_condition_%2").arg(key).arg(j);
-            QJsonObject cond;
-            cond[QStringLiteral("field")] = m_configManager->get(QStringLiteral("SortingRules"), QStringLiteral("%1_field").arg(condKey)).toString();
-            cond[QStringLiteral("operator")] = m_configManager->get(QStringLiteral("SortingRules"), QStringLiteral("%1_operator").arg(condKey)).toString();
-            cond[QStringLiteral("value")] = m_configManager->get(QStringLiteral("SortingRules"), QStringLiteral("%1_value").arg(condKey)).toString();
-            conditionsArray.append(cond);
-        }
         
         // Skip invalid rules
         if (ruleName.isEmpty() || targetFolder.isEmpty()) {
@@ -240,7 +223,7 @@ QString SortingManager::getSortedDirectory(const QVariantMap &videoMetadata, con
             continue;
         }
         
-        qDebug() << "  Checking rule" << i << "(" << ruleName << "), appliesTo:" << appliesTo << "targetFolder:" << targetFolder << "conditions:" << condSize;
+        qDebug() << "  Checking rule" << i << "(" << ruleName << "), appliesTo:" << appliesTo << "targetFolder:" << targetFolder;
 
         // 1. Check if the rule applies to this download type
         const QString downloadType = downloadOptions.value(QStringLiteral("type"), QStringLiteral("video")).toString();
@@ -266,14 +249,15 @@ QString SortingManager::getSortedDirectory(const QVariantMap &videoMetadata, con
             continue; // Skip to the next rule
         }
 
+        int condSize = m_configManager->get(QStringLiteral("SortingRules"), QStringLiteral("%1_conditions_size").arg(key), 0).toInt();
         // 2. Check if all conditions match
-        qDebug() << "    Conditions count:" << conditionsArray.size();
+        qDebug() << "    Conditions count:" << condSize;
         bool allConditionsMatch = true;
-        for (int c = 0; c < conditionsArray.size(); ++c) {
-            QJsonObject condition = conditionsArray[c].toObject();
-            QString field = condition[QStringLiteral("field")].toString();
-            QString op = condition[QStringLiteral("operator")].toString();
-            QString value = condition[QStringLiteral("value")].toString();
+        for (int c = 0; c < condSize; ++c) {
+            QString condKey = QStringLiteral("%1_condition_%2").arg(key).arg(c);
+            QString field = m_configManager->get(QStringLiteral("SortingRules"), QStringLiteral("%1_field").arg(condKey)).toString();
+            QString op = m_configManager->get(QStringLiteral("SortingRules"), QStringLiteral("%1_operator").arg(condKey)).toString();
+            QString value = m_configManager->get(QStringLiteral("SortingRules"), QStringLiteral("%1_value").arg(condKey)).toString();
 
             const QString normalizedOperator = canonicalOperator(op);
             QVariant metadataValue = metadataValueForField(field, sortingMetadata);
@@ -334,6 +318,7 @@ QString SortingManager::getSortedDirectory(const QVariantMap &videoMetadata, con
         if (allConditionsMatch) {
             qDebug() << "  Rule" << i << "(" << ruleName << ") MATCHED!";
 
+            QString subfolderPattern = m_configManager->get(QStringLiteral("SortingRules"), QStringLiteral("%1_subfolder_pattern").arg(key)).toString();
             QString finalSubfolder;
             if (!subfolderPattern.isEmpty()) {
                 finalSubfolder = parseAndReplaceTokens(subfolderPattern, sortingMetadata);
@@ -365,10 +350,10 @@ QString SortingManager::parseAndReplaceTokens(const QString &pattern, const QVar
         QRegularExpressionMatch match = it.next();
         
         // Append the literal text before this token
-        result += pattern.mid(lastPos, match.capturedStart() - lastPos);
+        result += QStringView(pattern).mid(lastPos, match.capturedStart() - lastPos);
         lastPos = match.capturedEnd();
         
-        QString key = match.captured(1);   // e.g., "title"
+        QString key = match.capturedView(1).toString();   // e.g., "title"
 
         if (key.compare(QStringLiteral("upload_year"), Qt::CaseInsensitive) == 0 ||
             key.compare(QStringLiteral("upload_month"), Qt::CaseInsensitive) == 0 ||
@@ -392,13 +377,11 @@ QString SortingManager::parseAndReplaceTokens(const QString &pattern, const QVar
         }
 
         QVariant value = metadataValueForField(key, metadata);
-        if (!value.isValid() || value.toString().trimmed().isEmpty() || 
-            value.toString().trimmed().toLower() == QStringLiteral("null") || value.toString().trimmed() == QStringLiteral("NA")) {
+        if (!isValidMetadataString(value)) {
             value = metadataValueForKey(key, metadata);
         }
 
-        if (value.isValid() && !value.toString().trimmed().isEmpty() && 
-            value.toString().trimmed().toLower() != QStringLiteral("null") && value.toString().trimmed() != QStringLiteral("NA")) {
+        if (isValidMetadataString(value)) {
             result += sanitize(value.toString());
         } else {
             result += QStringLiteral("Unknown");

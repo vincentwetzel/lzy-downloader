@@ -193,6 +193,7 @@ void MetadataEmbedder::onProcessFinished(int exitCode, QProcess::ExitStatus exit
             }
         } else {
             error = tr("Failed to remove original file to replace it.");
+            QFile::remove(m_tempFilePath);
         }
     } else {
         error = m_processOutputTail;

@@ -214,9 +214,10 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
 
     if (isLivestream) {
         QString quality = configManager->get(QStringLiteral("Livestream"), QStringLiteral("quality"), QStringLiteral("best")).toString();
-        
-        if (quality.toLower() == QLatin1String("best") || quality.toLower() == QLatin1String("worst")) {
-            rawArgs << QStringLiteral("-f") << quality.toLower();
+        QString qualityLower = quality.toLower();
+
+        if (qualityLower == QLatin1String("best") || qualityLower == QLatin1String("worst")) {
+            rawArgs << QStringLiteral("-f") << qualityLower;
         } else {
             QString res = quality.split(QLatin1Char(' ')).first().remove(QLatin1Char('p'));
             rawArgs << QStringLiteral("-f") << QStringLiteral("bestvideo[height<=?%1]+bestaudio/best").arg(res);
@@ -231,10 +232,10 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
             finalOutputExtension = QStringLiteral("mkv");
         }
 
-        QString convertTo = configManager->get(QStringLiteral("Livestream"), QStringLiteral("convert_to"), QStringLiteral("None")).toString();
-        if (convertTo != QLatin1String("None") && !convertTo.isEmpty()) {
-            rawArgs << QStringLiteral("--remux-video") << convertTo.toLower();
-            finalOutputExtension = convertTo.toLower();
+        QString convertTo = configManager->get(QStringLiteral("Livestream"), QStringLiteral("convert_to"), QStringLiteral("None")).toString().toLower();
+        if (convertTo != QLatin1String("none") && !convertTo.isEmpty()) {
+            rawArgs << QStringLiteral("--remux-video") << convertTo;
+            finalOutputExtension = convertTo;
         }
         
         if (configManager->get(QStringLiteral("Livestream"), QStringLiteral("live_from_start"), false).toBool()) rawArgs << QStringLiteral("--live-from-start");
@@ -277,9 +278,10 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
         QString vcodec = getCodecMapping(videoCodecSetting);
         QString acodec = getCodecMapping(audioCodecSetting);
         QString videoFormatSelector = QStringLiteral("bestvideo");
+        QString videoQualityLower = videoQuality.toLower();
 
-        if (videoQuality.toLower() == QLatin1String("best") || videoQuality.toLower() == QLatin1String("worst")) {
-            videoFormatSelector = QStringLiteral("%1video").arg(videoQuality.toLower());
+        if (videoQualityLower == QLatin1String("best") || videoQualityLower == QLatin1String("worst")) {
+            videoFormatSelector = QStringLiteral("%1video").arg(videoQualityLower);
         } else {
             videoFormatSelector += QStringLiteral("[height<=?%1]").arg(videoQuality.split(QLatin1Char(' ')).first().remove(QLatin1Char('p')));
         }
@@ -302,8 +304,8 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
         }
 
     } else if (downloadType == QLatin1String("audio")) {
-        QString audioQuality = options.contains(QStringLiteral("audio_quality")) ? options.value(QStringLiteral("audio_quality")).toString() : configManager->get(QStringLiteral("Audio"), QStringLiteral("audio_quality"), QStringLiteral("Best")).toString();
-        QString audioCodecSetting = options.contains(QStringLiteral("audio_codec")) ? options.value(QStringLiteral("audio_codec")).toString() : configManager->get(QStringLiteral("Audio"), QStringLiteral("audio_codec"), QStringLiteral("Default")).toString();
+        QString audioQuality = options.value(QStringLiteral("audio_quality"), configManager->get(QStringLiteral("Audio"), QStringLiteral("audio_quality"), QStringLiteral("Best"))).toString();
+        QString audioCodecSetting = options.value(QStringLiteral("audio_codec"), configManager->get(QStringLiteral("Audio"), QStringLiteral("audio_codec"), QStringLiteral("Default"))).toString();
         finalOutputExtension = configManager->get(QStringLiteral("Audio"), QStringLiteral("audio_extension"), QStringLiteral("mp3")).toString();
         const QString directFormatOverride = options.value(QStringLiteral("format")).toString().trimmed();
         const QString runtimeAudioFormat = options.value(QStringLiteral("runtime_audio_format")).toString().trimmed();
@@ -319,9 +321,10 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
         } else {
             QString acodec = getCodecMapping(audioCodecSetting);
             QString formatSelector = QStringLiteral("bestaudio");
+            QString audioQualityLower = audioQuality.toLower();
 
-            if (audioQuality.toLower() == QLatin1String("best") || audioQuality.toLower() == QLatin1String("worst")) {
-                formatSelector = QStringLiteral("%1audio").arg(audioQuality.toLower());
+            if (audioQualityLower == QLatin1String("best") || audioQualityLower == QLatin1String("worst")) {
+                formatSelector = QStringLiteral("%1audio").arg(audioQualityLower);
             } else {
                 // Strip any non-digit characters so "320K" or "128 kbps" safely becomes "320" / "128"
                 static const QRegularExpression nonDigitRe(QStringLiteral("[a-zA-Z\\s]"));

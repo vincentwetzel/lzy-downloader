@@ -163,9 +163,9 @@ LzyDownloader/
   - Executes `yt-dlp` commands using `QProcess`.
   - Keeps startup and binary-resolution logic in `YtDlpWorker.cpp`.
   - Splits process completion, shared stdout/stderr buffering, `info.json` cleanup, and buffered metadata reading into `YtDlpWorkerProcess.cpp`.
-  - Splits output-line orchestration and wait-state title/thumbnail fetching into `YtDlpWorkerOutput.cpp`.
-  - Splits native yt-dlp and aria2 progress parsing into `YtDlpWorkerProgress.cpp`.
-  - Splits transfer target classification and stream-stage inference into `YtDlpWorkerTransfers.cpp`.
+  - Splits output-line orchestration and wait-state title/thumbnail fetching into `YtDlpWorkerOutput.cpp`, which routes prefix-specific `[info]`, `[download]`, `FILE:`, and thumbnail converter lines before handing remaining output to progress parsers.
+  - Splits native yt-dlp and aria2 progress parsing into `YtDlpWorkerProgress.cpp`, including shared progress metadata population, fragment-aware percentage overrides, and aggregate primary-stream progress calculation.
+  - Splits transfer target classification and stream-stage inference into `YtDlpWorkerTransfers.cpp`, including suffix-based auxiliary transfer detection for metadata, thumbnails, and subtitles.
 
 ### 4.4b DownloadQueueState (`src/core/DownloadQueueState.h`)
 - **Responsibilities:**
@@ -173,6 +173,7 @@ LzyDownloader/
   - Serializes state including `tempFilePath`, `originalDownloadedFilePath`, and cleanup-related per-item options so features like cross-session resuming and manual temp file cleanup continue to work after an app restart.
   - Saves the current state to a JSON backup file (`downloads_backup.json`) in the application's configuration directory, using the `Server/` subfolder for server/headless runtime state.
   - Loads the state from the backup file on startup, validating that restored entries are JSON objects and skipping malformed elements instead of passing them into resume handling.
+  - Uses one shared serialization path for active, paused, stopped, and queued items so restart state fields stay consistent.
   - Emits `resumeDownloadsRequested` to `DownloadManager` to prompt the user about resuming previous downloads.
   - Resolves `yt-dlp` through configured overrides, system discovery, or bundled fallback paths.
   - Forces UTF-8 process I/O environment (`PYTHONUTF8`, `PYTHONIOENCODING`) to preserve Unicode output text.
@@ -187,7 +188,7 @@ LzyDownloader/
 ### 4.5 YtDlpUpdater (`src/core/YtDlpUpdater.h`)
 - **Responsibilities:**
   - Checks GitHub for the latest `yt-dlp` nightly build.
-  - Downloads and replaces the `yt-dlp.exe` binary.
+  - Downloads and replaces the platform-specific `yt-dlp` binary (`yt-dlp.exe`, `yt-dlp_macos`, or `yt-dlp`).
   - Fetches and emits the current `yt-dlp` version.
 
 ### 4.5b Playlist Expansion (`src/core/PlaylistExpansionWorker.h`, `src/core/PlaylistExpansionParser.h`)
@@ -196,7 +197,8 @@ LzyDownloader/
   - Uses `YtDlpArgsBuilder` to construct the full yt-dlp command, ensuring playlist expansion includes the same configuration as actual downloads: `--js-runtimes deno:...`, `--cookies-from-browser`, `--ffmpeg-location`, `--windows-filenames`, etc.
   - Passes a metadata-only builder option so expansion does not create the per-download UUID temp directory reserved for real media transfers.
   - Removes download-specific args (format selection, output template, embedding options) before adding metadata-only probe arguments.
-  - `PlaylistExpansionParser` maps yt-dlp JSON into queue item metadata, including resolved URLs, playlist indices, titles, live flags, thumbnails, and playlist title carry-through.
+  - Owns its timeout callback from the worker object so expired probes cannot call back through a deleted `QProcess`.
+  - `PlaylistExpansionParser` maps yt-dlp JSON into queue item metadata, including resolved URLs, playlist indices, titles, live flags, thumbnails, and playlist title carry-through; YouTube entries only become watch URLs when yt-dlp provides a real entry ID.
   - Emits `playlistDetected` when a multi-item playlist is found and the user's playlist logic is set to "Ask".
 
 ### 4.5c PlaylistRangeDialog (`src/core/PlaylistRangeDialog.h`)
@@ -210,6 +212,7 @@ LzyDownloader/
   - Evaluates user-defined sorting rules against video metadata.
   - Replaces dynamic tokens (e.g., `{uploader}`) in destination paths by walking token matches one by one, preserving literal text and handling duplicate/date-helper tokens without broad case-insensitive string rewrites.
   - Accepts both stored internal rule keys (`video_playlist`, `audio_playlist`, `any`, etc.) and older human-readable labels, while resolving aliases such as playlist title vs. album and uploader vs. channel.
+  - Treats empty strings, `null`, and `NA` metadata values as missing across direct keys, aliases, playlist-title fallbacks, and token expansion.
   - Sanitizes unsafe path characters by replacing them with hyphens, then collapses repeated spaces, preserving readable separators instead of merging metadata words together.
 
 ### 4.7 LogManager (`src/utils/LogManager.h`)

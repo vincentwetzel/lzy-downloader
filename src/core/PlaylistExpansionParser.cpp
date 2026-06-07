@@ -24,9 +24,8 @@ QString resolveExpandedItemUrl(const QJsonObject &entry)
         ? entry.value(QStringLiteral("extractor_key")).toString().trimmed()
         : extractorKey;
 
-    const QString videoId = !entryId.isEmpty() ? entryId : urlValue;
-    if (normalizedExtractor.compare(QStringLiteral("Youtube"), Qt::CaseInsensitive) == 0 && !videoId.isEmpty()) {
-        return QStringLiteral("https://www.youtube.com/watch?v=%1").arg(videoId);
+    if (normalizedExtractor.compare(QStringLiteral("Youtube"), Qt::CaseInsensitive) == 0 && !entryId.isEmpty()) {
+        return QStringLiteral("https://www.youtube.com/watch?v=%1").arg(entryId);
     }
 
     return urlValue;
