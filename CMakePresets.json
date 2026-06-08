@@ -4,31 +4,44 @@
         {
             "name": "release",
             "displayName": "Release",
-            "description": "Release build with MSVC and vcpkg manifest dependencies",
+            "description": "Release build with Ninja and vcpkg manifest dependencies",
             "binaryDir": "${sourceDir}/build",
-            "generator": "Visual Studio 18 2026",
-            "architecture": "x64",
+            "generator": "Ninja",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Release",
                 "CMAKE_TOOLCHAIN_FILE": "E:/vcpkg/scripts/buildsystems/vcpkg.cmake",
                 "VCPKG_MANIFEST_MODE": "ON",
-                "VCPKG_TARGET_TRIPLET": "x64-windows",
+                "VCPKG_TARGET_TRIPLET": "x64-mingw-dynamic",
                 "VCPKG_OVERLAY_PORTS": "${sourceDir}/ports"
             }
         },
         {
             "name": "debug",
             "displayName": "Debug",
-            "description": "Debug build with MSVC and vcpkg manifest dependencies",
+            "description": "Debug build with Ninja and vcpkg manifest dependencies",
             "binaryDir": "${sourceDir}/build-debug",
-            "generator": "Visual Studio 18 2026",
-            "architecture": "x64",
+            "generator": "Ninja",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Debug",
                 "CMAKE_TOOLCHAIN_FILE": "E:/vcpkg/scripts/buildsystems/vcpkg.cmake",
                 "VCPKG_MANIFEST_MODE": "ON",
-                "VCPKG_TARGET_TRIPLET": "x64-windows",
+                "VCPKG_TARGET_TRIPLET": "x64-mingw-dynamic",
                 "VCPKG_OVERLAY_PORTS": "${sourceDir}/ports"
+            }
+        },
+        {
+            "name": "debug-local-qt",
+            "displayName": "Debug (Local Qt)",
+            "description": "Debug build with Ninja using the local Qt/MinGW install instead of vcpkg manifest dependencies",
+            "binaryDir": "${sourceDir}/build-debug",
+            "generator": "Ninja",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "CMAKE_PREFIX_PATH": "C:/Qt/6.10.2/mingw_64",
+                "CMAKE_C_COMPILER": "C:/Qt/Tools/mingw1310_64/bin/gcc.exe",
+                "CMAKE_CXX_COMPILER": "C:/Qt/Tools/mingw1310_64/bin/g++.exe",
+                "CMAKE_MAKE_PROGRAM": "C:/Qt/Tools/Ninja/ninja.exe",
+                "LZY_SKIP_QT_DEPLOY": "ON"
             }
         }
     ],
@@ -44,6 +57,13 @@
             "displayName": "Debug",
             "configurePreset": "debug",
             "configuration": "Debug"
+        },
+        {
+            "name": "debug-local-qt",
+            "displayName": "Debug (Local Qt)",
+            "configurePreset": "debug-local-qt",
+            "configuration": "Debug",
+            "targets": ["LzyDownloader"]
         }
     ]
 }

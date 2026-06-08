@@ -7,33 +7,6 @@
 #include <QCoreApplication>
 #include "core/YtDlpArgsBuilder.h"
 
-namespace {
-bool containsHeader(const QMap<QString, QString> &headers, const QString &name)
-{
-    for (auto it = headers.constBegin(); it != headers.constEnd(); ++it) {
-        if (it.key().compare(name, Qt::CaseInsensitive) == 0) {
-            return true;
-        }
-    }
-    return false;
-}
-
-QString siteSpecificReferer(const QString &url)
-{
-    if (url.contains(QStringLiteral("bilibili.com"), Qt::CaseInsensitive)) {
-        return url;
-    }
-    if (url.contains(QStringLiteral("bilibili.tv"), Qt::CaseInsensitive)) {
-        return QStringLiteral("https://www.bilibili.tv/");
-    }
-    if (url.contains(QStringLiteral("nicovideo.jp"), Qt::CaseInsensitive)
-        || url.contains(QStringLiteral("nico.ms"), Qt::CaseInsensitive)) {
-        return url;
-    }
-    return QString();
-}
-}
-
 Aria2DownloadWorker::Aria2DownloadWorker(Aria2RpcClient* globalDaemon, QObject* parent)
     : QObject(parent), m_daemon(globalDaemon)
 {
@@ -88,10 +61,6 @@ void Aria2DownloadWorker::onExtractionSuccess(const QString& title, const QStrin
     m_downloadedSubtitles.clear();
     m_finalFileName = finalFilename;
     QMap<QString, QString> effectiveHttpHeaders = httpHeaders;
-    const QString referer = siteSpecificReferer(property("sourceUrl").toString());
-    if (!referer.isEmpty() && !containsHeader(effectiveHttpHeaders, QStringLiteral("Referer"))) {
-        effectiveHttpHeaders.insert(QStringLiteral("Referer"), referer);
-    }
 
     // Store metadata for the DownloadManager to retrieve later, bypassing brittle JSON disk reads
     this->setProperty("metadata", metadata);

@@ -5,7 +5,6 @@
 
 # IDE-specific files
 /.idea/
-/.vscode/
 
 # Dependencies
 /bin/

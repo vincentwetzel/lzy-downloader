@@ -32,6 +32,7 @@ Testing/
 *.vcxproj.user
 *.vcxproj.filters
 .vcpkg-scratch/
+.codex_*
 
 # vcpkg
 vcpkg_installed/

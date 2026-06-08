@@ -1,11 +1,14 @@
 #include "TestYtDlpArgsBuilder.h" // Include the new header
 #include "core/YtDlpArgsBuilder.h"
 #include "core/ConfigManager.h"
+#include "core/ProcessUtils.h"
 
 #include <QUrl> // Add QUrl include
 
+#include <algorithm>
+
 namespace {
-    const QString TEST_URL = QStringLiteral("https://www.youtube.com/watch?v=dQw4w9WgXcQ");
+    const QString TEST_URL = QStringLiteral("https://media.example.test/watch/abc123");
 }
 
 void TestYtDlpArgsBuilder::testBasicVideoArguments() {
@@ -95,6 +98,56 @@ void TestYtDlpArgsBuilder::testLivestreamArguments() {
     args = builder.build(mockConfig, QUrl(TEST_URL).toString(), options);
     QVERIFY(args.contains(QStringLiteral("--hls-use-mpegts")));
     QVERIFY(!args.contains(QStringLiteral("--merge-output-format")));
+}
+
+void TestYtDlpArgsBuilder::testPostLiveReplayUsesVideoArguments() {
+    ConfigManager *mockConfig = getConfigManager();
+    mockConfig->set(QStringLiteral("Livestream"), QStringLiteral("live_from_start"), true);
+    mockConfig->set(QStringLiteral("Livestream"), QStringLiteral("wait_for_video"), true);
+    mockConfig->set(QStringLiteral("Video"), QStringLiteral("video_quality"), QStringLiteral("best"));
+    mockConfig->set(QStringLiteral("Video"), QStringLiteral("video_extension"), QStringLiteral("mp4"));
+    mockConfig->set(QStringLiteral("Metadata"), QStringLiteral("use_aria2c"), true);
+    ProcessUtils::cacheBinary(QStringLiteral("aria2c"), {QStringLiteral("aria2c"), QStringLiteral("System PATH")});
+
+    YtDlpArgsBuilder builder;
+
+    QVariantMap options;
+    options[QStringLiteral("type")] = QStringLiteral("video");
+    options[QStringLiteral("is_live")] = true;
+    options[QStringLiteral("live_status")] = QStringLiteral("post_live");
+
+    const QStringList args = builder.build(mockConfig, QUrl(TEST_URL).toString(), options);
+    ProcessUtils::clearCache();
+
+    QVERIFY(!args.contains(QStringLiteral("--live-from-start")));
+    QVERIFY(!args.contains(QStringLiteral("--hls-use-mpegts")));
+    const bool hasWaitForVideo = std::any_of(args.cbegin(), args.cend(), [](const QString &arg) {
+        return arg.startsWith(QStringLiteral("--wait-for-video"));
+    });
+    QVERIFY(!hasWaitForVideo);
+    QVERIFY(!args.contains(QStringLiteral("--external-downloader")));
+    QVERIFY(args.contains(QStringLiteral("--merge-output-format")));
+    QVERIFY(args.contains(QStringLiteral("mp4")));
+}
+
+void TestYtDlpArgsBuilder::testLiveUrlHintBypassesAria2ForVideoArguments() {
+    ConfigManager *mockConfig = getConfigManager();
+    mockConfig->set(QStringLiteral("Video"), QStringLiteral("video_quality"), QStringLiteral("best"));
+    mockConfig->set(QStringLiteral("Video"), QStringLiteral("video_extension"), QStringLiteral("mp4"));
+    mockConfig->set(QStringLiteral("Metadata"), QStringLiteral("use_aria2c"), true);
+    ProcessUtils::cacheBinary(QStringLiteral("aria2c"), {QStringLiteral("aria2c"), QStringLiteral("System PATH")});
+
+    YtDlpArgsBuilder builder;
+
+    QVariantMap options;
+    options[QStringLiteral("type")] = QStringLiteral("video");
+
+    const QStringList args = builder.build(mockConfig, QStringLiteral("https://media.example.test/live/abc123"), options);
+    ProcessUtils::clearCache();
+
+    QVERIFY(!args.contains(QStringLiteral("--external-downloader")));
+    QVERIFY(args.contains(QStringLiteral("--merge-output-format")));
+    QVERIFY(args.contains(QStringLiteral("mp4")));
 }
 
 void TestYtDlpArgsBuilder::testAudioThumbnailEmbedding() {

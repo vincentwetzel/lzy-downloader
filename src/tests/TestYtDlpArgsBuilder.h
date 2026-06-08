@@ -10,6 +10,8 @@ private slots:
     void testBasicVideoArguments();
     void testSponsorBlockArguments();
     void testLivestreamArguments();
+    void testPostLiveReplayUsesVideoArguments();
+    void testLiveUrlHintBypassesAria2ForVideoArguments();
     void testAudioThumbnailEmbedding();
     void testAudioPlaylistFolderJpg();
 };

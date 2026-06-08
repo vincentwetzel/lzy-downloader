@@ -23,6 +23,18 @@ void YtDlpWorker::start() {
     qDebug() << "[YtDlpWorker] start() called for ID:" << m_id;
     
     // Clear any leftover state from previous downloads
+    m_finishEmitted = false;
+    m_errorEmitted = false;
+    m_promptDelayActive = false;
+    m_finalFilename.clear();
+    m_originalDownloadedFilename.clear();
+    m_videoTitle.clear();
+    m_infoJsonPath.clear();
+    m_infoJsonRetryCount = 0;
+    m_outputBuffer.clear();
+    m_errorBuffer.clear();
+    m_allOutputLines.clear();
+    m_errorLines.clear();
     m_fullMetadata.clear();
     m_requestedTransferStatuses.clear();
     m_requestedTransferFormatIds.clear();

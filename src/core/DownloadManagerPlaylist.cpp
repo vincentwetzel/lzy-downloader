@@ -85,6 +85,9 @@ void DownloadManager::processPlaylistSelection(const QString &url, const QString
                 if (itemData.contains(QStringLiteral("is_live"))) {
                     item.options.insert(QStringLiteral("is_live"), itemData.value(QStringLiteral("is_live")).toBool());
                 }
+                if (itemData.contains(QStringLiteral("live_status"))) {
+                    item.options.insert(QStringLiteral("live_status"), itemData.value(QStringLiteral("live_status")).toString());
+                }
                 found = true;
                 break;
             }
@@ -125,6 +128,9 @@ void DownloadManager::processPlaylistSelection(const QString &url, const QString
         itemOptions.insert(QStringLiteral("is_playlist"), itemData.value(QStringLiteral("is_playlist"), queueOptions.value(QStringLiteral("is_playlist"), false)).toBool());
         if (itemData.contains(QStringLiteral("is_live"))) {
             itemOptions.insert(QStringLiteral("is_live"), itemData.value(QStringLiteral("is_live")).toBool());
+        }
+        if (itemData.contains(QStringLiteral("live_status"))) {
+            itemOptions.insert(QStringLiteral("live_status"), itemData.value(QStringLiteral("live_status")).toString());
         }
         const QString title = itemData.value(QStringLiteral("title")).toString().trimmed();
         if (!title.isEmpty()) {
@@ -231,6 +237,9 @@ void DownloadManager::onPlaylistExpanded(const QString &originalUrl, const QList
                 if (itemData.contains(QStringLiteral("is_live"))) {
                 item.options.insert(QStringLiteral("is_live"), itemData.value(QStringLiteral("is_live")).toBool());
                 }
+                if (itemData.contains(QStringLiteral("live_status"))) {
+                item.options.insert(QStringLiteral("live_status"), itemData.value(QStringLiteral("live_status")).toString());
+                }
                 found = true;
                 break;
             }
@@ -279,6 +288,9 @@ void DownloadManager::onPlaylistExpanded(const QString &originalUrl, const QList
             
             if (itemData.contains(QStringLiteral("is_live"))) {
                 item.options.insert(QStringLiteral("is_live"), itemData.value(QStringLiteral("is_live")).toBool());
+            }
+            if (itemData.contains(QStringLiteral("live_status"))) {
+                item.options.insert(QStringLiteral("live_status"), itemData.value(QStringLiteral("live_status")).toString());
             }
             
             item.playlistIndex = itemData.value(QStringLiteral("playlist_index"), -1).toInt();

@@ -47,6 +47,7 @@ When acting as an AI coding assistant modifying this repository, you must adhere
 
 ## 4. File, Data, & Media Handling
 - **Cross-Platform Paths:** Always use `QDir`, `QFileInfo`, and `QStandardPaths` for file system operations. Do not use hardcoded Windows slashes (`\`) or Unix slashes (`/`) manually when building paths.
+- **No Site-Specific Download Overrides:** Do not add hardcoded per-site/per-domain branches for downloader behavior, extractor arguments, referers, headers, format selection, or retry policy. Prefer generic metadata-driven logic from yt-dlp/gallery-dl, documented standards, user configuration, or hostname-independent URL-shape checks. If a site needs special handling, update upstream yt-dlp/gallery-dl or expose an explicit user-configured option instead of baking a website name into app logic.
 - **Unicode Safety:** Ensure file and process I/O uses UTF-8. Force `PYTHONUTF8=1` and `PYTHONIOENCODING=utf-8` in process environments for external Python tools to preserve Unicode output text.
 - **Atomic File Operations:** When writing to critical state files like `downloads_backup.json`, always use Qt's `QSaveFile` instead of `QFile`. `QSaveFile` writes to a temporary file and renames it atomically upon `commit()`, preventing file corruption if the app crashes or loses power mid-write.
 - **Database Safety:** All SQLite queries (`ArchiveManager`) must use prepared statements (`QSqlQuery::prepare` and `bindValue`) to prevent SQL injection vulnerabilities. Do not concatenate strings to build SQL queries.

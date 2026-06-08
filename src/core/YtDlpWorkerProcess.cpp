@@ -97,6 +97,19 @@ void YtDlpWorker::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatu
     const bool capturedFinalFileExists = !m_finalFilename.isEmpty() && QFile::exists(m_finalFilename);
     const bool recoveredFromPostProcessorFailure = normalExit && exitCode != 0 && capturedFinalFileExists;
     const bool success = (normalExit && exitCode == 0 && !m_finalFilename.isEmpty()) || recoveredFromPostProcessorFailure;
+    if (!success) {
+        qWarning() << "[YtDlpWorker] yt-dlp finished unsuccessfully for" << m_id
+                   << "exitCode:" << exitCode
+                   << "exitStatus:" << exitStatus;
+        const QStringList diagnosticLines = !m_errorLines.isEmpty() ? m_errorLines : m_allOutputLines;
+        if (!diagnosticLines.isEmpty()) {
+            qWarning().noquote() << "[YtDlpWorker] Last diagnostic output:"
+                                 << diagnosticLines.mid(qMax(qsizetype(0), diagnosticLines.size() - 8)).join(QLatin1Char('\n'));
+        }
+    }
+    if (!success && retryWithoutBrowserCookiesIfCookieExtractionFailed()) {
+        return;
+    }
     QString message = success ? tr("Download completed successfully.") : tr("Download failed.");
     QString postprocessorWarning;
 
@@ -273,6 +286,48 @@ void YtDlpWorker::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatu
     emit finished(m_id, success, message, m_finalFilename, m_originalDownloadedFilename, metadata);
 }
 
+bool YtDlpWorker::retryWithoutBrowserCookiesIfCookieExtractionFailed() {
+    if (m_retriedWithoutBrowserCookies) {
+        return false;
+    }
+
+    const qsizetype cookieArgIndex = m_args.indexOf(QStringLiteral("--cookies-from-browser"));
+    if (cookieArgIndex < 0) {
+        return false;
+    }
+
+    const QString diagnosticText = QStringLiteral("%1\n%2")
+        .arg(m_errorLines.join(QLatin1Char('\n')), m_allOutputLines.join(QLatin1Char('\n')));
+    const bool permissionFailure = diagnosticText.contains(QStringLiteral("Access is denied"), Qt::CaseInsensitive)
+        || diagnosticText.contains(QStringLiteral("Permission denied"), Qt::CaseInsensitive)
+        || diagnosticText.contains(QStringLiteral("PermissionError"), Qt::CaseInsensitive);
+    const bool browserCookieFailure = diagnosticText.contains(QStringLiteral("Extracting cookies from"), Qt::CaseInsensitive)
+        || diagnosticText.contains(QStringLiteral("temporary.sqlite"), Qt::CaseInsensitive)
+        || diagnosticText.contains(QStringLiteral("cookies.sqlite"), Qt::CaseInsensitive)
+        || diagnosticText.contains(QStringLiteral("yt_dlp"), Qt::CaseInsensitive);
+    const bool endedLiveExtractorFailure = diagnosticText.contains(QStringLiteral("live event has ended"), Qt::CaseInsensitive);
+    const bool cookieFailure = (permissionFailure && browserCookieFailure) || endedLiveExtractorFailure;
+    if (!cookieFailure) {
+        return false;
+    }
+
+    m_retriedWithoutBrowserCookies = true;
+    m_args.removeAt(cookieArgIndex);
+    if (cookieArgIndex < m_args.size()) {
+        m_args.removeAt(cookieArgIndex);
+    }
+
+    qWarning() << "[YtDlpWorker] Browser cookies caused yt-dlp failure for" << m_id
+               << "; retrying once without --cookies-from-browser.";
+
+    QVariantMap progressData;
+    progressData.insert(QStringLiteral("status"), tr("Browser cookies failed; retrying without browser cookies..."));
+    progressData.insert(QStringLiteral("progress"), -1);
+    emit progressUpdated(m_id, progressData);
+
+    start();
+    return true;
+}
 
 void YtDlpWorker::onProcessError(QProcess::ProcessError error) {
     if (m_finishEmitted) {
@@ -471,9 +526,16 @@ void YtDlpWorker::readInfoJsonWithRetry() {
         updateData.insert(QStringLiteral("duration_string"), durationStrVal.toString());
     }
 
-    if (const QJsonValue isLiveVal = obj.value(QStringLiteral("is_live")); isLiveVal.isBool()) {
+    if (obj.contains(QStringLiteral("live_status"))) {
+        const QString liveStatus = obj.value(QStringLiteral("live_status")).toString();
+        if (liveStatus == QStringLiteral("was_live") || liveStatus == QStringLiteral("not_live") || liveStatus == QStringLiteral("post_live")) {
+            updateData.insert(QStringLiteral("is_live"), false);
+        } else if (liveStatus == QStringLiteral("is_live") || liveStatus == QStringLiteral("is_upcoming")) {
+            updateData.insert(QStringLiteral("is_live"), true);
+        }
+    } else if (const QJsonValue isLiveVal = obj.value(QStringLiteral("is_live")); isLiveVal.isBool()) {
         updateData.insert(QStringLiteral("is_live"), isLiveVal.toBool());
-        qDebug() << "Extracted is_live from info.json:" << isLiveVal.toBool();
+        qDebug() << "Extracted is_live from info.json (fallback):" << isLiveVal.toBool();
     }
 
     // Extract thumbnail path if available from the info.json

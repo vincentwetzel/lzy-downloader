@@ -61,10 +61,20 @@ void DownloadItemWidget::setupUi() {
     m_thumbnailLabel->setScaledContents(false);
 
     const QString initialTitle = m_itemData.value(QStringLiteral("title")).toString().trimmed();
-    m_titleLabel = new QLabel(initialTitle.isEmpty() ? m_itemData[QStringLiteral("url")].toString() : initialTitle, this);
-    m_titleLabel->setTextFormat(Qt::PlainText);
+    const QString url = m_itemData.value(QStringLiteral("url")).toString();
+    m_titleLabel = new QLabel(this);
+    m_titleLabel->setTextFormat(Qt::RichText);
+    m_titleLabel->setOpenExternalLinks(true);
     m_titleLabel->setWordWrap(true);
     m_titleLabel->setToolTip(tr("The URL or title of the media being downloaded."));
+
+    QString displayTitle = initialTitle.isEmpty() ? url : initialTitle;
+    QString escapedTitle = displayTitle.toHtmlEscaped();
+    if (url.isEmpty()) {
+        m_titleLabel->setText(escapedTitle);
+    } else {
+        m_titleLabel->setText(QStringLiteral("<a href=\"%1\">%2</a>").arg(url.toHtmlEscaped(), escapedTitle));
+    }
 
     m_statusLabel = new QLabel(tr("Queued"), this);
     m_statusLabel->setToolTip(tr("Current status of this download."));
@@ -200,7 +210,13 @@ void DownloadItemWidget::updateProgress(const QVariantMap &progressData) {
     if (progressData.contains(QStringLiteral("title"))) {
         const QString title = progressData[QStringLiteral("title")].toString().trimmed();
         if (!title.isEmpty()) {
-            m_titleLabel->setText(title);
+            const QString url = m_itemData.value(QStringLiteral("url")).toString();
+            QString escapedTitle = title.toHtmlEscaped();
+            if (url.isEmpty()) {
+                m_titleLabel->setText(escapedTitle);
+            } else {
+                m_titleLabel->setText(QStringLiteral("<a href=\"%1\">%2</a>").arg(url.toHtmlEscaped(), escapedTitle));
+            }
             m_itemData[QStringLiteral("title")] = title;
         }
     }

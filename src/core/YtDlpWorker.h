@@ -50,6 +50,7 @@ protected: // Changed from private for testing
     int inferPrimaryStreamIndexFromPath(const QString &path) const;
     int inferPrimaryStreamIndexFromTotalBytes(double totalBytes) const;
     bool requestedAudioExtraction() const;
+    bool retryWithoutBrowserCookiesIfCookieExtractionFailed();
     QString inferPrimaryStreamStatusFromPath(const QString &path) const;
     QString inferPrimaryStreamStatusFromMetadata(int index) const;
     void updateInferredTransferStage(double percentage, double downloadedBytes, double totalBytes);
@@ -75,6 +76,7 @@ protected: // Changed from private for testing
     bool m_errorEmitted;           // Tracks if a specific error has been emitted
     QStringList m_errorLines;      // Stores ERROR: lines from stderr
     bool m_promptDelayActive{false};
+    bool m_retriedWithoutBrowserCookies = false;
     QStringList m_requestedTransferStatuses;
     QStringList m_requestedTransferFormatIds;
     QList<double> m_requestedTransferSizes;

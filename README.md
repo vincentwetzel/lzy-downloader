@@ -56,6 +56,13 @@ cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=E:/vcpkg/script
 cmake --build build --config Release
 ```
 
+For local Windows debugging with a standalone Qt/MinGW install, use the `debug-local-qt` preset. It writes to the normal `build-debug` folder, skips vcpkg manifest install, and copies the minimal Qt runtime/plugin set needed to launch from the build tree:
+
+```bash
+cmake --preset debug-local-qt
+cmake --build --preset debug-local-qt
+```
+
 ### Testing
 
 Qt test executables are registered through CMake and can be run with CTest. For headless Windows/CI runs, the helper script builds the configured tree, sets `QT_QPA_PLATFORM=offscreen`, and runs CTest in parallel using the host CPU count:
@@ -96,8 +103,10 @@ All settings are saved to `%LOCALAPPDATA%\LzyDownloader\settings.ini` on Windows
 - **Output templates** — Type-specific video/audio templates inherit the shared default when blank and are validated with `yt-dlp` before saving
 - **Metadata** — Embed titles, artists, and thumbnails
 - **SponsorBlock** — Automatically skip sponsored segments
-- **Browser Cookies** — Select a browser to use for authentication
-- **Local API** — Enable a localhost-only API server from Advanced Settings -> Configuration
+- **Browser Cookies** - Select a browser to use for authentication
+- **Browser Cookie fallback** - Public media can retry once without browser cookies when yt-dlp's cookie extraction or cookie-backed extractor state fails
+- **Livestream replays** - Completed livestreams are detected from yt-dlp `live_status` metadata and downloaded as archived media; active/upcoming streams keep native wait and Finish Now behavior
+- **Local API** - Enable a localhost-only API server from Advanced Settings -> Configuration
 
 ### Local API
 

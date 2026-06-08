@@ -65,7 +65,15 @@ void copyCommonMetadata(const QJsonObject &source, QVariantMap *item)
     if (source.contains(QStringLiteral("title")) && source.value(QStringLiteral("title")).isString()) {
         item->insert(QStringLiteral("title"), source.value(QStringLiteral("title")).toString());
     }
-    if (source.contains(QStringLiteral("is_live")) && source.value(QStringLiteral("is_live")).isBool()) {
+    if (source.contains(QStringLiteral("live_status"))) {
+        const QString liveStatus = source.value(QStringLiteral("live_status")).toString();
+        item->insert(QStringLiteral("live_status"), liveStatus);
+        if (liveStatus == QStringLiteral("was_live") || liveStatus == QStringLiteral("not_live") || liveStatus == QStringLiteral("post_live")) {
+            item->insert(QStringLiteral("is_live"), false);
+        } else if (liveStatus == QStringLiteral("is_live") || liveStatus == QStringLiteral("is_upcoming")) {
+            item->insert(QStringLiteral("is_live"), true);
+        }
+    } else if (source.contains(QStringLiteral("is_live")) && source.value(QStringLiteral("is_live")).isBool()) {
         item->insert(QStringLiteral("is_live"), source.value(QStringLiteral("is_live")).toBool());
     }
     const QString thumbnailUrl = thumbnailUrlFrom(source);

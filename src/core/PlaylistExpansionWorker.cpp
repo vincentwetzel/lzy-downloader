@@ -6,6 +6,7 @@
 
 #include <QDebug>
 #include <QJsonDocument>
+#include <QJsonArray>
 #include <QJsonObject>
 #include <QStringList>
 #include <QTimer>
@@ -95,6 +96,18 @@ QStringList PlaylistExpansionWorker::buildProbeArguments(const QString &playlist
     args.removeAll(QStringLiteral("--embed-chapters"));
     args.removeAll(QStringLiteral("--embed-metadata"));
     args.removeAll(QStringLiteral("--embed-thumbnail"));
+    args.removeAll(QStringLiteral("--live-from-start"));
+    args.removeAll(QStringLiteral("--no-live-from-start"));
+
+    auto it = args.begin();
+    while (it != args.end()) {
+        if (it->startsWith(QStringLiteral("--wait-for-video"))) {
+            it = args.erase(it);
+        } else {
+            ++it;
+        }
+    }
+
     removeArgWithValue(QStringLiteral("-o"));
     removeArgWithValue(QStringLiteral("--ffmpeg-location"));
     removeArgWithValue(QStringLiteral("--print"));
@@ -122,6 +135,21 @@ void PlaylistExpansionWorker::onProcessFinished(int exitCode, QProcess::ExitStat
             errorMessage = QStringLiteral("%1\n%2").arg(errorMessage, stderrOutput.mid(errIdx, endIdx == -1 ? -1 : endIdx - errIdx).trimmed());
         }
 
+        static const QRegularExpression bypassRe(
+            QStringLiteral("Premieres in|Premiering in|Premiere will begin|live event will begin|is upcoming|Offline \\(expected\\)|Offline expected|waiting for premiere|waiting for livestream|Live in |Starting in |Private video|Sign in to confirm|Video unavailable|This live event has ended"),
+            QRegularExpression::CaseInsensitiveOption
+        );
+
+        if (bypassRe.match(errorMessage).hasMatch() && !m_url.contains(QStringLiteral("playlist"), Qt::CaseInsensitive)) {
+            qDebug() << "Playlist expansion hit a known video-level error. Bypassing to let YtDlpWorker handle it. Error:" << errorMessage;
+            QVariantMap item;
+            item.insert(QStringLiteral("url"), m_url);
+            item.insert(QStringLiteral("is_playlist"), false);
+            item.insert(QStringLiteral("playlist_index"), -1);
+            emit expansionFinished(m_url, {item}, QString());
+            return;
+        }
+
         emit expansionFinished(m_url, {}, errorMessage);
         return;
     }
@@ -135,7 +163,34 @@ void PlaylistExpansionWorker::onProcessFinished(int exitCode, QProcess::ExitStat
         return;
     }
 
-    const PlaylistExpansionParseResult result = PlaylistExpansionParser::parse(doc.object(), m_url);
+    QJsonObject jsonObj = doc.object();
+
+    // Pre-process JSON to ensure is_live is strictly true only for active/upcoming livestreams
+    auto fixLiveStatus = [](QJsonObject& obj) {
+        if (obj.contains(QStringLiteral("live_status"))) {
+            const QString liveStatus = obj.value(QStringLiteral("live_status")).toString();
+            if (liveStatus == QStringLiteral("was_live") || liveStatus == QStringLiteral("not_live") || liveStatus == QStringLiteral("post_live")) {
+                obj.insert(QStringLiteral("is_live"), false);
+            } else if (liveStatus == QStringLiteral("is_live") || liveStatus == QStringLiteral("is_upcoming")) {
+                obj.insert(QStringLiteral("is_live"), true);
+            }
+        }
+    };
+
+    fixLiveStatus(jsonObj);
+    if (jsonObj.contains(QStringLiteral("entries")) && jsonObj.value(QStringLiteral("entries")).isArray()) {
+        QJsonArray entries = jsonObj.value(QStringLiteral("entries")).toArray();
+        for (int i = 0; i < entries.size(); ++i) {
+            if (entries[i].isObject()) {
+                QJsonObject entry = entries[i].toObject();
+                fixLiveStatus(entry);
+                entries[i] = entry;
+            }
+        }
+        jsonObj.insert(QStringLiteral("entries"), entries);
+    }
+
+    const PlaylistExpansionParseResult result = PlaylistExpansionParser::parse(jsonObj, m_url);
     if (result.isPlaylist && m_currentPlaylistLogic == QStringLiteral("Ask")) {
         emit playlistDetected(m_url, result.items.count(), m_options, result.items);
     } else {

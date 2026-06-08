@@ -7,6 +7,7 @@
 #include <QProcess>
 #include <QRegularExpression>
 #include <QProcessEnvironment>
+#include <QStringList>
 #ifdef Q_OS_WIN
 #ifndef NOMINMAX
 #define NOMINMAX
@@ -264,6 +265,17 @@ void setProcessEnvironment(QProcess &process) {
     env.insert(QStringLiteral("PYTHONUTF8"), QStringLiteral("1"));
     env.insert(QStringLiteral("PYTHONIOENCODING"), QStringLiteral("utf-8"));
     env.insert(QStringLiteral("PYTHONUNBUFFERED"), QStringLiteral("1"));
+    const QStringList proxyKeys = {
+        QStringLiteral("HTTP_PROXY"),
+        QStringLiteral("HTTPS_PROXY"),
+        QStringLiteral("ALL_PROXY"),
+        QStringLiteral("http_proxy"),
+        QStringLiteral("https_proxy"),
+        QStringLiteral("all_proxy")
+    };
+    for (const QString &key : proxyKeys) {
+        env.remove(key);
+    }
     process.setProcessEnvironment(env);
 
 #ifdef Q_OS_WIN

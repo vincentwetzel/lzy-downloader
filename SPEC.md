@@ -91,10 +91,11 @@ This document outlines the specifications for the C++ port of the LzyDownloader 
     - Config isolation (`--ignore-config`) so user-level yt-dlp config files cannot override app-controlled downloads, including headless/API jobs.
     - Subtitle flags (`--write-subs`, `--embed-subs`, `--sub-langs` including the special `live_chat` value).
     - Filename restriction (`--restrict-filenames`).
-    - External downloader (`--external-downloader aria2c`) for non-livestream downloads only; livestream jobs must stay on yt-dlp's native downloader so wait-state and graceful finish handling remain reliable.
+    - External downloader (`--external-downloader aria2c`) for ordinary non-livestream downloads only; active/upcoming livestreams, completed live replays (`post_live`/`was_live`), and generic `/live/` URL-shape hints must stay on yt-dlp's native downloader so wait-state, replay manifests, and graceful finish handling remain reliable.
     - Thumbnail conversion (`--convert-thumbnails`).
     - SponsorBlock (`--sponsorblock-remove all`; video/livestream jobs preflight SponsorBlock segment availability and only add `--force-keyframes-at-cuts` plus cut-encoder postprocessor args (including edit-list and timestamp normalization to prevent A/V desync) when segments are confirmed or the preflight cannot be completed).
     - Cookies from browser (`--cookies-from-browser`).
+    - Browser-cookie fallback: if yt-dlp fails while using browser cookies because cookie extraction is denied or cookie-backed extractor state incorrectly reports public media as unavailable/ended, the worker may retry once without `--cookies-from-browser` and must surface clear diagnostics if the retry still fails.
     - Download sections (`--download-sections`).
     - Output template (`-o`), including type-specific templates that inherit the shared default when unset.
     - Max concurrent downloads (`--concurrent-fragments`).
@@ -106,6 +107,7 @@ This document outlines the specifications for the C++ port of the LzyDownloader 
     - **Section Filename Labeling**: When a section/chapter clip is queued, the output filename must include a filename-safe label describing the selected range or chapter (for example `[section 15-00_to_end]`) before the extension so the saved file clearly identifies which part of the source it contains.
     - **Codec Preference Fidelity**: Advanced Settings video/audio codec choices must map to yt-dlp selectors that recognize common codec aliases reported by sites and containers (for example H.264 matching `avc1` streams, H.265 matching `hev1`/`hvc1`, and AAC matching `mp4a`), rather than only matching one literal codec token.
     - **Runtime Format Overrides**: When the runtime picker supplies a concrete `format` ID, the downloader must treat it as an explicit `-f` override instead of re-opening the picker or falling back to the saved quality/codec defaults. If video and audio runtime format IDs are selected separately, both IDs must be merged into the final video `-f` expression.
+- **Livestream Replay Metadata**: Playlist expansion, runtime format metadata, queue options, and worker `info.json` parsing must preserve yt-dlp `live_status`. `post_live`, `was_live`, and `not_live` are non-live for download-argument purposes; only `is_live`, `is_upcoming`, explicit wait options, or equivalent extractor metadata should activate livestream recorder/wait behavior.
 - **Output Parsing**: Must parse `yt-dlp` stdout/stderr for progress, final filename, and metadata JSON.
 - **Headless Runtime-State Isolation**: Headless/server runs must use the shared main `settings.ini` for user preferences and the `Server/` app-data subfolder for runtime state such as `downloads_backup.json`, `api_token.txt`, and timestamped log files so Discord-bot/API activity can be diagnosed separately from GUI sessions without creating a second preferences profile.
 - **Discord Bridge Queue Ordering**: Webhook payloads sent to the local Discord bridge must include a `queue_position` value for queued jobs, clear it for active/terminal jobs, and refresh affected payloads when queued downloads are moved, started, paused, cancelled, completed, or removed.
@@ -209,7 +211,8 @@ This document outlines the specifications for the C++ port of the LzyDownloader 
 - **Language**: C++20
 - **Framework**: Qt 6 (Widgets)
 - **Build System**: CMake
-- **Qt SDK Discovery**: CMake must honor explicit `Qt6_DIR`/`CMAKE_PREFIX_PATH` configuration and also auto-check common Windows Qt install prefixes (for example `C:\Qt\6.*\msvc2022_64`) so IDE-driven configure steps can find Qt without manual edits on typical developer machines.
+- **Qt SDK Discovery**: CMake must honor explicit `Qt6_DIR`/`CMAKE_PREFIX_PATH` configuration and also auto-check common Windows Qt install prefixes (for example `C:\Qt\6.*\msvc2022_64` and `C:\Qt\6.*\mingw_64`) so IDE-driven configure steps can find Qt without manual edits on typical developer machines.
+- **Local Debug Builds**: Developer debug presets may build into `build-debug` with a standalone Qt install instead of vcpkg. When `LZY_SKIP_QT_DEPLOY=ON`, CMake must avoid `windeployqt` and copy only the minimal Qt/MinGW runtime DLLs and plugin folders needed to launch `LzyDownloader.exe` from the build tree.
 - **Database**: SQLite (via Qt SQL module)
 - **Process Management**: `QProcess`
 

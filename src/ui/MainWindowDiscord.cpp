@@ -220,11 +220,13 @@ void MainWindow::connectDiscordWebhookSignals()
         }
     });
 
-    connect(m_downloadManager, &DownloadManager::downloadFinished, this, [sendDiscordWebhook, webhookStates, queuedJobs, updateQueuePositions](const QString &id) {
+    connect(m_downloadManager, &DownloadManager::downloadFinished, this, [sendDiscordWebhook, webhookStates, queuedJobs, updateQueuePositions](const QString &id, bool success, const QString &/*message*/) {
         if (!webhookStates->contains(id)) return;
         QVariantMap state = (*webhookStates)[id];
-        state[QStringLiteral("status")] = QStringLiteral("Completed");
-        state[QStringLiteral("progress")] = 100.0;
+        state[QStringLiteral("status")] = success ? QStringLiteral("Completed") : QStringLiteral("Failed");
+        if (success) {
+            state[QStringLiteral("progress")] = 100.0;
+        }
         state[QStringLiteral("queue_position")] = 0;
         sendDiscordWebhook(id, state);
 

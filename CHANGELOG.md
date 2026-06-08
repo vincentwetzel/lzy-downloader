@@ -16,6 +16,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Start tab settings cleanup**: Start-tab operational controls now share one guarded config-binding path for combo settings, preserving instant saves while reducing duplicate signal wiring.
 
 ### Fixed
+- **Completed livestream replays**: Playlist expansion and runtime format selection now preserve yt-dlp `live_status` metadata and treat `post_live` videos as normal archived videos, avoiding livestream recorder/wait arguments and aria2c for already-published replays. Generic `/live/` URL-shape hints also bypass aria2c when extractor metadata is unavailable.
+- **yt-dlp process environment**: External tools no longer inherit ambient `HTTP_PROXY`, `HTTPS_PROXY`, or `ALL_PROXY` variables, and app-built yt-dlp commands explicitly request direct connections unless the app supplies its own proxy option.
+- **Browser cookie fallback**: If yt-dlp cannot copy browser cookies because its temporary cookie database path is access-denied, or if browser-cookie extractor state incorrectly reports a finished live replay as ended/unavailable, the worker retries once without `--cookies-from-browser` so public media can still download and protected media fail with clearer diagnostics.
+- **No site-specific overrides**: Contributor docs now ban hardcoded per-domain downloader behavior; fixes must use generic metadata, user settings, standards, or hostname-independent URL-shape checks. Existing per-domain referer/extractor-argument injection in yt-dlp and aria2c argument construction was removed.
+- **Local API failed status**: Failed downloads no longer report `progress: 100` in Local API status snapshots.
 - **Updater JSON validation**: App update checks now ignore malformed release assets, tolerate missing release-note bodies, and fail clearly if a newer release response has no valid assets array.
 - **yt-dlp updater asset selection**: yt-dlp self-updates now look for the correct release asset on Windows, macOS, and Linux instead of assuming only `yt-dlp.exe`.
 - **Queue backup restore validation**: Queue restore now skips non-object entries in `downloads_backup.json` instead of passing malformed backup elements into resume handling.

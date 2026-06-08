@@ -116,7 +116,7 @@ void LocalApiServer::onDownloadFinished(const QString &id, bool success, const Q
     auto jobIt = m_activeJobs.find(id);
     if (jobIt != m_activeJobs.end()) {
         jobIt.value().insert(QStringLiteral("status"), success ? QStringLiteral("Complete") : message);
-        jobIt.value().insert(QStringLiteral("progress"), 100);
+        jobIt.value().insert(QStringLiteral("progress"), success ? 100 : -1);
     }
 }
 

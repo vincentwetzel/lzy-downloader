@@ -7,6 +7,7 @@
 #include <QFileInfo>
 #include <QFile>
 #include <QDebug>
+#include <QUrl>
 
 namespace {
 QString sanitizeSectionFilenameLabel(QString label)
@@ -57,32 +58,20 @@ QString canonicalizeCodecSetting(QString codecName)
     return codecName;
 }
 
-QString siteSpecificReferer(const QString &url)
+bool hasLiveUrlHint(const QString &url)
 {
-    if (url.contains(QStringLiteral("bilibili.com"), Qt::CaseInsensitive)) {
-        return url;
-    }
-    if (url.contains(QStringLiteral("bilibili.tv"), Qt::CaseInsensitive)) {
-        return QStringLiteral("https://www.bilibili.tv/");
-    }
-    if (url.contains(QStringLiteral("nicovideo.jp"), Qt::CaseInsensitive)
-        || url.contains(QStringLiteral("nico.ms"), Qt::CaseInsensitive)) {
-        return url;
-    }
-    return QString();
-}
-
-void appendSiteSpecificRefererWorkarounds(QStringList &args, const QString &url)
-{
-    const QString referer = siteSpecificReferer(url);
-    if (!referer.isEmpty()) {
-        args << QStringLiteral("--referer") << referer;
+    const QUrl parsedUrl(url);
+    if (!parsedUrl.isValid()) {
+        return false;
     }
 
-    // Add TikTok API workaround to bypass "Solving JavaScript challenge" hangs
-    if (url.contains(QStringLiteral("tiktok.com"), Qt::CaseInsensitive)) {
-        args << QStringLiteral("--extractor-args") << QStringLiteral("tiktok:api=aweme");
+    const QStringList segments = parsedUrl.path().split(QLatin1Char('/'), Qt::SkipEmptyParts);
+    for (const QString &segment : segments) {
+        if (segment.compare(QStringLiteral("live"), Qt::CaseInsensitive) == 0) {
+            return true;
+        }
     }
+    return false;
 }
 
 QString ffmpegCutEncoderArgs(ConfigManager *configManager)
@@ -172,6 +161,7 @@ QStringList YtDlpArgsBuilder::buildValidationArgs(ConfigManager *configManager, 
     }
     QStringList args;
     args << QStringLiteral("--ignore-config");
+    args << QStringLiteral("--proxy") << QString();
     args << QStringLiteral("--simulate");
 
     // --- Cookies ---
@@ -179,9 +169,6 @@ QStringList YtDlpArgsBuilder::buildValidationArgs(ConfigManager *configManager, 
     if (cookiesBrowser != QLatin1String("None")) {
         args << QStringLiteral("--cookies-from-browser") << cookiesBrowser.toLower();
     }
-
-    // --- Site-specific Referer Workarounds ---
-    appendSiteSpecificRefererWorkarounds(args, url);
 
     args << url;
     return args;
@@ -196,6 +183,7 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
 
     // --- Basic arguments ---
     rawArgs << QStringLiteral("--ignore-config");
+    rawArgs << QStringLiteral("--proxy") << QString();
     rawArgs << QStringLiteral("--verbose");
     rawArgs << QStringLiteral("--write-info-json");
     rawArgs << QStringLiteral("--encoding") << QStringLiteral("utf-8");
@@ -211,6 +199,16 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
 
     // --- Format Selection ---
     bool isLivestream = options.value(QStringLiteral("is_live"), false).toBool() || options.value(QStringLiteral("wait_for_video"), false).toBool();
+    const QString liveStatus = options.value(QStringLiteral("live_status")).toString();
+    const bool isLiveReplay = liveStatus == QStringLiteral("was_live") || liveStatus == QStringLiteral("post_live");
+    const bool hasLiveUrlHintValue = hasLiveUrlHint(url);
+
+    // Guard against falsely identified livestreams from parser fallbacks or raw yt-dlp is_live flags
+    if (!liveStatus.isEmpty()) {
+        if (liveStatus == QStringLiteral("was_live") || liveStatus == QStringLiteral("not_live") || liveStatus == QStringLiteral("post_live")) {
+            isLivestream = false;
+        }
+    }
 
     if (isLivestream) {
         QString quality = configManager->get(QStringLiteral("Livestream"), QStringLiteral("quality"), QStringLiteral("best")).toString();
@@ -237,23 +235,25 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
             rawArgs << QStringLiteral("--remux-video") << convertTo;
             finalOutputExtension = convertTo;
         }
-        
-        if (configManager->get(QStringLiteral("Livestream"), QStringLiteral("live_from_start"), false).toBool()) rawArgs << QStringLiteral("--live-from-start");
-        else rawArgs << QStringLiteral("--no-live-from-start");
 
-        if (configManager->get(QStringLiteral("Livestream"), QStringLiteral("wait_for_video"), true).toBool() || options.value(QStringLiteral("wait_for_video"), false).toBool()) {
-            int minWait = options.value(QStringLiteral("livestream_wait_min"), configManager->get(QStringLiteral("Livestream"), QStringLiteral("wait_for_video_min"))).toInt();
-            int maxWait = options.value(QStringLiteral("livestream_wait_max"), configManager->get(QStringLiteral("Livestream"), QStringLiteral("wait_for_video_max"))).toInt();
+        if (!options.value(QStringLiteral("skip_dir_creation"), false).toBool()) {
+            if (configManager->get(QStringLiteral("Livestream"), QStringLiteral("live_from_start"), false).toBool()) rawArgs << QStringLiteral("--live-from-start");
+            else rawArgs << QStringLiteral("--no-live-from-start");
 
-            // Guardrail to prevent IP bans if the UI or options bypass the ConfigManager limits
-            if (minWait < 15) minWait = 15;
-            if (maxWait <= minWait) maxWait = minWait + 45;
+            if (configManager->get(QStringLiteral("Livestream"), QStringLiteral("wait_for_video"), true).toBool() || options.value(QStringLiteral("wait_for_video"), false).toBool()) {
+                int minWait = options.value(QStringLiteral("livestream_wait_min"), configManager->get(QStringLiteral("Livestream"), QStringLiteral("wait_for_video_min"))).toInt();
+                int maxWait = options.value(QStringLiteral("livestream_wait_max"), configManager->get(QStringLiteral("Livestream"), QStringLiteral("wait_for_video_max"))).toInt();
 
-            rawArgs << QStringLiteral("--wait-for-video=%1-%2")
-                       .arg(minWait)
-                       .arg(maxWait);
-        } else {
-            rawArgs << QStringLiteral("--no-wait-for-video");
+                // Guardrail to prevent IP bans if the UI or options bypass the ConfigManager limits
+                if (minWait < 15) minWait = 15;
+                if (maxWait <= minWait) maxWait = minWait + 45;
+
+                rawArgs << QStringLiteral("--wait-for-video=%1-%2")
+                           .arg(minWait)
+                           .arg(maxWait);
+            } else {
+                rawArgs << QStringLiteral("--no-wait-for-video");
+            }
         }
 
         if (configManager->get(QStringLiteral("Livestream"), QStringLiteral("use_part"), true).toBool()) rawArgs << QStringLiteral("--part");
@@ -361,14 +361,10 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
         }
     }
     const ProcessUtils::FoundBinary aria2Binary = ProcessUtils::findBinary(QStringLiteral("aria2c"), configManager);
-    if (!isLivestream && configManager->get(QStringLiteral("Metadata"), QStringLiteral("use_aria2c"), false).toBool() && aria2Binary.source != QLatin1String("Not Found") && aria2Binary.source != QLatin1String("Invalid Custom")) {
+    if (!isLivestream && !isLiveReplay && !hasLiveUrlHintValue && configManager->get(QStringLiteral("Metadata"), QStringLiteral("use_aria2c"), false).toBool() && aria2Binary.source != QLatin1String("Not Found") && aria2Binary.source != QLatin1String("Invalid Custom")) {
         QString aria2cPath = aria2Binary.path;
         QStringList aria2Args;
         aria2Args << QStringLiteral("--summary-interval=1");
-        const QString referer = siteSpecificReferer(url);
-        if (!referer.isEmpty()) {
-            aria2Args << QStringLiteral("--referer=%1").arg(referer);
-        }
         rawArgs << QStringLiteral("--external-downloader") << aria2cPath;
         rawArgs << QStringLiteral("--external-downloader-args") << QStringLiteral("aria2c:%1").arg(aria2Args.join(QLatin1Char(' ')));
         qInfo() << "YtDlpArgsBuilder: Using aria2c as external downloader (" << aria2cPath << ")";
@@ -558,9 +554,6 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
     }
 
     rawArgs << QStringLiteral("-o") << QDir(tempPath).filePath(outputTemplate);
-
-    // --- Site-specific Referer Workarounds ---
-    appendSiteSpecificRefererWorkarounds(rawArgs, url);
 
     // --- Print final filepath ---
     rawArgs << QStringLiteral("--print") << QStringLiteral("after_move:LZY_FINAL_PATH:%(filepath)s");

@@ -40,7 +40,16 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
     }
 
     // Parse ERROR: lines from stderr for specific error types
-    if (normalizedLine.startsWith(QStringLiteral("ERROR:"))) {
+    const bool cookiePermissionDiagnostic = m_args.contains(QStringLiteral("--cookies-from-browser")) &&
+        (normalizedLine.contains(QStringLiteral("temporary.sqlite"), Qt::CaseInsensitive) ||
+         normalizedLine.contains(QStringLiteral("PermissionError"), Qt::CaseInsensitive) ||
+         normalizedLine.contains(QStringLiteral("Access is denied"), Qt::CaseInsensitive) ||
+         normalizedLine.contains(QStringLiteral("Permission denied"), Qt::CaseInsensitive));
+
+    if (normalizedLine.startsWith(QStringLiteral("ERROR:")) ||
+        normalizedLine.startsWith(QStringLiteral("[download] Got error:"), Qt::CaseInsensitive) ||
+        (normalizedLine.contains(QStringLiteral("exited with code"), Qt::CaseInsensitive) && !normalizedLine.contains(QStringLiteral("code 0"))) ||
+        cookiePermissionDiagnostic) {
         m_errorLines.append(normalizedLine);
 
         auto emitError = [this, normalizedLine](const QString& type, const QString& msg) {
@@ -226,59 +235,6 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
                 url = m_args.last();
             }
 
-            // Fast-path: YouTube oEmbed API avoids spawning a yt-dlp process and bypassing
-            // the ExtractorError completely for upcoming livestreams.
-            if (url.contains(QStringLiteral("youtube.com")) || url.contains(QStringLiteral("youtu.be"))) {
-                qDebug() << "[YtDlpWorker] Detected [wait] state. Using YouTube oEmbed API for pre-wait metadata...";
-                QNetworkAccessManager *manager = new QNetworkAccessManager(this);
-                QUrl oembedUrl(QStringLiteral("https://www.youtube.com/oembed?url=%1&format=json").arg(QString::fromUtf8(QUrl::toPercentEncoding(url))));
-                QNetworkRequest request(oembedUrl);
-                request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
-                request.setHeader(QNetworkRequest::UserAgentHeader, QStringLiteral("LzyDownloader"));
-                constexpr int oembedTimeoutMs = 15000;
-                request.setTransferTimeout(oembedTimeoutMs);
-                QNetworkReply *reply = manager->get(request);
-                connect(reply, &QNetworkReply::finished, this, [this, reply, manager, fetchThumbnail]() {
-                    if (reply->error() == QNetworkReply::NoError) {
-                        QJsonParseError parseError;
-                        const QJsonDocument doc = QJsonDocument::fromJson(reply->readAll(), &parseError);
-                        if (parseError.error == QJsonParseError::NoError && doc.isObject()) {
-                            const QJsonObject obj = doc.object();
-                            const QJsonValue titleVal = obj.value(QStringLiteral("title"));
-                            if (titleVal.isString()) {
-                                m_videoTitle = titleVal.toString();
-                            }
-                            QString thumbUrl;
-                            const QJsonValue thumbUrlVal = obj.value(QStringLiteral("thumbnail_url"));
-                            if (thumbUrlVal.isString()) {
-                                thumbUrl = thumbUrlVal.toString();
-                            }
-
-                            qDebug() << "[YtDlpWorker] oEmbed title:" << m_videoTitle << "thumb:" << thumbUrl;
-
-                            QVariantMap progressData;
-                            progressData.insert(QStringLiteral("progress"), -1);
-                            progressData.insert(QStringLiteral("status"), tr("Waiting for livestream to start..."));
-                            progressData.insert(QStringLiteral("title"), m_videoTitle);
-                            if (!m_thumbnailPath.isEmpty()) {
-                                progressData.insert(QStringLiteral("thumbnail_path"), m_thumbnailPath);
-                            }
-                            emit progressUpdated(m_id, progressData);
-
-                            if (!thumbUrl.isEmpty() && m_thumbnailPath.isEmpty()) {
-                                fetchThumbnail(thumbUrl);
-                            }
-                        }
-                    } else {
-                        qWarning() << "[YtDlpWorker] oEmbed API failed:" << reply->errorString();
-                    }
-                    reply->deleteLater();
-                    manager->deleteLater();
-                });
-                return;
-            }
-
-            // Fallback for non-YouTube sites
             qDebug() << "[YtDlpWorker] Detected [wait] state. Fetching pre-wait metadata via yt-dlp in background...";
             QProcess *fetchProcess = new QProcess(this);
             ProcessUtils::setProcessEnvironment(*fetchProcess);

@@ -372,10 +372,14 @@ If a setting loaded from `settings.ini` does not match the current application's
 
 If you see a "database is locked" error when selecting a browser for cookies, close the browser completely and try again. The browser must not be running to access its cookie database.
 
+### Browser Cookie Download Failures
+
+If yt-dlp fails during a public video/audio download while browser cookies are enabled, LzyDownloader retries the job once without `--cookies-from-browser`. This covers temporary cookie database permission errors and stale browser-cookie extractor state while still allowing protected media to fail with a clearer diagnostic.
+
 ### Missing Binaries
 
 If a required binary (`yt-dlp`, `ffmpeg`, `ffprobe`, `deno`) is not found, LzyDownloader opens a guided setup dialog during startup, enqueue, or format checks. The same install and browse actions are also available from Advanced Settings → External Tools.
 
 ---
 
-*Last updated: June 6, 2026 - LzyDownloader C++ Port*
+*Last updated: June 8, 2026 - LzyDownloader C++ Port*

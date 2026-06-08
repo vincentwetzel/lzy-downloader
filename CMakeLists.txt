@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(LzyDownloader VERSION 1.1.63 LANGUAGES CXX)
+project(LzyDownloader VERSION 1.1.64 LANGUAGES CXX)
 enable_testing()
 
 set(_qt_search_prefixes "")
@@ -46,8 +46,51 @@ endif()
 
 find_package(Qt6 COMPONENTS Core Gui Widgets Network Sql Test Concurrent REQUIRED)
 
+option(LZY_SKIP_QT_DEPLOY "Skip Qt runtime deployment post-build steps for local developer builds." OFF)
+
 if(WIN32)
     function(lzy_add_qt_windows_deploy target_name)
+        if(LZY_SKIP_QT_DEPLOY)
+            if(DEFINED Qt6_DIR)
+                get_filename_component(_qt_prefix "${Qt6_DIR}/../../.." ABSOLUTE)
+                set(_qt_bin_dir "${_qt_prefix}/bin")
+                set(_qt_plugins_dir "${_qt_prefix}/plugins")
+                foreach(_runtime_dll
+                    Qt6Core.dll
+                    Qt6Gui.dll
+                    Qt6Widgets.dll
+                    Qt6Network.dll
+                    Qt6Sql.dll
+                    Qt6Concurrent.dll
+                    Qt6Test.dll
+                    libgcc_s_seh-1.dll
+                    libstdc++-6.dll
+                    libwinpthread-1.dll
+                )
+                    if(EXISTS "${_qt_bin_dir}/${_runtime_dll}")
+                        add_custom_command(TARGET ${target_name} POST_BUILD
+                            COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+                                "${_qt_bin_dir}/${_runtime_dll}"
+                                "$<TARGET_FILE_DIR:${target_name}>"
+                            VERBATIM
+                        )
+                    endif()
+                endforeach()
+
+                foreach(_plugin_dir platforms sqldrivers tls imageformats iconengines networkinformation styles)
+                    if(EXISTS "${_qt_plugins_dir}/${_plugin_dir}")
+                        add_custom_command(TARGET ${target_name} POST_BUILD
+                            COMMAND "${CMAKE_COMMAND}" -E copy_directory
+                                "${_qt_plugins_dir}/${_plugin_dir}"
+                                "$<TARGET_FILE_DIR:${target_name}>/${_plugin_dir}"
+                            VERBATIM
+                        )
+                    endif()
+                endforeach()
+            endif()
+            return()
+        endif()
+
         if(DEFINED VCPKG_INSTALLED_DIR AND DEFINED VCPKG_TARGET_TRIPLET)
             set(qt_plugins_dir "$<$<CONFIG:Debug>:${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/debug/Qt6/plugins>$<$<NOT:$<CONFIG:Debug>>:${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/Qt6/plugins>")
             add_custom_command(TARGET ${target_name} POST_BUILD

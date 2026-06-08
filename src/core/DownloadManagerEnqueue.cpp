@@ -71,16 +71,6 @@ void DownloadManager::enqueueDownload(const QString &url, const QVariantMap &opt
 
     const QString downloadType = effectiveOptions.value(QStringLiteral("type"), QStringLiteral("video")).toString();
 
-    // Pre-emptively detect obvious livestreams by URL so YtDlpArgsBuilder can apply livestream args
-    if (!effectiveOptions.contains(QStringLiteral("is_live"))) {
-        const QString lowerUrl = url.toLower();
-        if (lowerUrl.contains(QStringLiteral("/live")) ||
-            (lowerUrl.contains(QStringLiteral("twitch.tv/")) && !lowerUrl.contains(QStringLiteral("/videos/")) && !lowerUrl.contains(QStringLiteral("/clip/"))) ||
-            (lowerUrl.contains(QStringLiteral("kick.com/")) && !lowerUrl.contains(QStringLiteral("/video/")))) {
-            effectiveOptions.insert(QStringLiteral("is_live"), true);
-        }
-    }
-
     // Intercept for runtime format selection before doing anything else
     bool needsRuntimeSelection = false;
     if (downloadType == QStringLiteral("video")) {
@@ -235,6 +225,13 @@ void DownloadManager::fetchFormatsForSelection(const QString &url, const QVarian
                 QVariantMap newOptions = options;
                 if (metadata.value(QStringLiteral("is_live"), false).toBool()) {
                     newOptions.insert(QStringLiteral("is_live"), true);
+                }
+                const QString liveStatus = metadata.value(QStringLiteral("live_status")).toString().trimmed();
+                if (!liveStatus.isEmpty()) {
+                    newOptions.insert(QStringLiteral("live_status"), liveStatus);
+                    if (liveStatus == QStringLiteral("was_live") || liveStatus == QStringLiteral("not_live") || liveStatus == QStringLiteral("post_live")) {
+                        newOptions.insert(QStringLiteral("is_live"), false);
+                    }
                 }
                 QMetaObject::invokeMethod(this, [this, url, newOptions, metadata]() {
                     emit formatSelectionRequested(url, newOptions, metadata);
