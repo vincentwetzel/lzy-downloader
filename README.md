@@ -106,13 +106,13 @@ When enabled in the GUI, or when launched with `--server`, `--headless`, or `--b
 - `POST /enqueue` with JSON body `{"url":"https://...","type":"video","id":"optional-stable-job-id"}` queues a download using non-interactive defaults. `type` is optional and may be `video`, `audio`, or `gallery`; omitted requests default to `video`. `id` is optional; when omitted, the app generates a UUID.
 - `GET /status` returns current tracked jobs, including progress fields when available.
 - Requests are bounded and validated; malformed request lines, oversized payloads, invalid Host headers, or untrusted browser origins are rejected.
-- **Webhook Outbound**: The application automatically emits real-time HTTP POST JSON payloads to `http://127.0.0.1:8766/webhook` whenever download status, progress, speed, or ETA changes. Payloads are throttled to 1.5 seconds, sanitize long or multi-line status strings, preserve terminal completion/cancellation state for local bridge clients, and include `parent_id` mapping to track playlist child items.
+- **Webhook Outbound**: The application automatically emits real-time HTTP POST JSON payloads to `http://127.0.0.1:8766/webhook` whenever download status, progress, speed, or ETA changes. Payloads are throttled to 1.5 seconds, sanitize long or multi-line status strings, preserve terminal completion/cancellation state for local bridge clients, include `parent_id` mapping to track playlist child items, and clean up bounded network replies through the owning window context.
 
 Automation can also launch `LzyDownloader.exe --background <url>`, `LzyDownloader.exe --server <url>`, or `LzyDownloader.exe --headless <url>` to enqueue a direct URL without showing blocking prompt dialogs. Server/headless queue backups, API tokens, and logs are isolated under `Server/`, but user preferences still come from the main `settings.ini`.
 
 Extractor-list refresh scripts are non-interactive, so release automation can run `update_yt-dlp_extractors.py` and `update_gallery-dl_extractors.py` without waiting for a final keypress.
 
-Temporary downloads are isolated in per-download UUID folders under the configured temp directory. If that setting is still unset, the app derives the temp path from the completed-downloads folder as `temp_downloads`, including for cleanup after cancelled, skipped, or wait-state yt-dlp jobs. Playlist expansion checks reuse the full yt-dlp command configuration without creating those transfer-only UUID folders.
+Temporary downloads are isolated in per-download UUID folders under the configured temp directory. If that setting is still unset, the app derives the temp path from the completed-downloads folder as `temp_downloads`, including for cleanup after finished, failed-to-start, cancelled, skipped, or wait-state yt-dlp jobs. Playlist expansion checks reuse the full yt-dlp command configuration without creating those transfer-only UUID folders.
 
 ## Architecture
 

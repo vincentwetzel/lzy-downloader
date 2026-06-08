@@ -341,7 +341,7 @@ void DownloadItemWidget::setThumbnail(const QString &imagePath) {
             manager = new QNetworkAccessManager(qApp);
             manager->setObjectName(QStringLiteral("sharedThumbnailManager"));
         }
-        QNetworkRequest request(QUrl(imagePath));
+        QNetworkRequest request{QUrl(imagePath)};
         request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
         request.setHeader(QNetworkRequest::UserAgentHeader, QStringLiteral("LzyDownloader"));
         request.setTransferTimeout(15000);

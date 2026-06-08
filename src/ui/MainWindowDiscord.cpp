@@ -16,7 +16,7 @@ void MainWindow::connectDiscordWebhookSignals()
 {
     QNetworkAccessManager *discordNetworkManager = new QNetworkAccessManager(this);
 
-    auto sendDiscordWebhook = [discordNetworkManager](const QString &jobId, const QVariantMap &state) {
+    auto sendDiscordWebhook = [this, discordNetworkManager](const QString &jobId, const QVariantMap &state) {
         QJsonObject json;
         json[QStringLiteral("job_id")] = jobId;
 

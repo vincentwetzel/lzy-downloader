@@ -119,24 +119,19 @@ void StartTab::setupUI() {
     }
 
     // Wire up operational controls to save instantly to ConfigManager
-    if (m_uiBuilder->maxConcurrentCombo()) {
-        connect(m_uiBuilder->maxConcurrentCombo(), &QComboBox::currentIndexChanged, this, [this](int index) {
-            m_configManager->set(QStringLiteral("General"), QStringLiteral("max_threads"), m_uiBuilder->maxConcurrentCombo()->itemData(index).toString());
-            m_configManager->save();
-        });
-    }
-    if (m_uiBuilder->playlistLogicCombo()) {
-        connect(m_uiBuilder->playlistLogicCombo(), &QComboBox::currentIndexChanged, this, [this](int index) {
-            m_configManager->set(QStringLiteral("General"), QStringLiteral("playlist_logic"), m_uiBuilder->playlistLogicCombo()->itemData(index).toString());
-            m_configManager->save();
-        });
-    }
-    if (m_uiBuilder->rateLimitCombo()) {
-        connect(m_uiBuilder->rateLimitCombo(), &QComboBox::currentIndexChanged, this, [this](int index) {
-            m_configManager->set(QStringLiteral("General"), QStringLiteral("rate_limit"), m_uiBuilder->rateLimitCombo()->itemData(index).toString());
-            m_configManager->save();
-        });
-    }
+    auto connectComboToConfig = [this](QComboBox* combo, const QString& configKey) {
+        if (combo) {
+            connect(combo, &QComboBox::currentIndexChanged, this, [this, combo, configKey](int index) {
+                m_configManager->set(QStringLiteral("General"), configKey, combo->itemData(index).toString());
+                m_configManager->save();
+            });
+        }
+    };
+
+    connectComboToConfig(m_uiBuilder->maxConcurrentCombo(), QStringLiteral("max_threads"));
+    connectComboToConfig(m_uiBuilder->playlistLogicCombo(), QStringLiteral("playlist_logic"));
+    connectComboToConfig(m_uiBuilder->rateLimitCombo(), QStringLiteral("rate_limit"));
+
     if (m_uiBuilder->overrideDuplicateCheck()) {
         connect(m_uiBuilder->overrideDuplicateCheck(), &ToggleSwitch::toggled, this, [this](bool checked) {
             m_configManager->set(QStringLiteral("General"), QStringLiteral("override_archive"), checked);
@@ -162,25 +157,23 @@ void StartTab::changeEvent(QEvent *event) {
 }
 
 void StartTab::loadSettings() { // Use m_uiBuilder members
-    QSignalBlocker b1(m_uiBuilder->playlistLogicCombo());
-    QSignalBlocker b2(m_uiBuilder->maxConcurrentCombo());
-    QSignalBlocker b3(m_uiBuilder->rateLimitCombo());
-    QSignalBlocker b4(m_uiBuilder->overrideDuplicateCheck());
+    auto loadComboSetting = [this](QComboBox* combo, const QString& configKey, const QString& defaultValue) {
+        if (combo) {
+            QSignalBlocker blocker(combo);
+            int idx = combo->findData(m_configManager->get(QStringLiteral("General"), configKey, defaultValue).toString());
+            if (idx >= 0) combo->setCurrentIndex(idx);
+        }
+    };
 
-    if (m_uiBuilder->playlistLogicCombo()) {
-        int idx = m_uiBuilder->playlistLogicCombo()->findData(m_configManager->get(QStringLiteral("General"), QStringLiteral("playlist_logic"), QStringLiteral("Ask")).toString());
-        if (idx >= 0) m_uiBuilder->playlistLogicCombo()->setCurrentIndex(idx);
-    }
-    if (m_uiBuilder->maxConcurrentCombo()) {
-        int idx = m_uiBuilder->maxConcurrentCombo()->findData(m_configManager->get(QStringLiteral("General"), QStringLiteral("max_threads"), QStringLiteral("4")).toString());
-        if (idx >= 0) m_uiBuilder->maxConcurrentCombo()->setCurrentIndex(idx);
-    }
-    if (m_uiBuilder->rateLimitCombo()) {
-        int idx = m_uiBuilder->rateLimitCombo()->findData(m_configManager->get(QStringLiteral("General"), QStringLiteral("rate_limit"), QStringLiteral("Unlimited")).toString());
-        if (idx >= 0) m_uiBuilder->rateLimitCombo()->setCurrentIndex(idx);
-    }
+    loadComboSetting(m_uiBuilder->playlistLogicCombo(), QStringLiteral("playlist_logic"), QStringLiteral("Ask"));
+    loadComboSetting(m_uiBuilder->maxConcurrentCombo(), QStringLiteral("max_threads"), QStringLiteral("4"));
+    loadComboSetting(m_uiBuilder->rateLimitCombo(), QStringLiteral("rate_limit"), QStringLiteral("Unlimited"));
+
     if (m_uiBuilder->overrideDuplicateCheck())
+    {
+        QSignalBlocker blocker(m_uiBuilder->overrideDuplicateCheck());
         m_uiBuilder->overrideDuplicateCheck()->setChecked(m_configManager->get(QStringLiteral("General"), QStringLiteral("override_archive"), false).toBool());
+    }
 
 }
 

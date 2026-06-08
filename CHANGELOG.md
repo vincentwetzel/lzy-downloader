@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Sorting UI persistence polish**: Sorting rule loading/saving now batches table repaints, preserves selection after add/edit, stores condition keys consistently, and guards empty combo indices while editing rules.
 - **Hot-path parser cleanup**: yt-dlp output handling now gates expensive regex parsing by line prefix, shares common progress metadata population, and trims noisy per-line debug logging while preserving detailed native and aria2 progress data.
 - **Qt-native cleanup polish**: Queue state serialization, sorting metadata lookup, yt-dlp argument building, and progress size math now use more direct Qt/STL helpers to reduce duplicate code and avoidable allocations.
+- **Start tab settings cleanup**: Start-tab operational controls now share one guarded config-binding path for combo settings, preserving instant saves while reducing duplicate signal wiring.
 
 ### Fixed
 - **Updater JSON validation**: App update checks now ignore malformed release assets, tolerate missing release-note bodies, and fail clearly if a newer release response has no valid assets array.
@@ -27,7 +28,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Sorting metadata filtering**: Sorting rules now consistently ignore empty, `null`, and `NA` metadata values across aliases, playlist-title fallbacks, and token expansion.
 - **Startup worker teardown**: Startup checks now delete the worker when the thread finishes and mark extractor generation done if no extractor parser is available, preventing startup completion from hanging.
 - **Discord bridge request cleanup**: Local Discord bridge posts now use explicit timeouts and let replies clean themselves up through Qt deferred deletion.
-- **yt-dlp metadata and thumbnail cleanup**: yt-dlp workers now flush trailing stdout/stderr through the shared UTF-8 line parser, recover `info.json` by scanning the UUID temp directory if the expected path is stale, move wait-state thumbnails into managed cleanup scope when possible, and surface file cleanup/write failures instead of silently ignoring them.
+- **Discord bridge callback lifetime**: Discord webhook request callbacks are now anchored to the main window context so queued network completions cannot outlive the UI object that owns bridge state.
+- **yt-dlp metadata and thumbnail cleanup**: yt-dlp workers now flush trailing stdout/stderr through the shared UTF-8 line parser, recover `info.json` by scanning the UUID temp directory if the expected path is stale, move wait-state thumbnails into managed cleanup scope when possible, share validated `info.json` parsing and file cleanup helpers, clean empty UUID temp folders through the same fallback path on finish/error, and surface file cleanup/write failures instead of silently ignoring them.
 
 ## [1.1.58] - 2026-06-06
 
