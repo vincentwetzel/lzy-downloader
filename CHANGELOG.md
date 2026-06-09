@@ -9,6 +9,8 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## [Unreleased]
 
+## [1.1.65] - 2026-06-10
+
 ### Changed
 - **Progress rendering polish**: Active download rows now animate main and overall progress changes, cache tinted standard icons, and stop progress animations explicitly when rows enter indeterminate, cleared, cancelled, or completed states.
 - **Conditional Clear Temp action**: The row-level "Clear Temp" button on inactive/stopped/cancelled download rows is now shown only if there are actual temporary files or tracked cleanup candidates existing on disk.

@@ -1,8 +1,6 @@
-# LzyDownloader (C++ Port)
+# LzyDownloader
 
 A lightweight, high-performance desktop application for downloading media (video and audio) from online platforms using **yt-dlp**.
-
-**This is a C++ port of the original Python application.** It is designed as a faster native replacement with lower memory usage and a Qt-based settings format. Download history remains portable through the shared `download_archive.db`.
 
 ## Features
 
@@ -30,8 +28,6 @@ Download the latest installer from [Releases](https://github.com/vincentwetzel/L
 1. Download `LzyDownloader-Setup-X.X.X.exe`
 2. Run the installer
 3. Launch from Start Menu or desktop shortcut
-
-**Note for existing users:** The installer can replace the Python version of LzyDownloader. Download history is preserved through `download_archive.db`; settings use the C++ app's Qt-native `settings.ini` layout and may need to be regenerated.
 
 ### From Source
 
@@ -95,7 +91,7 @@ When playlist handling is set to `Ask`, detected playlists can be queued entirel
 
 ## Configuration
 
-All settings are saved to `%LOCALAPPDATA%\LzyDownloader\settings.ini` on Windows and persist between sessions. GUI and `--server`/`--headless` launches share this same preferences file, so folders, binary paths, templates, cookies, codecs, and related choices stay in sync. The C++ port uses a Qt-native `QSettings` INI layout rather than matching Python `configparser` quirks, so existing users may regenerate settings as needed. Download history remains shared through `download_archive.db`.
+All settings are saved to `%LOCALAPPDATA%\LzyDownloader\settings.ini` on Windows and persist between sessions. GUI and `--server`/`--headless` launches share this same preferences file, so folders, binary paths, templates, cookies, codecs, and related choices stay in sync. The app uses a Qt-native `QSettings` INI layout. Download history is shared through `download_archive.db`.
 
 - **Output folder** — Where completed downloads are saved
 - **Temporary folder** — Where downloads are cached during progress
