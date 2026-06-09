@@ -294,7 +294,7 @@ Active, paused, and stopped downloads are automatically serialized to a JSON fil
 
 When launched with `--server`, `--headless`, or `--background`, queue runtime state is isolated under `Server/`, for example `%LOCALAPPDATA%\LzyDownloader\Server\downloads_backup.json` on Windows.
 
-Stopped and failed entries also retain the latest known temporary file paths needed for resume and cleanup workflows. This allows the Active Downloads tab's `Clear Temp` action to remove tracked partial media, sidecar metadata, thumbnails, and downloader state files even after an app restart.
+Stopped and failed entries also retain the latest known temporary file paths needed for resume and cleanup workflows. This allows the Active Downloads tab's `Clear Temp` action to appear only when associated temporary files still exist and to remove tracked partial media, sidecar metadata, thumbnails, and downloader state files even after an app restart.
 
 On restore, the queue loader validates that each `downloads_backup.json` array entry is an object. Malformed non-object entries are skipped and logged rather than being resumed.
 

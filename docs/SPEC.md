@@ -4,7 +4,7 @@
 This document outlines the specifications for the C++ port of the LzyDownloader application. The goal is to create a drop-in replacement for the existing Python application, ensuring 100% feature parity and seamless transition for users.
 
 ### 1.1 Documentation Requirement
-- **Mandatory**: When any agent or developer makes changes to how the app works (e.g., progress parsing, download pipeline, UI behavior, configuration, external binary handling), they MUST update the relevant MD documentation files (`AGENTS.md`, `SPEC.md`, `ARCHITECTURE.md`, `TODO.md`, `CHANGELOG.md`) to reflect the new behavior. Documentation MUST stay in sync with the code.
+- **Mandatory**: When any agent or developer makes changes to how the app works (e.g., progress parsing, download pipeline, UI behavior, configuration, external binary handling), they MUST update the relevant MD documentation files (`AGENTS.md`, `docs/SPEC.md`, `docs/ARCHITECTURE.md`, `TODO.md`, `CHANGELOG.md`) to reflect the new behavior. Documentation MUST stay in sync with the code.
 
 ### 1.2 File Size Constraints
 - **Context Preservation**: To ensure optimal performance with AI agents and preserve context usage, no single file (source code, headers, or documentation) should exceed **500 lines** in length. When a file approaches this limit, it must be refactored or split into smaller, focused modules.
@@ -20,24 +20,8 @@ This document outlines the specifications for the C++ port of the LzyDownloader 
 - **Location**: The main app-local user data directory, for example `%LOCALAPPDATA%\LzyDownloader\settings.ini` on Windows. GUI and server/headless mode must use this same file as the single source of truth for user preferences.
 - **Parsing**: Must handle raw strings (no interpolation).
 - **Legacy Support**: Backwards compatibility with the Python application's settings file is NO LONGER required. The application uses standard Qt `QSettings` behavior and automatically prunes unrecognised or legacy keys on startup to maintain a clean configuration file.
-    - `restrict_filenames`, `exit_after`.
 
-**Required settings keys include:**
-    - `output_template`.
-    - `subtitles_embed`, `subtitles_write`, `subtitles_langs`, etc.
-    - `restrict_filenames`, `exit_after`.
-    - `convert_thumbnails`, `high_quality_thumbnail`.
-    - `use_aria2c`.
-    - `force_playlist_as_album`.
-    - `cookies_from_browser`, `gallery_cookies_from_browser`.
-    - `theme`.
-    - `playlist_logic`, `max_threads`, `rate_limit`.
-    - `override_archive`.
-    - `enable_local_api`.
-    - `embed_chapters`, `embed_metadata`, `embed_thumbnail`.
-    - `video_quality`, `video_ext`, `vcodec`, `audio_quality`, `audio_ext`, `acodec`.
-    - `lock_settings` for video and audio.
-    - `livestream/live_from_start`, `livestream/wait_for_video`, `livestream/download_as`, `livestream/use_part`, `livestream/quality`, `livestream/convert_to`.
+**Required configuration layout, settings groups, and valid key types are documented thoroughly in docs/SETTINGS.md.**
 
 ### 2.3. Archive Compatibility
 - **Database**: `download_archive.db` (SQLite).
@@ -64,6 +48,7 @@ This document outlines the specifications for the C++ port of the LzyDownloader 
     - Each download GUI element must play/display a thumbnail preview for audio/video downloads on the left side of the widget. Remote thumbnails must use bounded network requests and may share an app-owned `QNetworkAccessManager` instead of creating one manager per widget.
     - The toolbar provides Stop All, Resume All, Clear Inactive, Open Temporary Folder, and Open Downloads Folder actions.
     - Adding a row for an existing internal download ID must replace the previous row instead of rendering duplicates, so placeholder refreshes, restored items, and playlist transitions keep the UI one-row-per-download.
+    - Stopped, failed, or cancelled rows must show their row-level `Clear Temp` action only when the item has an existing per-download UUID temp folder, tracked temp path, original downloaded temp path, or persisted cleanup candidate on disk.
 - **Advanced Settings Tab**:
     - **Organization**: Settings are grouped into logical sections:
         - **Configuration**: Output folder, Temporary folder, Theme, Enable Local API Server.
@@ -177,7 +162,7 @@ This document outlines the specifications for the C++ port of the LzyDownloader 
     - Un-embedded thumbnails (e.g., from `.ts` to `.mp4` livestream remuxes) are automatically detected and injected into the final container using a native FFmpeg fallback pass.
     - All downloads must go to a temporary directory first.
     - **Resuming and Clearing:** Partially downloaded files are retained in the temporary directory when a download is stopped. `DownloadQueueState` persists the current `tempFilePath`, `originalDownloadedFilePath`, and tracked cleanup candidates so users can resume or manually clean up across application restarts.
-    - **Manual Cleanup:** If a user clicks `Clear Temp` for a stopped or failed download, the application must use the tracked cleanup candidate paths gathered during the worker run and then apply literal stem matching to sweep up associated media files, fragments (`.part-Frag`), tracking files (`.aria2`, `.ytdl`), metadata (`.info.json`), thumbnails, subtitles, and other partial sidecars. When the tracked candidate is a per-download UUID directory, the whole directory may be removed recursively. Worker-side empty-directory cleanup must also derive the temporary directory from `<completed_downloads_directory>/temp_downloads` if `temporary_downloads_directory` is unset, and must use the same fallback path during normal finish and process-start/error failures. Worker-owned wait thumbnails must be identified by the download ID prefix before removal or relocation into managed cleanup scope. The cleanup filter must use literal string matching (`==` and `startsWith`) rather than wildcard globbing to prevent failure when video titles contain bracket characters `[]` (like YouTube IDs).
+    - **Manual Cleanup:** If a user clicks `Clear Temp` for a stopped or failed download, the application must use the tracked cleanup candidate paths gathered during the worker run and then apply literal stem matching to sweep up associated media files, fragments (`.part-Frag`), tracking files (`.aria2`, `.ytdl`), metadata (`.info.json`), thumbnails, subtitles, and other partial sidecars. The row-level action must be hidden when no associated temporary files currently exist. When the tracked candidate is a per-download UUID directory, the whole directory may be removed recursively. Worker-side empty-directory cleanup must also derive the temporary directory from `<completed_downloads_directory>/temp_downloads` if `temporary_downloads_directory` is unset, and must use the same fallback path during normal finish and process-start/error failures. Worker-owned wait thumbnails must be identified by the download ID prefix before removal or relocation into managed cleanup scope. The cleanup filter must use literal string matching (`==` and `startsWith`) rather than wildcard globbing to prevent failure when video titles contain bracket characters `[]` (like YouTube IDs).
     - A file stability check must be performed before moving.
     - Files are moved to a final destination directory upon success.
     - Final file movement must be Unicode-safe and shell-independent (use Qt file APIs with copy/remove fallback for cross-volume moves).

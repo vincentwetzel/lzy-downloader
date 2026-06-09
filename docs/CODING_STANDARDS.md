@@ -6,7 +6,7 @@ When acting as an AI coding assistant modifying this repository, you must adhere
 - **DRY (Don't Repeat Yourself):** Extract repeated boilerplate logic into helper methods or utility classes. Prevent bugs by ensuring logic is updated in a single place.
 - **Separation of Concerns (SoC):** Keep the UI layer (`src/ui/`) strictly decoupled from the business logic (`src/core/`). UI components should react to signals and must not contain heavy processing logic.
 - **Zero Backward Compatibility for Obsolete Code:** When replacing legacy components, do not write legacy fallbacks for obsolete settings or data structures unless explicitly requested for migration.
-- **Documentation-Driven Changes:** Feature changes, bug fixes, and architecture changes must be reflected in the relevant markdown files before completion (`ARCHITECTURE.md`, `SPEC.md`, `SETTINGS.md`, etc.).
+- **Documentation-Driven Changes:** Feature changes, bug fixes, and architecture changes must be reflected in the relevant markdown files before completion (`docs/ARCHITECTURE.md`, `docs/SPEC.md`, `docs/SETTINGS.md`, etc.).
 
 ## 2. C++ & Qt Style and Conventions
 - **Naming:** Follow idiomatic Qt/C++ naming. Use `PascalCase` for classes, `camelCase` for functions and local variables, and `UPPER_SNAKE_CASE` for constants. Prefix class member variables with `m_` (e.g., `m_downloadQueue`).
@@ -26,7 +26,7 @@ When acting as an AI coding assistant modifying this repository, you must adhere
 - **Compiler Warnings:** Strive for zero-warning builds. Treat compiler warnings as potential bugs. Do not ignore implicit conversion warnings, unused variables, or deprecation notices.
 - **Exception Safety:** Since the Qt event loop is largely not exception-safe, avoid throwing exceptions in core business logic. Prefer returning error codes, `std::optional`, or boolean success flags, and mark non-throwing functions `noexcept`.
 - **No Not-Null Assertions:** Always verify pointers are valid before dereferencing them. Prevent null pointer crashes with early returns (Fail Fast).
-- **Translation Readiness (i18n):** All user-facing strings in the UI must be wrapped in `tr()` or `QObject::tr()` (e.g., `tr("Download Complete")`) to support future localization as defined in `LANGUAGES.md`.
+- **Translation Readiness (i18n):** All user-facing strings in the UI must be wrapped in `tr()` or `QObject::tr()` (e.g., `tr("Download Complete")`) to support future localization as defined in `docs/LANGUAGES.md`.
 - **Header Guards:** Always use `#pragma once` at the top of all C++ header files to prevent double inclusion.
 - **Regex Performance:** When using `QRegularExpression` for parsing frequent data (e.g., `yt-dlp` or `aria2c` progress output lines), declare them as `static const` or class members to avoid recompiling the regex pattern on every function call.
 

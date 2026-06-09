@@ -85,6 +85,7 @@ private slots:
 private:
     void setupUi();
     void setThumbnail(const QString &imagePath);
+    [[nodiscard]] bool hasAssociatedTemporaryFiles() const;
 
     QVariantMap m_itemData;
     QLabel *m_thumbnailLabel;

@@ -16,6 +16,8 @@
 #include <QNetworkRequest>
 #include <QUrl>
 #include <QPropertyAnimation>
+#include <QSettings>
+#include <QStandardPaths>
 #include <QMap>
 #include <QPair>
 
@@ -178,7 +180,6 @@ void DownloadItemWidget::setupUi() {
     connect(m_openFolderButton, &QPushButton::clicked, this, &DownloadItemWidget::onOpenContainingFolderClicked);
     connect(m_clearButton, &QPushButton::clicked, this, [this]() {
         m_clearButton->setEnabled(false);
-        emit cancelRequested(getId()); // Tell the backend to clean up temp files
         emit clearRequested(getId());
     });
     connect(clearTempButton, &QPushButton::clicked, this, [this, clearTempButton]() {
@@ -418,9 +419,13 @@ void DownloadItemWidget::setFinished(bool success, const QString &message) {
         m_overallProgressLabel->hide();
 
         if (QPushButton *clearTempButton = findChild<QPushButton*>(QStringLiteral("clearTempButton"))) {
-            clearTempButton->show();
-            clearTempButton->setEnabled(true);
-            clearTempButton->setText(tr("Clear Temp"));
+            if (hasAssociatedTemporaryFiles()) {
+                clearTempButton->show();
+                clearTempButton->setEnabled(true);
+                clearTempButton->setText(tr("Clear Temp"));
+            } else {
+                clearTempButton->hide();
+            }
         }
     } else {
         m_statusLabel->setStyleSheet(QString());
@@ -469,9 +474,13 @@ void DownloadItemWidget::setCancelled() {
     m_overallProgressLabel->hide();
 
     if (QPushButton *clearTempButton = findChild<QPushButton*>(QStringLiteral("clearTempButton"))) {
-        clearTempButton->show();
-        clearTempButton->setEnabled(true);
-        clearTempButton->setText(tr("Clear Temp"));
+        if (hasAssociatedTemporaryFiles()) {
+            clearTempButton->show();
+            clearTempButton->setEnabled(true);
+            clearTempButton->setText(tr("Clear Temp"));
+        } else {
+            clearTempButton->hide();
+        }
     }
 }
 
@@ -570,4 +579,88 @@ void DownloadItemWidget::showPausingFeedback(bool pausing)
     if (m_statusLabel) {
         m_statusLabel->setText(pausing ? tr("Pausing...") : tr("Resuming..."));
     }
+}
+
+bool DownloadItemWidget::hasAssociatedTemporaryFiles() const {
+    const QString id = getId();
+    if (id.isEmpty()) {
+        return false;
+    }
+
+    // 1. Check the standard temporary downloads directory directly using the download's ID
+    QSettings settings(QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation) + QStringLiteral("/settings.ini"), QSettings::IniFormat);
+    QString tempDirStr = settings.value(QStringLiteral("Paths/temporary_downloads_directory")).toString();
+    if (tempDirStr.isEmpty()) {
+        const QString completedDir = settings.value(QStringLiteral("Paths/completed_downloads_directory")).toString();
+        if (!completedDir.isEmpty()) {
+            tempDirStr = QDir(completedDir).filePath(QStringLiteral("temp_downloads"));
+        }
+    }
+
+    if (!tempDirStr.isEmpty()) {
+        QDir uuidDir(QDir(tempDirStr).filePath(id));
+        if (uuidDir.exists() && uuidDir.entryList(QDir::NoDotAndDotDot | QDir::AllEntries).count() > 0) {
+            return true;
+        }
+    }
+
+    // 2. Fallback to check tempFilePath if populated
+    const QString tempPath = m_itemData.value(QStringLiteral("tempFilePath")).toString();
+    if (!tempPath.isEmpty()) {
+        QFileInfo info(tempPath);
+        if (info.exists()) {
+            if (info.isDir()) {
+                QDir dir(tempPath);
+                if (dir.dirName() == id && dir.entryList(QDir::NoDotAndDotDot | QDir::AllEntries).count() > 0) {
+                    return true;
+                }
+            } else {
+                return true;
+            }
+        } else {
+            QDir dir(info.absolutePath());
+            if (dir.dirName() == id && dir.exists() && dir.entryList(QDir::NoDotAndDotDot | QDir::AllEntries).count() > 0) {
+                return true;
+            }
+        }
+    }
+
+    // 3. Fallback to check originalDownloadedFilePath if populated
+    const QString origPath = m_itemData.value(QStringLiteral("originalDownloadedFilePath")).toString();
+    if (!origPath.isEmpty()) {
+        QFileInfo info(origPath);
+        if (info.exists()) {
+            if (info.isDir()) {
+                QDir dir(origPath);
+                if (dir.dirName() == id && dir.entryList(QDir::NoDotAndDotDot | QDir::AllEntries).count() > 0) {
+                    return true;
+                }
+            } else {
+                return true;
+            }
+        } else {
+            QDir dir(info.absolutePath());
+            if (dir.dirName() == id && dir.exists() && dir.entryList(QDir::NoDotAndDotDot | QDir::AllEntries).count() > 0) {
+                return true;
+            }
+        }
+    }
+
+    // 4. Fallback to check cleanup_candidates if populated
+    const QStringList cleanupCandidates = m_itemData.value(QStringLiteral("cleanup_candidates")).toStringList();
+    for (const QString &candidate : cleanupCandidates) {
+        if (!candidate.isEmpty()) {
+            QFileInfo info(candidate);
+            if (info.exists()) {
+                return true;
+            } else {
+                QDir dir(info.absolutePath());
+                if (dir.dirName() == id && dir.exists() && dir.entryList(QDir::NoDotAndDotDot | QDir::AllEntries).count() > 0) {
+                    return true;
+                }
+            }
+        }
+    }
+
+    return false;
 }
