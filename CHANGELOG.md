@@ -10,10 +10,10 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 ## [Unreleased]
 
 ### Changed
-- **External binary management refactor**: `yt-dlp` and `gallery-dl` updater logic now share `BaseBinaryUpdater`, while external tool lookup goes through `SmartBinaryResolver` so manual overrides win, the app-local `bin` folder is considered first, stale settings ghosts are cleared, and multiple discovered candidates can be selected by newest usable version.
+- **External binary management refactor**: External tool lookup goes through `SmartBinaryResolver` so manual overrides win, the app-local `bin` folder is considered first, stale settings ghosts are cleared, and multiple discovered candidates can be selected by newest usable version. External Binaries update flows now run package-manager or tool-native update commands through one cancellable process-log dialog.
 
 ### Fixed
-- **Binary update diagnostics and integrity**: App and tool update checks now use the shared chronological version parser, surface GitHub rate-limit/not-found failures more clearly, show External Binaries update warnings, and verify downloaded standalone tools against SHA-256 data when upstream release metadata provides it.
+- **External Binaries version checks**: `BaseBinaryUpdater` now separates local version probes from remote update checks, keeps bounded probes from freezing the settings page, handles WindowsApps aliases through `cmd.exe`, truncates overly long raw version strings, and refreshes yt-dlp/gallery-dl version labels from the detected executable before reporting update availability.
 
 ## [1.1.65] - 2026-06-10
 

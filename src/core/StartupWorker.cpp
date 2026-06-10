@@ -47,94 +47,143 @@ StartupWorker::~StartupWorker()
     }
 }
 
+static void resolveAndValidateBinaries(ConfigManager *configManager, StartupWorker *worker) {
+    qInfo() << "[StartupWorker::resolveAndValidateBinaries] Checking and logging binary statuses...";
+    QStringList missing;
+    const QStringList allBinaries = {QStringLiteral("yt-dlp"), QStringLiteral("ffmpeg"), QStringLiteral("ffprobe"), QStringLiteral("gallery-dl"), QStringLiteral("aria2c"), QStringLiteral("deno")};
+    const QStringList requiredBinaries = {QStringLiteral("yt-dlp"), QStringLiteral("ffmpeg"), QStringLiteral("ffprobe"), QStringLiteral("deno")};
+
+    for (const QString &binary : allBinaries) {
+        const ProcessUtils::FoundBinary foundBinary = SmartBinaryResolver::resolve(binary, configManager);
+        
+        if (foundBinary.source == QStringLiteral("Not Found") || foundBinary.source == QStringLiteral("Invalid Custom")) {
+            qWarning() << "[StartupWorker::resolveAndValidateBinaries] " << binary << "NOT FOUND or invalid.";
+            if (requiredBinaries.contains(binary)) {
+                missing << binary;
+            }
+        } else {
+            qInfo() << "[StartupWorker::resolveAndValidateBinaries] resolved successfully:" << binary 
+                    << "source:" << foundBinary.source << "path:" << foundBinary.path;
+        }
+    }
+    qInfo() << "[StartupWorker::resolveAndValidateBinaries] Missing required binaries list:" << missing;
+    emit worker->binariesChecked(missing);
+}
+
 void StartupWorker::start() {
     qInfo() << "[StartupWorker::start] >>> STARTUP CHECK SEQUENCE INITIATED <<<";
-    // Instantiate updaters here so they natively belong to the worker thread's context
-    if (!m_ytDlpUpdater) {
-        m_ytDlpUpdater = std::make_unique<BaseBinaryUpdater>(QStringLiteral("yt-dlp"), QStringLiteral("yt-dlp/yt-dlp-nightly-builds"), m_configManager);
-        m_ytDlpUpdater->setVersionParser([](const QString &output) {
-            return output.trimmed();
-        });
-        connect(m_ytDlpUpdater.get(), &BaseBinaryUpdater::updateFinished, this, &StartupWorker::onYtDlpUpdateFinished);
-        connect(m_ytDlpUpdater.get(), &BaseBinaryUpdater::versionFetched, this, &StartupWorker::ytDlpVersionFetched);
-    }
-    
-    if (!m_galleryDlUpdater) {
-        m_galleryDlUpdater = std::make_unique<BaseBinaryUpdater>(QStringLiteral("gallery-dl"), QStringLiteral("mikf/gallery-dl"), m_configManager);
-        m_galleryDlUpdater->setVersionParser([](const QString &output) {
-            QStringList parts = output.split(QLatin1Char(' '), Qt::SkipEmptyParts);
-            return parts.isEmpty() ? QStringLiteral("0.0.0") : parts.last();
-        });
-        connect(m_galleryDlUpdater.get(), &BaseBinaryUpdater::updateFinished, this, &StartupWorker::onGalleryDlUpdateFinished);
-        connect(m_galleryDlUpdater.get(), &BaseBinaryUpdater::versionFetched, this, &StartupWorker::galleryDlVersionFetched);
-    }
 
-    if (!m_ffmpegUpdater) {
-        m_ffmpegUpdater = std::make_unique<BaseBinaryUpdater>(QStringLiteral("ffmpeg"), QStringLiteral("GyanD/codexffmpeg"), m_configManager);
-        m_ffmpegUpdater->setProperty("onlyCheck", true);
-        m_ffmpegUpdater->setVersionParser([](const QString &output) {
-            QRegularExpression re(QStringLiteral("ffmpeg version (.*?)(?:\\s+Copyright|\\s+built|$)"));
-            QRegularExpressionMatch match = re.match(output);
-            return match.hasMatch() ? match.captured(1).trimmed() : QString();
-        });
-        connect(m_ffmpegUpdater.get(), &BaseBinaryUpdater::updateFinished, this, &StartupWorker::onFfmpegUpdateFinished);
-    }
+    auto handleFinished = [this](const QString &binaryName, Updater::UpdateStatus status, const QString &message, bool onlyCheck, BaseBinaryUpdater* updater, bool &checkDoneFlag, const std::function<void()>& onSuccessExtra = nullptr) {
+        if (status == Updater::UpdateStatus::UpdateAvailable || status == Updater::UpdateStatus::UpToDate) {
+            bool available = (status == Updater::UpdateStatus::UpdateAvailable);
+            m_configManager->set(QStringLiteral("Binaries"), QStringLiteral("%1_update_available").arg(binaryName), available);
+            if (onlyCheck) {
+                if (available) {
+                    QString latestVer = updater->property("remoteVersionTag").toString();
+                    m_configManager->set(QStringLiteral("Binaries"), QStringLiteral("%1_latest_version").arg(binaryName), latestVer);
+                    m_configManager->save();
+                    
+                    QString alertMsg;
+                    if (binaryName == QStringLiteral("ffmpeg")) {
+                        alertMsg = tr("Installed FFmpeg version is outdated. The latest stable version is %1. Please update it.").arg(latestVer);
+                    } else if (binaryName == QStringLiteral("deno")) {
+                        alertMsg = tr("Installed Deno version is outdated. The latest stable version is %1. Please update it.").arg(latestVer);
+                    } else {
+                        alertMsg = tr("A newer version of %1 is available. The latest stable version is %2. Please update it.").arg(binaryName, latestVer);
+                    }
+                    emit binaryUpdateRequired(binaryName, alertMsg);
+                } else {
+                    m_configManager->save();
+                }
+            } else {
+                m_configManager->save();
+                if (available) {
+                    emit binaryUpdateRequired(binaryName, tr("A newer version of %1 is available. Please update it in settings.").arg(binaryName));
+                } else {
+                    qInfo() << message;
+                }
+            }
+            if (onSuccessExtra) {
+                onSuccessExtra();
+            }
+        } else {
+            qWarning() << QStringLiteral("%1 auto-update failed:").arg(binaryName) << message;
+            emit binaryUpdateRequired(binaryName, tr("Update check or auto-update failed: %1").arg(message));
+        }
+        checkDoneFlag = true;
+        this->checkAllFinished();
+    };
 
-    if (!m_denoUpdater) {
-        m_denoUpdater = std::make_unique<BaseBinaryUpdater>(QStringLiteral("deno"), QStringLiteral("https://dl.deno.land/release-latest.txt"), m_configManager);
-        m_denoUpdater->setProperty("onlyCheck", true);
-        m_denoUpdater->setVersionParser([](const QString &output) {
-            QRegularExpression re(QStringLiteral("deno\\s+([0-9]+(?:\\.[0-9]+)+)"));
-            QRegularExpressionMatch match = re.match(output);
-            return match.hasMatch() ? match.captured(1) : QString();
-        });
-        connect(m_denoUpdater.get(), &BaseBinaryUpdater::updateFinished, this, &StartupWorker::onDenoUpdateFinished);
-    }
+    // Inline helper to initialize and connect updaters, eliminating duplicate boilerplate
+    auto setupUpdater = [this, &handleFinished](
+        std::unique_ptr<BaseBinaryUpdater> &updater,
+        const QString &name,
+        const QString &repo,
+        const std::function<QString(const QString&)> &parser,
+        bool onlyCheck,
+        bool &checkDoneFlag,
+        const std::function<void()>& onSuccessExtra = nullptr)
+    {
+        if (!updater) {
+            updater = std::make_unique<BaseBinaryUpdater>(name, repo, m_configManager);
+            updater->setVersionParser(parser);
+            if (onlyCheck) {
+                updater->setProperty("onlyCheck", true);
+            }
+            if (name == QStringLiteral("yt-dlp")) {
+                connect(updater.get(), &BaseBinaryUpdater::versionFetched, this, &StartupWorker::ytDlpVersionFetched);
+            } else if (name == QStringLiteral("gallery-dl")) {
+                connect(updater.get(), &BaseBinaryUpdater::versionFetched, this, &StartupWorker::galleryDlVersionFetched);
+            }
+            connect(updater.get(), &BaseBinaryUpdater::updateFinished, this, [this, name, onlyCheck, ptr = updater.get(), &checkDoneFlag, onSuccessExtra, handleFinished](Updater::UpdateStatus status, const QString &message) {
+                handleFinished(name, status, message, onlyCheck, ptr, checkDoneFlag, onSuccessExtra);
+            });
+        }
+    };
 
-    logBinaryPaths();
-    checkBinaries();
+    setupUpdater(m_ytDlpUpdater, QStringLiteral("yt-dlp"), QStringLiteral("yt-dlp/yt-dlp-nightly-builds"), [](const QString &output) {
+        return output.trimmed();
+    }, false, m_ytDlpCheckDone, [this]() {
+        qInfo() << QStringLiteral("Starting extractor list generation.");
+        if (m_extractorJsonParser) {
+            QMetaObject::invokeMethod(m_extractorJsonParser, &ExtractorJsonParser::startGeneration, Qt::QueuedConnection);
+        } else {
+            m_extractorsCheckDone = true;
+        }
+    });
+
+    setupUpdater(m_galleryDlUpdater, QStringLiteral("gallery-dl"), QStringLiteral("mikf/gallery-dl"), [](const QString &output) {
+        QStringList parts = output.split(QLatin1Char(' '), Qt::SkipEmptyParts);
+        return parts.isEmpty() ? QStringLiteral("0.0.0") : parts.last();
+    }, false, m_galleryDlCheckDone);
+
+    setupUpdater(m_ffmpegUpdater, QStringLiteral("ffmpeg"), QStringLiteral("GyanD/codexffmpeg"), [](const QString &output) {
+        QRegularExpression re(QStringLiteral("ffmpeg version (.*?)(?:\\s+Copyright|\\s+built|$)"));
+        QRegularExpressionMatch match = re.match(output);
+        return match.hasMatch() ? match.captured(1).trimmed() : QString();
+    }, true, m_ffmpegCheckDone);
+
+    setupUpdater(m_denoUpdater, QStringLiteral("deno"), QStringLiteral("https://dl.deno.land/release-latest.txt"), [](const QString &output) {
+        QRegularExpression re(QStringLiteral("deno\\s+([0-9]+(?:\\.[0-9]+)+)"));
+        QRegularExpressionMatch match = re.match(output);
+        return match.hasMatch() ? match.captured(1) : QString();
+    }, true, m_denoCheckDone);
+
+    resolveAndValidateBinaries(m_configManager, this);
     checkFfmpegAndDenoVersions();
     checkYtDlpUpdate();
     checkGalleryDlUpdate();
 }
 
-void StartupWorker::logBinaryPaths() {
-    qInfo() << "[StartupWorker::logBinaryPaths] Logging resolved binary locations:";
-    const QStringList binaries = {QStringLiteral("yt-dlp"), QStringLiteral("ffmpeg"), QStringLiteral("ffprobe"), QStringLiteral("gallery-dl"), QStringLiteral("aria2c"), QStringLiteral("deno")};
-    for (const QString &binary : binaries) {
-        const ProcessUtils::FoundBinary foundBinary = SmartBinaryResolver::resolve(binary, m_configManager);
-        if (foundBinary.source == QStringLiteral("Not Found")) {
-            qWarning() << "[StartupWorker::logBinaryPaths]   Required tool NOT FOUND:" << binary;
-        } else {
-            qInfo() << "[StartupWorker::logBinaryPaths]   Binary resolved successfully:" << binary << "source:" << foundBinary.source << "path:" << foundBinary.path;
-        }
-    }
-}
-
-void StartupWorker::checkBinaries() {
-    qInfo() << "[StartupWorker::checkBinaries] Running missing binaries validation check...";
-    QStringList missing;
-    const QStringList requiredBinaries = {QStringLiteral("yt-dlp"), QStringLiteral("ffmpeg"), QStringLiteral("ffprobe"), QStringLiteral("deno")};
-    for (const QString &binary : requiredBinaries) {
-        QString source = SmartBinaryResolver::resolve(binary, m_configManager).source;
-        qInfo() << "[StartupWorker::checkBinaries]   Presence check of" << binary << "resolved source:" << source;
-        if (source == QStringLiteral("Not Found") || source == QStringLiteral("Invalid Custom")) {
-            missing << binary;
-        }
-    }
-    qInfo() << "[StartupWorker::checkBinaries] Missing required binaries list:" << missing;
-    emit binariesChecked(missing);
-}
-
 void StartupWorker::checkFfmpegAndDenoVersions() {
     qInfo() << "[StartupWorker::checkFfmpegAndDenoVersions] Probing local FFmpeg and Deno versions...";
     if (m_ffmpegUpdater) {
-        QMetaObject::invokeMethod(m_ffmpegUpdater.get(), &BaseBinaryUpdater::checkForUpdates, Qt::QueuedConnection);
+        QMetaObject::invokeMethod(m_ffmpegUpdater.get(), &BaseBinaryUpdater::checkForUpdate, Qt::QueuedConnection);
     } else {
         m_ffmpegCheckDone = true;
     }
     if (m_denoUpdater) {
-        QMetaObject::invokeMethod(m_denoUpdater.get(), &BaseBinaryUpdater::checkForUpdates, Qt::QueuedConnection);
+        QMetaObject::invokeMethod(m_denoUpdater.get(), &BaseBinaryUpdater::checkForUpdate, Qt::QueuedConnection);
     } else {
         m_denoCheckDone = true;
     }
@@ -142,97 +191,12 @@ void StartupWorker::checkFfmpegAndDenoVersions() {
 
 void StartupWorker::checkYtDlpUpdate() {
     qInfo() << QStringLiteral("Checking for yt-dlp updates.");
-    QMetaObject::invokeMethod(m_ytDlpUpdater.get(), &BaseBinaryUpdater::checkForUpdates, Qt::QueuedConnection);
+    QMetaObject::invokeMethod(m_ytDlpUpdater.get(), &BaseBinaryUpdater::checkForUpdate, Qt::QueuedConnection);
 }
 
 void StartupWorker::checkGalleryDlUpdate() {
     qInfo() << QStringLiteral("Checking for gallery-dl updates.");
-    QMetaObject::invokeMethod(m_galleryDlUpdater.get(), &BaseBinaryUpdater::checkForUpdates, Qt::QueuedConnection);
-}
-
-void StartupWorker::onYtDlpUpdateFinished(Updater::UpdateStatus status, const QString &message) {
-    if (status == Updater::UpdateStatus::UpdateAvailable || status == Updater::UpdateStatus::UpToDate) {
-        qInfo() << message;
-        if (status == Updater::UpdateStatus::UpdateAvailable) {
-            m_configManager->set(QStringLiteral("Binaries"), QStringLiteral("yt-dlp_update_available"), true);
-            m_configManager->save();
-            emit binaryUpdateRequired(QStringLiteral("yt-dlp"), tr("A newer version of yt-dlp is available. Please update it in settings."));
-        } else {
-            m_configManager->set(QStringLiteral("Binaries"), QStringLiteral("yt-dlp_update_available"), false);
-            m_configManager->save();
-        }
-    } else { // Error
-        qWarning() << QStringLiteral("yt-dlp auto-update failed:") << message;
-        emit binaryUpdateRequired(QStringLiteral("yt-dlp"), tr("Update check or auto-update failed: %1").arg(message));
-    }
-    m_ytDlpCheckDone = true;
-
-    // Now that the update is done, we can safely generate the extractor list.
-    qInfo() << QStringLiteral("Starting extractor list generation.");
-    
-    // Ensure we cross thread boundaries safely, as the parser lives on the main thread
-    if (m_extractorJsonParser) {
-        QMetaObject::invokeMethod(m_extractorJsonParser, &ExtractorJsonParser::startGeneration, Qt::QueuedConnection);
-    } else {
-        m_extractorsCheckDone = true;
-    }
-
-    this->checkAllFinished();
-}
-
-void StartupWorker::onGalleryDlUpdateFinished(Updater::UpdateStatus status, const QString &message) {
-    if (status == Updater::UpdateStatus::UpdateAvailable || status == Updater::UpdateStatus::UpToDate) {
-        qInfo() << message;
-        if (status == Updater::UpdateStatus::UpdateAvailable) {
-            m_configManager->set(QStringLiteral("Binaries"), QStringLiteral("gallery-dl_update_available"), true);
-            m_configManager->save();
-            emit binaryUpdateRequired(QStringLiteral("gallery-dl"), tr("A newer version of gallery-dl is available. Please update it in settings."));
-        } else {
-            m_configManager->set(QStringLiteral("Binaries"), QStringLiteral("gallery-dl_update_available"), false);
-            m_configManager->save();
-        }
-    } else { // Error
-        qWarning() << QStringLiteral("gallery-dl auto-update failed:") << message;
-        emit binaryUpdateRequired(QStringLiteral("gallery-dl"), tr("Update check or auto-update failed: %1").arg(message));
-    }
-    m_galleryDlCheckDone = true;
-    this->checkAllFinished();
-}
-
-void StartupWorker::onFfmpegUpdateFinished(Updater::UpdateStatus status, const QString &message) {
-    if (status == Updater::UpdateStatus::UpdateAvailable) {
-        m_configManager->set(QStringLiteral("Binaries"), QStringLiteral("ffmpeg_update_available"), true);
-        if (m_ffmpegUpdater) {
-            m_configManager->set(QStringLiteral("Binaries"), QStringLiteral("ffmpeg_latest_version"), m_ffmpegUpdater->property("remoteVersionTag").toString());
-        }
-        m_configManager->save();
-        emit binaryUpdateRequired(QStringLiteral("ffmpeg"),
-            tr("Installed FFmpeg version is outdated. The latest stable version is %1. Please update it.")
-            .arg(m_ffmpegUpdater ? m_ffmpegUpdater->property("remoteVersionTag").toString() : QString()));
-    } else if (status == Updater::UpdateStatus::UpToDate) {
-        m_configManager->set(QStringLiteral("Binaries"), QStringLiteral("ffmpeg_update_available"), false);
-        m_configManager->save();
-    }
-    m_ffmpegCheckDone = true;
-    this->checkAllFinished();
-}
-
-void StartupWorker::onDenoUpdateFinished(Updater::UpdateStatus status, const QString &message) {
-    if (status == Updater::UpdateStatus::UpdateAvailable) {
-        m_configManager->set(QStringLiteral("Binaries"), QStringLiteral("deno_update_available"), true);
-        if (m_denoUpdater) {
-            m_configManager->set(QStringLiteral("Binaries"), QStringLiteral("deno_latest_version"), m_denoUpdater->property("remoteVersionTag").toString());
-        }
-        m_configManager->save();
-        emit binaryUpdateRequired(QStringLiteral("deno"),
-            tr("Installed Deno version is outdated. The latest stable version is %1. Please update it.")
-            .arg(m_denoUpdater ? m_denoUpdater->property("remoteVersionTag").toString() : QString()));
-    } else if (status == Updater::UpdateStatus::UpToDate) {
-        m_configManager->set(QStringLiteral("Binaries"), QStringLiteral("deno_update_available"), false);
-        m_configManager->save();
-    }
-    m_denoCheckDone = true;
-    this->checkAllFinished();
+    QMetaObject::invokeMethod(m_galleryDlUpdater.get(), &BaseBinaryUpdater::checkForUpdate, Qt::QueuedConnection);
 }
 
 void StartupWorker::onExtractorsReady() {

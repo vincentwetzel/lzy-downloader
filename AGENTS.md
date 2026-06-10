@@ -78,7 +78,7 @@ The application is transitioning to an **unbundled external-binary model**.
 Current expectations:
 - Prefer user-installed or manually configured executables for `yt-dlp`, `ffmpeg`, `ffprobe`, `gallery-dl`, `aria2c`, and `deno`.
 - External binary resolution should preserve manual overrides first, then consider the app-local `bin` folder and discovered system/package-manager candidates through the shared resolver.
-- Standalone in-app binary updates must avoid overwriting package-managed tools and verify SHA-256 hashes when upstream release metadata publishes them.
+- External binary updates must avoid overwriting package-managed tools directly; prefer package-manager commands or tool-native self-updaters (`yt-dlp -U`, `gallery-dl -U`, `deno upgrade`) surfaced through the External Binaries UI.
 - Keep Qt runtime/plugin deployment self-contained, including `qsqlite.dll`.
 
 Agents MUST NOT:

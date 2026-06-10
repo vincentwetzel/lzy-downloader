@@ -9,17 +9,21 @@
 #include <QCoreApplication>
 #include <QFile>
 #include <QDir>
+#include <QSaveFile>
 #include <QDebug>
 #include <QTimer>
-#include <QSaveFile>
 #include <chrono>
 #include "core/ProcessUtils.h"
 #include "core/VersionParser.h"
 #include "core/ConfigManager.h"
-#include "core/BinaryVerifier.h"
+#include <QNetworkRequest>
+#include <QNetworkReply>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QRegularExpression>
 
 BaseBinaryUpdater::BaseBinaryUpdater(const QString &binaryName, const QString &repoSlug, ConfigManager *configManager, QObject *parent)
-    : QObject(parent), m_binaryName(binaryName), m_repoSlug(repoSlug), m_configManager(configManager), m_process(nullptr) {
+    : QObject(parent), m_binaryName(binaryName), m_repoSlug(repoSlug), m_configManager(configManager), m_process(nullptr), m_localVersionOnly(false) {
     m_networkManager = new QNetworkAccessManager(this);
     m_currentLocalVersion = QStringLiteral("0.0.0");
     m_cachedVersion = loadStoredVersion();
@@ -29,7 +33,8 @@ BaseBinaryUpdater::~BaseBinaryUpdater() {
     stop();
 }
 
-void BaseBinaryUpdater::checkForUpdates() {
+void BaseBinaryUpdater::fetchLocalVersionOnly() {
+    m_localVersionOnly = true;
     fetchVersion();
 }
 
@@ -52,6 +57,99 @@ void BaseBinaryUpdater::stop() {
 
 void BaseBinaryUpdater::setVersionParser(VersionParserFunc parser) {
     m_versionParser = std::move(parser);
+}
+
+void BaseBinaryUpdater::checkForUpdate() {
+    m_localVersionOnly = false;
+    if (m_currentLocalVersion == QStringLiteral("0.0.0") || m_currentLocalVersion.isEmpty() || m_currentLocalVersion == QStringLiteral("Not Found")) {
+        connect(this, &BaseBinaryUpdater::versionFetched, this, [this](const QString &localVer) {
+            if (localVer == QStringLiteral("Not Found") || localVer == QStringLiteral("Error")) {
+                emit updateFinished(Updater::UpdateStatus::Error, tr("Local binary not found or failed to probe."));
+                return;
+            }
+            disconnect(this, &BaseBinaryUpdater::versionFetched, nullptr, nullptr);
+            checkForUpdate();
+        });
+        fetchVersion();
+        return;
+    }
+
+    QUrl url;
+    if (m_repoSlug.startsWith(QStringLiteral("http"), Qt::CaseInsensitive)) {
+        url = QUrl(m_repoSlug);
+    } else {
+        url = QUrl(QStringLiteral("https://api.github.com/repos/%1/releases/latest").arg(m_repoSlug));
+    }
+
+    QNetworkRequest request(url);
+    request.setHeader(QNetworkRequest::UserAgentHeader, QStringLiteral("LzyDownloader-Updater"));
+    
+    QNetworkReply *reply = m_networkManager->get(request);
+    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+        reply->deleteLater();
+        if (reply->error() != QNetworkReply::NoError) {
+            emit updateFinished(Updater::UpdateStatus::Error, tr("Network error checking update: %1").arg(reply->errorString()));
+            return;
+        }
+
+        const QByteArray response = reply->readAll();
+        QString remoteVersion;
+
+        if (m_repoSlug.startsWith(QStringLiteral("http"), Qt::CaseInsensitive)) {
+            remoteVersion = QString::fromUtf8(response).trimmed();
+        } else {
+            QJsonParseError parseError;
+            QJsonDocument doc = QJsonDocument::fromJson(response, &parseError);
+            if (parseError.error != QJsonParseError::NoError || !doc.isObject()) {
+                emit updateFinished(Updater::UpdateStatus::Error, tr("JSON parse error: %1").arg(parseError.errorString()));
+                return;
+            }
+
+            QJsonObject obj = doc.object();
+            remoteVersion = obj.value(QStringLiteral("tag_name")).toString().trimmed();
+            if (remoteVersion.isEmpty()) {
+                remoteVersion = obj.value(QStringLiteral("name")).toString().trimmed();
+            }
+        }
+
+        if (remoteVersion.isEmpty()) {
+            emit updateFinished(Updater::UpdateStatus::Error, tr("Failed to parse remote version tag."));
+            return;
+        }
+
+        setProperty("remoteVersionTag", remoteVersion);
+
+        auto normalize = [](QString ver) -> QString {
+            ver = ver.trimmed().toLower();
+            if (ver.startsWith(QLatin1Char('v'))) ver.remove(0, 1);
+            return ver.trimmed();
+        };
+
+        const QString normLocal = normalize(m_currentLocalVersion);
+        const QString normRemote = normalize(remoteVersion);
+
+        if (normLocal == normRemote) {
+            emit updateFinished(Updater::UpdateStatus::UpToDate, tr("%1 is up to date (%2).").arg(m_binaryName, m_currentLocalVersion));
+        } else {
+            auto isNewer = [](const QString &local, const QString &remote) -> bool {
+                QStringList localParts = local.split(QLatin1Char('.'));
+                QStringList remoteParts = remote.split(QLatin1Char('.'));
+                for (int i = 0; i < qMax(localParts.size(), remoteParts.size()); ++i) {
+                    int localPart = i < localParts.size() ? localParts[i].toInt() : 0;
+                    int remotePart = i < remoteParts.size() ? remoteParts[i].toInt() : 0;
+                    if (remotePart > localPart) return true;
+                    if (remotePart < localPart) return false;
+                }
+                return false;
+            };
+
+            if (isNewer(normLocal, normRemote)) {
+                emit updateFinished(Updater::UpdateStatus::UpdateAvailable, tr("Update available for %1: %2 -> %3").arg(m_binaryName, m_currentLocalVersion, remoteVersion));
+            } else {
+                emit updateFinished(Updater::UpdateStatus::UpToDate, tr("%1 is up to date (%2, remote: %3).").arg(m_binaryName, m_currentLocalVersion, remoteVersion));
+            }
+        }
+    });
 }
 
 void BaseBinaryUpdater::fetchVersion() {
@@ -95,7 +193,21 @@ void BaseBinaryUpdater::fetchVersion() {
     watchdog->start(std::chrono::seconds(10)); // 10 seconds
 
     const QString versionArg = (m_binaryName == QStringLiteral("ffmpeg") || m_binaryName == QStringLiteral("ffprobe")) ? QStringLiteral("-version") : QStringLiteral("--version");
+#ifdef Q_OS_WIN
+    if (binary.path.toLower().contains(QStringLiteral("windowsapps"))) {
+        QString cmdLine;
+        if (binary.path.contains(QLatin1Char(' '))) {
+            cmdLine = QStringLiteral("\"%1\" %2").arg(binary.path, versionArg);
+        } else {
+            cmdLine = QStringLiteral("%1 %2").arg(binary.path, versionArg);
+        }
+        m_process->start(QStringLiteral("cmd.exe"), {QStringLiteral("/c"), cmdLine});
+    } else {
+        m_process->start(binary.path, QStringList{versionArg});
+    }
+#else
     m_process->start(binary.path, QStringList{versionArg});
+#endif
 }
 
 void BaseBinaryUpdater::onVersionFetchFinished(int exitCode, QProcess::ExitStatus exitStatus) {
@@ -111,258 +223,19 @@ void BaseBinaryUpdater::onVersionFetchFinished(int exitCode, QProcess::ExitStatu
 
     if (exitCode == 0 && process) {
         QString versionOutput = QString::fromUtf8(process->readAllStandardOutput()).trimmed();
-        m_currentLocalVersion = m_versionParser ? m_versionParser(versionOutput) : versionOutput;
+        if (m_versionParser) {
+            m_currentLocalVersion = m_versionParser(versionOutput);
+        } else {
+            m_currentLocalVersion = versionOutput.split(QLatin1Char('\n')).first().trimmed();
+            if (m_currentLocalVersion.length() > 65) {
+                m_currentLocalVersion = m_currentLocalVersion.left(62) + QStringLiteral("...");
+            }
+        }
         m_cachedVersion = m_currentLocalVersion;
         saveStoredVersion(m_currentLocalVersion);
         emit versionFetched(m_currentLocalVersion);
-
-        QUrl url;
-        if (m_repoSlug.startsWith(QStringLiteral("http"))) {
-            url = QUrl(m_repoSlug);
-        } else {
-            url = QUrl(QStringLiteral("https://api.github.com/repos/%1/releases/latest").arg(m_repoSlug));
-        }
-        QNetworkRequest request(url);
-        request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
-        request.setHeader(QNetworkRequest::UserAgentHeader, QStringLiteral("LzyDownloader"));
-        constexpr int releaseCheckTimeoutMs = 15000;
-        request.setTransferTimeout(releaseCheckTimeoutMs);
-        QNetworkReply *reply = m_networkManager->get(request);
-        connect(reply, &QNetworkReply::finished, this, &BaseBinaryUpdater::onReleaseCheckFinished);
     }
     m_process = nullptr;
-}
-
-void BaseBinaryUpdater::onReleaseCheckFinished() {
-    QNetworkReply *reply = qobject_cast<QNetworkReply*>(sender());
-    if (!reply) return;
-
-    if (reply->error() != QNetworkReply::NoError) {
-        if (reply->error() != QNetworkReply::OperationCanceledError) {
-            emit updateFinished(Updater::UpdateStatus::Error, tr("Update check failed: %1").arg(reply->errorString()));
-        }
-        reply->deleteLater();
-        return;
-    }
-
-    if (reply->bytesAvailable() > 5 * 1024 * 1024) { // 5MB limit
-        emit updateFinished(Updater::UpdateStatus::Error, tr("Update check response is too large."));
-        reply->deleteLater();
-        return;
-    }
-
-    QByteArray data = reply->readAll();
-    QJsonParseError parseError;
-    QJsonDocument doc = QJsonDocument::fromJson(data, &parseError);
-
-    if (parseError.error != QJsonParseError::NoError || !doc.isObject()) {
-        emit updateFinished(Updater::UpdateStatus::Error, tr("Failed to parse release JSON: %1").arg(parseError.errorString()));
-        reply->deleteLater();
-        return;
-    }
-
-    QJsonObject release = doc.object();
-
-    int statusCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
-    if (statusCode == 403) {
-        emit updateFinished(Updater::UpdateStatus::Error, tr("Update check rate-limited by GitHub. Please try again later."));
-        reply->deleteLater();
-        return;
-    } else if (statusCode == 404) {
-        emit updateFinished(Updater::UpdateStatus::Error, tr("GitHub release repository not found."));
-        reply->deleteLater();
-        return;
-    }
-
-    m_remoteVersionTag = release.value(QStringLiteral("tag_name")).toString();
-    if (m_remoteVersionTag.isEmpty()) {
-        emit updateFinished(Updater::UpdateStatus::Error, tr("Invalid release JSON format: missing or empty tag_name."));
-        reply->deleteLater();
-        return;
-    }
-
-    const Version localVersion = Version::parse(m_currentLocalVersion);
-    const Version remoteVersion = Version::parse(m_remoteVersionTag);
-
-    if (!(remoteVersion > localVersion)) {
-        emit updateFinished(Updater::UpdateStatus::UpToDate, tr("%1 is already up to date (%2).").arg(m_binaryName, localVersion.toString()));
-        reply->deleteLater();
-        return;
-    }
-
-    const QJsonValue assetsVal = release.value(QStringLiteral("assets"));
-    if (!assetsVal.isArray()) {
-        emit updateFinished(Updater::UpdateStatus::Error, tr("Invalid release JSON format: missing assets."));
-        reply->deleteLater();
-        return;
-    }
-
-    const QJsonArray assets = assetsVal.toArray();
-    QUrl downloadUrl;
-    m_sha256DownloadUrl.clear();
-    m_expectedSha256.clear();
-
-    const QString expectedAssetName = getExpectedAssetName();
-
-    for (const QJsonValue &value : assets) {
-        if (value.isObject()) {
-            QJsonObject asset = value.toObject();
-            const QJsonValue nameVal = asset.value(QStringLiteral("name"));
-            if (nameVal.isString()) {
-                QString assetName = nameVal.toString();
-                if (assetName.compare(expectedAssetName, Qt::CaseInsensitive) == 0) {
-                    downloadUrl = QUrl(asset.value(QStringLiteral("browser_download_url")).toString());
-                    if (asset.contains(QStringLiteral("sha256")) && asset.value(QStringLiteral("sha256")).isString()) {
-                        m_expectedSha256 = asset.value(QStringLiteral("sha256")).toString();
-                    }
-                } else if (assetName.contains(QStringLiteral("SHA256SUMS"), Qt::CaseInsensitive)) {
-                    m_sha256DownloadUrl = QUrl(asset.value(QStringLiteral("browser_download_url")).toString());
-                }
-            }
-        }
-    }
-
-    if (downloadUrl.isValid()) {
-        if (m_sha256DownloadUrl.isValid() && m_expectedSha256.isEmpty()) {
-            QNetworkRequest request(m_sha256DownloadUrl);
-            request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
-            request.setHeader(QNetworkRequest::UserAgentHeader, QStringLiteral("LzyDownloader"));
-            QNetworkReply *shaReply = m_networkManager->get(request);
-            shaReply->setProperty("binaryDownloadUrl", downloadUrl);
-            shaReply->setProperty("remoteVersion", m_remoteVersionTag);
-            connect(shaReply, &QNetworkReply::finished, this, &BaseBinaryUpdater::onSha256DownloadFinished);
-        } else {
-            initiateBinaryDownload(downloadUrl, m_remoteVersionTag);
-        }
-    } else {
-        emit updateFinished(Updater::UpdateStatus::Error, tr("Target executable not found in release assets."));
-    }
-
-    reply->deleteLater();
-}
-
-void BaseBinaryUpdater::onSha256DownloadFinished() {
-    QNetworkReply *reply = qobject_cast<QNetworkReply*>(sender());
-    if (!reply) return;
-
-    QUrl binaryDownloadUrl = reply->property("binaryDownloadUrl").toUrl();
-    QString remoteVersion = reply->property("remoteVersion").toString();
-
-    if (reply->error() != QNetworkReply::NoError) {
-        qWarning() << "Failed to download SHA256SUMS file:" << reply->errorString();
-        m_expectedSha256.clear();
-    } else {
-        QByteArray sha256Data = reply->readAll();
-        const QString expectedAssetName = getExpectedAssetName();
-
-        QStringList lines = QString::fromUtf8(sha256Data).split(QLatin1Char('\n'), Qt::SkipEmptyParts);
-        for (const QString& line : lines) {
-            QStringList parts = line.split(QLatin1Char(' '), Qt::SkipEmptyParts);
-            if (parts.size() >= 2) {
-                QString filename = parts.last();
-                if (filename.contains(expectedAssetName, Qt::CaseInsensitive)) {
-                    m_expectedSha256 = parts.first();
-                    qDebug() << "Found SHA256 hash for" << expectedAssetName << ":" << m_expectedSha256;
-                    break;
-                }
-            }
-        }
-        if (m_expectedSha256.isEmpty()) {
-            qWarning() << "Could not find SHA256 hash for" << expectedAssetName << "in SHA256SUMS file.";
-        }
-    }
-    reply->deleteLater();
-
-    if (binaryDownloadUrl.isValid()) {
-        initiateBinaryDownload(binaryDownloadUrl, remoteVersion);
-    } else {
-        emit updateFinished(Updater::UpdateStatus::Error, tr("Binary download URL was invalid after SHA256 check."));
-    }
-}
-
-void BaseBinaryUpdater::initiateBinaryDownload(const QUrl &binaryDownloadUrl, const QString &remoteVersion) {
-    QNetworkRequest request(binaryDownloadUrl);
-    request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
-    request.setHeader(QNetworkRequest::UserAgentHeader, QStringLiteral("LzyDownloader"));
-    constexpr int downloadTimeoutMs = 60000;
-    request.setTransferTimeout(downloadTimeoutMs);
-    QNetworkReply *dlReply = m_networkManager->get(request);
-    dlReply->setProperty("newVersion", remoteVersion);
-    connect(dlReply, &QNetworkReply::downloadProgress, this, [dlReply](qint64 bytesReceived, qint64 bytesTotal) {
-        const qint64 maxSize = 100LL * 1024 * 1024; // 100 MB limit
-        if (bytesTotal > maxSize || bytesReceived > maxSize) {
-            dlReply->setProperty("payloadTooLarge", true);
-            dlReply->abort();
-        }
-    });
-    connect(dlReply, &QNetworkReply::finished, this, &BaseBinaryUpdater::onDownloadFinished);
-}
-
-void BaseBinaryUpdater::onDownloadFinished() {
-    QNetworkReply *reply = qobject_cast<QNetworkReply*>(sender());
-    if (!reply) return;
-
-    if (reply->error() != QNetworkReply::NoError) {
-        if (reply->property("payloadTooLarge").toBool()) {
-            emit updateFinished(Updater::UpdateStatus::Error, tr("Download aborted: payload too large."));
-        } else if (reply->error() != QNetworkReply::OperationCanceledError) {
-            emit updateFinished(Updater::UpdateStatus::Error, tr("Download failed: %1").arg(reply->errorString()));
-        }
-        reply->deleteLater();
-        return;
-    }
-
-    const QString newVersion = m_remoteVersionTag;
-
-    ProcessUtils::FoundBinary binary = ProcessUtils::resolveBinary(m_binaryName, m_configManager);
-    QString targetPath = binary.path;
-
-    if (binary.source != QStringLiteral("Custom") && binary.source != QStringLiteral("App Directory") && binary.source != QStringLiteral("Not Found")) {
-        emit updateFinished(Updater::UpdateStatus::Error, 
-            tr("%1 is managed by %2. Please update it using your package manager or Advanced Settings -> External Tools.").arg(m_binaryName, binary.source));
-        reply->deleteLater();
-        return;
-    }
-
-    if (targetPath.isEmpty() || binary.source == QStringLiteral("Not Found")) {
-        QString appDir = QCoreApplication::applicationDirPath();
-        const QString ext = getExpectedAssetName();
-        targetPath = QDir(appDir).filePath(ext);
-    }
-
-    QSaveFile file(targetPath);
-    if (file.open(QIODevice::WriteOnly)) {
-        file.write(reply->readAll());
-        file.commit();
-
-        if (!m_expectedSha256.isEmpty()) {
-            if (!BinaryVerifier::verifyBinaryIntegrity(targetPath, m_expectedSha256)) {
-                emit updateFinished(Updater::UpdateStatus::Error, tr("SHA256 verification failed for downloaded binary."));
-                reply->deleteLater();
-                return;
-            }
-        }
-        if (file.commit()) {
-#ifndef Q_OS_WIN
-            QFile::setPermissions(targetPath, QFile::permissions(targetPath) | QFileDevice::ExeOwner | QFileDevice::ExeGroup | QFileDevice::ExeOther);
-#endif
-
-            m_currentLocalVersion = newVersion;
-            m_cachedVersion = newVersion;
-            saveStoredVersion(newVersion);
-
-            ProcessUtils::clearCache();
-
-            emit versionFetched(m_currentLocalVersion);
-            emit updateFinished(Updater::UpdateStatus::UpdateAvailable, tr("%1 updated successfully to %2.").arg(m_binaryName, newVersion));
-        } else {
-            emit updateFinished(Updater::UpdateStatus::Error, tr("Failed to commit file: %1").arg(file.errorString()));
-        }
-    } else {
-        emit updateFinished(Updater::UpdateStatus::Error, tr("Failed to write file: %1").arg(file.errorString()));
-    }
-
-    reply->deleteLater();
 }
 
 QString BaseBinaryUpdater::storedVersionPath() const {

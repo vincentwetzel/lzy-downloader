@@ -28,10 +28,6 @@ signals:
     void galleryDlVersionFetched(const QString &version);
 
 private slots:
-    void onYtDlpUpdateFinished(Updater::UpdateStatus status, const QString &message);
-    void onGalleryDlUpdateFinished(Updater::UpdateStatus status, const QString &message);
-    void onFfmpegUpdateFinished(Updater::UpdateStatus status, const QString &message);
-    void onDenoUpdateFinished(Updater::UpdateStatus status, const QString &message);
     void onExtractorsReady();
 
 private:

@@ -207,7 +207,7 @@ Manual path overrides for external executables. If not set, the application auto
 
 > **Binary Resolution Order:** The application searches in this order: (1) User-configured path, (2) app-local `bin` folder, (3) System PATH, (4) user-local install locations (e.g., Deno, Scoop shims, WindowsApps, Chocolatey, and Python Scripts). If multiple executable candidates are found, the resolver probes versions with a short timeout and prefers the newest usable candidate.
 
-The External Tools page can also run install/update commands through detected package managers or safe standalone updaters. WinGet updates use exact package IDs where available (`yt-dlp.yt-dlp`, `mikf.gallery-dl`, `Gyan.FFmpeg`, `aria2.aria2`, `DenoLand.Deno`), Deno standalone updates use `deno upgrade`, and cancellable progress dialogs preserve command output for troubleshooting. Version checks are bounded by short watchdogs, install/update helpers close stdin so package aliases cannot hang waiting for input, and downloaded standalone binaries are verified with SHA-256 hashes when upstream release metadata publishes them.
+The External Tools page can also run install/update commands through detected package managers or safe tool-native updaters. WinGet updates use exact package IDs where available (`yt-dlp.yt-dlp`, `mikf.gallery-dl`, `Gyan.FFmpeg`, `aria2.aria2`, `DenoLand.Deno`), Deno standalone updates use `deno upgrade`, and cancellable progress dialogs preserve command output for troubleshooting. Version checks are bounded by short watchdogs, install/update helpers close stdin so package aliases cannot hang waiting for input, and successful updates clear update-warning flags before refreshing binary status.
 
 ---
 

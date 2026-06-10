@@ -6,6 +6,7 @@
 #include <QNetworkAccessManager>
 #include <QProcess>
 #include <functional>
+#include "core/UpdateStatus.h"
 #include "core/AppUpdater.h"
 
 class ConfigManager;
@@ -16,8 +17,9 @@ public:
     explicit BaseBinaryUpdater(const QString &binaryName, const QString &repoSlug, ConfigManager *configManager, QObject *parent = nullptr);
     ~BaseBinaryUpdater() override;
 
-    void checkForUpdates();
+    void fetchLocalVersionOnly();
     void stop();
+    void checkForUpdate();
 
     using VersionParserFunc = std::function<QString(const QString &)>;
     void setVersionParser(VersionParserFunc parser);
@@ -25,6 +27,7 @@ public:
     [[nodiscard]] QString storedVersionPath() const;
     [[nodiscard]] QString loadStoredVersion() const;
     void saveStoredVersion(const QString &version) const;
+    [[nodiscard]] QString getExpectedAssetName() const;
 
 signals:
     void versionFetched(const QString &version);
@@ -33,13 +36,8 @@ signals:
 private slots:
     void fetchVersion();
     void onVersionFetchFinished(int exitCode, QProcess::ExitStatus exitStatus);
-    void onReleaseCheckFinished();
-    void onSha256DownloadFinished();
-    void onDownloadFinished();
 
 private:
-    [[nodiscard]] QString getExpectedAssetName() const;
-    void initiateBinaryDownload(const QUrl &binaryDownloadUrl, const QString &remoteVersion);
 
     QString m_binaryName;
     QString m_repoSlug;
@@ -50,7 +48,5 @@ private:
 
     QString m_currentLocalVersion;
     QString m_cachedVersion;
-    QString m_remoteVersionTag;
-    QString m_expectedSha256;
-    QUrl m_sha256DownloadUrl;
+    bool m_localVersionOnly = false;
 };

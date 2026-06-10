@@ -3,6 +3,7 @@
 #include "core/ConfigManager.h"
 #include "core/ProcessUtils.h"
 #include "core/SmartBinaryResolver.h"
+#include "core/BaseBinaryUpdater.h"
 
 #include <QComboBox>
 #include <QDesktopServices>
@@ -30,6 +31,16 @@
 #include <QPointer>
 #include <QEvent>
 #include <QSettings>
+
+namespace {
+QString getWindowsAppsDir() {
+    const QString localAppData = QProcessEnvironment::systemEnvironment().value(QStringLiteral("LOCALAPPDATA"));
+    if (localAppData.isEmpty()) {
+        return QString();
+    }
+    return QDir(localAppData).filePath(QStringLiteral("Microsoft/WindowsApps"));
+}
+}
 
 BinariesPage::BinariesPage(ConfigManager *configManager, QWidget *parent)
     : QWidget(parent), m_configManager(configManager) {
@@ -451,177 +462,20 @@ void BinariesPage::setupRow(QVBoxLayout *layout,
             msgBox.exec();
 
             if (msgBox.clickedButton() == runButton) {
-                QDialog progressDialog(this);
-                progressDialog.setWindowTitle(tr("Updating %1 via %2").arg(displayName(binaryName), manager));
-                progressDialog.resize(600, 400);
+                ProcessRunOptions opts;
+                opts.dialogTitle = tr("Updating %1 via %2").arg(displayName(binaryName), manager);
+                opts.program = updateProgram;
+                opts.arguments = updateArgs;
+                opts.binaryName = binaryName;
+                opts.isAlias = false;
+                opts.isUpdate = true;
 
-                QVBoxLayout *pLayout = new QVBoxLayout(&progressDialog);
-
-                QTextEdit *outputEdit = new QTextEdit(&progressDialog);
-                outputEdit->setReadOnly(true);
-                outputEdit->setFontFamily(QStringLiteral("Courier New"));
-                outputEdit->setWordWrapMode(QTextOption::WrapAnywhere);
-                pLayout->addWidget(outputEdit);
-
-                QDialogButtonBox *pButtons = new QDialogButtonBox(QDialogButtonBox::Close, &progressDialog);
-                QPushButton *closeBtn = pButtons->button(QDialogButtonBox::Close);
-                closeBtn->setEnabled(false);
-                pLayout->addWidget(pButtons);
-
-                connect(pButtons, &QDialogButtonBox::rejected, &progressDialog, &QDialog::reject);
-
-                QProcess *process = new QProcess(&progressDialog);
-                ProcessUtils::setProcessEnvironment(*process);
-                process->setProcessChannelMode(QProcess::MergedChannels);
-
-                connect(&progressDialog, &QDialog::rejected, process, [process]() {
-                    if (process->state() != QProcess::NotRunning) {
-                        process->setProperty("cancelled", QVariant(true));
-                        ProcessUtils::terminateProcessTree(process);
-                        process->kill();
-                    }
-                });
-
-                QPointer<QDialog> pDialog(&progressDialog);
-
-                connect(process, &QProcess::readyReadStandardOutput, process, [process, outputEdit, pDialog]() {
-                    if (!pDialog) {
-                        return;
-                    }
-
-                    QByteArray buffer = process->property("outputBuffer").toByteArray();
-                    buffer.append(process->readAllStandardOutput());
-
-                    qsizetype lastDelimiter = qMax(buffer.lastIndexOf('\n'), buffer.lastIndexOf('\r'));
-
-                    if (lastDelimiter != -1) {
-                        QString output = QString::fromUtf8(buffer.constData(), lastDelimiter + 1);
-                        buffer.remove(0, lastDelimiter + 1);
-
-                        outputEdit->moveCursor(QTextCursor::End);
-                        outputEdit->insertPlainText(output);
-                        outputEdit->moveCursor(QTextCursor::End);
-                    }
-
-                    process->setProperty("outputBuffer", buffer);
-                });
-
-                connect(process,
-                        QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
-                        this,
-                        [this, process, outputEdit, closeBtn, binaryName, pDialog](int exitCode, QProcess::ExitStatus exitStatus) {
-                            if (!pDialog) {
-                                return;
-                            }
-
-                            if (process->property("cancelled").toBool()) {
-                                return;
-                            }
-
-                            closeBtn->setEnabled(true);
-
-                            QByteArray buffer = process->property("outputBuffer").toByteArray();
-                            if (!buffer.isEmpty()) {
-                                outputEdit->moveCursor(QTextCursor::End);
-                                outputEdit->insertPlainText(QString::fromUtf8(buffer));
-                            }
-
-                            if (exitStatus == QProcess::NormalExit && exitCode == 0) {
-                                outputEdit->moveCursor(QTextCursor::End);
-                                outputEdit->insertPlainText(tr("\n--- Update completed successfully. ---\n"));
-
-                                m_configManager->set(QStringLiteral("Binaries"), QStringLiteral("%1_update_available").arg(binaryName), false);
-                                if (binaryName == QStringLiteral("ffmpeg")) {
-                                    m_configManager->set(QStringLiteral("Binaries"), QStringLiteral("ffprobe_update_available"), false);
-                                } else if (binaryName == QStringLiteral("ffprobe")) {
-                                    m_configManager->set(QStringLiteral("Binaries"), QStringLiteral("ffmpeg_update_available"), false);
-                                }
-                                m_configManager->save();
-
-                                ProcessUtils::clearCache();
-                                this->setBinaryWarning(binaryName, QString());
-                                this->refreshBinaryStatus(binaryName);
-                            } else {
-                                outputEdit->moveCursor(QTextCursor::End);
-                                outputEdit->insertPlainText(tr("\n--- Update failed with exit code %1. ---\n").arg(exitCode));
-
-                                const QString logText = outputEdit->toPlainText();
-
-                                if (logText.contains(QStringLiteral("Permission denied"), Qt::CaseInsensitive) ||
-                                    logText.contains(QStringLiteral("Access is denied"), Qt::CaseInsensitive)) {
-                                    QMessageBox::warning(
-                                        pDialog,
-                                        tr("Permission Denied"),
-                                        tr("The update of %1 failed due to insufficient permissions.\n\n"
-                                           "If it is installed in a protected system folder (like 'Program Files'), "
-                                           "please restart LzyDownloader as Administrator and try again.")
-                                            .arg(displayName(binaryName))
-                                    );
-                                } else {
-                                    QMessageBox::warning(
-                                        pDialog,
-                                        tr("Update Failed"),
-                                        tr("The update of %1 failed. Please check the output log.")
-                                            .arg(displayName(binaryName))
-                                    );
-                                }
-                            }
-                        });
-
-                connect(process, &QProcess::errorOccurred, process, [process, outputEdit, closeBtn, pDialog](QProcess::ProcessError) {
-                    if (!pDialog) {
-                        return;
-                    }
-
-                    closeBtn->setEnabled(true);
-                    outputEdit->moveCursor(QTextCursor::End);
-                    outputEdit->insertPlainText(tr("\n--- Process error: %1 ---\n").arg(process->errorString()));
-                });
-
-                outputEdit->insertPlainText(tr("Running command: %1\n\n").arg(cmdPreview));
-
-#ifdef Q_OS_WIN
-                if (isStandalone) {
-                    process->start(updateProgram, updateArgs);
-                } else {
-                    QStringList commandParts;
-
-                    if (updateProgram.contains(QLatin1Char(' '))) {
-                        commandParts << QStringLiteral("\"%1\"").arg(updateProgram);
-                    } else {
-                        commandParts << updateProgram;
-                    }
-
-                    for (const QString &arg : updateArgs) {
-                        if (arg.contains(QLatin1Char(' '))) {
-                            commandParts << QStringLiteral("\"%1\"").arg(arg);
-                        } else {
-                            commandParts << arg;
-                        }
-                    }
-
-                    process->start(QStringLiteral("cmd"), {QStringLiteral("/C"), commandParts.join(QLatin1Char(' '))});
-                }
-#else
-                process->start(updateProgram, updateArgs);
-#endif
-
-                progressDialog.exec();
+                runProcessWithLog(opts);
             }
         } else {
             installBinaryFor(binaryName);
         }
     });
-}
-
-void BinariesPage::setYtDlpVersion(const QString &version) {
-    // Deprecated: BinariesPage now autonomously fetches its own versions
-    // Ignoring this signal prevents StartupWorker from overwriting the UI with stale errors
-}
-
-void BinariesPage::setGalleryDlVersion(const QString &version) {
-    // Deprecated: BinariesPage now autonomously fetches its own versions
-    // Ignoring this signal prevents StartupWorker from overwriting the UI with stale errors
 }
 
 void BinariesPage::fetchBinaryVersion(const QString &binaryName, const QString &path) {
@@ -631,65 +485,16 @@ void BinariesPage::fetchBinaryVersion(const QString &binaryName, const QString &
 
     m_versionLabels[binaryName]->setText(tr("Version: Fetching..."));
 
-    QProcess *process = new QProcess(this);
-    ProcessUtils::setProcessEnvironment(*process);
-    process->setProcessChannelMode(QProcess::MergedChannels);
-
-    QTimer *watchdog = new QTimer(process);
-    watchdog->setSingleShot(true);
-    watchdog->setInterval(5000); // 5-second timeout for rapid version checks
-    connect(watchdog, &QTimer::timeout, process, [process, binaryName]() {
-        if (process->state() != QProcess::NotRunning) {
-            qWarning() << "[BinariesPage] Version fetch timed out for" << binaryName;
-            process->kill();
-        }
-    });
-    connect(process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished), watchdog, &QTimer::stop);
-
-    const QString argVersion = (binaryName == QStringLiteral("ffmpeg") || binaryName == QStringLiteral("ffprobe")) ? QStringLiteral("-version") : QStringLiteral("--version");
-
-#ifdef Q_OS_WIN
-    if (path.toLower().contains(QStringLiteral("windowsapps"))) {
-        // Command must be passed as a single string to /c to survive cmd.exe outer quote stripping
-        QString cmdLine;
-        if (path.contains(QLatin1Char(' '))) cmdLine = QStringLiteral("\"%1\" %2").arg(path, argVersion);
-        else cmdLine = QStringLiteral("%1 %2").arg(path, argVersion);
-
-        process->setProgram(QStringLiteral("cmd.exe"));
-        process->setArguments({QStringLiteral("/c"), cmdLine});
-    } else {
-        process->setProgram(path);
-        process->setArguments({argVersion});
+    BaseBinaryUpdater *updater = m_updaters.value(binaryName);
+    if (!updater) {
+        updater = new BaseBinaryUpdater(binaryName, QString(), m_configManager, this);
+        connect(updater, &BaseBinaryUpdater::versionFetched, this, [this, binaryName](const QString &version) {
+            m_versionLabels[binaryName]->setText(tr("Version: %1").arg(version));
+        });
+        m_updaters.insert(binaryName, updater);
     }
-#else
-    process->setProgram(path);
-    process->setArguments({argVersion});
-#endif
 
-    connect(process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
-            this, [this, process, binaryName](int exitCode, QProcess::ExitStatus exitStatus) {
-        if (exitStatus == QProcess::NormalExit && exitCode == 0) {
-            const QString output = QString::fromUtf8(process->readAllStandardOutput()).trimmed();
-            QString firstLine = output.split(QLatin1Char('\n')).first().trimmed();
-            if (firstLine.length() > 65) firstLine = firstLine.left(62) + QStringLiteral("...");
-            m_versionLabels[binaryName]->setText(tr("Version: %1").arg(firstLine));
-        } else {
-            m_versionLabels[binaryName]->setText(tr("Version: Error"));
-        }
-    });
-
-    connect(process, &QProcess::errorOccurred, this, [this, binaryName, process](QProcess::ProcessError error) {
-        m_versionLabels[binaryName]->setText(tr("Version: Error"));
-        if (error == QProcess::FailedToStart) {
-            process->deleteLater();
-        }
-    });
-
-    connect(process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished), process, &QObject::deleteLater);
-
-    process->start();
-    process->closeWriteChannel(); // Prevent hanging if tool blocks on stdin prompts
-    watchdog->start();
+    updater->fetchLocalVersionOnly();
 }
 
 QString BinariesPage::browseBinary(const QString &title) const {
@@ -788,193 +593,212 @@ void BinariesPage::installBinaryFor(const QString &binaryName) {
             return;
         }
 
-        QDialog progressDialog(&dialog);
-        progressDialog.setWindowTitle(tr("Installing %1").arg(displayName(binaryName)));
-        progressDialog.resize(600, 400);
-
-        QVBoxLayout *pLayout = new QVBoxLayout(&progressDialog);
-        QTextEdit *outputEdit = new QTextEdit(&progressDialog);
-        outputEdit->setReadOnly(true);
-        outputEdit->setFontFamily(QStringLiteral("Courier New"));
-        outputEdit->setWordWrapMode(QTextOption::WrapAnywhere);
-        pLayout->addWidget(outputEdit);
-
-        QDialogButtonBox *pButtons = new QDialogButtonBox(QDialogButtonBox::Close, &progressDialog);
-        QPushButton *closeBtn = pButtons->button(QDialogButtonBox::Close);
-        closeBtn->setEnabled(false);
-        pLayout->addWidget(pButtons);
-
-        connect(pButtons, &QDialogButtonBox::rejected, &progressDialog, &QDialog::reject);
-
-        QProcess *process = new QProcess(&progressDialog);
-        ProcessUtils::setProcessEnvironment(*process);
-        process->setProcessChannelMode(QProcess::MergedChannels);
-
-        connect(&progressDialog, &QDialog::rejected, process, [process]() {
-            if (process->state() != QProcess::NotRunning) {
-                process->setProperty("cancelled", QVariant(true));
-                ProcessUtils::terminateProcessTree(process);
-                process->kill(); // Forcefully kill the QProcess instance as fallback
-            }
-        });
-
-        // For WindowsApps execution-alias stubs (for example winget from the MS Store) we
-        // must NOT invoke the full path directly — the 0-byte stubs crash when
-        // executed that way. Instead we prepend the WindowsApps directory to
-        // PATH and launch with the bare program name so the shell resolves the
-        // alias correctly.
-        const bool isAlias = option.extraData.value(QStringLiteral("is_windows_apps_alias")).toBool();
-
-        if (isAlias) {
-            // Prepend WindowsApps directory to PATH
-            QProcessEnvironment env = process->processEnvironment();
-            const QString localAppData = env.value(QStringLiteral("LOCALAPPDATA"));
-            if (!localAppData.isEmpty()) {
-                const QString windowsAppsPath = QDir(localAppData).filePath(QStringLiteral("Microsoft/WindowsApps"));
-                const QString currentPath = env.value(QStringLiteral("PATH"));
-                env.insert(QStringLiteral("PATH"), QStringLiteral("%1;%2").arg(windowsAppsPath, currentPath));
-                process->setProcessEnvironment(env);
-            }
+        ProcessRunOptions opts;
+        opts.dialogTitle = tr("Installing %1").arg(displayName(binaryName));
+        opts.program = option.program;
+        opts.arguments = option.arguments;
+        opts.binaryName = binaryName;
+        opts.isAlias = option.extraData.value(QStringLiteral("is_windows_apps_alias")).toBool();
+        if (option.extraData.contains(QStringLiteral("set_custom_path"))) {
+            opts.setCustomPath = option.extraData.value(QStringLiteral("set_custom_path")).toString();
         }
+        opts.isUpdate = false;
 
-        // Build the command string
-        QStringList commandParts;
-        if (option.program.contains(QLatin1Char(' '))) {
-            commandParts << QStringLiteral("\"%1\"").arg(option.program);
-        } else {
-            commandParts << option.program;
-        }
-        for (const QString &arg : option.arguments) {
-            if (arg.contains(QLatin1Char(' '))) {
-                commandParts << QStringLiteral("\"%1\"").arg(arg);
-            } else {
-                commandParts << arg;
-            }
-        }
-        const QString fullCommand = commandParts.join(QLatin1Char(' '));
-
-        QPointer<QDialog> pDialog(&progressDialog);
-
-        connect(process, &QProcess::readyReadStandardOutput, process, [process, outputEdit, pDialog]() {
-            if (!pDialog) return;
-            QByteArray buffer = process->property("outputBuffer").toByteArray();
-            buffer.append(process->readAllStandardOutput());
-            qsizetype lastDelimiter = qMax(buffer.lastIndexOf('\n'), buffer.lastIndexOf('\r'));
-            if (lastDelimiter != -1) {
-                QString output = QString::fromUtf8(buffer.constData(), lastDelimiter + 1);
-                buffer.remove(0, lastDelimiter + 1);
-                outputEdit->moveCursor(QTextCursor::End);
-                outputEdit->insertPlainText(output);
-                outputEdit->moveCursor(QTextCursor::End);
-            }
-            process->setProperty("outputBuffer", buffer);
-        });
-
-        connect(process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished), this, [this, process, outputEdit, closeBtn, binaryName, option, pDialog](int exitCode, QProcess::ExitStatus exitStatus) {
-            if (!pDialog) return; // Guard against destroyed child widgets
-            if (process->property("cancelled").toBool()) return;
-            closeBtn->setEnabled(true);
-            QByteArray buffer = process->property("outputBuffer").toByteArray();
-            if (!buffer.isEmpty()) {
-                outputEdit->moveCursor(QTextCursor::End);
-                outputEdit->insertPlainText(QString::fromUtf8(buffer));
-            }
-            if (exitStatus == QProcess::NormalExit && exitCode == 0) {
-                outputEdit->moveCursor(QTextCursor::End);
-                outputEdit->insertPlainText(tr("\n--- Installation completed successfully. ---\n"));
-
-                m_configManager->set(QStringLiteral("Binaries"), QStringLiteral("%1_update_available").arg(binaryName), false);
-                if (binaryName == QStringLiteral("ffmpeg")) {
-                    m_configManager->set(QStringLiteral("Binaries"), QStringLiteral("ffprobe_update_available"), false);
-                } else if (binaryName == QStringLiteral("ffprobe")) {
-                    m_configManager->set(QStringLiteral("Binaries"), QStringLiteral("ffmpeg_update_available"), false);
-                }
-                m_configManager->save();
-
-                if (option.extraData.contains(QStringLiteral("set_custom_path"))) {
-                    const QString customPath = option.extraData.value(QStringLiteral("set_custom_path")).toString();
-#ifndef Q_OS_WIN
-                    if (QFile::exists(customPath)) {
-                        QFile::setPermissions(customPath, QFile::permissions(customPath) | QFileDevice::ExeUser | QFileDevice::ExeGroup | QFileDevice::ExeOther);
-                    }
-#endif
-                    this->saveBinaryOverride(binaryName, customPath);
-                    
-                    // Sibling detection for ffmpeg/ffprobe pairing
-                    if (binaryName == QStringLiteral("ffmpeg") || binaryName == QStringLiteral("ffprobe")) {
-                        QFileInfo binInfo(customPath);
-                        QString siblingName = (binaryName == QStringLiteral("ffmpeg")) ? QStringLiteral("ffprobe.exe") : QStringLiteral("ffmpeg.exe");
-                        QString siblingPath = binInfo.dir().filePath(siblingName);
-                        QString siblingKey = (binaryName == QStringLiteral("ffmpeg")) ? QStringLiteral("ffprobe") : QStringLiteral("ffmpeg");
-                        this->saveBinaryOverride(siblingKey, siblingPath);
-                    }
-                }
-
-                // Clear cache and refresh status to use the newly installed binary
-                ProcessUtils::clearCache();
-                this->setBinaryWarning(binaryName, QString());
-                this->refreshBinaryStatus(binaryName);
-                if (binaryName == QStringLiteral("ffmpeg")) this->refreshBinaryStatus(QStringLiteral("ffprobe"));
-                else if (binaryName == QStringLiteral("ffprobe")) this->refreshBinaryStatus(QStringLiteral("ffmpeg"));
-
-                const ProcessUtils::FoundBinary refreshedBinary = ProcessUtils::findBinary(binaryName, m_configManager);
-                if (pDialog) {
-                    if (refreshedBinary.source == QStringLiteral("Not Found") || refreshedBinary.source == QStringLiteral("Invalid Custom")) {
-                        QMessageBox::information(
-                            pDialog,
-                            tr("Install Finished"),
-                            tr("%1 finished installing, but LzyDownloader could not detect it yet.\n\n"
-                                    "Use Refresh after closing this dialog. If it is still missing, restart LzyDownloader or use Browse to select the executable.")
-                                .arg(displayName(binaryName)));
-                    } else {
-                        QMessageBox::information(
-                            pDialog,
-                            tr("Install Successful"),
-                            tr("%1 has been installed and detected successfully.").arg(displayName(binaryName)));
-                    }
-                }
-            } else {
-                outputEdit->moveCursor(QTextCursor::End);
-                outputEdit->insertPlainText(tr("\n--- Installation failed with exit code %1. ---\n").arg(exitCode));
-
-                const QString logText = outputEdit->toPlainText();
-                if (pDialog) {
-                    if (logText.contains(QStringLiteral("Permission denied"), Qt::CaseInsensitive) || logText.contains(QStringLiteral("Access is denied"), Qt::CaseInsensitive)) {
-                        QMessageBox::warning(pDialog, tr("Permission Denied"),
-                            tr("The installation of %1 failed due to insufficient permissions.\n\n"
-                                    "If you are trying to install or update in a protected system folder (like 'Program Files'), "
-                                    "please restart LzyDownloader as Administrator and try again.").arg(displayName(binaryName)));
-                    } else {
-                        QMessageBox::warning(pDialog, tr("Install Failed"), tr("The installation of %1 failed. Please check the output log.").arg(displayName(binaryName)));
-                    }
-                }
-            }
-        });
-
-        connect(process, &QProcess::errorOccurred, process, [process, outputEdit, closeBtn, pDialog](QProcess::ProcessError) {
-            if (!pDialog) return;
-            closeBtn->setEnabled(true);
-            outputEdit->moveCursor(QTextCursor::End);
-            outputEdit->insertPlainText(tr("\n--- Process error: %1 ---\n").arg(process->errorString()));
-        });
-
-        outputEdit->insertPlainText(tr("Running command: %1\n\n").arg(fullCommand));
-#ifdef Q_OS_WIN
-        QStringList cmdArgs;
-        cmdArgs << QStringLiteral("/C") << fullCommand;
-        process->start(QStringLiteral("cmd"), cmdArgs);
-#else
-        process->start(option.program, option.arguments);
-#endif
-
-        process->closeWriteChannel();
-        progressDialog.exec();
+        runProcessWithLog(opts);
         dialog.accept();
     });
 
     connect(cancelButton, &QPushButton::clicked, &dialog, &QDialog::reject);
 
     dialog.exec();
+}
+
+void BinariesPage::runProcessWithLog(const ProcessRunOptions &opts) {
+    QDialog progressDialog(this);
+    progressDialog.setWindowTitle(opts.dialogTitle);
+    progressDialog.resize(600, 400);
+
+    QVBoxLayout *pLayout = new QVBoxLayout(&progressDialog);
+
+    QTextEdit *outputEdit = new QTextEdit(&progressDialog);
+    outputEdit->setReadOnly(true);
+    outputEdit->setFontFamily(QStringLiteral("Courier New"));
+    outputEdit->setWordWrapMode(QTextOption::WrapAnywhere);
+    pLayout->addWidget(outputEdit);
+
+    QDialogButtonBox *pButtons = new QDialogButtonBox(QDialogButtonBox::Close, &progressDialog);
+    QPushButton *closeBtn = pButtons->button(QDialogButtonBox::Close);
+    closeBtn->setEnabled(false);
+    pLayout->addWidget(pButtons);
+
+    connect(pButtons, &QDialogButtonBox::rejected, &progressDialog, &QDialog::reject);
+
+    QProcess *process = new QProcess(&progressDialog);
+    ProcessUtils::setProcessEnvironment(*process);
+    process->setProcessChannelMode(QProcess::MergedChannels);
+
+    connect(&progressDialog, &QDialog::rejected, process, [process]() {
+        if (process->state() != QProcess::NotRunning) {
+            process->setProperty("cancelled", QVariant(true));
+            ProcessUtils::terminateProcessTree(process);
+            process->kill();
+        }
+    });
+
+    if (opts.isAlias) {
+        QProcessEnvironment env = process->processEnvironment();
+        const QString windowsAppsPath = getWindowsAppsDir();
+        if (!windowsAppsPath.isEmpty()) {
+            const QString currentPath = env.value(QStringLiteral("PATH"));
+            env.insert(QStringLiteral("PATH"), QStringLiteral("%1;%2").arg(windowsAppsPath, currentPath));
+            process->setProcessEnvironment(env);
+        }
+    }
+
+    QStringList commandParts;
+    if (opts.program.contains(QLatin1Char(' '))) {
+        commandParts << QStringLiteral("\"%1\"").arg(opts.program);
+    } else {
+        commandParts << opts.program;
+    }
+    for (const QString &arg : opts.arguments) {
+        if (arg.contains(QLatin1Char(' '))) {
+            commandParts << QStringLiteral("\"%1\"").arg(arg);
+        } else {
+            commandParts << arg;
+        }
+    }
+    const QString fullCommand = commandParts.join(QLatin1Char(' '));
+
+    QPointer<QDialog> pDialog(&progressDialog);
+
+    connect(process, &QProcess::readyReadStandardOutput, process, [process, outputEdit, pDialog]() {
+        if (!pDialog) return;
+        QByteArray buffer = process->property("outputBuffer").toByteArray();
+        buffer.append(process->readAllStandardOutput());
+        qsizetype lastDelimiter = qMax(buffer.lastIndexOf('\n'), buffer.lastIndexOf('\r'));
+        if (lastDelimiter != -1) {
+            QString output = QString::fromUtf8(buffer.constData(), lastDelimiter + 1);
+            buffer.remove(0, lastDelimiter + 1);
+            outputEdit->moveCursor(QTextCursor::End);
+            outputEdit->insertPlainText(output);
+            outputEdit->moveCursor(QTextCursor::End);
+        }
+        process->setProperty("outputBuffer", buffer);
+    });
+
+    connect(process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished), this, [this, process, outputEdit, closeBtn, opts, pDialog](int exitCode, QProcess::ExitStatus exitStatus) {
+        if (!pDialog) return;
+        if (process->property("cancelled").toBool()) return;
+        closeBtn->setEnabled(true);
+        QByteArray buffer = process->property("outputBuffer").toByteArray();
+        if (!buffer.isEmpty()) {
+            outputEdit->moveCursor(QTextCursor::End);
+            outputEdit->insertPlainText(QString::fromUtf8(buffer));
+        }
+        if (exitStatus == QProcess::NormalExit && exitCode == 0) {
+            outputEdit->moveCursor(QTextCursor::End);
+            outputEdit->insertPlainText(tr("\n--- Process completed successfully. ---\n"));
+
+            m_configManager->set(QStringLiteral("Binaries"), QStringLiteral("%1_update_available").arg(opts.binaryName), false);
+            if (opts.binaryName == QStringLiteral("ffmpeg")) {
+                m_configManager->set(QStringLiteral("Binaries"), QStringLiteral("ffprobe_update_available"), false);
+            } else if (opts.binaryName == QStringLiteral("ffprobe")) {
+                m_configManager->set(QStringLiteral("Binaries"), QStringLiteral("ffmpeg_update_available"), false);
+            }
+            m_configManager->save();
+
+            if (!opts.setCustomPath.isEmpty()) {
+#ifndef Q_OS_WIN
+                if (QFile::exists(opts.setCustomPath)) {
+                    QFile::setPermissions(opts.setCustomPath, QFile::permissions(opts.setCustomPath) | QFileDevice::ExeUser | QFileDevice::ExeGroup | QFileDevice::ExeOther);
+                }
+#endif
+                this->saveBinaryOverride(opts.binaryName, opts.setCustomPath);
+                
+                if (opts.binaryName == QStringLiteral("ffmpeg") || opts.binaryName == QStringLiteral("ffprobe")) {
+                    QFileInfo binInfo(opts.setCustomPath);
+                    QString siblingName = (opts.binaryName == QStringLiteral("ffmpeg")) ? QStringLiteral("ffprobe.exe") : QStringLiteral("ffmpeg.exe");
+                    QString siblingPath = binInfo.dir().filePath(siblingName);
+                    QString siblingKey = (opts.binaryName == QStringLiteral("ffmpeg")) ? QStringLiteral("ffprobe") : QStringLiteral("ffmpeg");
+                    this->saveBinaryOverride(siblingKey, siblingPath);
+                }
+            }
+
+            ProcessUtils::clearCache();
+            this->setBinaryWarning(opts.binaryName, QString());
+            this->refreshBinaryStatus(opts.binaryName);
+            if (opts.binaryName == QStringLiteral("ffmpeg")) this->refreshBinaryStatus(QStringLiteral("ffprobe"));
+            else if (opts.binaryName == QStringLiteral("ffprobe")) this->refreshBinaryStatus(QStringLiteral("ffmpeg"));
+
+            if (!opts.isUpdate) {
+                const ProcessUtils::FoundBinary refreshedBinary = ProcessUtils::findBinary(opts.binaryName, m_configManager);
+                if (pDialog) {
+                    if (refreshedBinary.source == QStringLiteral("Not Found") || refreshedBinary.source == QStringLiteral("Invalid Custom")) {
+                        QMessageBox::information(
+                            pDialog,
+                            tr("Install Finished"),
+                            tr("%1 finished installing, but LzyDownloader could not detect it yet.\n\n"
+                               "Use Refresh after closing this dialog. If it is still missing, restart LzyDownloader or use Browse to select the executable.")
+                                .arg(displayName(opts.binaryName)));
+                    } else {
+                        QMessageBox::information(
+                            pDialog,
+                            tr("Install Successful"),
+                            tr("%1 has been installed and detected successfully.").arg(displayName(opts.binaryName)));
+                    }
+                }
+            }
+        } else {
+            outputEdit->moveCursor(QTextCursor::End);
+            outputEdit->insertPlainText(tr("\n--- Process failed with exit code %1. ---\n").arg(exitCode));
+
+            const QString logText = outputEdit->toPlainText();
+            const QString actionName = opts.isUpdate ? tr("update") : tr("installation");
+            if (pDialog) {
+                if (logText.contains(QStringLiteral("Permission denied"), Qt::CaseInsensitive) || logText.contains(QStringLiteral("Access is denied"), Qt::CaseInsensitive)) {
+                    QMessageBox::warning(pDialog, tr("Permission Denied"),
+                        tr("The %1 of %2 failed due to insufficient permissions.\n\n"
+                           "If you are trying to install or update in a protected system folder (like 'Program Files'), "
+                           "please restart LzyDownloader as Administrator and try again.").arg(actionName, displayName(opts.binaryName)));
+                } else {
+                    QMessageBox::warning(pDialog, tr("Process Failed"), tr("The %1 of %2 failed. Please check the output log.").arg(actionName, displayName(opts.binaryName)));
+                }
+            }
+        }
+    });
+
+    connect(process, &QProcess::errorOccurred, process, [process, outputEdit, closeBtn, pDialog](QProcess::ProcessError) {
+        if (!pDialog) return;
+        closeBtn->setEnabled(true);
+        outputEdit->moveCursor(QTextCursor::End);
+        outputEdit->insertPlainText(tr("\n--- Process error: %1 ---\n").arg(process->errorString()));
+    });
+
+    outputEdit->insertPlainText(tr("Running command: %1\n\n").arg(fullCommand));
+#ifdef Q_OS_WIN
+    if (opts.isUpdate) {
+        const bool isStandalone = !opts.program.toLower().contains(QStringLiteral("scoop")) &&
+                                  !opts.program.toLower().contains(QStringLiteral("winget")) &&
+                                  !opts.program.toLower().contains(QStringLiteral("pip")) &&
+                                  !opts.program.toLower().contains(QStringLiteral("brew")) &&
+                                  !opts.program.toLower().contains(QStringLiteral("choco"));
+        if (isStandalone) {
+            process->start(opts.program, opts.arguments);
+        } else {
+            process->start(QStringLiteral("cmd"), {QStringLiteral("/C"), fullCommand});
+        }
+    } else {
+        QStringList cmdArgs;
+        cmdArgs << QStringLiteral("/C") << fullCommand;
+        process->start(QStringLiteral("cmd"), cmdArgs);
+    }
+#else
+    process->start(opts.program, opts.arguments);
+#endif
+
+    process->closeWriteChannel();
+    progressDialog.exec();
 }
 
 void BinariesPage::setBinaryWarning(const QString &binaryName, const QString &details) {
@@ -987,30 +811,24 @@ void BinariesPage::setBinaryWarning(const QString &binaryName, const QString &de
 }
 
 void BinariesPage::saveBinaryOverride(const QString &binaryName, const QString &path) {
-    qInfo() << "[BinariesPage::saveBinaryOverride] >>> ENTERED <<< Binary:" << binaryName << "Path:" << path;
+    qInfo() << "[BinariesPage::saveBinaryOverride] Override path updated for:" << binaryName << "to:" << path;
     const QString configKey = m_configKeys.value(binaryName);
     if (configKey.isEmpty()) {
-        qWarning() << "[BinariesPage::saveBinaryOverride] Config key for" << binaryName << "is empty! Aborting.";
         return;
     }
 
-    // Clear cache BEFORE modifying config so signal handlers see the fresh state
     ProcessUtils::clearCache();
     m_binaryWarnings.remove(binaryName);
 
-    // List of keys to clear
     QStringList keysToClear;
     keysToClear << QStringLiteral("Binaries/%1_update_available").arg(binaryName)
                 << QStringLiteral("Binaries/%1_latest_version").arg(binaryName);
 
     if (path.isEmpty()) {
-        qInfo() << "[BinariesPage::saveBinaryOverride] Path is empty, preparing to CLEAR override for" << binaryName;
         keysToClear << QStringLiteral("Binaries/%1").arg(configKey);
-        // Sibling pairing cleanup when clearing path overrides
         if (binaryName == QStringLiteral("ffmpeg") || binaryName == QStringLiteral("ffprobe")) {
             const QString siblingName = (binaryName == QStringLiteral("ffmpeg")) ? QStringLiteral("ffprobe") : QStringLiteral("ffmpeg");
             const QString siblingKey = (binaryName == QStringLiteral("ffmpeg")) ? QStringLiteral("ffprobe_path") : QStringLiteral("ffmpeg_path");
-            qInfo() << "[BinariesPage::saveBinaryOverride] Clearing paired sibling" << siblingName << "as well.";
             keysToClear << QStringLiteral("Binaries/%1").arg(siblingKey)
                         << QStringLiteral("Binaries/%1_update_available").arg(siblingName)
                         << QStringLiteral("Binaries/%1_latest_version").arg(siblingName);
@@ -1018,64 +836,25 @@ void BinariesPage::saveBinaryOverride(const QString &binaryName, const QString &
         }
     }
 
-    qInfo() << "[BinariesPage::saveBinaryOverride] Keys scheduled to clear:" << keysToClear;
-
-    // Clean up in our ConfigManager (INI)
     for (const QString &keyPath : keysToClear) {
         const QStringList parts = keyPath.split(QLatin1Char('/'));
         if (parts.size() == 2) {
-            qInfo() << "[BinariesPage::saveBinaryOverride] Clearing key in ConfigManager:" << parts[0] << "->" << parts[1];
-            m_configManager->set(parts[0], parts[1], QString());
             m_configManager->remove(parts[0], parts[1]);
         }
     }
 
-    // Direct INI file write/remove operation to bypass memory caching bugs in ConfigManager
-    const QString iniPath = QDir(m_configManager->getConfigDir()).filePath(QStringLiteral("settings.ini"));
-    QSettings directSettings(iniPath, QSettings::IniFormat);
-    qInfo() << "[BinariesPage::saveBinaryOverride] Direct settings.ini path:" << iniPath;
-    for (const QString &keyPath : keysToClear) {
-        qInfo() << "[BinariesPage::saveBinaryOverride]   Removing from direct INI:" << keyPath << "Previous value:" << directSettings.value(keyPath);
-        directSettings.remove(keyPath);
-    }
-    directSettings.sync();
-    qInfo() << "[BinariesPage::saveBinaryOverride] Direct settings.ini sync completed.";
-
-    // Clear registry-based ghosts (Windows Registry / macOS Plist) across all potential scopes
-    QList<QSettings*> settingsList;
-    settingsList << new QSettings();
-    settingsList << new QSettings(QSettings::NativeFormat, QSettings::UserScope, QStringLiteral(""), QStringLiteral("LzyDownloader"));
-    settingsList << new QSettings(QSettings::NativeFormat, QSettings::UserScope, QStringLiteral("LzyDownloader"), QStringLiteral("LzyDownloader"));
-    settingsList << new QSettings(QSettings::IniFormat, QSettings::UserScope, QStringLiteral(""), QStringLiteral("LzyDownloader"));
-    settingsList << new QSettings(QSettings::IniFormat, QSettings::UserScope, QStringLiteral("LzyDownloader"), QStringLiteral("LzyDownloader"));
-
-    for (int idx = 0; idx < settingsList.size(); ++idx) {
-        QSettings* settings = settingsList[idx];
-        qInfo() << "[BinariesPage::saveBinaryOverride] Clearing registry scope" << idx << ":" << settings->fileName() << "Format:" << settings->format();
+    for (QSettings::Format format : {QSettings::NativeFormat, QSettings::IniFormat}) {
+        QSettings settings(format, QSettings::UserScope, QStringLiteral("LzyDownloader"), QStringLiteral("LzyDownloader"));
         for (const QString &keyPath : keysToClear) {
-            qInfo() << "[BinariesPage::saveBinaryOverride]   Removing key:" << keyPath << "Previous value:" << settings->value(keyPath);
-            settings->setValue(keyPath, QString());
-            settings->remove(keyPath);
+            settings.remove(keyPath);
         }
-        settings->sync();
-        delete settings;
+        settings.sync();
     }
 
     if (!path.isEmpty()) {
-        qInfo() << "[BinariesPage::saveBinaryOverride] Writing new override path to ConfigManager: Binaries/" << configKey << "=" << path;
         m_configManager->set(QStringLiteral("Binaries"), configKey, path);
-        QSettings registrySettings;
-        qInfo() << "[BinariesPage::saveBinaryOverride] Writing registry override to:" << registrySettings.fileName();
-        registrySettings.setValue(QStringLiteral("Binaries/%1").arg(configKey), path);
-        registrySettings.sync();
-        QSettings registrySettings2(QSettings::NativeFormat, QSettings::UserScope, QStringLiteral("LzyDownloader"), QStringLiteral("LzyDownloader"));
-        qInfo() << "[BinariesPage::saveBinaryOverride] Writing secondary registry override to:" << registrySettings2.fileName();
-        registrySettings2.setValue(QStringLiteral("Binaries/%1").arg(configKey), path);
-        registrySettings2.sync();
     }
-    qInfo() << "[BinariesPage::saveBinaryOverride] Requesting explicit ConfigManager save...";
     m_configManager->save();
-    qInfo() << "[BinariesPage::saveBinaryOverride] >>> saveBinaryOverride COMPLETED <<<";
 }
 
 void BinariesPage::loadSettings() {
@@ -1414,4 +1193,16 @@ QString BinariesPage::commandPreview(const InstallOption &option) const {
 
 QString BinariesPage::displayName(const QString &binaryName) const {
     return m_displayNames.value(binaryName, binaryName);
+}
+
+void BinariesPage::setGalleryDlVersion(const QString &version) {
+    if (m_versionLabels.contains(QStringLiteral("gallery-dl"))) {
+        m_versionLabels[QStringLiteral("gallery-dl")] ->setText(tr("Version: %1").arg(version));
+    }
+}
+
+void BinariesPage::setYtDlpVersion(const QString &version) {
+    if (m_versionLabels.contains(QStringLiteral("yt-dlp"))) {
+        m_versionLabels[QStringLiteral("yt-dlp")] ->setText(tr("Version: %1").arg(version));
+    }
 }

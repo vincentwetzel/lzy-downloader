@@ -10,6 +10,7 @@ class QLabel;
 class QPushButton;
 class QVBoxLayout;
 class QEvent;
+class BaseBinaryUpdater;
 
 class BinariesPage : public QWidget {
     Q_OBJECT
@@ -20,11 +21,11 @@ public:
     void installBinaryFor(const QString &binaryName);
     void setBinaryWarning(const QString &binaryName, const QString &details);
     void refreshBinaryStatus(const QString &binaryName);
+    void setGalleryDlVersion(const QString &version);
+    void setYtDlpVersion(const QString &version);
 
 public slots:
     void loadSettings();
-    void setYtDlpVersion(const QString &version);
-    void setGalleryDlVersion(const QString &version);
 
 protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
@@ -40,6 +41,18 @@ private:
         QStringList arguments;
         QVariantMap extraData;
     };
+
+    struct ProcessRunOptions {
+        QString dialogTitle;
+        QString program;
+        QStringList arguments;
+        QString binaryName;
+        bool isAlias = false;
+        QString setCustomPath;
+        bool isUpdate = false;
+    };
+
+    void runProcessWithLog(const ProcessRunOptions &opts);
 
     void setupRow(QVBoxLayout *layout,
                   const QString &binaryName,
@@ -66,4 +79,5 @@ private:
     QMap<QString, QLabel *> m_versionLabels;
     QMap<QString, QPushButton *> m_installButtons;
     QMap<QString, QPushButton *> m_updateButtons;
+    QMap<QString, BaseBinaryUpdater *> m_updaters;
 };
