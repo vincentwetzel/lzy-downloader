@@ -53,18 +53,50 @@ static void resolveAndValidateBinaries(ConfigManager *configManager, StartupWork
     const QStringList allBinaries = {QStringLiteral("yt-dlp"), QStringLiteral("ffmpeg"), QStringLiteral("ffprobe"), QStringLiteral("gallery-dl"), QStringLiteral("aria2c"), QStringLiteral("deno")};
     const QStringList requiredBinaries = {QStringLiteral("yt-dlp"), QStringLiteral("ffmpeg"), QStringLiteral("ffprobe"), QStringLiteral("deno")};
 
+    // CRITICAL FIX: Clear the binary cache at startup to force fresh discovery
+    // This ensures we re-scan all locations instead of trusting potentially outdated INI entries
+    qInfo() << "[StartupWorker::resolveAndValidateBinaries] Clearing binary cache to force fresh startup discovery...";
+    ProcessUtils::clearCache();
+
+    bool anyPathSaved = false;
     for (const QString &binary : allBinaries) {
-        const ProcessUtils::FoundBinary foundBinary = SmartBinaryResolver::resolve(binary, configManager);
+        // Force a fresh resolution by clearing the INI-saved path temporarily
+        // This ensures we discover ALL available candidates and pick the best by version
+        const QString configKey = binary + QStringLiteral("_path");
+        const QString savedPath = configManager->get(QStringLiteral("Binaries"), configKey).toString();
+        
+        // Temporarily clear the saved path so resolveBinary() performs a full discovery scan
+        configManager->set(QStringLiteral("Binaries"), configKey, QString());
+        
+        const ProcessUtils::FoundBinary foundBinary = ProcessUtils::resolveBinary(binary, configManager);
         
         if (foundBinary.source == QStringLiteral("Not Found") || foundBinary.source == QStringLiteral("Invalid Custom")) {
             qWarning() << "[StartupWorker::resolveAndValidateBinaries] " << binary << "NOT FOUND or invalid.";
+            // Restore the saved path since discovery failed
+            if (!savedPath.isEmpty()) {
+                configManager->set(QStringLiteral("Binaries"), configKey, savedPath);
+            }
             if (requiredBinaries.contains(binary)) {
                 missing << binary;
             }
         } else {
             qInfo() << "[StartupWorker::resolveAndValidateBinaries] resolved successfully:" << binary 
                     << "source:" << foundBinary.source << "path:" << foundBinary.path;
+
+            // Save the freshly discovered best binary to INI (may differ from previously saved path)
+            if (!foundBinary.path.isEmpty()) {
+                qInfo() << "[StartupWorker::resolveAndValidateBinaries] Saving auto-detected binary path for" << binary << "to INI:" << foundBinary.path;
+                configManager->set(QStringLiteral("Binaries"), configKey, foundBinary.path);
+                anyPathSaved = true;
+            } else if (!savedPath.isEmpty()) {
+                // If discovery didn't find anything but we had a saved path, restore it
+                configManager->set(QStringLiteral("Binaries"), configKey, savedPath);
+            }
         }
+    }
+    if (anyPathSaved) {
+        configManager->save();
+        ProcessUtils::clearCache(); // Invalidate cache so subsequent findBinary calls fetch from the newly saved INI path
     }
     qInfo() << "[StartupWorker::resolveAndValidateBinaries] Missing required binaries list:" << missing;
     emit worker->binariesChecked(missing);

@@ -11,9 +11,11 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ### Changed
 - **External binary management refactor**: External tool lookup goes through `SmartBinaryResolver` so manual overrides win, the app-local `bin` folder is considered first, stale settings ghosts are cleared, and multiple discovered candidates can be selected by newest usable version. External Binaries update flows now run package-manager or tool-native update commands through one cancellable process-log dialog.
+- **External binary path alignment**: Startup and the External Binaries page now rediscover candidate tools, persist the selected auto-detected best paths to `settings.ini`, and clear resolver caches so UI status, update checks, and downloader launches agree on the same executable.
 
 ### Fixed
 - **External Binaries version checks**: `BaseBinaryUpdater` now separates local version probes from remote update checks, keeps bounded probes from freezing the settings page, handles WindowsApps aliases through `cmd.exe`, truncates overly long raw version strings, and refreshes yt-dlp/gallery-dl version labels from the detected executable before reporting update availability.
+- **External Binaries stale versions**: Update checks now force a fresh local probe before remote comparison, parse multiline tool banners into compact versions, and compare semantic/date-like FFmpeg and FFprobe builds more consistently.
 
 ## [1.1.65] - 2026-06-10
 

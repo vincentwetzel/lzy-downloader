@@ -31,6 +31,7 @@
 #include <QPointer>
 #include <QEvent>
 #include <QSettings>
+#include <QRegularExpression>
 
 namespace {
 QString getWindowsAppsDir() {
@@ -302,7 +303,7 @@ void BinariesPage::setupRow(QVBoxLayout *layout,
     });
 
     connect(updateButton, &QPushButton::clicked, this, [this, binaryName]() {
-        const ProcessUtils::FoundBinary foundBinary = SmartBinaryResolver::resolve(binaryName, m_configManager);
+        const ProcessUtils::FoundBinary foundBinary = ProcessUtils::resolveBinary(binaryName, m_configManager);
         QString pathLower = foundBinary.path.toLower();
 
         QString manager;
@@ -488,6 +489,37 @@ void BinariesPage::fetchBinaryVersion(const QString &binaryName, const QString &
     BaseBinaryUpdater *updater = m_updaters.value(binaryName);
     if (!updater) {
         updater = new BaseBinaryUpdater(binaryName, QString(), m_configManager, this);
+
+        // Configure accurate version parsers to prevent saving raw multiline info
+        if (binaryName == QStringLiteral("yt-dlp")) {
+            updater->setVersionParser([](const QString &output) {
+                return output.trimmed();
+            });
+        } else if (binaryName == QStringLiteral("gallery-dl")) {
+            updater->setVersionParser([](const QString &output) {
+                QStringList parts = output.split(QLatin1Char(' '), Qt::SkipEmptyParts);
+                return parts.isEmpty() ? QStringLiteral("0.0.0") : parts.last();
+            });
+        } else if (binaryName == QStringLiteral("ffmpeg") || binaryName == QStringLiteral("ffprobe")) {
+            updater->setVersionParser([](const QString &output) {
+                QRegularExpression re(QStringLiteral("(?:ffmpeg|ffprobe) version (.*?)(?:\\s+Copyright|\\s+built|$)"));
+                QRegularExpressionMatch match = re.match(output);
+                return match.hasMatch() ? match.captured(1).trimmed() : QString();
+            });
+        } else if (binaryName == QStringLiteral("deno")) {
+            updater->setVersionParser([](const QString &output) {
+                QRegularExpression re(QStringLiteral("deno\\s+([0-9]+(?:\\.[0-9]+)+)"));
+                QRegularExpressionMatch match = re.match(output);
+                return match.hasMatch() ? match.captured(1) : QString();
+            });
+        } else if (binaryName == QStringLiteral("aria2c")) {
+            updater->setVersionParser([](const QString &output) {
+                QRegularExpression re(QStringLiteral("aria2c version (.*?)(?:\\s+Copyright|\\s+built|$)"));
+                QRegularExpressionMatch match = re.match(output);
+                return match.hasMatch() ? match.captured(1).trimmed() : QString();
+            });
+        }
+
         connect(updater, &BaseBinaryUpdater::versionFetched, this, [this, binaryName](const QString &version) {
             m_versionLabels[binaryName]->setText(tr("Version: %1").arg(version));
         });
@@ -888,7 +920,19 @@ void BinariesPage::refreshBinaryStatus(const QString &binaryName) {
     }
 
     // Use findBinary to benefit from cached resolutions
-    const ProcessUtils::FoundBinary foundBinary = SmartBinaryResolver::resolve(binaryName, m_configManager);
+    const ProcessUtils::FoundBinary foundBinary = ProcessUtils::resolveBinary(binaryName, m_configManager);
+
+    // Save auto-detected path to INI if not already set, ensuring alignment across all lookups
+    const QString configKey = m_configKeys.value(binaryName);
+    if (!configKey.isEmpty()) {
+        const QString existingPath = m_configManager->get(QStringLiteral("Binaries"), configKey).toString();
+        if (existingPath.isEmpty() && foundBinary.source != QStringLiteral("Not Found") && foundBinary.source != QStringLiteral("Invalid Custom") && !foundBinary.path.isEmpty()) {
+            qInfo() << "[BinariesPage::refreshBinaryStatus] Saving auto-detected path for" << binaryName << "to INI:" << foundBinary.path;
+            m_configManager->set(QStringLiteral("Binaries"), configKey, foundBinary.path);
+            m_configManager->save();
+            ProcessUtils::clearCache(); // Invalidate cache so subsequent lookups fetch the saved path
+        }
+    }
 
     const bool hasWarning = m_binaryWarnings.contains(binaryName) || m_configManager->get(QStringLiteral("Binaries"), QStringLiteral("%1_update_available").arg(binaryName), false).toBool();
     QString warningDetails = m_binaryWarnings.value(binaryName);

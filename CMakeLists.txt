@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(LzyDownloader VERSION 1.1.68 LANGUAGES CXX)
+project(LzyDownloader VERSION 1.1.69 LANGUAGES CXX)
 enable_testing()
 
 set(_qt_search_prefixes "")

@@ -38,6 +38,7 @@ private slots:
     void onVersionFetchFinished(int exitCode, QProcess::ExitStatus exitStatus);
 
 private:
+    void performUpdateCheck();
 
     QString m_binaryName;
     QString m_repoSlug;

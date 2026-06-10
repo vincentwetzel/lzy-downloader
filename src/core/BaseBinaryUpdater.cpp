@@ -61,19 +61,20 @@ void BaseBinaryUpdater::setVersionParser(VersionParserFunc parser) {
 
 void BaseBinaryUpdater::checkForUpdate() {
     m_localVersionOnly = false;
-    if (m_currentLocalVersion == QStringLiteral("0.0.0") || m_currentLocalVersion.isEmpty() || m_currentLocalVersion == QStringLiteral("Not Found")) {
-        connect(this, &BaseBinaryUpdater::versionFetched, this, [this](const QString &localVer) {
-            if (localVer == QStringLiteral("Not Found") || localVer == QStringLiteral("Error")) {
-                emit updateFinished(Updater::UpdateStatus::Error, tr("Local binary not found or failed to probe."));
-                return;
-            }
-            disconnect(this, &BaseBinaryUpdater::versionFetched, nullptr, nullptr);
-            checkForUpdate();
-        });
-        fetchVersion();
-        return;
-    }
+    // Force a fresh local version probe first to avoid stale cache from old paths
+    disconnect(this, &BaseBinaryUpdater::versionFetched, this, nullptr);
+    connect(this, &BaseBinaryUpdater::versionFetched, this, [this](const QString &localVer) {
+        disconnect(this, &BaseBinaryUpdater::versionFetched, this, nullptr);
+        if (localVer == QStringLiteral("Not Found") || localVer == QStringLiteral("Error")) {
+            emit updateFinished(Updater::UpdateStatus::Error, tr("Local binary not found or failed to probe."));
+            return;
+        }
+        performUpdateCheck();
+    });
+    fetchVersion();
+}
 
+void BaseBinaryUpdater::performUpdateCheck() {
     QUrl url;
     if (m_repoSlug.startsWith(QStringLiteral("http"), Qt::CaseInsensitive)) {
         url = QUrl(m_repoSlug);
@@ -131,12 +132,63 @@ void BaseBinaryUpdater::checkForUpdate() {
         if (normLocal == normRemote) {
             emit updateFinished(Updater::UpdateStatus::UpToDate, tr("%1 is up to date (%2).").arg(m_binaryName, m_currentLocalVersion));
         } else {
-            auto isNewer = [](const QString &local, const QString &remote) -> bool {
-                QStringList localParts = local.split(QLatin1Char('.'));
-                QStringList remoteParts = remote.split(QLatin1Char('.'));
-                for (int i = 0; i < qMax(localParts.size(), remoteParts.size()); ++i) {
-                    int localPart = i < localParts.size() ? localParts[i].toInt() : 0;
-                    int remotePart = i < remoteParts.size() ? remoteParts[i].toInt() : 0;
+            struct VerInfo {
+                bool isDate = false;
+                QList<int> segments;
+            };
+
+            auto parseVer = [](const QString &versionStr) -> VerInfo {
+                VerInfo info;
+                QString clean = versionStr.trimmed().toLower();
+                if (clean.startsWith(QLatin1Char('v'))) {
+                    clean.remove(0, 1);
+                }
+
+                static const QRegularExpression dateRe(QStringLiteral(R"(^(\d{4})[-.](\d{2})[-.](\d{2}))"));
+                QRegularExpressionMatch dateMatch = dateRe.match(clean);
+                if (dateMatch.hasMatch()) {
+                    info.isDate = true;
+                    info.segments << dateMatch.captured(1).toInt();
+                    info.segments << dateMatch.captured(2).toInt();
+                    info.segments << dateMatch.captured(3).toInt();
+                    return info;
+                }
+
+                static const QRegularExpression segmentRe(QStringLiteral(R"(\d+)"));
+                auto it = segmentRe.globalMatch(clean);
+                while (it.hasNext()) {
+                    info.segments << it.next().captured().toInt();
+                }
+
+                if (!info.segments.isEmpty() && info.segments.first() >= 1900) {
+                    info.isDate = true;
+                }
+                return info;
+            };
+
+            auto isNewer = [parseVer, this](const QString &local, const QString &remote) -> bool {
+                VerInfo vLocal = parseVer(local);
+                VerInfo vRemote = parseVer(remote);
+
+                if (vLocal.segments.isEmpty()) return true;
+                if (vRemote.segments.isEmpty()) return false;
+
+                if (m_binaryName == QStringLiteral("ffmpeg") || m_binaryName == QStringLiteral("ffprobe")) {
+                    if (vLocal.isDate != vRemote.isDate) {
+                        if (vRemote.isDate) {
+                            int localMajor = vLocal.segments.first();
+                            return localMajor < 5;
+                        } else {
+                            int remoteMajor = vRemote.segments.first();
+                            return remoteMajor >= 5;
+                        }
+                    }
+                }
+
+                int maxLen = qMax(vLocal.segments.size(), vRemote.segments.size());
+                for (int i = 0; i < maxLen; ++i) {
+                    int localPart = i < vLocal.segments.size() ? vLocal.segments[i] : 0;
+                    int remotePart = i < vRemote.segments.size() ? vRemote.segments[i] : 0;
                     if (remotePart > localPart) return true;
                     if (remotePart < localPart) return false;
                 }
