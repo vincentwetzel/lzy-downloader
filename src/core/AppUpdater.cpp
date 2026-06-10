@@ -13,35 +13,9 @@
 #include <QRegularExpression>
 #include <QVersionNumber>
 #include <QSaveFile>
+#include "VersionParser.h" // Ensure this is included
 
 namespace {
-
-QString normalizeVersionString(QString version)
-{
-    version = version.trimmed();
-    static const QRegularExpression stripPrefixRe(QStringLiteral("^[^0-9]+"));
-    version.remove(stripPrefixRe);
-
-    static const QRegularExpression matchRe(QStringLiteral(R"((\d+(?:\.\d+)*))"));
-    const QRegularExpressionMatch match = matchRe.match(version);
-    return match.hasMatch() ? match.captured(1) : QString();
-}
-
-bool isNewerVersion(const QString &latestVersion, const QString &currentVersion)
-{
-    const QString normalizedLatest = normalizeVersionString(latestVersion);
-    const QString normalizedCurrent = normalizeVersionString(currentVersion);
-
-    const QVersionNumber latest = QVersionNumber::fromString(normalizedLatest);
-    const QVersionNumber current = QVersionNumber::fromString(normalizedCurrent);
-
-    if (!latest.isNull() && !current.isNull()) {
-        return QVersionNumber::compare(latest, current) > 0;
-    }
-
-    return normalizedLatest > normalizedCurrent;
-}
-
 QUrl selectInstallerAsset(const QJsonArray &assets)
 {
     QUrl fallbackExeUrl;
@@ -102,8 +76,16 @@ void AppUpdater::fetchNextUrl() {
 
 void AppUpdater::onCheckFinished(QNetworkReply *reply) {
     if (reply->error() != QNetworkReply::NoError) {
+        int statusCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        if (statusCode == 403) {
+            emit updateCheckFailed(tr("Update check rate-limited by GitHub. Please try again later."));
+        } else if (statusCode == 404) {
+            emit updateCheckFailed(tr("GitHub release repository not found."));
+        } else {
         qWarning() << "Update check failed for URL:" << reply->request().url() 
                    << "Error:" << reply->errorString();
+        emit updateCheckFailed(tr("Update check failed: %1").arg(reply->errorString()));
+        }
         reply->deleteLater();
         
         // Try the next fallback URL
@@ -131,19 +113,22 @@ void AppUpdater::onCheckFinished(QNetworkReply *reply) {
     QJsonObject release = doc.object();
 
     if (!release.contains(QStringLiteral("tag_name")) || !release[QStringLiteral("tag_name")].isString()) {
-        emit updateCheckFailed(tr("Invalid release JSON format: missing tag_name."));
+        emit updateCheckFailed(tr("Invalid release JSON format: missing or empty tag_name."));
         reply->deleteLater();
         return;
     }
 
-    const QString latestVersion = normalizeVersionString(release[QStringLiteral("tag_name")].toString());
+    const QString remoteVersionTag = release[QStringLiteral("tag_name")].toString();
+    const Version localVersion = Version::parse(m_currentVersion);
+    const Version remoteVersion = Version::parse(remoteVersionTag);
     
     QString releaseNotes;
     if (release.contains(QStringLiteral("body")) && release[QStringLiteral("body")].isString()) {
         releaseNotes = release[QStringLiteral("body")].toString();
     }
 
-    if (isNewerVersion(latestVersion, m_currentVersion)) {
+    if (remoteVersion > localVersion) {
+        qInfo() << "Update available! Local:" << localVersion.toString() << "Remote:" << remoteVersion.toString();
         if (!release.contains(QStringLiteral("assets")) || !release[QStringLiteral("assets")].isArray()) {
             emit updateCheckFailed(tr("Invalid release JSON format: missing assets."));
             reply->deleteLater();
@@ -151,7 +136,7 @@ void AppUpdater::onCheckFinished(QNetworkReply *reply) {
         }
         const QUrl downloadUrl = selectInstallerAsset(release[QStringLiteral("assets")].toArray());
         if (downloadUrl.isValid()) {
-            emit updateAvailable(latestVersion, releaseNotes, downloadUrl);
+            emit updateAvailable(remoteVersionTag, releaseNotes, downloadUrl);
             reply->deleteLater();
             return;
         }

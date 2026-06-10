@@ -9,6 +9,7 @@ class ConfigManager;
 class QLabel;
 class QPushButton;
 class QVBoxLayout;
+class QEvent;
 
 class BinariesPage : public QWidget {
     Q_OBJECT
@@ -17,12 +18,16 @@ public:
     explicit BinariesPage(ConfigManager *configManager, QWidget *parent = nullptr);
     void browseBinaryFor(const QString &binaryName);
     void installBinaryFor(const QString &binaryName);
+    void setBinaryWarning(const QString &binaryName, const QString &details);
     void refreshBinaryStatus(const QString &binaryName);
 
 public slots:
     void loadSettings();
     void setYtDlpVersion(const QString &version);
     void setGalleryDlVersion(const QString &version);
+
+protected:
+    bool eventFilter(QObject *watched, QEvent *event) override;
 
 private slots:
     void handleConfigSettingChanged(const QString &section, const QString &key, const QVariant &value);
@@ -33,7 +38,7 @@ private:
         QString description;
         QString program;
         QStringList arguments;
-        QVariantMap extraData; // Flags for launch behaviour (e.g. is_windows_apps_alias)
+        QVariantMap extraData;
     };
 
     void setupRow(QVBoxLayout *layout,
@@ -42,6 +47,7 @@ private:
                   const QString &configKey,
                   const QString &manualUrl,
                   bool optional = false);
+
     void fetchBinaryVersion(const QString &binaryName, const QString &path);
     QString browseBinary(const QString &title) const;
     void saveBinaryOverride(const QString &binaryName, const QString &path);
@@ -54,6 +60,7 @@ private:
     QMap<QString, QString> m_configKeys;
     QMap<QString, QString> m_manualUrls;
     QMap<QString, QString> m_displayNames;
+    QMap<QString, QString> m_binaryWarnings;
     QSet<QString> m_optionalBinaries;
     QMap<QString, QLabel *> m_statusLabels;
     QMap<QString, QLabel *> m_versionLabels;

@@ -4,6 +4,7 @@
 #include <QNetworkAccessManager>
 #include <QUrl>
 #include <QStringList>
+#include "VersionParser.h" // Include the new Version Parser struct
 
 /**
  * @class AppUpdater

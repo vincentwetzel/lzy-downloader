@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(LzyDownloader VERSION 1.1.66 LANGUAGES CXX)
+project(LzyDownloader VERSION 1.1.67 LANGUAGES CXX)
 enable_testing()
 
 set(_qt_search_prefixes "")
@@ -168,6 +168,7 @@ configure_file(
 add_library(LzyAppLib STATIC
     src/core/AppUpdater.cpp
     src/core/ArchiveManager.cpp
+    src/core/BaseBinaryUpdater.cpp
     src/core/ConfigManager.cpp
     src/core/DownloadFinalizer.cpp
     src/core/DownloadManager.cpp
@@ -179,7 +180,6 @@ add_library(LzyAppLib STATIC
     src/core/DownloadQueueManager.cpp
     src/core/DownloadQueueState.cpp
     src/core/GalleryDlArgsBuilder.cpp
-    src/core/GalleryDlUpdater.cpp
     src/core/GalleryDlWorker.cpp
     src/core/LocalApiServer.cpp
     src/core/MetadataEmbedder.cpp
@@ -191,7 +191,6 @@ add_library(LzyAppLib STATIC
     src/core/StartupWorker.cpp
     src/core/UrlValidator.cpp
     src/core/YtDlpArgsBuilder.cpp
-    src/core/YtDlpUpdater.cpp
     src/core/YtDlpWorker.cpp
     src/core/YtDlpWorkerOutput.cpp
     src/core/YtDlpWorkerProcess.cpp

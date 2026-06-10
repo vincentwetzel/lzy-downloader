@@ -6,6 +6,7 @@
 #include "AdvancedSettingsTab.h"
 #include "DownloadHistoryTab.h"
 #include "FormatSelectionDialog.h"
+#include "ui/advanced_settings/BinariesPage.h"
 
 #include "core/version.h"
 #include "core/PlaylistRangeDialog.h"
@@ -523,6 +524,31 @@ void MainWindow::connectStartupWorkerSignals()
     connect(m_startupWorker, &StartupWorker::binariesChecked, this, [this](const QStringList &missingBinaries) {
         if (!missingBinaries.isEmpty() && !m_nonInteractiveLaunch) {
             showMissingBinariesDialog(missingBinaries);
+        }
+    });
+
+    // Intercept out-of-date or update-failed binaries to direct the user
+    connect(m_startupWorker, &StartupWorker::binaryUpdateRequired, this, [this](const QString &binaryName, const QString &details) {
+        if (m_nonInteractiveLaunch) return;
+
+        if (m_advancedSettingsTab) {
+            if (auto *binariesPage = m_advancedSettingsTab->findChild<BinariesPage*>()) {
+                binariesPage->setBinaryWarning(binaryName, details);
+            }
+        }
+
+        QMessageBox::StandardButton button = QMessageBox::warning(
+            this,
+            tr("Binary Update Needed"),
+            tr("The external tool '%1' is out of date or failed to update.\nDetails: %2\n\nWould you like to open the Binaries Manager to update it?")
+                .arg(binaryName, details),
+            QMessageBox::Yes | QMessageBox::No
+        );
+
+        if (button == QMessageBox::Yes) {
+            // Switch to Advanced Settings Tab and navigate to the Binaries/External Tools section
+            m_uiBuilder->tabWidget()->setCurrentWidget(m_advancedSettingsTab);
+                    m_advancedSettingsTab->navigateToCategory(QStringLiteral("External Tools"));
         }
     });
     connect(m_startupWorker, &StartupWorker::ytDlpVersionFetched, this, &MainWindow::setYtDlpVersion);

@@ -18,6 +18,7 @@
 #include <sys/types.h>
 #endif
 #include <QMutex>
+#include "core/SmartBinaryResolver.h"
 
 namespace ProcessUtils {
 
@@ -96,64 +97,6 @@ void assignProcessToTerminationJob(QProcess *process)
 static QHash<QString, FoundBinary> s_binaryCache;
 static QMutex s_binaryCacheMutex;
 
-// Helper: check common per-user tool install locations that may not be PATH
-static QString findCommonUserTool(const QString& exeName)
-{
-#ifdef Q_OS_WIN
-    const QString home = QProcessEnvironment::systemEnvironment().value(QStringLiteral("USERPROFILE"));
-    const QString localAppData = QProcessEnvironment::systemEnvironment().value(QStringLiteral("LOCALAPPDATA"));
-    const QString programData = QProcessEnvironment::systemEnvironment().value(QStringLiteral("ProgramData"));
-
-    if (!home.isEmpty()) {
-        // deno (~/.deno/bin)
-        const QString denoPath = QDir(home).filePath(QStringLiteral(".deno/bin/%1").arg(exeName));
-        if (QFileInfo::exists(denoPath)) return denoPath;
-
-        // scoop shims (~\scoop\shims)
-        const QString scoopPath = QDir(home).filePath(QStringLiteral("scoop/shims/%1").arg(exeName));
-        if (QFileInfo::exists(scoopPath)) return scoopPath;
-    }
-
-    if (!localAppData.isEmpty()) {
-        // pip-installed Python scripts (%LOCALAPPDATA%\Programs\Python\Python*\Scripts\)
-        const QString pythonScriptsDir = QDir(localAppData).filePath(QStringLiteral("Programs/Python"));
-        if (QFileInfo::exists(pythonScriptsDir)) {
-            QDir pyDir(pythonScriptsDir);
-            const QFileInfoList entries = pyDir.entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot);
-            for (const QFileInfo &entry : entries) {
-                const QString candidate = QDir(entry.filePath()).filePath(QStringLiteral("Scripts/%1").arg(exeName));
-                if (QFileInfo::exists(candidate)) return candidate;
-            }
-        }
-
-        // WindowsApps execution aliases (winget-installed tools that may not be in PATH)
-        // These are 0-byte stubs that only work through shell alias resolution.
-        // We still return the path here — the caller (BinariesPage) detects 0-byte
-        // stubs and handles them by prepending WindowsApps to PATH instead of
-        // invoking the stub directly.
-        const QString windowsAppsDir = QDir(localAppData).filePath(QStringLiteral("Microsoft/WindowsApps"));
-        if (QFileInfo::exists(windowsAppsDir)) {
-            const QString aliasPath = QDir(windowsAppsDir).filePath(exeName);
-            if (QFileInfo::exists(aliasPath)) return aliasPath;
-        }
-    }
-
-    if (!programData.isEmpty()) {
-        // Chocolatey (C:\ProgramData\chocolatey\bin)
-        const QString chocoPath = QDir(programData).filePath(QStringLiteral("chocolatey/bin/%1").arg(exeName));
-        if (QFileInfo::exists(chocoPath)) return chocoPath;
-    }
-#else
-    const QString home = QProcessEnvironment::systemEnvironment().value(QStringLiteral("HOME"));
-    if (!home.isEmpty()) {
-        // deno (~/.deno/bin)
-        const QString denoPath = QDir(home).filePath(QStringLiteral(".deno/bin/%1").arg(exeName));
-        if (QFileInfo::exists(denoPath)) return denoPath;
-    }
-#endif
-    return QString();
-}
-
 FoundBinary findBinary(const QString& name, ConfigManager* configManager)
 {
     {
@@ -177,67 +120,7 @@ FoundBinary findBinary(const QString& name, ConfigManager* configManager)
 
 FoundBinary resolveBinary(const QString& name, ConfigManager* configManager)
 {
-#ifdef Q_OS_WIN
-    QString exeName = QStringLiteral("%1.exe").arg(name);
-#else
-    QString exeName = name;
-#endif
-
-    // Test QStandardPaths::findExecutable
-    QString systemPath = QStandardPaths::findExecutable(exeName);
-
-    qDebug() << "[ProcessUtils] resolveBinary:" << name << "- systemPath:" << systemPath;
-
-    // 1. Check config override
-    if (configManager) {
-        QString configKey = QStringLiteral("%1_path").arg(name);
-        QString customPath = configManager->get(QStringLiteral("Binaries"), configKey, QVariant()).toString().trimmed();
-
-        if (!customPath.isEmpty()) {
-            qDebug() << "[ProcessUtils] Custom path configured for" << name << ":" << customPath;
-            if (!QFileInfo::exists(customPath)) {
-                return {QDir::toNativeSeparators(customPath), QStringLiteral("Invalid Custom")};
-            }
-
-            QString canonicalCustom = QFileInfo(customPath).canonicalFilePath();
-
-            if (!systemPath.isEmpty() && canonicalCustom == QFileInfo(systemPath).canonicalFilePath()) {
-                return {QDir::toNativeSeparators(systemPath), QStringLiteral("System PATH")};
-            }
-
-            return {QDir::toNativeSeparators(customPath), QStringLiteral("Custom")};
-        }
-    }
-
-    // 2. Check system PATH first (allows users to provide their own unbundled binaries)
-    if (!systemPath.isEmpty()) {
-        qDebug() << "[ProcessUtils] Found" << name << "in System PATH:" << systemPath;
-        return {QDir::toNativeSeparators(systemPath), QStringLiteral("System PATH")};
-    }
-
-    // 2b. Check common per-user tool locations (deno at ~/.deno/bin, etc.)
-    //     These tools often install to a user-local path that isn't in PATH.
-    QString userToolPath = findCommonUserTool(exeName);
-    if (!userToolPath.isEmpty()) {
-        qDebug() << "[ProcessUtils] Found" << name << "in User Local:" << userToolPath;
-        return {QDir::toNativeSeparators(userToolPath), QStringLiteral("User Local")};
-    }
-
-    qDebug() << "[ProcessUtils]" << name << "NOT FOUND - searching all PATH directories for" << exeName;
-
-    // Final diagnostic: manually search PATH
-    QString pathEnv = QProcessEnvironment::systemEnvironment().value(QStringLiteral("PATH"));
-    QStringList pathDirs = pathEnv.split(QDir::listSeparator(), Qt::SkipEmptyParts);
-    qDebug() << "[ProcessUtils] PATH contains" << pathDirs.size() << "directories";
-    for (const QString& dir : pathDirs) {
-        QString candidate = QDir(dir).filePath(exeName);
-        if (QFileInfo::exists(candidate)) {
-            qDebug() << "[ProcessUtils] FOUND" << name << "at" << candidate << "(in PATH dir:" << dir << ")";
-            return {QDir::toNativeSeparators(candidate), QStringLiteral("System PATH")};
-        }
-    }
-
-    return {name, QStringLiteral("Not Found")};
+    return SmartBinaryResolver::resolve(name, configManager);
 }
 
 void clearCache() {

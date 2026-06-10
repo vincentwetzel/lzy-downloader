@@ -9,6 +9,12 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## [Unreleased]
 
+### Changed
+- **External binary management refactor**: `yt-dlp` and `gallery-dl` updater logic now share `BaseBinaryUpdater`, while external tool lookup goes through `SmartBinaryResolver` so manual overrides win, the app-local `bin` folder is considered first, stale settings ghosts are cleared, and multiple discovered candidates can be selected by newest usable version.
+
+### Fixed
+- **Binary update diagnostics and integrity**: App and tool update checks now use the shared chronological version parser, surface GitHub rate-limit/not-found failures more clearly, show External Binaries update warnings, and verify downloaded standalone tools against SHA-256 data when upstream release metadata provides it.
+
 ## [1.1.65] - 2026-06-10
 
 ### Changed

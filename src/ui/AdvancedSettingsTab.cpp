@@ -279,7 +279,7 @@ void AdvancedSettingsTab::navigateToCategory(const QString &categoryTitle) {
         targetTitle = tr("Download Flow");
     } else if (categoryTitle == QStringLiteral("Output Templates") || categoryTitle == QStringLiteral("Output Template") || categoryTitle == QStringLiteral("Metadata") || categoryTitle == QStringLiteral("Subtitles")) {
         targetTitle = tr("Files & Tags");
-    } else if (categoryTitle == QStringLiteral("External Binaries") || categoryTitle == QStringLiteral("Binaries")) {
+    } else if (categoryTitle == QStringLiteral("External Binaries") || categoryTitle == QStringLiteral("Binaries") || categoryTitle == QStringLiteral("External Tools")) {
         targetTitle = tr("External Tools");
     }
 

@@ -2,6 +2,7 @@
 
 #include "core/ConfigManager.h"
 #include "core/ProcessUtils.h"
+#include "core/SmartBinaryResolver.h"
 
 #include <QComboBox>
 #include <QDesktopServices>
@@ -27,24 +28,38 @@
 #include <QTextCursor>
 #include <QTimer>
 #include <QPointer>
+#include <QEvent>
+#include <QSettings>
 
 BinariesPage::BinariesPage(ConfigManager *configManager, QWidget *parent)
     : QWidget(parent), m_configManager(configManager) {
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
     mainLayout->setContentsMargins(0, 0, 0, 0);
+    mainLayout->setSpacing(0);
 
     QScrollArea *scrollArea = new QScrollArea(this);
     scrollArea->setWidgetResizable(true);
     scrollArea->setFrameShape(QFrame::NoFrame);
     scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    scrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+    scrollArea->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 
     QWidget *scrollWidget = new QWidget(scrollArea);
+    scrollWidget->setMinimumWidth(0);
+    scrollWidget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Minimum);
+
     QVBoxLayout *layout = new QVBoxLayout(scrollWidget);
     layout->setContentsMargins(0, 0, 0, 0);
+    layout->setSpacing(0);
 
     QGroupBox *group = new QGroupBox(tr("External Binaries"), scrollWidget);
     group->setToolTip(tr("Review detected tool locations, choose manual executable paths, install missing tools, or update installed tools."));
+    group->setMinimumWidth(0);
+    group->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Minimum);
+
     QVBoxLayout *groupLayout = new QVBoxLayout(group);
+    groupLayout->setSpacing(6);
+    groupLayout->setContentsMargins(12, 10, 12, 10);
 
     QLabel *introLabel = new QLabel(
         tr("<b>REQUIRED:</b> yt-dlp, ffmpeg, ffprobe, deno<br>"
@@ -53,42 +68,55 @@ BinariesPage::BinariesPage(ConfigManager *configManager, QWidget *parent)
            "<b>Install</b> opens package-manager or official website download options.<br><br>"
            "<span style='color: #d97706;'><b>Note:</b> If a package-manager install does not appear after Refresh, "
            "restart LzyDownloader or use Browse to select the installed executable.</span>"),
-        scrollWidget);
+        group
+    );
+
     introLabel->setWordWrap(true);
     introLabel->setTextFormat(Qt::RichText);
     introLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    introLabel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Minimum);
     introLabel->setToolTip(tr("Explains which external tools are required, which are optional, and how Browse, Clear Path, Install, and Refresh affect detection."));
+
     groupLayout->addWidget(introLabel);
 
-    QPushButton *refreshButton = new QPushButton(tr("Refresh All Statuses"), scrollWidget);
+    QPushButton *refreshButton = new QPushButton(tr("Refresh All Statuses"), group);
+    refreshButton->setObjectName(QStringLiteral("refreshAllStatusesButton"));
     refreshButton->setToolTip(tr("Re-scan configured paths and auto-detected binaries.\nIf a newly installed package manager tool is still missing, restart the app to refresh the system PATH."));
+    refreshButton->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Fixed);
+
     connect(refreshButton, &QPushButton::clicked, this, [this, refreshButton]() {
         refreshButton->setEnabled(false);
+        m_binaryWarnings.clear();
+
         for (auto it = m_statusLabels.constBegin(); it != m_statusLabels.constEnd(); ++it) {
             it.value()->setText(tr("<b>Status:</b> Refreshing..."));
         }
+
         for (auto it = m_installButtons.constBegin(); it != m_installButtons.constEnd(); ++it) {
             it.value()->setEnabled(false);
         }
+
         for (auto it = m_updateButtons.constBegin(); it != m_updateButtons.constEnd(); ++it) {
             it.value()->setEnabled(false);
         }
-        for (const QString& binaryName : m_configKeys.keys()) {
-            if (QPushButton *clearBtn = this->findChild<QPushButton*>(QStringLiteral("%1_clearButton").arg(binaryName))) {
+
+        for (const QString &binaryName : m_configKeys.keys()) {
+            if (QPushButton *clearBtn = this->findChild<QPushButton *>(QStringLiteral("%1_clearButton").arg(binaryName))) {
                 clearBtn->setEnabled(false);
             }
         }
 
-        // Clear the binary resolution cache so stale "Not Found" entries
-        // from before external installs are purged.
+        qInfo() << "[BinariesPage] 'Refresh All Statuses' button clicked! Clearing warnings and ProcessUtils cache...";
         ProcessUtils::clearCache();
 
         constexpr int REFRESH_DELAY_MS = 150;
         QTimer::singleShot(REFRESH_DELAY_MS, this, [this, refreshButton]() {
+            qInfo() << "[BinariesPage] Refresh delay completed. Re-loading settings...";
             loadSettings();
             refreshButton->setEnabled(true);
         });
     });
+
     groupLayout->addWidget(refreshButton, 0, Qt::AlignRight);
 
     setupRow(groupLayout, QStringLiteral("yt-dlp"), QStringLiteral("yt-dlp"), QStringLiteral("yt-dlp_path"), QStringLiteral("https://github.com/yt-dlp/yt-dlp-nightly-builds/releases/latest"), false);
@@ -98,14 +126,19 @@ BinariesPage::BinariesPage(ConfigManager *configManager, QWidget *parent)
     setupRow(groupLayout, QStringLiteral("gallery-dl"), QStringLiteral("gallery-dl"), QStringLiteral("gallery-dl_path"), QStringLiteral("https://github.com/mikf/gallery-dl"), true);
     setupRow(groupLayout, QStringLiteral("aria2c"), QStringLiteral("aria2c"), QStringLiteral("aria2c_path"), QStringLiteral("https://github.com/aria2/aria2/releases"), true);
 
-    layout->addWidget(group);
-    layout->addStretch();
+    layout->addWidget(group, 0, Qt::AlignTop);
 
     scrollArea->setWidget(scrollWidget);
+
     mainLayout->addWidget(scrollArea);
 
     connect(m_configManager, &ConfigManager::settingChanged, this, &BinariesPage::handleConfigSettingChanged);
 }
+
+bool BinariesPage::eventFilter(QObject *watched, QEvent *event) {
+    return QWidget::eventFilter(watched, event);
+}
+
 
 void BinariesPage::setupRow(QVBoxLayout *layout,
                             const QString &binaryName,
@@ -116,11 +149,15 @@ void BinariesPage::setupRow(QVBoxLayout *layout,
     m_configKeys.insert(binaryName, configKey);
     m_manualUrls.insert(binaryName, manualUrl);
     m_displayNames.insert(binaryName, labelText);
+
     if (optional) {
         m_optionalBinaries.insert(binaryName);
     }
 
-    QGroupBox *rowGroup = new QGroupBox(this);
+    QGroupBox *rowGroup = new QGroupBox(layout->parentWidget());
+    rowGroup->setMinimumWidth(0);
+    rowGroup->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+
     const QString title = optional ? tr("%1 (Optional)").arg(labelText) : labelText;
     rowGroup->setTitle(title);
 
@@ -129,49 +166,67 @@ void BinariesPage::setupRow(QVBoxLayout *layout,
     rowGroup->setFont(groupFont);
 
     QHBoxLayout *rowLayout = new QHBoxLayout(rowGroup);
-    rowLayout->setSpacing(16);
+    rowLayout->setSpacing(12);
+    rowLayout->setContentsMargins(10, 6, 10, 6);
+    rowLayout->setAlignment(Qt::AlignTop);
 
     QLabel *statusLabel = new QLabel(rowGroup);
-    statusLabel->setWordWrap(true);
+    statusLabel->setWordWrap(false);
     statusLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
     statusLabel->setToolTip(tr("Shows whether %1 was found automatically, found through a manual override, or is missing.").arg(labelText));
     statusLabel->setAlignment(Qt::AlignTop | Qt::AlignLeft);
-
-    QSizePolicy labelPolicy = statusLabel->sizePolicy();
-    labelPolicy.setHorizontalPolicy(QSizePolicy::Expanding);
-    labelPolicy.setVerticalPolicy(QSizePolicy::Minimum);
-    statusLabel->setSizePolicy(labelPolicy);
+    statusLabel->setMinimumWidth(0);
+    statusLabel->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Minimum);
 
     QLabel *versionLabel = new QLabel(tr("Version: Unknown"), rowGroup);
-    versionLabel->setWordWrap(true);
+    versionLabel->setWordWrap(false);
     versionLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
     versionLabel->setToolTip(tr("Detected version reported by %1. Shows Unknown until a version check succeeds.").arg(labelText));
     versionLabel->setAlignment(Qt::AlignTop | Qt::AlignLeft);
+    versionLabel->setMinimumWidth(0);
+    versionLabel->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Minimum);
 
     QString description;
-    if (binaryName == QStringLiteral("yt-dlp")) description = tr("Downloads video and audio from online platforms.");
-    else if (binaryName == QStringLiteral("ffmpeg")) description = tr("Merges and converts media formats.");
-    else if (binaryName == QStringLiteral("ffprobe")) description = tr("Analyzes media files and metadata.");
-    else if (binaryName == QStringLiteral("deno")) description = tr("Executes JavaScript for solving anti-bot challenges.");
-    else if (binaryName == QStringLiteral("gallery-dl")) description = tr("Downloads image galleries.");
-    else if (binaryName == QStringLiteral("aria2c")) description = tr("Accelerates downloads using multiple connections.");
+    if (binaryName == QStringLiteral("yt-dlp")) {
+        description = tr("Downloads video and audio from online platforms.");
+    } else if (binaryName == QStringLiteral("ffmpeg")) {
+        description = tr("Merges and converts media formats.");
+    } else if (binaryName == QStringLiteral("ffprobe")) {
+        description = tr("Analyzes media files and metadata.");
+    } else if (binaryName == QStringLiteral("deno")) {
+        description = tr("Executes JavaScript for solving anti-bot challenges.");
+    } else if (binaryName == QStringLiteral("gallery-dl")) {
+        description = tr("Downloads image galleries.");
+    } else if (binaryName == QStringLiteral("aria2c")) {
+        description = tr("Accelerates downloads using multiple connections.");
+    }
 
     QLabel *descLabel = new QLabel(QStringLiteral("<i>%1</i>").arg(description), rowGroup);
     descLabel->setToolTip(tr("What LzyDownloader uses %1 for.").arg(labelText));
-    descLabel->setWordWrap(true);
+    descLabel->setWordWrap(false);
     descLabel->setAlignment(Qt::AlignTop | Qt::AlignLeft);
+    descLabel->setMinimumWidth(0);
+    descLabel->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Minimum);
 
     QVBoxLayout *leftCol = new QVBoxLayout();
+    leftCol->setSpacing(2);
+    leftCol->setContentsMargins(0, 0, 0, 0);
+    leftCol->setAlignment(Qt::AlignTop);
     leftCol->addWidget(descLabel);
     leftCol->addWidget(statusLabel);
     leftCol->addWidget(versionLabel);
-    leftCol->addStretch();
 
     QPushButton *browseButton = new QPushButton(tr("Browse..."), rowGroup);
     QPushButton *clearButton = new QPushButton(tr("Clear Path"), rowGroup);
     clearButton->setObjectName(QStringLiteral("%1_clearButton").arg(binaryName));
+
     QPushButton *installButton = new QPushButton(tr("Install..."), rowGroup);
     QPushButton *updateButton = new QPushButton(tr("Update"), rowGroup);
+
+    browseButton->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+    clearButton->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+    installButton->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+    updateButton->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
 
     if (binaryName == QStringLiteral("yt-dlp")) {
         updateButton->setObjectName(QStringLiteral("updateYtDlpButton"));
@@ -185,6 +240,7 @@ void BinariesPage::setupRow(QVBoxLayout *layout,
 
     QFont childFont = browseButton->font();
     childFont.setBold(false);
+
     browseButton->setFont(childFont);
     clearButton->setFont(childFont);
     installButton->setFont(childFont);
@@ -199,17 +255,21 @@ void BinariesPage::setupRow(QVBoxLayout *layout,
 
     QHBoxLayout *buttonLayout = new QHBoxLayout();
     buttonLayout->setSpacing(8);
+    buttonLayout->setContentsMargins(0, 0, 0, 0);
+    buttonLayout->setAlignment(Qt::AlignTop | Qt::AlignRight);
+    buttonLayout->addWidget(updateButton);
+    buttonLayout->addWidget(installButton);
     buttonLayout->addWidget(browseButton);
     buttonLayout->addWidget(clearButton);
-    buttonLayout->addWidget(installButton);
-    buttonLayout->addWidget(updateButton);
 
     QVBoxLayout *rightCol = new QVBoxLayout();
+    rightCol->setSpacing(0);
+    rightCol->setContentsMargins(0, 0, 0, 0);
+    rightCol->setAlignment(Qt::AlignTop | Qt::AlignRight);
     rightCol->addLayout(buttonLayout);
-    rightCol->addStretch();
 
     rowLayout->addLayout(leftCol, 1);
-    rowLayout->addLayout(rightCol);
+    rowLayout->addLayout(rightCol, 0);
 
     layout->addWidget(rowGroup);
 
@@ -218,14 +278,22 @@ void BinariesPage::setupRow(QVBoxLayout *layout,
     m_installButtons.insert(binaryName, installButton);
     m_updateButtons.insert(binaryName, updateButton);
 
-    connect(browseButton, &QPushButton::clicked, this, [this, binaryName]() { browseBinaryFor(binaryName); });
+    connect(browseButton, &QPushButton::clicked, this, [this, binaryName]() {
+        browseBinaryFor(binaryName);
+    });
+
     connect(clearButton, &QPushButton::clicked, this, [this, binaryName]() {
         saveBinaryOverride(binaryName, QString());
     });
-    connect(installButton, &QPushButton::clicked, this, [this, binaryName]() { installBinaryFor(binaryName); });
+
+    connect(installButton, &QPushButton::clicked, this, [this, binaryName]() {
+        installBinaryFor(binaryName);
+    });
+
     connect(updateButton, &QPushButton::clicked, this, [this, binaryName]() {
-        const ProcessUtils::FoundBinary foundBinary = ProcessUtils::resolveBinary(binaryName, m_configManager);
+        const ProcessUtils::FoundBinary foundBinary = SmartBinaryResolver::resolve(binaryName, m_configManager);
         QString pathLower = foundBinary.path.toLower();
+
         QString manager;
         QString updateProgram;
         QStringList updateArgs;
@@ -233,39 +301,114 @@ void BinariesPage::setupRow(QVBoxLayout *layout,
         if (pathLower.contains(QStringLiteral("scoop"))) {
             manager = QStringLiteral("Scoop");
             updateProgram = QStringLiteral("scoop");
-            if (binaryName == QStringLiteral("yt-dlp")) updateArgs = {QStringLiteral("update"), QStringLiteral("yt-dlp-nightly")};
-            else if (binaryName == QStringLiteral("ffmpeg") || binaryName == QStringLiteral("ffprobe")) updateArgs = {QStringLiteral("update"), QStringLiteral("ffmpeg")};
-            else updateArgs = {QStringLiteral("update"), binaryName};
+
+            if (binaryName == QStringLiteral("yt-dlp")) {
+                updateArgs = {QStringLiteral("update"), QStringLiteral("yt-dlp-nightly")};
+            } else if (binaryName == QStringLiteral("ffmpeg") || binaryName == QStringLiteral("ffprobe")) {
+                updateArgs = {QStringLiteral("update"), QStringLiteral("ffmpeg")};
+            } else {
+                updateArgs = {QStringLiteral("update"), binaryName};
+            }
+
         } else if (pathLower.contains(QStringLiteral("windowsapps"))) {
             manager = QStringLiteral("WinGet");
             updateProgram = QStringLiteral("winget");
-            if (binaryName == QStringLiteral("gallery-dl")) updateArgs = {QStringLiteral("upgrade"), QStringLiteral("--id"), QStringLiteral("mikf.gallery-dl"), QStringLiteral("--exact"), QStringLiteral("--accept-package-agreements"), QStringLiteral("--accept-source-agreements")};
-            else if (binaryName == QStringLiteral("yt-dlp")) updateArgs = {QStringLiteral("upgrade"), QStringLiteral("--id"), QStringLiteral("yt-dlp.yt-dlp"), QStringLiteral("--exact"), QStringLiteral("--accept-package-agreements"), QStringLiteral("--accept-source-agreements")};
-            else if (binaryName == QStringLiteral("ffmpeg") || binaryName == QStringLiteral("ffprobe")) updateArgs = {QStringLiteral("upgrade"), QStringLiteral("--id"), QStringLiteral("Gyan.FFmpeg"), QStringLiteral("--exact"), QStringLiteral("--accept-package-agreements"), QStringLiteral("--accept-source-agreements")};
-            else if (binaryName == QStringLiteral("aria2c")) updateArgs = {QStringLiteral("upgrade"), QStringLiteral("--id"), QStringLiteral("aria2.aria2"), QStringLiteral("--exact"), QStringLiteral("--accept-package-agreements"), QStringLiteral("--accept-source-agreements")};
-            else if (binaryName == QStringLiteral("deno")) updateArgs = {QStringLiteral("upgrade"), QStringLiteral("--id"), QStringLiteral("DenoLand.Deno"), QStringLiteral("--exact"), QStringLiteral("--accept-package-agreements"), QStringLiteral("--accept-source-agreements")};
-            else updateArgs = {QStringLiteral("upgrade"), binaryName, QStringLiteral("--accept-package-agreements"), QStringLiteral("--accept-source-agreements")};
-        } else if (pathLower.contains(QStringLiteral("python")) || pathLower.contains(QStringLiteral("pip")) || pathLower.contains(QStringLiteral("scripts")) || pathLower.contains(QStringLiteral("site-packages"))) {
+
+            if (binaryName == QStringLiteral("gallery-dl")) {
+                updateArgs = {QStringLiteral("upgrade"), QStringLiteral("--id"), QStringLiteral("mikf.gallery-dl"), QStringLiteral("--exact"), QStringLiteral("--accept-package-agreements"), QStringLiteral("--accept-source-agreements")};
+            } else if (binaryName == QStringLiteral("yt-dlp")) {
+                updateArgs = {QStringLiteral("upgrade"), QStringLiteral("--id"), QStringLiteral("yt-dlp.yt-dlp"), QStringLiteral("--exact"), QStringLiteral("--accept-package-agreements"), QStringLiteral("--accept-source-agreements")};
+            } else if (binaryName == QStringLiteral("ffmpeg") || binaryName == QStringLiteral("ffprobe")) {
+                updateArgs = {QStringLiteral("upgrade"), QStringLiteral("--id"), QStringLiteral("Gyan.FFmpeg"), QStringLiteral("--exact"), QStringLiteral("--accept-package-agreements"), QStringLiteral("--accept-source-agreements")};
+            } else if (binaryName == QStringLiteral("aria2c")) {
+                updateArgs = {QStringLiteral("upgrade"), QStringLiteral("--id"), QStringLiteral("aria2.aria2"), QStringLiteral("--exact"), QStringLiteral("--accept-package-agreements"), QStringLiteral("--accept-source-agreements")};
+            } else if (binaryName == QStringLiteral("deno")) {
+                updateArgs = {QStringLiteral("upgrade"), QStringLiteral("--id"), QStringLiteral("DenoLand.Deno"), QStringLiteral("--exact"), QStringLiteral("--accept-package-agreements"), QStringLiteral("--accept-source-agreements")};
+            } else {
+                updateArgs = {QStringLiteral("upgrade"), binaryName, QStringLiteral("--accept-package-agreements"), QStringLiteral("--accept-source-agreements")};
+            }
+
+        } else if (pathLower.contains(QStringLiteral("python")) ||
+                   pathLower.contains(QStringLiteral("pip")) ||
+                   pathLower.contains(QStringLiteral("scripts")) ||
+                   pathLower.contains(QStringLiteral("site-packages"))) {
             manager = QStringLiteral("pip");
             updateProgram = QStringLiteral("pip");
-            if (binaryName == QStringLiteral("yt-dlp")) updateArgs = {QStringLiteral("install"), QStringLiteral("-U"), QStringLiteral("--pre"), QStringLiteral("yt-dlp")};
-            else updateArgs = {QStringLiteral("install"), QStringLiteral("-U"), binaryName};
-        } else if (pathLower.contains(QStringLiteral("homebrew")) || pathLower.contains(QStringLiteral("cellar")) || pathLower.contains(QStringLiteral("linuxbrew"))) {
+
+            if (binaryName == QStringLiteral("yt-dlp")) {
+                updateArgs = {QStringLiteral("install"), QStringLiteral("-U"), QStringLiteral("--pre"), QStringLiteral("yt-dlp")};
+            } else {
+                updateArgs = {QStringLiteral("install"), QStringLiteral("-U"), binaryName};
+            }
+
+        } else if (pathLower.contains(QStringLiteral("homebrew")) ||
+                   pathLower.contains(QStringLiteral("cellar")) ||
+                   pathLower.contains(QStringLiteral("linuxbrew"))) {
             manager = QStringLiteral("Homebrew");
             updateProgram = QStringLiteral("brew");
-            if (binaryName == QStringLiteral("ffmpeg") || binaryName == QStringLiteral("ffprobe")) updateArgs = {QStringLiteral("upgrade"), QStringLiteral("ffmpeg")};
-            else updateArgs = {QStringLiteral("upgrade"), binaryName};
-        } else if (pathLower.contains(QStringLiteral("chocolatey")) || pathLower.contains(QStringLiteral("choco"))) {
+
+            if (binaryName == QStringLiteral("ffmpeg") || binaryName == QStringLiteral("ffprobe")) {
+                updateArgs = {QStringLiteral("upgrade"), QStringLiteral("ffmpeg")};
+            } else {
+                updateArgs = {QStringLiteral("upgrade"), binaryName};
+            }
+
+        } else if (pathLower.contains(QStringLiteral("chocolatey")) ||
+                   pathLower.contains(QStringLiteral("choco"))) {
             manager = QStringLiteral("Chocolatey");
             updateProgram = QStringLiteral("choco");
-            if (binaryName == QStringLiteral("ffmpeg") || binaryName == QStringLiteral("ffprobe")) updateArgs = {QStringLiteral("upgrade"), QStringLiteral("-y"), QStringLiteral("ffmpeg")};
-            else updateArgs = {QStringLiteral("upgrade"), QStringLiteral("-y"), binaryName};
+
+            if (binaryName == QStringLiteral("ffmpeg") || binaryName == QStringLiteral("ffprobe")) {
+                updateArgs = {QStringLiteral("upgrade"), QStringLiteral("-y"), QStringLiteral("ffmpeg")};
+            } else {
+                updateArgs = {QStringLiteral("upgrade"), QStringLiteral("-y"), binaryName};
+            }
         }
 
         const bool isStandalone = manager.isEmpty();
+
         if (isStandalone) {
+            if (binaryName == QStringLiteral("ffmpeg") || binaryName == QStringLiteral("ffprobe") || binaryName == QStringLiteral("aria2c")) {
+#ifdef Q_OS_WIN
+                if (binaryName == QStringLiteral("ffmpeg") || binaryName == QStringLiteral("ffprobe")) {
+                    QMessageBox msgBox(this);
+                    msgBox.setWindowTitle(tr("Update %1").arg(displayName(binaryName)));
+                    msgBox.setTextFormat(Qt::RichText);
+                    msgBox.setText(tr("A recommended update is available for <b>%1</b>.<br><br>"
+                                     "How would you like to update?<br><br>"
+                                     "<b>Automated Update (Recommended):</b> Downloads and installs the latest stable build of FFmpeg and FFprobe directly to your local application folder.<br>"
+                                     "<b>Manual Update:</b> Opens the official download page in your web browser.")
+                                      .arg(displayName(binaryName)));
+                    msgBox.setIcon(QMessageBox::Question);
+                    QPushButton *autoBtn = msgBox.addButton(tr("Automated Update"), QMessageBox::AcceptRole);
+                    QPushButton *manualBtn = msgBox.addButton(tr("Manual Update"), QMessageBox::ActionRole);
+                    msgBox.addButton(QMessageBox::Cancel);
+                    msgBox.exec();
+
+                    if (msgBox.clickedButton() == autoBtn) {
+                        installBinaryFor(binaryName);
+                        return;
+                    } else if (msgBox.clickedButton() == manualBtn) {
+                        QDesktopServices::openUrl(QUrl(m_manualUrls.value(binaryName)));
+                        return;
+                    } else {
+                        return;
+                    }
+                }
+#endif
+                QDesktopServices::openUrl(QUrl(m_manualUrls.value(binaryName)));
+                QMessageBox::information(
+                    this,
+                    tr("Manual Update Required"),
+                    tr("The official download page for %1 was opened in your browser.\n\n"
+                       "Please download the latest version, extract/install it, and use the 'Browse...' button to select the new executable.")
+                        .arg(displayName(binaryName)));
+                return;
+            }
+
             manager = tr("Standalone");
             updateProgram = foundBinary.path;
+
             if (binaryName == QStringLiteral("deno")) {
                 updateArgs = {QStringLiteral("upgrade")};
             } else {
@@ -277,23 +420,31 @@ void BinariesPage::setupRow(QVBoxLayout *layout,
             QMessageBox msgBox(this);
             msgBox.setWindowTitle(tr("Update %1").arg(displayName(binaryName)));
             msgBox.setTextFormat(Qt::RichText);
-            QString messageText;
+
             QString cmdPreview = updateProgram;
             for (const QString &arg : updateArgs) {
-                if (arg.contains(QLatin1Char(' '))) cmdPreview += QStringLiteral(" \"%1\"").arg(arg);
-                else cmdPreview += QStringLiteral(" %1").arg(arg);
+                if (arg.contains(QLatin1Char(' '))) {
+                    cmdPreview += QStringLiteral(" \"%1\"").arg(arg);
+                } else {
+                    cmdPreview += QStringLiteral(" %1").arg(arg);
+                }
             }
 
+            QString messageText;
             if (isStandalone) {
                 messageText = tr("Would you like to run the built-in updater for <b>%1</b>?<br><br>"
-                                 "<code>%2</code>").arg(displayName(binaryName), cmdPreview);
+                                 "<code>%2</code>")
+                                  .arg(displayName(binaryName), cmdPreview);
             } else {
                 messageText = tr("LzyDownloader detected that %1 is managed by <b>%2</b>.<br><br>"
                                  "Would you like to run the following update command now?<br><br>"
-                                 "<code>%3</code>").arg(displayName(binaryName), manager, cmdPreview);
+                                 "<code>%3</code>")
+                                  .arg(displayName(binaryName), manager, cmdPreview);
             }
+
             msgBox.setText(messageText);
             msgBox.setIcon(QMessageBox::Question);
+
             QPushButton *runButton = msgBox.addButton(tr("Run Update"), QMessageBox::AcceptRole);
             msgBox.addButton(QMessageBox::Cancel);
 
@@ -305,9 +456,11 @@ void BinariesPage::setupRow(QVBoxLayout *layout,
                 progressDialog.resize(600, 400);
 
                 QVBoxLayout *pLayout = new QVBoxLayout(&progressDialog);
+
                 QTextEdit *outputEdit = new QTextEdit(&progressDialog);
                 outputEdit->setReadOnly(true);
                 outputEdit->setFontFamily(QStringLiteral("Courier New"));
+                outputEdit->setWordWrapMode(QTextOption::WrapAnywhere);
                 pLayout->addWidget(outputEdit);
 
                 QDialogButtonBox *pButtons = new QDialogButtonBox(QDialogButtonBox::Close, &progressDialog);
@@ -325,76 +478,128 @@ void BinariesPage::setupRow(QVBoxLayout *layout,
                     if (process->state() != QProcess::NotRunning) {
                         process->setProperty("cancelled", QVariant(true));
                         ProcessUtils::terminateProcessTree(process);
-                        process->kill(); // Forcefully kill the QProcess instance as fallback
+                        process->kill();
                     }
                 });
 
                 QPointer<QDialog> pDialog(&progressDialog);
 
                 connect(process, &QProcess::readyReadStandardOutput, process, [process, outputEdit, pDialog]() {
-                    if (!pDialog) return;
+                    if (!pDialog) {
+                        return;
+                    }
+
                     QByteArray buffer = process->property("outputBuffer").toByteArray();
                     buffer.append(process->readAllStandardOutput());
+
                     qsizetype lastDelimiter = qMax(buffer.lastIndexOf('\n'), buffer.lastIndexOf('\r'));
+
                     if (lastDelimiter != -1) {
                         QString output = QString::fromUtf8(buffer.constData(), lastDelimiter + 1);
                         buffer.remove(0, lastDelimiter + 1);
+
                         outputEdit->moveCursor(QTextCursor::End);
                         outputEdit->insertPlainText(output);
                         outputEdit->moveCursor(QTextCursor::End);
                     }
+
                     process->setProperty("outputBuffer", buffer);
                 });
 
-                connect(process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished), this, [this, process, outputEdit, closeBtn, binaryName, pDialog](int exitCode, QProcess::ExitStatus exitStatus) {
-                    if (!pDialog) return; // Guard against destroyed child widgets
-                    if (process->property("cancelled").toBool()) return;
-                    closeBtn->setEnabled(true);
-                    QByteArray buffer = process->property("outputBuffer").toByteArray();
-                    if (!buffer.isEmpty()) {
-                        outputEdit->moveCursor(QTextCursor::End);
-                        outputEdit->insertPlainText(QString::fromUtf8(buffer));
-                    }
-                    if (exitStatus == QProcess::NormalExit && exitCode == 0) {
-                        outputEdit->moveCursor(QTextCursor::End);
-                        outputEdit->insertPlainText(tr("\n--- Update completed successfully. ---\n"));
-                        ProcessUtils::clearCache();
-                        this->refreshBinaryStatus(binaryName);
-                    } else {
-                        outputEdit->moveCursor(QTextCursor::End);
-                        outputEdit->insertPlainText(tr("\n--- Update failed with exit code %1. ---\n").arg(exitCode));
+                connect(process,
+                        QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
+                        this,
+                        [this, process, outputEdit, closeBtn, binaryName, pDialog](int exitCode, QProcess::ExitStatus exitStatus) {
+                            if (!pDialog) {
+                                return;
+                            }
 
-                        const QString logText = outputEdit->toPlainText();
-                        if (logText.contains(QStringLiteral("Permission denied"), Qt::CaseInsensitive) || logText.contains(QStringLiteral("Access is denied"), Qt::CaseInsensitive)) {
-                            QMessageBox::warning(pDialog, tr("Permission Denied"),
-                                tr("The update of %1 failed due to insufficient permissions.\n\n"
-                                        "If it is installed in a protected system folder (like 'Program Files'), "
-                                        "please restart LzyDownloader as Administrator and try again.").arg(displayName(binaryName)));
-                        } else {
-                            QMessageBox::warning(pDialog, tr("Update Failed"), tr("The update of %1 failed. Please check the output log.").arg(displayName(binaryName)));
-                        }
-                    }
-                });
+                            if (process->property("cancelled").toBool()) {
+                                return;
+                            }
+
+                            closeBtn->setEnabled(true);
+
+                            QByteArray buffer = process->property("outputBuffer").toByteArray();
+                            if (!buffer.isEmpty()) {
+                                outputEdit->moveCursor(QTextCursor::End);
+                                outputEdit->insertPlainText(QString::fromUtf8(buffer));
+                            }
+
+                            if (exitStatus == QProcess::NormalExit && exitCode == 0) {
+                                outputEdit->moveCursor(QTextCursor::End);
+                                outputEdit->insertPlainText(tr("\n--- Update completed successfully. ---\n"));
+
+                                m_configManager->set(QStringLiteral("Binaries"), QStringLiteral("%1_update_available").arg(binaryName), false);
+                                if (binaryName == QStringLiteral("ffmpeg")) {
+                                    m_configManager->set(QStringLiteral("Binaries"), QStringLiteral("ffprobe_update_available"), false);
+                                } else if (binaryName == QStringLiteral("ffprobe")) {
+                                    m_configManager->set(QStringLiteral("Binaries"), QStringLiteral("ffmpeg_update_available"), false);
+                                }
+                                m_configManager->save();
+
+                                ProcessUtils::clearCache();
+                                this->setBinaryWarning(binaryName, QString());
+                                this->refreshBinaryStatus(binaryName);
+                            } else {
+                                outputEdit->moveCursor(QTextCursor::End);
+                                outputEdit->insertPlainText(tr("\n--- Update failed with exit code %1. ---\n").arg(exitCode));
+
+                                const QString logText = outputEdit->toPlainText();
+
+                                if (logText.contains(QStringLiteral("Permission denied"), Qt::CaseInsensitive) ||
+                                    logText.contains(QStringLiteral("Access is denied"), Qt::CaseInsensitive)) {
+                                    QMessageBox::warning(
+                                        pDialog,
+                                        tr("Permission Denied"),
+                                        tr("The update of %1 failed due to insufficient permissions.\n\n"
+                                           "If it is installed in a protected system folder (like 'Program Files'), "
+                                           "please restart LzyDownloader as Administrator and try again.")
+                                            .arg(displayName(binaryName))
+                                    );
+                                } else {
+                                    QMessageBox::warning(
+                                        pDialog,
+                                        tr("Update Failed"),
+                                        tr("The update of %1 failed. Please check the output log.")
+                                            .arg(displayName(binaryName))
+                                    );
+                                }
+                            }
+                        });
 
                 connect(process, &QProcess::errorOccurred, process, [process, outputEdit, closeBtn, pDialog](QProcess::ProcessError) {
-                    if (!pDialog) return;
+                    if (!pDialog) {
+                        return;
+                    }
+
                     closeBtn->setEnabled(true);
                     outputEdit->moveCursor(QTextCursor::End);
                     outputEdit->insertPlainText(tr("\n--- Process error: %1 ---\n").arg(process->errorString()));
                 });
 
                 outputEdit->insertPlainText(tr("Running command: %1\n\n").arg(cmdPreview));
+
 #ifdef Q_OS_WIN
                 if (isStandalone) {
                     process->start(updateProgram, updateArgs);
                 } else {
                     QStringList commandParts;
-                    if (updateProgram.contains(QLatin1Char(' '))) commandParts << QStringLiteral("\"%1\"").arg(updateProgram);
-                    else commandParts << updateProgram;
-                    for (const QString &arg : updateArgs) {
-                        if (arg.contains(QLatin1Char(' '))) commandParts << QStringLiteral("\"%1\"").arg(arg);
-                        else commandParts << arg;
+
+                    if (updateProgram.contains(QLatin1Char(' '))) {
+                        commandParts << QStringLiteral("\"%1\"").arg(updateProgram);
+                    } else {
+                        commandParts << updateProgram;
                     }
+
+                    for (const QString &arg : updateArgs) {
+                        if (arg.contains(QLatin1Char(' '))) {
+                            commandParts << QStringLiteral("\"%1\"").arg(arg);
+                        } else {
+                            commandParts << arg;
+                        }
+                    }
+
                     process->start(QStringLiteral("cmd"), {QStringLiteral("/C"), commandParts.join(QLatin1Char(' '))});
                 }
 #else
@@ -543,6 +748,7 @@ void BinariesPage::installBinaryFor(const QString &binaryName) {
 
     QLabel *commandLabel = new QLabel(&dialog);
     commandLabel->setWordWrap(true);
+    commandLabel->setMaximumWidth(550);
     commandLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
     commandLabel->setToolTip(tr("Command that will be launched when you choose Run Install Command."));
     layout->addWidget(commandLabel);
@@ -553,7 +759,7 @@ void BinariesPage::installBinaryFor(const QString &binaryName) {
         if (option.extraData.value(QStringLiteral("is_manual_download")).toBool()) {
             commandLabel->setText(tr("Command: Opens in default web browser"));
         } else {
-            commandLabel->setText(tr("Command: %1").arg(commandPreview(option)));
+                commandLabel->setText(tr("<div style='word-break: break-all;'><b>Command:</b> %1</div>").arg(commandPreview(option)));
         }
     };
 
@@ -590,6 +796,7 @@ void BinariesPage::installBinaryFor(const QString &binaryName) {
         QTextEdit *outputEdit = new QTextEdit(&progressDialog);
         outputEdit->setReadOnly(true);
         outputEdit->setFontFamily(QStringLiteral("Courier New"));
+        outputEdit->setWordWrapMode(QTextOption::WrapAnywhere);
         pLayout->addWidget(outputEdit);
 
         QDialogButtonBox *pButtons = new QDialogButtonBox(QDialogButtonBox::Close, &progressDialog);
@@ -676,23 +883,41 @@ void BinariesPage::installBinaryFor(const QString &binaryName) {
                 outputEdit->moveCursor(QTextCursor::End);
                 outputEdit->insertPlainText(tr("\n--- Installation completed successfully. ---\n"));
 
+                m_configManager->set(QStringLiteral("Binaries"), QStringLiteral("%1_update_available").arg(binaryName), false);
+                if (binaryName == QStringLiteral("ffmpeg")) {
+                    m_configManager->set(QStringLiteral("Binaries"), QStringLiteral("ffprobe_update_available"), false);
+                } else if (binaryName == QStringLiteral("ffprobe")) {
+                    m_configManager->set(QStringLiteral("Binaries"), QStringLiteral("ffmpeg_update_available"), false);
+                }
+                m_configManager->save();
+
                 if (option.extraData.contains(QStringLiteral("set_custom_path"))) {
                     const QString customPath = option.extraData.value(QStringLiteral("set_custom_path")).toString();
-                    if (QFile::exists(customPath)) {
 #ifndef Q_OS_WIN
+                    if (QFile::exists(customPath)) {
                         QFile::setPermissions(customPath, QFile::permissions(customPath) | QFileDevice::ExeUser | QFileDevice::ExeGroup | QFileDevice::ExeOther);
+                    }
 #endif
-                        this->saveBinaryOverride(binaryName, customPath);
+                    this->saveBinaryOverride(binaryName, customPath);
+                    
+                    // Sibling detection for ffmpeg/ffprobe pairing
+                    if (binaryName == QStringLiteral("ffmpeg") || binaryName == QStringLiteral("ffprobe")) {
+                        QFileInfo binInfo(customPath);
+                        QString siblingName = (binaryName == QStringLiteral("ffmpeg")) ? QStringLiteral("ffprobe.exe") : QStringLiteral("ffmpeg.exe");
+                        QString siblingPath = binInfo.dir().filePath(siblingName);
+                        QString siblingKey = (binaryName == QStringLiteral("ffmpeg")) ? QStringLiteral("ffprobe") : QStringLiteral("ffmpeg");
+                        this->saveBinaryOverride(siblingKey, siblingPath);
                     }
                 }
 
                 // Clear cache and refresh status to use the newly installed binary
                 ProcessUtils::clearCache();
+                this->setBinaryWarning(binaryName, QString());
                 this->refreshBinaryStatus(binaryName);
                 if (binaryName == QStringLiteral("ffmpeg")) this->refreshBinaryStatus(QStringLiteral("ffprobe"));
                 else if (binaryName == QStringLiteral("ffprobe")) this->refreshBinaryStatus(QStringLiteral("ffmpeg"));
 
-                const ProcessUtils::FoundBinary refreshedBinary = ProcessUtils::resolveBinary(binaryName, m_configManager);
+                const ProcessUtils::FoundBinary refreshedBinary = ProcessUtils::findBinary(binaryName, m_configManager);
                 if (pDialog) {
                     if (refreshedBinary.source == QStringLiteral("Not Found") || refreshedBinary.source == QStringLiteral("Invalid Custom")) {
                         QMessageBox::information(
@@ -752,21 +977,105 @@ void BinariesPage::installBinaryFor(const QString &binaryName) {
     dialog.exec();
 }
 
+void BinariesPage::setBinaryWarning(const QString &binaryName, const QString &details) {
+    if (details.isEmpty()) {
+        m_binaryWarnings.remove(binaryName);
+    } else {
+        m_binaryWarnings.insert(binaryName, details);
+    }
+    refreshBinaryStatus(binaryName);
+}
+
 void BinariesPage::saveBinaryOverride(const QString &binaryName, const QString &path) {
+    qInfo() << "[BinariesPage::saveBinaryOverride] >>> ENTERED <<< Binary:" << binaryName << "Path:" << path;
     const QString configKey = m_configKeys.value(binaryName);
     if (configKey.isEmpty()) {
+        qWarning() << "[BinariesPage::saveBinaryOverride] Config key for" << binaryName << "is empty! Aborting.";
         return;
     }
 
     // Clear cache BEFORE modifying config so signal handlers see the fresh state
     ProcessUtils::clearCache();
+    m_binaryWarnings.remove(binaryName);
+
+    // List of keys to clear
+    QStringList keysToClear;
+    keysToClear << QStringLiteral("Binaries/%1_update_available").arg(binaryName)
+                << QStringLiteral("Binaries/%1_latest_version").arg(binaryName);
 
     if (path.isEmpty()) {
-        m_configManager->remove(QStringLiteral("Binaries"), configKey);
-    } else {
-        m_configManager->set(QStringLiteral("Binaries"), configKey, path);
+        qInfo() << "[BinariesPage::saveBinaryOverride] Path is empty, preparing to CLEAR override for" << binaryName;
+        keysToClear << QStringLiteral("Binaries/%1").arg(configKey);
+        // Sibling pairing cleanup when clearing path overrides
+        if (binaryName == QStringLiteral("ffmpeg") || binaryName == QStringLiteral("ffprobe")) {
+            const QString siblingName = (binaryName == QStringLiteral("ffmpeg")) ? QStringLiteral("ffprobe") : QStringLiteral("ffmpeg");
+            const QString siblingKey = (binaryName == QStringLiteral("ffmpeg")) ? QStringLiteral("ffprobe_path") : QStringLiteral("ffmpeg_path");
+            qInfo() << "[BinariesPage::saveBinaryOverride] Clearing paired sibling" << siblingName << "as well.";
+            keysToClear << QStringLiteral("Binaries/%1").arg(siblingKey)
+                        << QStringLiteral("Binaries/%1_update_available").arg(siblingName)
+                        << QStringLiteral("Binaries/%1_latest_version").arg(siblingName);
+            m_binaryWarnings.remove(siblingName);
+        }
     }
-    m_configManager->save(); // Explicitly save changes to disk
+
+    qInfo() << "[BinariesPage::saveBinaryOverride] Keys scheduled to clear:" << keysToClear;
+
+    // Clean up in our ConfigManager (INI)
+    for (const QString &keyPath : keysToClear) {
+        const QStringList parts = keyPath.split(QLatin1Char('/'));
+        if (parts.size() == 2) {
+            qInfo() << "[BinariesPage::saveBinaryOverride] Clearing key in ConfigManager:" << parts[0] << "->" << parts[1];
+            m_configManager->set(parts[0], parts[1], QString());
+            m_configManager->remove(parts[0], parts[1]);
+        }
+    }
+
+    // Direct INI file write/remove operation to bypass memory caching bugs in ConfigManager
+    const QString iniPath = QDir(m_configManager->getConfigDir()).filePath(QStringLiteral("settings.ini"));
+    QSettings directSettings(iniPath, QSettings::IniFormat);
+    qInfo() << "[BinariesPage::saveBinaryOverride] Direct settings.ini path:" << iniPath;
+    for (const QString &keyPath : keysToClear) {
+        qInfo() << "[BinariesPage::saveBinaryOverride]   Removing from direct INI:" << keyPath << "Previous value:" << directSettings.value(keyPath);
+        directSettings.remove(keyPath);
+    }
+    directSettings.sync();
+    qInfo() << "[BinariesPage::saveBinaryOverride] Direct settings.ini sync completed.";
+
+    // Clear registry-based ghosts (Windows Registry / macOS Plist) across all potential scopes
+    QList<QSettings*> settingsList;
+    settingsList << new QSettings();
+    settingsList << new QSettings(QSettings::NativeFormat, QSettings::UserScope, QStringLiteral(""), QStringLiteral("LzyDownloader"));
+    settingsList << new QSettings(QSettings::NativeFormat, QSettings::UserScope, QStringLiteral("LzyDownloader"), QStringLiteral("LzyDownloader"));
+    settingsList << new QSettings(QSettings::IniFormat, QSettings::UserScope, QStringLiteral(""), QStringLiteral("LzyDownloader"));
+    settingsList << new QSettings(QSettings::IniFormat, QSettings::UserScope, QStringLiteral("LzyDownloader"), QStringLiteral("LzyDownloader"));
+
+    for (int idx = 0; idx < settingsList.size(); ++idx) {
+        QSettings* settings = settingsList[idx];
+        qInfo() << "[BinariesPage::saveBinaryOverride] Clearing registry scope" << idx << ":" << settings->fileName() << "Format:" << settings->format();
+        for (const QString &keyPath : keysToClear) {
+            qInfo() << "[BinariesPage::saveBinaryOverride]   Removing key:" << keyPath << "Previous value:" << settings->value(keyPath);
+            settings->setValue(keyPath, QString());
+            settings->remove(keyPath);
+        }
+        settings->sync();
+        delete settings;
+    }
+
+    if (!path.isEmpty()) {
+        qInfo() << "[BinariesPage::saveBinaryOverride] Writing new override path to ConfigManager: Binaries/" << configKey << "=" << path;
+        m_configManager->set(QStringLiteral("Binaries"), configKey, path);
+        QSettings registrySettings;
+        qInfo() << "[BinariesPage::saveBinaryOverride] Writing registry override to:" << registrySettings.fileName();
+        registrySettings.setValue(QStringLiteral("Binaries/%1").arg(configKey), path);
+        registrySettings.sync();
+        QSettings registrySettings2(QSettings::NativeFormat, QSettings::UserScope, QStringLiteral("LzyDownloader"), QStringLiteral("LzyDownloader"));
+        qInfo() << "[BinariesPage::saveBinaryOverride] Writing secondary registry override to:" << registrySettings2.fileName();
+        registrySettings2.setValue(QStringLiteral("Binaries/%1").arg(configKey), path);
+        registrySettings2.sync();
+    }
+    qInfo() << "[BinariesPage::saveBinaryOverride] Requesting explicit ConfigManager save...";
+    m_configManager->save();
+    qInfo() << "[BinariesPage::saveBinaryOverride] >>> saveBinaryOverride COMPLETED <<<";
 }
 
 void BinariesPage::loadSettings() {
@@ -799,8 +1108,19 @@ void BinariesPage::refreshBinaryStatus(const QString &binaryName) {
         return;
     }
 
-    // Use resolveBinary for fresh lookup (bypasses cache)
-    const ProcessUtils::FoundBinary foundBinary = ProcessUtils::resolveBinary(binaryName, m_configManager);
+    // Use findBinary to benefit from cached resolutions
+    const ProcessUtils::FoundBinary foundBinary = SmartBinaryResolver::resolve(binaryName, m_configManager);
+
+    const bool hasWarning = m_binaryWarnings.contains(binaryName) || m_configManager->get(QStringLiteral("Binaries"), QStringLiteral("%1_update_available").arg(binaryName), false).toBool();
+    QString warningDetails = m_binaryWarnings.value(binaryName);
+    if (warningDetails.isEmpty() && m_configManager->get(QStringLiteral("Binaries"), QStringLiteral("%1_update_available").arg(binaryName), false).toBool()) {
+        QString latestVer = m_configManager->get(QStringLiteral("Binaries"), QStringLiteral("%1_latest_version").arg(binaryName)).toString();
+        if (!latestVer.isEmpty()) {
+            warningDetails = tr("A newer version (%1) is available.").arg(latestVer);
+        } else {
+            warningDetails = tr("An update is available.");
+        }
+    }
 
     qDebug() << "[BinariesPage] refreshBinaryStatus:" << binaryName << "- source:" << foundBinary.source << "| path:" << foundBinary.path;
 
@@ -817,20 +1137,20 @@ void BinariesPage::refreshBinaryStatus(const QString &binaryName) {
                             pathLower.contains(QStringLiteral("python")) || pathLower.contains(QStringLiteral("pip")) || pathLower.contains(QStringLiteral("scripts")) || pathLower.contains(QStringLiteral("site-packages")) ||
                             pathLower.contains(QStringLiteral("homebrew")) || pathLower.contains(QStringLiteral("cellar")) || pathLower.contains(QStringLiteral("linuxbrew")) ||
                             pathLower.contains(QStringLiteral("chocolatey")) || pathLower.contains(QStringLiteral("choco"));
-    const bool supportsUpdate = (binaryName == QStringLiteral("yt-dlp") || binaryName == QStringLiteral("gallery-dl") || binaryName == QStringLiteral("deno") || isPackageManaged);
+    const bool supportsUpdate = true;
 
     // Re-enable in case they were disabled by "Refresh All Statuses"
     installButton->setEnabled(true);
     updateButton->setEnabled(true);
     if (clearButton) {
-        clearButton->setEnabled(true);
+        clearButton->setEnabled(hasCustomPath);
     }
 
     // Standardize button visibility across all binaries
     installButton->setVisible(!isInstalled);
-    updateButton->setVisible(isInstalled && supportsUpdate);
+    updateButton->setVisible(isInstalled && supportsUpdate && hasWarning);
     if (clearButton) {
-        clearButton->setVisible(hasCustomPath);
+        clearButton->setVisible(true);
     }
 
     if (foundBinary.source == QStringLiteral("Not Found")) {
@@ -851,12 +1171,22 @@ void BinariesPage::refreshBinaryStatus(const QString &binaryName) {
         statusLabel->setText(tr("<b>Status:</b> %1 (invalid manual override)<br><b>Path:</b> %2").arg(statusPrefix, displayPath));
         versionLabel->setText(tr("Version: Unknown"));
     } else if (foundBinary.source == QStringLiteral("Custom")) {
-        const QString statusPrefix = QStringLiteral("<span style='color: #16a34a;'>Found</span>");
-        statusLabel->setText(tr("<b>Status:</b> %1 (manual override)<br><b>Path:</b> %2").arg(statusPrefix, displayPath));
+        if (hasWarning) {
+            const QString statusPrefix = QStringLiteral("<span style='color: #d97706;'>Update Recommended</span>");
+            statusLabel->setText(tr("<b>Status:</b> %1 (manual override)<br><b>Details:</b> %2<br><b>Path:</b> %3").arg(statusPrefix, warningDetails.toHtmlEscaped(), displayPath));
+        } else {
+            const QString statusPrefix = QStringLiteral("<span style='color: #16a34a;'>Found</span>");
+            statusLabel->setText(tr("<b>Status:</b> %1 (manual override)<br><b>Path:</b> %2").arg(statusPrefix, displayPath));
+        }
         fetchBinaryVersion(binaryName, foundBinary.path);
     } else {
-        const QString statusPrefix = QStringLiteral("<span style='color: #16a34a;'>Found</span>");
-        statusLabel->setText(tr("<b>Status:</b> %1 (auto-detected via %2)<br><b>Path:</b> %3").arg(statusPrefix, foundBinary.source, displayPath));
+        if (hasWarning) {
+            const QString statusPrefix = QStringLiteral("<span style='color: #d97706;'>Update Recommended</span>");
+            statusLabel->setText(tr("<b>Status:</b> %1 (auto-detected via %2)<br><b>Details:</b> %3<br><b>Path:</b> %4").arg(statusPrefix, foundBinary.source, warningDetails.toHtmlEscaped(), displayPath));
+        } else {
+            const QString statusPrefix = QStringLiteral("<span style='color: #16a34a;'>Found</span>");
+            statusLabel->setText(tr("<b>Status:</b> %1 (auto-detected via %2)<br><b>Path:</b> %3").arg(statusPrefix, foundBinary.source, displayPath));
+        }
         fetchBinaryVersion(binaryName, foundBinary.path);
     }
 }
@@ -967,6 +1297,54 @@ QList<BinariesPage::InstallOption> BinariesPage::buildInstallOptions(const QStri
         if (isWindows()) addOptionIfPresent(QStringLiteral("choco"), {QStringLiteral("install"), QStringLiteral("-y"), QStringLiteral("yt-dlp")}, tr("Install yt-dlp (stable) with Chocolatey."));
         if (isMacOS() || isLinux()) addOptionIfPresent(QStringLiteral("brew"), {QStringLiteral("install"), QStringLiteral("yt-dlp"), QStringLiteral("--HEAD")}, tr("Install yt-dlp (latest from master) with Homebrew."));
     } else if (binaryName == QStringLiteral("ffmpeg") || binaryName == QStringLiteral("ffprobe")) {
+        if (isWindows()) {
+            const QString localAppData = QProcessEnvironment::systemEnvironment().value(QStringLiteral("LOCALAPPDATA"));
+            if (!localAppData.isEmpty()) {
+                const QString targetPath = QDir(localAppData).filePath(QStringLiteral("LzyDownloader/bin/%1.exe").arg(binaryName));
+                InstallOption opt;
+                opt.label = tr("PowerShell (FFmpeg/FFprobe stable essentials)");
+                opt.description = tr("Download and extract the latest stable FFmpeg and FFprobe binaries directly to LzyDownloader's local bin folder.");
+                opt.program = QStringLiteral("powershell");
+                
+                QString rawScript = QStringLiteral(
+                    "$ErrorActionPreference = 'Stop'; "
+                    "$progressPreference = 'SilentlyContinue'; "
+                    "[Net.ServicePointManager]::SecurityProtocol = 'Tls12, Tls13'; "
+                    "$binDir = '%1'; "
+                    "if (!(Test-Path $binDir)) { New-Item -ItemType Directory -Path $binDir -Force }; "
+                    "$zipPath = Join-Path $env:TEMP 'ffmpeg.zip'; "
+                    "Write-Host 'Downloading FFmpeg release...'; "
+                    "Invoke-WebRequest -Uri 'https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip' -OutFile $zipPath; "
+                    "Write-Host 'Extracting archive...'; "
+                    "$extractDir = Join-Path $env:TEMP 'ffmpeg_extracted'; "
+                    "if (Test-Path $extractDir) { Remove-Item -Recurse -Force $extractDir }; "
+                    "Expand-Archive -Path $zipPath -DestinationPath $extractDir -Force; "
+                    "$ffmpegExe = Get-ChildItem -Path $extractDir -Filter 'ffmpeg.exe' -Recurse | Select-Object -First 1; "
+                    "$ffprobeExe = Get-ChildItem -Path $extractDir -Filter 'ffprobe.exe' -Recurse | Select-Object -First 1; "
+                    "if ($ffmpegExe -and $ffprobeExe) { "
+                    "  Copy-Item -Path $ffmpegExe.FullName -Destination $binDir -Force; "
+                    "  Copy-Item -Path $ffprobeExe.FullName -Destination $binDir -Force; "
+                    "  Write-Host 'FFmpeg and FFprobe installed successfully!'; "
+                    "} else { "
+                    "  throw 'Failed to locate binaries inside archive'; "
+                    "}; "
+                    "Remove-Item -Force $zipPath; "
+                    "Remove-Item -Recurse -Force $extractDir"
+                ).arg(QDir::toNativeSeparators(QDir(localAppData).filePath(QStringLiteral("LzyDownloader/bin"))));
+                
+                // Convert raw script to UTF-16LE and encode to Base64 to prevent shell parsing errors
+                QByteArray utf16Bytes;
+                utf16Bytes.resize(rawScript.length() * 2);
+                memcpy(utf16Bytes.data(), rawScript.utf16(), rawScript.length() * 2);
+                QString encodedCmd = QString::fromLatin1(utf16Bytes.toBase64());
+                
+                opt.arguments = {QStringLiteral("-NoProfile"), QStringLiteral("-ExecutionPolicy"), QStringLiteral("Bypass"), QStringLiteral("-EncodedCommand"), encodedCmd};
+                opt.extraData.insert(QStringLiteral("is_windows_apps_alias"), false);
+                opt.extraData.insert(QStringLiteral("set_custom_path"), targetPath);
+                options.append(opt);
+            }
+        }
+
         if (isWindows()) addOptionIfPresent(QStringLiteral("winget"), {QStringLiteral("install"), QStringLiteral("--id"), QStringLiteral("Gyan.FFmpeg"), QStringLiteral("--exact"), QStringLiteral("--accept-package-agreements"), QStringLiteral("--accept-source-agreements")}, tr("Install FFmpeg (includes ffprobe) with WinGet."));
         if (isWindows()) addOptionIfPresent(QStringLiteral("choco"), {QStringLiteral("install"), QStringLiteral("-y"), QStringLiteral("ffmpeg")}, tr("Install FFmpeg (includes ffprobe) with Chocolatey."));
         if (isWindows()) addOptionIfPresent(QStringLiteral("scoop"), {QStringLiteral("install"), QStringLiteral("ffmpeg")}, tr("Install FFmpeg (includes ffprobe) with Scoop."));

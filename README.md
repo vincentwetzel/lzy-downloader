@@ -14,7 +14,7 @@ A lightweight, high-performance desktop application for downloading media (video
 - 🔌 **Local API** — Optional localhost API for trusted local integrations such as Discord bots
 - 📊 **Concurrent Downloads** — Queue and manage multiple downloads simultaneously
 - ⏸️ **Pause & Resume** — Safely stop downloads, preserve partial `.part` files, and resume validated queue backups across application restarts
-- 🧰 **External Binaries Manager** — Detect, version-check, install, and update `yt-dlp`, `gallery-dl`, `ffmpeg`, `ffprobe`, `aria2c`, and `deno` from inside the app, with package-manager-aware commands and cancellable install/update logs
+- 🧰 **External Binaries Manager** — Detect, version-check, install, and update `yt-dlp`, `gallery-dl`, `ffmpeg`, `ffprobe`, `aria2c`, and `deno` from inside the app, with version-aware local `bin` discovery, package-manager-aware commands, update warnings, SHA-256 checks when available, and cancellable install/update logs
 - 🖼️ **Thumbnail Embedding** — Automatic thumbnail download, bounded preview loading, and embedding for videos and audio
 - 🌐 **Browser Cookies** — Use saved cookies from Firefox, Chrome, Edge, or other browsers for age-restricted content
 - 📂 **Smart Sorting** — Automatically organize downloads into subfolders based on uploader, playlist, date, or custom patterns

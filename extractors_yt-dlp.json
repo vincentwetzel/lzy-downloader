@@ -392,12 +392,14 @@
     },
     "ardaudiothek": {
         "domains": [
-            "ardaudiothek.de"
+            "ardaudiothek.de",
+            "ardsounds.de"
         ]
     },
     "ardaudiothekplaylist": {
         "domains": [
-            "ardaudiothek.de"
+            "ardaudiothek.de",
+            "ardsounds.de"
         ]
     },
     "ardmediathek": {
@@ -4286,7 +4288,7 @@
     },
     "nitter": {
         "domains": [
-            "birdsite.xanny.family"
+            "twitter.dr460nf1r3.org"
         ]
     },
     "njoy": {
@@ -6076,9 +6078,9 @@
     },
     "soop": {
         "domains": [
-            "ch.sooplive.co.kr",
-            "play.sooplive.co.kr",
-            "vod.sooplive.co.kr"
+            "play.sooplive.com",
+            "sooplive.com",
+            "vod.sooplive.com"
         ]
     },
     "soundcloud": {
