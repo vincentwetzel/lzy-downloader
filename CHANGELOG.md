@@ -9,6 +9,12 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## [Unreleased]
 
+## [1.1.73] - 2026-06-22
+
+### Changed
+- **Version Synchronization**: Unified and bumped build version metadata to `1.1.73` across CMake configure scripts, vcpkg manifests, and the changelog records.
+- **Build Pipeline Alignment**: Resolved executable metadata mismatches to ensure stable automated installer packaging.
+
 ## [1.1.71] - 2026-06-20
 
 ### Changed
