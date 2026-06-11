@@ -64,6 +64,7 @@ Agents MUST preserve and respect the following behaviors from the original Pytho
 - **Headless State Persistence**: The application MUST guarantee that final terminal states (such as a fully cleared queue upon completion) are successfully serialized to `downloads_backup.json` before `QCoreApplication::quit()` is called, especially during `--server --exit-after` execution flows that bypass `closeEvent()`.
 - **Livestream Replay Handling**: The app MUST preserve yt-dlp `live_status` from playlist expansion, runtime metadata, and `info.json`. `post_live` and `was_live` items are completed replays and must download as archived media, while active/upcoming livestreams keep wait/finalization behavior. Generic URL-shape hints such as a path segment named `live` may be used before extractor metadata is available, but hostname-specific livestream or replay overrides are forbidden.
 - **Browser Cookie Fallback**: When a download using `--cookies-from-browser` fails because browser-cookie extraction or browser-cookie extractor state breaks an otherwise public download, `YtDlpWorker` may retry once without browser cookies and must keep clear diagnostics for the terminal failure path.
+- **Completed-with-warning Handling**: When `yt-dlp` exits non-zero after producing a final media file, the app may continue finalization, but it MUST preserve a visible completion warning instead of presenting the result as an ordinary clean success.
 
 ---
 
@@ -77,7 +78,7 @@ The application is transitioning to an **unbundled external-binary model**.
 
 Current expectations:
 - Prefer user-installed or manually configured executables for `yt-dlp`, `ffmpeg`, `ffprobe`, `gallery-dl`, `aria2c`, and `deno`.
-- External binary resolution should preserve manual overrides first, then consider the app-local `bin` folder, user AppData `bin` folders, system `PATH`, and discovered package-manager candidates through the shared resolver. Startup and the External Binaries page may persist freshly auto-detected best paths back to `settings.ini` so later runtime lookups use the same executable.
+- External binary resolution should preserve manual overrides first, then consider the app-local `bin` folder, user AppData `bin` folders, system `PATH`, and discovered package-manager candidates through the shared resolver. Startup and the External Binaries page may persist freshly auto-detected best paths back to `settings.ini` so later runtime lookups use the same executable, but must track auto-detected paths separately from manual overrides so rediscovery never replaces an explicit user selection.
 - External binary updates must avoid overwriting package-managed tools directly; prefer package-manager commands or tool-native self-updaters (`yt-dlp -U`, `gallery-dl -U`, `deno upgrade`) surfaced through the External Binaries UI.
 - Keep Qt runtime/plugin deployment self-contained, including `qsqlite.dll`.
 

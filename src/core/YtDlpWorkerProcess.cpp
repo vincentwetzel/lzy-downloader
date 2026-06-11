@@ -112,6 +112,7 @@ void YtDlpWorker::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatu
     }
     QString message = success ? tr("Download completed successfully.") : tr("Download failed.");
     QString postprocessorWarning;
+    QString exitCodeWarning;
 
     auto createProgressData = [this](const QString& status, int progress) {
         QVariantMap data;
@@ -171,6 +172,7 @@ void YtDlpWorker::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatu
         message = tr("Download completed, but thumbnail/post-processing reported a warning.");
         appendErrorPreview(m_errorLines);
         postprocessorWarning = message;
+        exitCodeWarning = tr("yt-dlp exited with non-zero code %1 after producing final media.").arg(exitCode);
         qWarning() << "yt-dlp exited with code" << exitCode
                    << "after producing final media. Continuing finalization for"
                    << m_id << "at" << m_finalFilename;
@@ -282,6 +284,7 @@ void YtDlpWorker::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatu
     insertMetadataIfMissing(QStringLiteral("title"), m_videoTitle);
     insertMetadataIfMissing(QStringLiteral("thumbnail_path"), m_thumbnailPath);
     insertMetadataIfMissing(QStringLiteral("postprocessor_warning"), postprocessorWarning);
+    insertMetadataIfMissing(QStringLiteral("yt_dlp_exit_code_warning"), exitCodeWarning);
 
     emit finished(m_id, success, message, m_finalFilename, m_originalDownloadedFilename, metadata);
 }

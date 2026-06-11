@@ -162,6 +162,7 @@ void MainWindow::connectDiscordWebhookSignals()
 
         QVariantMap &state = (*webhookStates)[id];
         QString oldStatus = state.value(QStringLiteral("status")).toString();
+        double oldProgress = state.value(QStringLiteral("progress")).toDouble();
 
         for (auto it = data.constBegin(); it != data.constEnd(); ++it) {
             state[it.key()] = it.value();
@@ -187,10 +188,15 @@ void MainWindow::connectDiscordWebhookSignals()
         qint64 now = QDateTime::currentMSecsSinceEpoch();
         qint64 lastSent = webhookTimestamps->value(id, 0);
 
+        double newProgress = state.value(QStringLiteral("progress")).toDouble();
+
         bool shouldSend = false;
-        if (now - lastSent >= 1500) {
+        if (newStatus != oldStatus) { // Always send if status changes
             shouldSend = true;
-        } else if (data.contains(QStringLiteral("status")) && newStatus != oldStatus) {
+        } else if (newProgress != oldProgress) { // Always send if progress value changes
+            shouldSend = true;
+        } else if (now - lastSent >= 1500 && newProgress >= 0.0) { // Throttle other updates for active downloads
+            // Send if 1.5s passed and progress is not indeterminate (-1)
             shouldSend = true;
         }
 

@@ -9,13 +9,18 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## [Unreleased]
 
+## [1.1.69] - 2026-06-15
+
 ### Changed
-- **External binary management refactor**: External tool lookup goes through `SmartBinaryResolver` so manual overrides win, the app-local `bin` folder is considered first, stale settings ghosts are cleared, and multiple discovered candidates can be selected by newest usable version. External Binaries update flows now run package-manager or tool-native update commands through one cancellable process-log dialog.
-- **External binary path alignment**: Startup and the External Binaries page now rediscover candidate tools, persist the selected auto-detected best paths to `settings.ini`, and clear resolver caches so UI status, update checks, and downloader launches agree on the same executable.
+- **External binary management refactor**: `yt-dlp` and `gallery-dl` updater logic now share `BaseBinaryUpdater`, while external tool lookup goes through `SmartBinaryResolver` so manual overrides win, the app-local `bin` folder is considered first, stale settings ghosts are cleared, and multiple discovered candidates can be selected by newest usable version.
+- **Startup binary path ownership**: Startup now tracks whether saved binary paths were auto-detected or manually chosen, refreshing only auto-detected paths during discovery while preserving explicit user overrides.
+- **Discord bridge freshness**: Local Discord bridge webhook payloads are sent immediately when a row's status or numeric progress changes, while secondary active-download updates remain throttled.
 
 ### Fixed
-- **External Binaries version checks**: `BaseBinaryUpdater` now separates local version probes from remote update checks, keeps bounded probes from freezing the settings page, handles WindowsApps aliases through `cmd.exe`, truncates overly long raw version strings, and refreshes yt-dlp/gallery-dl version labels from the detected executable before reporting update availability.
-- **External Binaries stale versions**: Update checks now force a fresh local probe before remote comparison, parse multiline tool banners into compact versions, and compare semantic/date-like FFmpeg and FFprobe builds more consistently.
+- **Binary update diagnostics and integrity**: App and tool update checks now use the shared chronological version parser, surface GitHub rate-limit/not-found failures more clearly, show External Binaries update warnings, and verify downloaded standalone tools against SHA-256 data when upstream release metadata provides it.
+- **Completed-with-warning downloads**: yt-dlp jobs that produce final media despite a non-zero exit now keep the media, combine post-processing and exit-code warnings, and show a clear "Completed with warnings" state.
+- **Finalizer cleanup resilience**: Final file replacement and temporary sidecar cleanup now retry short-lived locked file removals before failing, reducing spurious cleanup errors on Windows.
+- **Livestream wait metadata safety**: Pre-wait livestream metadata and thumbnail fetches now guard process lifetime, validate thumbnail JSON fields more strictly, and avoid leaving empty thumbnail files after failed writes.
 
 ## [1.1.65] - 2026-06-10
 

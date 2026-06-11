@@ -58,6 +58,20 @@ QString cleanupStem(QString fileName)
     return fileName;
 }
 
+bool safeRemoveWithRetry(const QString &filePath, int retries = 5, int delayMs = 100)
+{
+    if (filePath.isEmpty() || !QFile::exists(filePath)) {
+        return true;
+    }
+    for (int i = 0; i < retries; ++i) {
+        if (QFile::remove(filePath)) {
+            return true;
+        }
+        QThread::msleep(delayMs);
+    }
+    return false;
+}
+
 bool hasCleanupStemBoundary(const QString &fileName, const QString &stem)
 {
     if (!fileName.startsWith(stem, Qt::CaseInsensitive)) {
@@ -80,7 +94,7 @@ void cleanupTempFiles(const DownloadItem &item, const QDir &tempDir, const QStri
 
     // 1. Clean up the info.json that matches the media file name.
     if (QFile::exists(mediaInfoJsonPath)) {
-        if (QFile::remove(mediaInfoJsonPath)) {
+        if (safeRemoveWithRetry(mediaInfoJsonPath)) {
             qDebug() << "Cleaned up media info.json:" << mediaInfoJsonPath;
         } else {
             qWarning() << "Failed to clean up media info.json:" << mediaInfoJsonPath;
@@ -92,7 +106,7 @@ void cleanupTempFiles(const DownloadItem &item, const QDir &tempDir, const QStri
     for (const QString &candidate : candidates) {
         const QFileInfo candidateInfo(candidate);
         if (candidateInfo.exists() && candidateInfo.isFile()) {
-            if (QFile::remove(candidate)) {
+            if (safeRemoveWithRetry(candidate)) {
                 qDebug() << "Cleaned up tracked candidate file:" << candidate;
             } else {
                 qWarning() << "Failed to clean up tracked candidate file:" << candidate;
@@ -119,7 +133,7 @@ void cleanupTempFiles(const DownloadItem &item, const QDir &tempDir, const QStri
             }
 
             if (hasCleanupStemBoundary(leftoverInfo.fileName(), baseName)) {
-                if (!QFile::remove(filePath)) {
+                if (!safeRemoveWithRetry(filePath)) {
                     qWarning() << "Failed to remove leftover file:" << filePath;
                 }
             }
@@ -154,7 +168,7 @@ void cleanupTempFiles(const DownloadItem &item, const QDir &tempDir, const QStri
             // by yt-dlp's default playlist output template. This is more reliable than parsing JSON content.
             if (fileName.contains(matchStr)) {
                 const QString filePath = tempDir.filePath(fileName);
-                if (QFile::remove(filePath)) {
+                if (safeRemoveWithRetry(filePath)) {
                     qDebug() << "Cleaned up playlist info.json by filename match:" << filePath;
                 } else {
                     qWarning() << "Failed to remove playlist info.json by filename match:" << filePath;
@@ -428,7 +442,7 @@ void DownloadFinalizer::finalize(const QString &id, DownloadItem item) {
         } else {
             sendProgress(DownloadFinalizer::tr("Moving to final destination..."));
 
-            if (QFile::exists(destPath) && !QFile::remove(destPath)) {
+            if (QFile::exists(destPath) && !safeRemoveWithRetry(destPath)) {
                 message = DownloadFinalizer::tr("Download completed, but failed to replace existing file.");
                 QMetaObject::invokeMethod(QCoreApplication::instance(), [self, id, message]() {
                     if (self) emit self->finalizationComplete(id, false, message);
@@ -440,7 +454,7 @@ void DownloadFinalizer::finalize(const QString &id, DownloadItem item) {
             if (!moved) {
                 sendProgress(DownloadFinalizer::tr("Copying file to destination..."));
                 if ((moved = QFile::copy(item.tempFilePath, destPath))) {
-                    if (!QFile::remove(item.tempFilePath)) {
+                    if (!safeRemoveWithRetry(item.tempFilePath)) {
                         qWarning() << "Failed to remove temp file after copy:" << item.tempFilePath;
                     }
                 }
@@ -451,7 +465,7 @@ void DownloadFinalizer::finalize(const QString &id, DownloadItem item) {
                 finalPath = destPath;
                 message = DownloadFinalizer::tr("Download completed → %1").arg(QDir::toNativeSeparators(finalDir));
                 if (!item.originalDownloadedFilePath.isEmpty() && item.originalDownloadedFilePath != item.tempFilePath) {
-                    if (!QFile::remove(item.originalDownloadedFilePath)) {
+                    if (!safeRemoveWithRetry(item.originalDownloadedFilePath)) {
                         qWarning() << "Failed to remove original downloaded file:" << item.originalDownloadedFilePath;
                     }
                 }

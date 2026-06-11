@@ -11,6 +11,7 @@
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QNetworkRequest>
+#include <QFileInfo>
 #include <QJsonDocument>
 #include <QJsonObject>
 
@@ -47,8 +48,21 @@ StartupWorker::~StartupWorker()
     }
 }
 
+/**
+ * @brief Scans system, local, and user environment directories to resolve and validate external dependency binaries.
+ * 
+ * This function will attempt to automatically discover optimal versions of all required and optional 
+ * external executables unless a manual user override is detected.
+ * 
+ * @param configManager The active configuration manager instance.
+ * @param worker The parent startup worker instance to emit validation signals from.
+ */
 static void resolveAndValidateBinaries(ConfigManager *configManager, StartupWorker *worker) {
     qInfo() << "[StartupWorker::resolveAndValidateBinaries] Checking and logging binary statuses...";
+    if (!configManager || !worker) {
+        qWarning() << "[StartupWorker::resolveAndValidateBinaries] Aborting: configManager or worker is null.";
+        return;
+    }
     QStringList missing;
     const QStringList allBinaries = {QStringLiteral("yt-dlp"), QStringLiteral("ffmpeg"), QStringLiteral("ffprobe"), QStringLiteral("gallery-dl"), QStringLiteral("aria2c"), QStringLiteral("deno")};
     const QStringList requiredBinaries = {QStringLiteral("yt-dlp"), QStringLiteral("ffmpeg"), QStringLiteral("ffprobe"), QStringLiteral("deno")};
@@ -63,10 +77,14 @@ static void resolveAndValidateBinaries(ConfigManager *configManager, StartupWork
         // Force a fresh resolution by clearing the INI-saved path temporarily
         // This ensures we discover ALL available candidates and pick the best by version
         const QString configKey = binary + QStringLiteral("_path");
+        const QString autoKey = binary + QStringLiteral("_auto_detected");
         const QString savedPath = configManager->get(QStringLiteral("Binaries"), configKey).toString();
+        const bool isAutoDetected = configManager->get(QStringLiteral("Binaries"), autoKey, true).toBool();
         
-        // Temporarily clear the saved path so resolveBinary() performs a full discovery scan
-        configManager->set(QStringLiteral("Binaries"), configKey, QString());
+        // Temporarily clear the saved path if auto-detected, so resolveBinary() performs a full discovery scan
+        if (isAutoDetected) {
+            configManager->set(QStringLiteral("Binaries"), configKey, QString());
+        }
         
         const ProcessUtils::FoundBinary foundBinary = ProcessUtils::resolveBinary(binary, configManager);
         
@@ -75,6 +93,7 @@ static void resolveAndValidateBinaries(ConfigManager *configManager, StartupWork
             // Restore the saved path since discovery failed
             if (!savedPath.isEmpty()) {
                 configManager->set(QStringLiteral("Binaries"), configKey, savedPath);
+                configManager->set(QStringLiteral("Binaries"), autoKey, isAutoDetected);
             }
             if (requiredBinaries.contains(binary)) {
                 missing << binary;
@@ -87,10 +106,12 @@ static void resolveAndValidateBinaries(ConfigManager *configManager, StartupWork
             if (!foundBinary.path.isEmpty()) {
                 qInfo() << "[StartupWorker::resolveAndValidateBinaries] Saving auto-detected binary path for" << binary << "to INI:" << foundBinary.path;
                 configManager->set(QStringLiteral("Binaries"), configKey, foundBinary.path);
+                configManager->set(QStringLiteral("Binaries"), autoKey, foundBinary.source != QStringLiteral("Custom"));
                 anyPathSaved = true;
             } else if (!savedPath.isEmpty()) {
                 // If discovery didn't find anything but we had a saved path, restore it
                 configManager->set(QStringLiteral("Binaries"), configKey, savedPath);
+                configManager->set(QStringLiteral("Binaries"), autoKey, isAutoDetected);
             }
         }
     }
@@ -102,10 +123,16 @@ static void resolveAndValidateBinaries(ConfigManager *configManager, StartupWork
     emit worker->binariesChecked(missing);
 }
 
+/**
+ * @brief Initiates the asynchronous system checks, update queries, and extractor list generations.
+ * 
+ * Connects updates for major binaries and handles completing the startup process flow.
+ * All tasks run asynchronously to maintain UI thread responsiveness.
+ */
 void StartupWorker::start() {
     qInfo() << "[StartupWorker::start] >>> STARTUP CHECK SEQUENCE INITIATED <<<";
 
-    auto handleFinished = [this](const QString &binaryName, Updater::UpdateStatus status, const QString &message, bool onlyCheck, BaseBinaryUpdater* updater, bool &checkDoneFlag, const std::function<void()>& onSuccessExtra = nullptr) {
+    auto handleFinished = [this](const QString &binaryName, Updater::UpdateStatus status, const QString &message, bool onlyCheck, BaseBinaryUpdater* updater, bool *checkDoneFlag, const std::function<void()>& onSuccessExtra = nullptr) {
         if (status == Updater::UpdateStatus::UpdateAvailable || status == Updater::UpdateStatus::UpToDate) {
             bool available = (status == Updater::UpdateStatus::UpdateAvailable);
             m_configManager->set(QStringLiteral("Binaries"), QStringLiteral("%1_update_available").arg(binaryName), available);
@@ -142,7 +169,9 @@ void StartupWorker::start() {
             qWarning() << QStringLiteral("%1 auto-update failed:").arg(binaryName) << message;
             emit binaryUpdateRequired(binaryName, tr("Update check or auto-update failed: %1").arg(message));
         }
-        checkDoneFlag = true;
+        if (checkDoneFlag) {
+            *checkDoneFlag = true;
+        }
         this->checkAllFinished();
     };
 
@@ -153,7 +182,7 @@ void StartupWorker::start() {
         const QString &repo,
         const std::function<QString(const QString&)> &parser,
         bool onlyCheck,
-        bool &checkDoneFlag,
+        bool *checkDoneFlag,
         const std::function<void()>& onSuccessExtra = nullptr)
     {
         if (!updater) {
@@ -167,7 +196,7 @@ void StartupWorker::start() {
             } else if (name == QStringLiteral("gallery-dl")) {
                 connect(updater.get(), &BaseBinaryUpdater::versionFetched, this, &StartupWorker::galleryDlVersionFetched);
             }
-            connect(updater.get(), &BaseBinaryUpdater::updateFinished, this, [this, name, onlyCheck, ptr = updater.get(), &checkDoneFlag, onSuccessExtra, handleFinished](Updater::UpdateStatus status, const QString &message) {
+            connect(updater.get(), &BaseBinaryUpdater::updateFinished, this, [this, name, onlyCheck, ptr = updater.get(), checkDoneFlag, onSuccessExtra, handleFinished](Updater::UpdateStatus status, const QString &message) {
                 handleFinished(name, status, message, onlyCheck, ptr, checkDoneFlag, onSuccessExtra);
             });
         }
@@ -175,7 +204,7 @@ void StartupWorker::start() {
 
     setupUpdater(m_ytDlpUpdater, QStringLiteral("yt-dlp"), QStringLiteral("yt-dlp/yt-dlp-nightly-builds"), [](const QString &output) {
         return output.trimmed();
-    }, false, m_ytDlpCheckDone, [this]() {
+    }, false, &m_ytDlpCheckDone, [this]() {
         qInfo() << QStringLiteral("Starting extractor list generation.");
         if (m_extractorJsonParser) {
             QMetaObject::invokeMethod(m_extractorJsonParser, &ExtractorJsonParser::startGeneration, Qt::QueuedConnection);
@@ -187,19 +216,19 @@ void StartupWorker::start() {
     setupUpdater(m_galleryDlUpdater, QStringLiteral("gallery-dl"), QStringLiteral("mikf/gallery-dl"), [](const QString &output) {
         QStringList parts = output.split(QLatin1Char(' '), Qt::SkipEmptyParts);
         return parts.isEmpty() ? QStringLiteral("0.0.0") : parts.last();
-    }, false, m_galleryDlCheckDone);
+    }, false, &m_galleryDlCheckDone);
 
     setupUpdater(m_ffmpegUpdater, QStringLiteral("ffmpeg"), QStringLiteral("GyanD/codexffmpeg"), [](const QString &output) {
-        QRegularExpression re(QStringLiteral("ffmpeg version (.*?)(?:\\s+Copyright|\\s+built|$)"));
+        static const QRegularExpression re(QStringLiteral("ffmpeg version (.*?)(?:\\s+Copyright|\\s+built|$)"));
         QRegularExpressionMatch match = re.match(output);
         return match.hasMatch() ? match.captured(1).trimmed() : QString();
-    }, true, m_ffmpegCheckDone);
+    }, true, &m_ffmpegCheckDone);
 
     setupUpdater(m_denoUpdater, QStringLiteral("deno"), QStringLiteral("https://dl.deno.land/release-latest.txt"), [](const QString &output) {
-        QRegularExpression re(QStringLiteral("deno\\s+([0-9]+(?:\\.[0-9]+)+)"));
+        static const QRegularExpression re(QStringLiteral("deno\\s+([0-9]+(?:\\.[0-9]+)+)"));
         QRegularExpressionMatch match = re.match(output);
         return match.hasMatch() ? match.captured(1) : QString();
-    }, true, m_denoCheckDone);
+    }, true, &m_denoCheckDone);
 
     resolveAndValidateBinaries(m_configManager, this);
     checkFfmpegAndDenoVersions();

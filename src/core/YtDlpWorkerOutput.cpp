@@ -14,6 +14,7 @@
 #include <QProcess>
 #include <QTimer>
 #include <QRegularExpression>
+#include <QPointer>
 #include <QUrl>
 #include <chrono>
 
@@ -40,11 +41,11 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
     }
 
     // Parse ERROR: lines from stderr for specific error types
-    const bool cookiePermissionDiagnostic = m_args.contains(QStringLiteral("--cookies-from-browser")) &&
-        (normalizedLine.contains(QStringLiteral("temporary.sqlite"), Qt::CaseInsensitive) ||
+    const bool cookiePermissionDiagnostic = (normalizedLine.contains(QStringLiteral("temporary.sqlite"), Qt::CaseInsensitive) ||
          normalizedLine.contains(QStringLiteral("PermissionError"), Qt::CaseInsensitive) ||
          normalizedLine.contains(QStringLiteral("Access is denied"), Qt::CaseInsensitive) ||
-         normalizedLine.contains(QStringLiteral("Permission denied"), Qt::CaseInsensitive));
+         normalizedLine.contains(QStringLiteral("Permission denied"), Qt::CaseInsensitive)) &&
+        m_args.contains(QStringLiteral("--cookies-from-browser"));
 
     if (normalizedLine.startsWith(QStringLiteral("ERROR:")) ||
         normalizedLine.startsWith(QStringLiteral("[download] Got error:"), Qt::CaseInsensitive) ||
@@ -59,8 +60,14 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
             }
         };
 
+        // Check for cookie permission / access denied error
+        if (cookiePermissionDiagnostic) {
+            emitError(QStringLiteral("cookie_permission_denied"),
+                tr("Failed to access browser cookies (the database may be locked by a running browser, or access was denied).\n\n"
+                   "The download will automatically retry once without cookies. If it still fails, please close your browser and try again."));
+        }
         // Check for private video error
-        if (normalizedLine.contains(QStringLiteral("private"), Qt::CaseInsensitive)) {
+        else if (normalizedLine.contains(QStringLiteral("private"), Qt::CaseInsensitive)) {
             emitError(QStringLiteral("private"), tr("This video is private and cannot be downloaded."));
         }
         // Check for geo-restriction error
@@ -190,19 +197,22 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
                                 if (file.open(QIODevice::WriteOnly)) {
                                     const QByteArray data = reply->readAll();
                                     if (!data.isEmpty()) {
-                                        if (file.write(data) == -1) {
-                                            qWarning() << "[YtDlpWorker] Failed to write pre-wait thumbnail:" << file.errorString();
-                                        }
-                                        file.close();
-                                        m_thumbnailPath = QDir::toNativeSeparators(newThumbPath);
-                                        qDebug() << "[YtDlpWorker] Pre-wait thumbnail downloaded to:" << m_thumbnailPath;
+                                        if (file.write(data) != -1) {
+                                            file.close();
+                                            m_thumbnailPath = QDir::toNativeSeparators(newThumbPath);
+                                            qDebug() << "[YtDlpWorker] Pre-wait thumbnail downloaded to:" << m_thumbnailPath;
 
-                                        QVariantMap pd;
-                                        pd.insert(QStringLiteral("progress"), -1);
-                                        pd.insert(QStringLiteral("status"), tr("Waiting for livestream to start..."));
-                                        pd.insert(QStringLiteral("title"), m_videoTitle);
-                                        pd.insert(QStringLiteral("thumbnail_path"), m_thumbnailPath);
-                                        emit progressUpdated(m_id, pd);
+                                            QVariantMap pd;
+                                            pd.insert(QStringLiteral("progress"), -1);
+                                            pd.insert(QStringLiteral("status"), tr("Waiting for livestream to start..."));
+                                            pd.insert(QStringLiteral("title"), m_videoTitle);
+                                            pd.insert(QStringLiteral("thumbnail_path"), m_thumbnailPath);
+                                            emit progressUpdated(m_id, pd);
+                                        } else {
+                                            qWarning() << "[YtDlpWorker] Failed to write pre-wait thumbnail:" << file.errorString();
+                                            file.close();
+                                            file.remove();
+                                        }
                                     } else {
                                         file.close();
                                         if (!file.remove()) {
@@ -236,10 +246,15 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
             }
 
             qDebug() << "[YtDlpWorker] Detected [wait] state. Fetching pre-wait metadata via yt-dlp in background...";
-            QProcess *fetchProcess = new QProcess(this);
-            ProcessUtils::setProcessEnvironment(*fetchProcess);
-
             const QString ytDlpPath = ProcessUtils::findBinary(QStringLiteral("yt-dlp"), m_configManager).path;
+            if (ytDlpPath.isEmpty()) {
+                qWarning() << "[YtDlpWorker] Cannot fetch pre-wait metadata: yt-dlp path is empty.";
+                return;
+            }
+
+            QProcess *fetchProcess = new QProcess(this);
+            QPointer<QProcess> safeProcess(fetchProcess);
+            ProcessUtils::setProcessEnvironment(*fetchProcess);
             QStringList fetchArgs;
 
             fetchArgs << QStringLiteral("--dump-single-json") << QStringLiteral("--flat-playlist") << QStringLiteral("--ignore-errors") << url;
@@ -249,8 +264,9 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
             }
 
             qDebug() << "[YtDlpWorker] Pre-wait fetch command:" << ytDlpPath << fetchArgs;
-            connect(fetchProcess, &QProcess::finished, this, [this, fetchProcess, fetchThumbnail](int exitCode, QProcess::ExitStatus) {
-                    const QByteArray jsonData = fetchProcess->readAllStandardOutput();
+            connect(fetchProcess, &QProcess::finished, this, [this, safeProcess, fetchThumbnail](int exitCode, QProcess::ExitStatus) {
+                    if (!safeProcess) return;
+                    const QByteArray jsonData = safeProcess->readAllStandardOutput();
                     QJsonParseError parseError;
                     const QJsonDocument doc = QJsonDocument::fromJson(jsonData, &parseError);
                     if (parseError.error == QJsonParseError::NoError && doc.isObject()) {
@@ -273,17 +289,16 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
                         }
 
                         QString thumbUrl;
-                        const QJsonValue thumbnailsVal = obj.value(QStringLiteral("thumbnails"));
-                        if (thumbnailsVal.isArray()) {
-                            const QJsonArray thumbs = thumbnailsVal.toArray();
-                            if (!thumbs.isEmpty() && thumbs.last().isObject()) {
-                                thumbUrl = thumbs.last().toObject().value(QStringLiteral("url")).toString();
+                        if (const QJsonValue thumbnailsVal = obj.value(QStringLiteral("thumbnails")); thumbnailsVal.isArray()) {
+                            if (const QJsonArray thumbs = thumbnailsVal.toArray(); !thumbs.isEmpty()) {
+                                if (const QJsonValue lastThumb = thumbs.last(); lastThumb.isObject()) {
+                                    if (const QJsonValue urlVal = lastThumb.toObject().value(QStringLiteral("url")); urlVal.isString()) {
+                                        thumbUrl = urlVal.toString();
+                                    }
+                                }
                             }
-                        } else {
-                            const QJsonValue thumbnailVal = obj.value(QStringLiteral("thumbnail"));
-                            if (thumbnailVal.isString()) {
-                                thumbUrl = thumbnailVal.toString();
-                            }
+                        } else if (const QJsonValue thumbnailVal = obj.value(QStringLiteral("thumbnail")); thumbnailVal.isString()) {
+                            thumbUrl = thumbnailVal.toString();
                         }
 
                         if (!thumbUrl.isEmpty()) {
@@ -292,14 +307,14 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
                         }
                     } else {
                         qWarning() << "[YtDlpWorker] Pre-wait metadata fetch failed or returned invalid JSON. Exit code:" << exitCode;
-                        qWarning() << "[YtDlpWorker] Stderr:" << fetchProcess->readAllStandardError();
+                        qWarning() << "[YtDlpWorker] Stderr:" << safeProcess->readAllStandardError();
                     }
-                fetchProcess->deleteLater();
+                safeProcess->deleteLater();
             });
 
-            connect(fetchProcess, &QProcess::errorOccurred, this, [fetchProcess](QProcess::ProcessError error) {
-                if (error == QProcess::FailedToStart) {
-                    fetchProcess->deleteLater();
+            connect(fetchProcess, &QProcess::errorOccurred, this, [safeProcess](QProcess::ProcessError error) {
+                if (error == QProcess::FailedToStart && safeProcess) {
+                    safeProcess->deleteLater();
                 }
             });
 

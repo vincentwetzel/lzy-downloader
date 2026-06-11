@@ -192,7 +192,7 @@ The subtitle language picker includes the following options:
 
 ## Binaries
 
-Manual path overrides for external executables. If not set, the application auto-detects binaries from the app-local `bin` folder, system PATH, and user-local install locations.
+Manual path overrides for external executables. If not set, the application auto-detects binaries from the app-local `bin` folder, system PATH, and user-local install locations. Startup stores companion `<binary>_auto_detected` flags so it can refresh stale automatic paths without replacing explicit user-selected paths.
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
@@ -202,6 +202,7 @@ Manual path overrides for external executables. If not set, the application auto
 | `deno_path` | String | *(auto-detected)* | Path to the `deno` executable. **Required** (for JS runtime support). |
 | `gallery-dl_path` | String | *(auto-detected)* | Path to the `gallery-dl` executable. *Optional.* |
 | `aria2c_path` | String | *(auto-detected)* | Path to the `aria2c` executable. *Optional.* |
+| `<binary>_auto_detected` | Boolean | `true` | Marks whether the saved `<binary>_path` came from automatic discovery. Startup may temporarily clear and refresh auto-detected paths, but must preserve manual paths. |
 | `<binary>_update_available` | Boolean | `false` | Runtime status flag used by the External Tools page to show an update warning for a detected tool. Cleared when overrides are changed. |
 | `<binary>_latest_version` | String | *(empty)* | Runtime status value used with `<binary>_update_available` to display the newest detected version. Cleared when overrides are changed. |
 

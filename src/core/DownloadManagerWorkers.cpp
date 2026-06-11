@@ -164,16 +164,28 @@ void DownloadManager::onWorkerFinished(const QString &id, bool success, const QS
             emit videoQualityWarning(url, tr("Downloaded video quality is below 480p."));
         }, Qt::QueuedConnection);
     }
-
+    
     const QString normalizedFinal = QDir::fromNativeSeparators(finalFilename);
     const QString normalizedOriginal = QDir::fromNativeSeparators(originalDownloadedFilename);
+
+    QString combinedWarning;
+    if (metadata.contains(QStringLiteral("postprocessor_warning"))) {
+        combinedWarning = metadata.value(QStringLiteral("postprocessor_warning")).toString();
+    }
+    // Check for a worker-specific warning (e.g., yt-dlp exited with code 1 but produced media)
+    // This assumes YtDlpWorker populates this key in the metadata map.
+    if (metadata.contains(QStringLiteral("yt_dlp_exit_code_warning"))) {
+        QString workerExitWarning = metadata.value(QStringLiteral("yt_dlp_exit_code_warning")).toString();
+        if (!combinedWarning.isEmpty()) combinedWarning += "\n";
+        combinedWarning += workerExitWarning;
+    }
 
     item.tempFilePath = normalizedFinal.isEmpty() ? normalizedOriginal : normalizedFinal;
     item.originalDownloadedFilePath = normalizedOriginal;
     item.metadata = metadata;
-    if (metadata.contains(QStringLiteral("postprocessor_warning"))) {
-        item.options.insert(QStringLiteral("completion_warning"), metadata.value(QStringLiteral("postprocessor_warning")).toString());
-        emit downloadProgress(id, {{QStringLiteral("status"), tr("Completed with post-processing warning")}});
+    if (!combinedWarning.isEmpty()) {
+        item.options.insert(QStringLiteral("completion_warning"), combinedWarning);
+        emit downloadProgress(id, {{QStringLiteral("status"), tr("Completed with warnings")}});
     }
 
     // Inject playlist_index into metadata for sorting manager

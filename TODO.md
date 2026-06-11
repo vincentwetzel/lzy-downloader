@@ -11,6 +11,7 @@
 - [ ] Performance: Optimize hot-path stdout line parsing in `YtDlpWorkerProgress.cpp` using regex-free string parsing.
 
 ## Completed
+- [x] Documented v1.1.69 behavior for auto-detected binary path ownership, completed-with-warning downloads, retry-based cleanup, livestream wait metadata safety, and Discord bridge progress refreshes.
 - [x] Refactored external binary resolution through `SmartBinaryResolver` so manual overrides win, the app-local `bin` folder is searched first, stale native-settings ghosts are purged, and multiple candidates can be selected by newest usable version.
 - [x] Simplified External Binaries update handling so version probes, update availability checks, and package-manager/tool-native update commands share bounded process handling and clear status refreshes.
 - [x] Aligned startup, runtime, and External Binaries page resolution so auto-detected best paths are persisted, version labels use compact tool-specific parsers, and update checks re-probe the active executable before comparing remote releases.

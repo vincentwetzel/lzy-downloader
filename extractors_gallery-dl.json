@@ -69,6 +69,11 @@
             "ahottie.top"
         ]
     },
+    "allporncomic": {
+        "domains": [
+            "allporncomic.com"
+        ]
+    },
     "ao3": {
         "domains": [
             "archiveofourown.org"
@@ -144,7 +149,8 @@
     },
     "bunkr": {
         "domains": [
-            "bunkr.si"
+            "bunkr.cr",
+            "cdn123.bunkr.ru"
         ]
     },
     "catbox": {
@@ -165,7 +171,7 @@
     },
     "civitai": {
         "domains": [
-            "civitai.com"
+            "civitai.red"
         ]
     },
     "comedywildlifephoto": {
@@ -173,14 +179,24 @@
             "comedywildlifephoto.com"
         ]
     },
-    "comick": {
+    "comicartfans": {
         "domains": [
-            "comick.io"
+            "comicartfans.com"
         ]
     },
     "comicvine": {
         "domains": [
             "comicvine.gamespot.com"
+        ]
+    },
+    "cosmos": {
+        "domains": [
+            "cosmos.so"
+        ]
+    },
+    "cosplayrule34": {
+        "domains": [
+            "cosplayrule34.com"
         ]
     },
     "cyberdrop": {
@@ -318,6 +334,12 @@
             "foriio.com"
         ]
     },
+    "framedsc": {
+        "domains": [
+            "cdn.framedsc.com",
+            "framedsc.com"
+        ]
+    },
     "furaffinity": {
         "domains": [
             "furaffinity.net"
@@ -351,6 +373,11 @@
     "gofile": {
         "domains": [
             "gofile.io"
+        ]
+    },
+    "harvardlawnuremberg": {
+        "domains": [
+            "nuremberg.law.harvard.edu"
         ]
     },
     "hatenablog": {
@@ -421,6 +448,16 @@
     "imagefap": {
         "domains": [
             "imagefap.com"
+        ]
+    },
+    "imagepond": {
+        "domains": [
+            "imagepond.net"
+        ]
+    },
+    "imageshack": {
+        "domains": [
+            "imageshack.com"
         ]
     },
     "imagetwist": {
@@ -518,6 +555,11 @@
     "iwara": {
         "domains": [
             "iwara.tv"
+        ]
+    },
+    "joyreactor": {
+        "domains": [
+            "joyreactor.com"
         ]
     },
     "kabeuchi": {
@@ -859,6 +901,11 @@
             "postimg.cc"
         ]
     },
+    "postype": {
+        "domains": [
+            "postype.com"
+        ]
+    },
     "rawkuma": {
         "domains": [
             "rawkuma.net"
@@ -915,6 +962,11 @@
             "news.sankakucomplex.com"
         ]
     },
+    "scatbooru": {
+        "domains": [
+            "scatbooru.co.uk"
+        ]
+    },
     "schalenetwork": {
         "domains": [
             "niyaniya.moe"
@@ -938,6 +990,11 @@
     "sexcom": {
         "domains": [
             "sex.com"
+        ]
+    },
+    "shareimage": {
+        "domains": [
+            "share-image.com"
         ]
     },
     "silverpic": {
@@ -975,6 +1032,11 @@
             "user.smugmug.com"
         ]
     },
+    "snapchat": {
+        "domains": [
+            "snapchat.com"
+        ]
+    },
     "soundgasm": {
         "domains": [
             "soundgasm.net"
@@ -1007,7 +1069,7 @@
     },
     "tcbscans": {
         "domains": [
-            "tcbscans.me"
+            "tcbonepiecechapters.com"
         ]
     },
     "telegraph": {
@@ -1044,11 +1106,6 @@
     "toyhouse": {
         "domains": [
             "toyhou.se"
-        ]
-    },
-    "tsumino": {
-        "domains": [
-            "tsumino.com"
         ]
     },
     "tumblr": {
@@ -1099,7 +1156,7 @@
     },
     "urlgalleries": {
         "domains": [
-            "urlgalleries.net"
+            "urlgalleries.com"
         ]
     },
     "vanillarock": {
@@ -1160,11 +1217,6 @@
     "weebcentral": {
         "domains": [
             "weebcentral.com"
-        ]
-    },
-    "weebdex": {
-        "domains": [
-            "weebdex.org"
         ]
     },
     "weibo": {
