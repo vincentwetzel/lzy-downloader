@@ -51,10 +51,11 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
         normalizedLine.startsWith(QStringLiteral("[download] Got error:"), Qt::CaseInsensitive) ||
         (normalizedLine.contains(QStringLiteral("exited with code"), Qt::CaseInsensitive) && !normalizedLine.contains(QStringLiteral("code 0"))) ||
         cookiePermissionDiagnostic) {
-        m_errorLines.append(normalizedLine);
-
         auto emitError = [this, normalizedLine](const QString& type, const QString& msg) {
             if (!m_errorEmitted) {
+                // Append the line to m_errorLines when an error is first detected and emitted.
+                // This ensures m_errorLines contains all lines that triggered an error emission.
+                m_errorLines.append(normalizedLine);
                 m_errorEmitted = true;
                 emit ytDlpErrorDetected(m_id, type, msg, normalizedLine);
             }
@@ -102,15 +103,36 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
                                              "This usually means the site requires authentication, the media is unsupported, or the link is a 'ghost ID' that needs to be redirected.\n\n"
                                              "Try opening the link in a normal web browser to get the real URL, or check your authentication settings."));
         }
-        // Check for generic unavailable video error
-        else if (normalizedLine.contains(QStringLiteral("unavailable"), Qt::CaseInsensitive) ||
-                 normalizedLine.contains(QStringLiteral("does not exist"), Qt::CaseInsensitive) ||
-                 normalizedLine.contains(QStringLiteral("not found"), Qt::CaseInsensitive)) {
+        // Check for missing FFmpeg or FFprobe runtime errors reported by yt-dlp
+        else if (normalizedLine.contains(QStringLiteral("ffmpeg not found"), Qt::CaseInsensitive) ||
+                 normalizedLine.contains(QStringLiteral("ffprobe not found"), Qt::CaseInsensitive) ||
+                 normalizedLine.contains(QStringLiteral("location of ffmpeg"), Qt::CaseInsensitive)) {
+            emitError(QStringLiteral("missing_ffmpeg"),
+                tr("FFmpeg or FFprobe was not found by yt-dlp.\n\n"
+                   "To fix this, please configure the correct paths in Advanced Settings -> External Tools, or install them via your system package manager."));
+        }
+        // Check for generic unavailable video error (guarding against FFmpeg's "Option not found" or input errors)
+        else if ((normalizedLine.contains(QStringLiteral("unavailable"), Qt::CaseInsensitive) ||
+                  normalizedLine.contains(QStringLiteral("does not exist"), Qt::CaseInsensitive) ||
+                  normalizedLine.contains(QStringLiteral("not found"), Qt::CaseInsensitive)) &&
+                 !normalizedLine.contains(QStringLiteral("option not found"), Qt::CaseInsensitive) &&
+                 !normalizedLine.contains(QStringLiteral("error opening input"), Qt::CaseInsensitive)) {
             emitError(QStringLiteral("unavailable"), tr("This video is unavailable or has been removed."));
+        } else if (normalizedLine.contains(QStringLiteral("Option ignore_editlist not found"), Qt::CaseInsensitive)) {
+            emitError(QStringLiteral("ffmpeg_option_not_found"),
+                      tr("Your FFmpeg version does not support the '-ignore_editlist' option, which is required for accurate SponsorBlock/section cuts.\n\n"
+                         "Please update FFmpeg to a recent version (e.g., 6.0 or newer) from the External Tools settings."));
+        } else if (normalizedLine.contains(QStringLiteral("Error opening input files"), Qt::CaseInsensitive) ||
+                   (normalizedLine.contains(QStringLiteral("Option not found"), Qt::CaseInsensitive) && !normalizedLine.contains(QStringLiteral("Option ignore_editlist not found"), Qt::CaseInsensitive))) {
+            // Generic FFmpeg post-processing failure, but not the specific ignore_editlist issue.
+            // This is still a failure of a post-processing step, so it should be an error.
+            emitError(QStringLiteral("ffmpeg_postprocessor_error"),
+                      tr("FFmpeg post-processing failed: Error opening input files or an unknown option was not found. This may indicate a problem with the downloaded media or FFmpeg configuration."));
         }
         // Check for scheduled livestream/premiere
         else {
             static const QRegularExpression premiereRegex(
+                // This regex is used to detect scheduled livestreams/premieres.
                 QStringLiteral("Premieres in|Premiering in|Premiere will begin|live event will begin|is upcoming|Offline \\(expected\\)|Offline expected|waiting for premiere|waiting for livestream|Live in |Starting in "),
                 QRegularExpression::CaseInsensitiveOption
             );
@@ -119,12 +141,22 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
                     tr("This video is a scheduled livestream or premiere that has not started yet.\n\n"
                        "Would you like to wait for the video to begin and download it automatically?"));
             }
+        } // End of specific error checks within the main `if` block
+    } else if (normalizedLine.startsWith(QStringLiteral("WARNING:"))) { // Separate handling for WARNING: lines
+        // Filter out specific non-critical warnings that don't need to be surfaced to the user
+        if (normalizedLine.contains(QStringLiteral("The extractor specified to use impersonation for this download"), Qt::CaseInsensitive)) {
+            // Silently tag this on the worker so we can append an optimization recommendation tip to the completion metadata
+            this->setProperty("missing_impersonation", true);
+            return;
         }
-    } else if (normalizedLine.startsWith(QStringLiteral("WARNING:"))) {
+        // Add other WARNING lines to m_errorLines for diagnostics, even if not a specific error type.
+        else {
+            m_errorLines.append(normalizedLine);
+        }
+
         // Parse specific WARNING: lines that should be surfaced as errors/guidance to the user
         if (normalizedLine.contains(QStringLiteral("YouTube account cookies are no longer valid"), Qt::CaseInsensitive)) {
             if (!m_errorEmitted) {
-                m_errorEmitted = true;
                 emit ytDlpErrorDetected(m_id, QStringLiteral("invalid_cookies"),
                     tr("Your browser cookies are no longer valid (they may have expired or been rotated by YouTube).\n\n"
                        "To fix this: Open your configured browser, log out of YouTube, log back in, and try your download again."), normalizedLine);

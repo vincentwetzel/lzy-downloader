@@ -95,16 +95,48 @@ void YtDlpWorker::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatu
     m_finishEmitted = true;
     const bool normalExit = (exitStatus == QProcess::NormalExit);
     const bool capturedFinalFileExists = !m_finalFilename.isEmpty() && QFile::exists(m_finalFilename);
+
+    // Check for critical errors that should always result in failure, even if yt-dlp claims to have produced a file or exited with code 1.
+    bool hasCriticalError = false;
+    const QString errorText = m_errorLines.join(QLatin1Char('\n')).toLower(); // m_errorLines now contains all lines that triggered an error emission
+    if (errorText.contains(QStringLiteral("this video is unavailable")) ||
+        errorText.contains(QStringLiteral("private video")) ||
+        errorText.contains(QStringLiteral("video unavailable")) ||
+        errorText.contains(QStringLiteral("this video has been removed")) ||
+        errorText.contains(QStringLiteral("violating youtube's terms of service"))) {
+        hasCriticalError = true;
+        qWarning() << "[YtDlpWorker] Detected critical error in output, forcing download failure for" << m_id;
+    }
+
     const bool recoveredFromPostProcessorFailure = normalExit && exitCode != 0 && capturedFinalFileExists;
-    const bool success = (normalExit && exitCode == 0 && !m_finalFilename.isEmpty()) || recoveredFromPostProcessorFailure;
+    const bool success = !hasCriticalError && ((normalExit && exitCode == 0 && !m_finalFilename.isEmpty()) || recoveredFromPostProcessorFailure);
     if (!success) {
-        qWarning() << "[YtDlpWorker] yt-dlp finished unsuccessfully for" << m_id
+        // Existing logging for hard failures
+        qWarning() << "[YtDlpWorker] yt-dlp finished unsuccessfully for" << m_id << " (critical error detected: " << hasCriticalError << ")"
                    << "exitCode:" << exitCode
                    << "exitStatus:" << exitStatus;
-        const QStringList diagnosticLines = !m_errorLines.isEmpty() ? m_errorLines : m_allOutputLines;
-        if (!diagnosticLines.isEmpty()) {
-            qWarning().noquote() << "[YtDlpWorker] Last diagnostic output:"
-                                 << diagnosticLines.mid(qMax(qsizetype(0), diagnosticLines.size() - 8)).join(QLatin1Char('\n'));
+        // When a download fails, log all captured error lines.
+        // If m_errorLines is empty (meaning no specific ERROR: or WARNING: patterns were matched),
+        // fall back to logging a larger tail of all output lines for better diagnostics.
+        if (!m_errorLines.isEmpty()) {
+            qWarning().noquote() << "[YtDlpWorker] Error output captured:" << m_errorLines.join(QLatin1Char('\n'));
+        } else if (!m_allOutputLines.isEmpty()) {
+            constexpr qsizetype MAX_FALLBACK_LOG_LINES = 50; // Log up to 50 lines for better context
+            qWarning().noquote() << "[YtDlpWorker] Last diagnostic output (no specific errors captured):"
+                                 << m_allOutputLines.mid(qMax(qsizetype(0), m_allOutputLines.size() - MAX_FALLBACK_LOG_LINES)).join(QLatin1Char('\n'));
+        }
+    }
+    // Add specific logging for "completed with warnings" scenarios
+    else if (recoveredFromPostProcessorFailure) {
+        qWarning() << "[YtDlpWorker] yt-dlp exited with code 1 after producing final media for" << m_id
+                   << ". This is treated as a completion with warnings. Full output for diagnostics:";
+        if (!m_errorLines.isEmpty()) {
+            qWarning().noquote() << "[YtDlpWorker] Captured error/warning lines:" << m_errorLines.join(QLatin1Char('\n'));
+        }
+        if (!m_allOutputLines.isEmpty()) {
+            qWarning().noquote() << "[YtDlpWorker] Full yt-dlp output (stdout/stderr combined):" << m_allOutputLines.join(QLatin1Char('\n'));
+        } else {
+            qWarning() << "[YtDlpWorker] No output lines captured for this warning.";
         }
     }
     if (!success && retryWithoutBrowserCookiesIfCookieExtractionFailed()) {
@@ -285,6 +317,12 @@ void YtDlpWorker::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatu
     insertMetadataIfMissing(QStringLiteral("thumbnail_path"), m_thumbnailPath);
     insertMetadataIfMissing(QStringLiteral("postprocessor_warning"), postprocessorWarning);
     insertMetadataIfMissing(QStringLiteral("yt_dlp_exit_code_warning"), exitCodeWarning);
+
+    // Inject clean environmental tips to guide Python-based yt-dlp users elegantly
+    if (this->property("missing_impersonation").toBool()) {
+        insertMetadataIfMissing(QStringLiteral("dependency_recommendation"),
+            tr("System Tip: To enable browser impersonation and prevent future blocks, run this in your terminal:\npip install curl-cffi"));
+    }
 
     emit finished(m_id, success, message, m_finalFilename, m_originalDownloadedFilename, metadata);
 }

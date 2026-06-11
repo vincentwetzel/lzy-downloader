@@ -9,6 +9,13 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## [Unreleased]
 
+### Changed
+- **yt-dlp diagnostics**: Worker output handling now filters non-critical impersonation warnings into completion guidance, surfaces missing FFmpeg/FFprobe and FFmpeg post-processing failures with more specific messages, and keeps a richer error/warning trail for terminal diagnostics.
+- **SponsorBlock cut arguments**: yt-dlp argument construction no longer injects `-ignore_editlist` into the ModifyChapters/SponsorBlock input phase, avoiding failures on FFmpeg builds that do not support that input option while preserving output-side timestamp normalization.
+
+### Fixed
+- **Critical yt-dlp failure classification**: Unavailable, private, removed, or policy-blocked media diagnostics now force the download to fail even if yt-dlp reported a final path, while genuine post-processing-only exit-code failures can still complete with warnings.
+
 ## [1.1.70] - 2026-06-15
 
 ### Changed

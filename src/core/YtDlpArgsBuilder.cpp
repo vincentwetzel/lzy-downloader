@@ -113,8 +113,6 @@ void appendForcedKeyframeCutArgs(QStringList &args, ConfigManager *configManager
         ppaArgs << QStringLiteral("-c:a copy") << QStringLiteral("-avoid_negative_ts make_zero") << QStringLiteral("-fflags +genpts") << QStringLiteral("-max_muxing_queue_size 2048");
     }
 
-    args << QStringLiteral("--ppa") << QStringLiteral("ModifyChapters+ffmpeg_i:-ignore_editlist 1");
-    args << QStringLiteral("--ppa") << QStringLiteral("SponsorBlock+ffmpeg_i:-ignore_editlist 1");
     if (!ppaArgs.isEmpty()) {
         QString joinedArgs = ppaArgs.join(QLatin1Char(' '));
         args << QStringLiteral("--ppa") << QStringLiteral("ModifyChapters+ffmpeg_o:%1").arg(joinedArgs);
