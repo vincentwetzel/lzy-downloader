@@ -69,11 +69,6 @@
             "7plus.com.au"
         ]
     },
-    "8tracks": {
-        "domains": [
-            "8tracks.com"
-        ]
-    },
     "9gag": {
         "domains": [
             "9gag.com"
@@ -183,11 +178,6 @@
             "agalega.gal"
         ]
     },
-    "airtv": {
-        "domains": [
-            "air.tv"
-        ]
-    },
     "aitubekzvideo": {
         "domains": [
             "aitube.kz"
@@ -226,16 +216,6 @@
     "alphaporno": {
         "domains": [
             "alphaporno.com"
-        ]
-    },
-    "alsace20tv": {
-        "domains": [
-            "alsace20.tv"
-        ]
-    },
-    "alsace20tvembed": {
-        "domains": [
-            "alsace20.tv"
         ]
     },
     "altcensored": {
@@ -310,11 +290,6 @@
             "ahctv.com"
         ]
     },
-    "anchorfmepisode": {
-        "domains": [
-            "anchor.fm"
-        ]
-    },
     "anderetijden": {
         "domains": [
             "anderetijden.nl"
@@ -372,12 +347,6 @@
     "applepodcasts": {
         "domains": [
             "podcasts.apple.com"
-        ]
-    },
-    "appletrailers": {
-        "domains": [
-            "movietrailers.apple.com",
-            "trailers.apple.com"
         ]
     },
     "archive.org": {
@@ -471,11 +440,6 @@
             "atscaleconference.com"
         ]
     },
-    "atvat": {
-        "domains": [
-            "atv.at"
-        ]
-    },
     "audimedia": {
         "domains": [
             "audi-mediacenter.com"
@@ -502,17 +466,6 @@
     "audius": {
         "domains": [
             "audius.co"
-        ]
-    },
-    "awaan": {
-        "domains": [
-            "awaan.ae",
-            "dcndigital.ae"
-        ]
-    },
-    "axs.tv": {
-        "domains": [
-            "axs.tv"
         ]
     },
     "azmedien": {
@@ -603,18 +556,6 @@
             "beacon.tv"
         ]
     },
-    "beatbumpplaylist": {
-        "domains": [
-            "beatbump.io",
-            "beatbump.ml"
-        ]
-    },
-    "beatbumpvideo": {
-        "domains": [
-            "beatbump.io",
-            "beatbump.ml"
-        ]
-    },
     "beatport": {
         "domains": [
             "beatport.com"
@@ -654,11 +595,6 @@
     "bibeltv": {
         "domains": [
             "bibeltv.de"
-        ]
-    },
-    "bigflix": {
-        "domains": [
-            "bigflix.com"
         ]
     },
     "bigo": {
@@ -848,11 +784,6 @@
             "main.bsky.dev"
         ]
     },
-    "bokecc": {
-        "domains": [
-            "union.bokecc.com"
-        ]
-    },
     "bongacams": {
         "domains": [
             "cn.bongacams.com",
@@ -991,16 +922,6 @@
             "byutv.org"
         ]
     },
-    "caffeinetv": {
-        "domains": [
-            "caffeine.tv"
-        ]
-    },
-    "callin": {
-        "domains": [
-            "callin.com"
-        ]
-    },
     "caltrans": {
         "domains": [
             "cwwp2.dot.ca.gov"
@@ -1009,16 +930,6 @@
     "cam4": {
         "domains": [
             "cam4.com"
-        ]
-    },
-    "camdemy": {
-        "domains": [
-            "camdemy.com"
-        ]
-    },
-    "camdemyfolder": {
-        "domains": [
-            "camdemy.com"
         ]
     },
     "camfmepisode": {
@@ -1229,11 +1140,6 @@
             "clipchamp.com"
         ]
     },
-    "clippit": {
-        "domains": [
-            "clippituser.tv"
-        ]
-    },
     "cliprs": {
         "domains": [
             "clip.rs"
@@ -1304,11 +1210,6 @@
             "vanityfair.com",
             "video.gq.com",
             "video.wired.com"
-        ]
-    },
-    "contv": {
-        "domains": [
-            "contv.com"
         ]
     },
     "cookingchannel": {
@@ -1673,6 +1574,7 @@
             "cwtvpr.com",
             "deezer.com",
             "disneyplus.com",
+            "fod.fujitv.co.jp",
             "front.njpwworld.com",
             "hsesn.apps.disneyplus.com",
             "hulu.com",
@@ -1707,12 +1609,8 @@
             "watch.mech-plus.com",
             "watch.njpwworld.com",
             "watch.telusoriginals.com",
-            "web.nhk"
-        ]
-    },
-    "drooble": {
-        "domains": [
-            "drooble.com"
+            "web.nhk",
+            "zee5.com"
         ]
     },
     "dropbox": {
@@ -1750,11 +1648,6 @@
     "dtube": {
         "domains": [
             "d.tube"
-        ]
-    },
-    "duboku": {
-        "domains": [
-            "w.duboku.io"
         ]
     },
     "dumpert": {
@@ -1818,11 +1711,6 @@
     "einsundeinstvrecordings": {
         "domains": [
             "1und1.tv"
-        ]
-    },
-    "eitb.tv": {
-        "domains": [
-            "eitb.tv"
         ]
     },
     "elonet": {
@@ -1997,11 +1885,6 @@
         "domains": [
             "di.se",
             "expressen.se"
-        ]
-    },
-    "eyedotv": {
-        "domains": [
-            "eyedo.tv"
         ]
     },
     "facebook": {
@@ -2185,11 +2068,6 @@
             "info.fr"
         ]
     },
-    "franceinter": {
-        "domains": [
-            "franceinter.fr"
-        ]
-    },
     "francetv": {
         "domains": [
             "france.tv",
@@ -2231,11 +2109,6 @@
             "frontendmasters.com"
         ]
     },
-    "fujitvfodplus7": {
-        "domains": [
-            "fod.fujitv.co.jp"
-        ]
-    },
     "funk": {
         "domains": [
             "funk.net",
@@ -2260,11 +2133,6 @@
     "gab": {
         "domains": [
             "gab.com"
-        ]
-    },
-    "gabtv": {
-        "domains": [
-            "tv.gab.com"
         ]
     },
     "gaia": {
@@ -2515,11 +2383,6 @@
             "goodgame.ru"
         ]
     },
-    "google": {
-        "domains": [
-            "podcasts.google.com"
-        ]
-    },
     "googledrive": {
         "domains": [
             "drive.google.com",
@@ -2531,19 +2394,9 @@
             "gopro.com"
         ]
     },
-    "goshgay": {
-        "domains": [
-            "goshgay.com"
-        ]
-    },
     "gotostage": {
         "domains": [
             "gotostage.com"
-        ]
-    },
-    "gputechconf": {
-        "domains": [
-            "on-demand.gputechconf.com"
         ]
     },
     "graspop": {
@@ -2625,11 +2478,6 @@
     "hitrecord": {
         "domains": [
             "hitrecord.org"
-        ]
-    },
-    "hketv": {
-        "domains": [
-            "hkedcity.net"
         ]
     },
     "hollywoodreporter": {
@@ -2768,11 +2616,6 @@
             "app.idagio.com"
         ]
     },
-    "idolplus": {
-        "domains": [
-            "idolplus.com"
-        ]
-    },
     "iflix": {
         "domains": [
             "iflix.com"
@@ -2859,11 +2702,6 @@
     "internazionale": {
         "domains": [
             "internazionale.it"
-        ]
-    },
-    "internetvideoarchive": {
-        "domains": [
-            "video.internetvideoarchive.net"
         ]
     },
     "investigationdiscovery": {
@@ -2959,11 +2797,6 @@
     "ixigua": {
         "domains": [
             "ixigua.com"
-        ]
-    },
-    "izlesene": {
-        "domains": [
-            "izlesene.com"
         ]
     },
     "jamendo": {
@@ -3083,11 +2916,6 @@
             "kika.de"
         ]
     },
-    "kinja": {
-        "domains": [
-            "kinja.com"
-        ]
-    },
     "kinopoisk": {
         "domains": [
             "kinopoisk.ru"
@@ -3101,11 +2929,6 @@
     "kompasvideo": {
         "domains": [
             "video.kompas.com"
-        ]
-    },
-    "koo": {
-        "domains": [
-            "kooapp.com"
         ]
     },
     "krasview": {
@@ -3252,12 +3075,6 @@
             "tv.le.com"
         ]
     },
-    "letvcloud": {
-        "domains": [
-            "bcloud.html",
-            "yuntv.letv.com"
-        ]
-    },
     "libsyn": {
         "domains": [
             "html5-player.libsyn.com"
@@ -3297,13 +3114,6 @@
     "livejournal": {
         "domains": [
             "andrei-bt.livejournal.com"
-        ]
-    },
-    "livestream": {
-        "domains": [
-            "livestream.com",
-            "new.livestream.com",
-            "original.livestream.com"
         ]
     },
     "livestreamfails": {
@@ -3387,12 +3197,6 @@
     "lumni": {
         "domains": [
             "lumni.fr"
-        ]
-    },
-    "lynda": {
-        "domains": [
-            "educourse.ga",
-            "lynda.com"
         ]
     },
     "maariv.co.il": {
@@ -3638,12 +3442,6 @@
             "medius.microsoft.com"
         ]
     },
-    "microsoftstream": {
-        "domains": [
-            "msit.microsoftstream.com",
-            "web.microsoftstream.com"
-        ]
-    },
     "minds": {
         "domains": [
             "minds.com"
@@ -3764,11 +3562,6 @@
             "mojevideo.sk"
         ]
     },
-    "mojvideo": {
-        "domains": [
-            "mojvideo.com"
-        ]
-    },
     "monstercat": {
         "domains": [
             "monstercat.com"
@@ -3777,26 +3570,6 @@
     "monstersiren": {
         "domains": [
             "monster-siren.hypergryph.com"
-        ]
-    },
-    "motherless": {
-        "domains": [
-            "motherless.com"
-        ]
-    },
-    "motherlessgallery": {
-        "domains": [
-            "motherless.com"
-        ]
-    },
-    "motherlessgroup": {
-        "domains": [
-            "motherless.com"
-        ]
-    },
-    "motherlessuploader": {
-        "domains": [
-            "motherless.com"
         ]
     },
     "motorsport": {
@@ -3812,16 +3585,6 @@
     "moviepilot": {
         "domains": [
             "moviepilot.de"
-        ]
-    },
-    "moviewplay": {
-        "domains": [
-            "moview.id"
-        ]
-    },
-    "moviezine": {
-        "domains": [
-            "moviezine.se"
         ]
     },
     "movingimage": {
@@ -3881,26 +3644,6 @@
     "musescore": {
         "domains": [
             "musescore.com"
-        ]
-    },
-    "musicdexalbum": {
-        "domains": [
-            "musicdex.org"
-        ]
-    },
-    "musicdexartist": {
-        "domains": [
-            "musicdex.org"
-        ]
-    },
-    "musicdexplaylist": {
-        "domains": [
-            "musicdex.org"
-        ]
-    },
-    "musicdexsong": {
-        "domains": [
-            "musicdex.org"
         ]
     },
     "mux": {
@@ -3993,11 +3736,6 @@
             "tv.nate.com"
         ]
     },
-    "natgeo": {
-        "domains": [
-            "video.nationalgeographic.com"
-        ]
-    },
     "nationalgeographictv": {
         "domains": [
             "nationalgeographic.com"
@@ -4007,11 +3745,6 @@
         "domains": [
             "tv.naver.com",
             "tvcast.naver.com"
-        ]
-    },
-    "navernow": {
-        "domains": [
-            "now.naver.com"
         ]
     },
     "nba": {
@@ -4093,11 +3826,6 @@
             "nekohacker.com"
         ]
     },
-    "nerdcubedfeed": {
-        "domains": [
-            "nerdcubed.co.uk"
-        ]
-    },
     "nest": {
         "domains": [
             "video.nest.com"
@@ -4137,16 +3865,6 @@
     "netplustvrecordings": {
         "domains": [
             "netplus.tv"
-        ]
-    },
-    "netverse": {
-        "domains": [
-            "netverse.id"
-        ]
-    },
-    "netverseplaylist": {
-        "domains": [
-            "netverse.id"
         ]
     },
     "netzkino": {
@@ -4288,7 +4006,7 @@
     },
     "nitter": {
         "domains": [
-            "nitter.librenode.org"
+            "nitter.domain.glass"
         ]
     },
     "njoy": {
@@ -4458,11 +4176,6 @@
             "members.nubiles-porn.com"
         ]
     },
-    "nuum": {
-        "domains": [
-            "nuum.ru"
-        ]
-    },
     "nuvid": {
         "domains": [
             "m.nuvid.com",
@@ -4581,11 +4294,6 @@
             "onet100.vod.pl"
         ]
     },
-    "onionstudios": {
-        "domains": [
-            "onionstudios.com"
-        ]
-    },
     "onsen": {
         "domains": [
             "onsen.ag",
@@ -4606,12 +4314,6 @@
     "openrec": {
         "domains": [
             "openrec.tv"
-        ]
-    },
-    "oratv": {
-        "domains": [
-            "ora.tv",
-            "unsafespeech.com"
         ]
     },
     "orf": {
@@ -4855,21 +4557,6 @@
             "thisav.com"
         ]
     },
-    "piramidetv": {
-        "domains": [
-            "piramide.tv"
-        ]
-    },
-    "piramidetvchannel": {
-        "domains": [
-            "piramide.tv"
-        ]
-    },
-    "planetmarathi": {
-        "domains": [
-            "planetmarathi.com"
-        ]
-    },
     "platzi": {
         "domains": [
             "courses.platzi.com",
@@ -4892,17 +4579,6 @@
             "player.fm"
         ]
     },
-    "playeur": {
-        "domains": [
-            "playeur.com",
-            "utreon.com"
-        ]
-    },
-    "playplustv": {
-        "domains": [
-            "playplus.tv"
-        ]
-    },
     "playsuisse": {
         "domains": [
             "playsuisse.ch"
@@ -4922,12 +4598,6 @@
             "playvids.com"
         ]
     },
-    "playwire": {
-        "domains": [
-            "cdn.playwire.com",
-            "config.playwire.com"
-        ]
-    },
     "pluralsight": {
         "domains": [
             "app.pluralsight.com",
@@ -4937,11 +4607,6 @@
     "plutotv": {
         "domains": [
             "pluto.tv"
-        ]
-    },
-    "plvideo": {
-        "domains": [
-            "plvideo.ru"
         ]
     },
     "podbayfm": {
@@ -5111,22 +4776,6 @@
             "projectveritas.com"
         ]
     },
-    "prosiebensat1": {
-        "domains": [
-            "advopedia.de",
-            "fem.com",
-            "galileo.tv",
-            "kabeleins.de",
-            "kabeleinsdoku.de",
-            "prosieben.de",
-            "prosiebenmaxx.de",
-            "ran.de",
-            "sat1.de",
-            "sat1gold.de",
-            "sixx.de",
-            "the-voice-of-germany.de"
-        ]
-    },
     "prxaccount": {
         "domains": [
             "beta.prx.org",
@@ -5149,11 +4798,6 @@
     "puhutv": {
         "domains": [
             "puhutv.com"
-        ]
-    },
-    "puls4": {
-        "domains": [
-            "puls4.com"
         ]
     },
     "pyvideo": {
@@ -5228,16 +4872,6 @@
     "radiocanada": {
         "domains": [
             "ici.radio-canada.ca"
-        ]
-    },
-    "radiocomercial": {
-        "domains": [
-            "radiocomercial.pt"
-        ]
-    },
-    "radiocomercialplaylist": {
-        "domains": [
-            "radiocomercial.pt"
         ]
     },
     "radiofrance": {
@@ -5432,13 +5066,6 @@
             "redbull.com"
         ]
     },
-    "redcdnlivx": {
-        "domains": [
-            "n-25-12.dcs.redcdn.pl",
-            "r.dcs.redcdn.pl",
-            "redir.atmcdn.pl"
-        ]
-    },
     "reddit": {
         "domains": [
             "nm.reddit.com",
@@ -5492,11 +5119,6 @@
             "reverbnation.com"
         ]
     },
-    "rheinmaintv": {
-        "domains": [
-            "rheinmaintv.de"
-        ]
-    },
     "ridehome": {
         "domains": [
             "ridehome.info"
@@ -5510,11 +5132,6 @@
     "rinsefmartistplaylist": {
         "domains": [
             "rinse.fm"
-        ]
-    },
-    "rmcdecouverte": {
-        "domains": [
-            "rmcdecouverte.bfmtv.com"
         ]
     },
     "rockstargames": {
@@ -5894,11 +5511,6 @@
             "veterans.senate.gov"
         ]
     },
-    "sendtonews": {
-        "domains": [
-            "embed.sendtonews.com"
-        ]
-    },
     "servus": {
         "domains": [
             "pm-wissen.com",
@@ -6045,11 +5657,6 @@
             "snapchat.com"
         ]
     },
-    "snotr": {
-        "domains": [
-            "snotr.com"
-        ]
-    },
     "softwhiteunderbelly": {
         "domains": [
             "softwhiteunderbelly.com"
@@ -6186,11 +5793,6 @@
             "spreaker.com"
         ]
     },
-    "springboardplatform": {
-        "domains": [
-            "cms.springboardplatform.com"
-        ]
-    },
     "sproutvideo": {
         "domains": [
             "videos.sproutvideo.com"
@@ -6224,11 +5826,6 @@
             "stage-plus.com"
         ]
     },
-    "stanfordoc": {
-        "domains": [
-            "openclassroom.stanford.edu"
-        ]
-    },
     "startrek": {
         "domains": [
             "startrek.com"
@@ -6252,16 +5849,6 @@
     "steamcommunitybroadcast": {
         "domains": [
             "steamcommunity.com"
-        ]
-    },
-    "stitcher": {
-        "domains": [
-            "stitcher.com"
-        ]
-    },
-    "stitchershow": {
-        "domains": [
-            "stitcher.com"
         ]
     },
     "storyfire": {
@@ -6300,11 +5887,6 @@
         "domains": [
             "streetvoice.com",
             "tw.streetvoice.com"
-        ]
-    },
-    "stretchinternet": {
-        "domains": [
-            "portal.stretchinternet.com"
         ]
     },
     "stripchat": {
@@ -6354,19 +5936,9 @@
             "svtplay.se"
         ]
     },
-    "swearnetepisode": {
-        "domains": [
-            "swearnet.com"
-        ]
-    },
     "syfy": {
         "domains": [
             "syfy.com"
-        ]
-    },
-    "syvdk": {
-        "domains": [
-            "24syv.dk"
         ]
     },
     "sztvhu": {
@@ -6579,11 +6151,6 @@
             "telewebion.com"
         ]
     },
-    "tempo": {
-        "domains": [
-            "video.tempo.co"
-        ]
-    },
     "tennistv": {
         "domains": [
             "tennistv.com"
@@ -6627,11 +6194,6 @@
     "thehighwire": {
         "domains": [
             "thehighwire.com"
-        ]
-    },
-    "theholetv": {
-        "domains": [
-            "the-hole.tv"
         ]
     },
     "theintercept": {
@@ -6769,29 +6331,9 @@
             "videos.toypics.net"
         ]
     },
-    "traileraddict": {
-        "domains": [
-            "traileraddict.com"
-        ]
-    },
     "travelchannel": {
         "domains": [
             "watch.travelchannel.com"
-        ]
-    },
-    "triller": {
-        "domains": [
-            "triller.co"
-        ]
-    },
-    "trillershort": {
-        "domains": [
-            "v.triller.co"
-        ]
-    },
-    "trilleruser": {
-        "domains": [
-            "triller.co"
         ]
     },
     "trovo": {
@@ -7029,11 +6571,6 @@
             "wiadomosci.tvp.pl"
         ]
     },
-    "tvplayer": {
-        "domains": [
-            "tvplayer.com"
-        ]
-    },
     "tvplayhome": {
         "domains": [
             "play.tv3.ee",
@@ -7118,12 +6655,6 @@
     "ukcolumn": {
         "domains": [
             "ukcolumn.org"
-        ]
-    },
-    "uktvplay": {
-        "domains": [
-            "uktvplay.co.uk",
-            "uktvplay.uktv.co.uk"
         ]
     },
     "ulizaplayer": {
@@ -7282,54 +6813,9 @@
             "xfactor.sky.it"
         ]
     },
-    "videodetective": {
-        "domains": [
-            "videodetective.com"
-        ]
-    },
-    "videofy.me": {
-        "domains": [
-            "videofy.me"
-        ]
-    },
-    "videoken": {
-        "domains": [
-            "videos.cncf.io",
-            "videos.icts.res.in",
-            "videos.neurips.cc"
-        ]
-    },
-    "videokencategory": {
-        "domains": [
-            "videos.cncf.io",
-            "videos.icts.res.in",
-            "videos.neurips.cc"
-        ]
-    },
     "videokenplayer": {
         "domains": [
             "player.videoken.com"
-        ]
-    },
-    "videokenplaylist": {
-        "domains": [
-            "videos.icts.res.in"
-        ]
-    },
-    "videokentopic": {
-        "domains": [
-            "videos.cncf.io",
-            "videos.icts.res.in",
-            "videos.neurips.cc"
-        ]
-    },
-    "videomore": {
-        "domains": [
-            "more.tv",
-            "odysseus.more.tv",
-            "player.videomore.ru",
-            "siren.more.tv",
-            "videomore.ru"
         ]
     },
     "videopress": {
@@ -7416,11 +6902,6 @@
             "vimeopro.com"
         ]
     },
-    "vimm": {
-        "domains": [
-            "vimm.tv"
-        ]
-    },
     "vimp": {
         "domains": [
             "hsbi.de",
@@ -7487,11 +6968,6 @@
         "domains": [
             "voca.ro",
             "vocaroo.com"
-        ]
-    },
-    "vodpl": {
-        "domains": [
-            "vod.pl"
         ]
     },
     "vodplatform": {
@@ -7575,21 +7051,6 @@
             "vtxtv.ch"
         ]
     },
-    "vuclip": {
-        "domains": [
-            "m.vuclip.com"
-        ]
-    },
-    "vvvvid": {
-        "domains": [
-            "vvvvid.it"
-        ]
-    },
-    "vvvvidshow": {
-        "domains": [
-            "vvvvid.it"
-        ]
-    },
     "walla": {
         "domains": [
             "vod.walla.co.il"
@@ -7627,8 +7088,7 @@
     },
     "wdr": {
         "domains": [
-            "deviceids-medp.wdr.de",
-            "mobile-ondemand.wdr.de"
+            "deviceids-medp.wdr.de"
         ]
     },
     "wdrelefant": {
@@ -7740,11 +7200,6 @@
     "wevidi": {
         "domains": [
             "wevidi.net"
-        ]
-    },
-    "weyyak": {
-        "domains": [
-            "weyyak.com"
         ]
     },
     "whowatch": {
@@ -7914,11 +7369,6 @@
             "video.xnxx.com",
             "xnxx.com",
             "xnxx3.com"
-        ]
-    },
-    "xstream": {
-        "domains": [
-            "frontend.xstream.dk"
         ]
     },
     "xvideos": {
@@ -8127,11 +7577,6 @@
             "logo.de",
             "zdf.de",
             "zdfheute.de"
-        ]
-    },
-    "zee5": {
-        "domains": [
-            "zee5.com"
         ]
     },
     "zeenews": {

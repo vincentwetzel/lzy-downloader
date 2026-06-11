@@ -9,7 +9,7 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## [Unreleased]
 
-## [1.1.69] - 2026-06-15
+## [1.1.70] - 2026-06-15
 
 ### Changed
 - **External binary management refactor**: `yt-dlp` and `gallery-dl` updater logic now share `BaseBinaryUpdater`, while external tool lookup goes through `SmartBinaryResolver` so manual overrides win, the app-local `bin` folder is considered first, stale settings ghosts are cleared, and multiple discovered candidates can be selected by newest usable version.
