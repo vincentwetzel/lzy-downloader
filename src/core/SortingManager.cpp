@@ -219,12 +219,12 @@ QString SortingManager::getSortedDirectory(const QVariantMap &videoMetadata, con
 
     // Rules are stored with flat keys: rule_N_name, rule_N_applies_to, rule_N_target_folder, etc.
     for (int i = 0; i < size; ++i) {
-        const QString key = u"rule_" + QString::number(i);
+        const QString key = QStringLiteral("rule_") + QString::number(i);
         
-        QString ruleName = m_configManager->get(QStringLiteral("SortingRules"), key + u"_name").toString();
-        QVariant appliesToVar = m_configManager->get(QStringLiteral("SortingRules"), key + u"_applies_to");
+        QString ruleName = m_configManager->get(QStringLiteral("SortingRules"), key + QStringLiteral("_name")).toString();
+        QVariant appliesToVar = m_configManager->get(QStringLiteral("SortingRules"), key + QStringLiteral("_applies_to"));
         QString appliesTo = appliesToVar.isValid() ? appliesToVar.toString() : QStringLiteral("All Downloads");
-        QString targetFolder = m_configManager->get(QStringLiteral("SortingRules"), key + u"_target_folder").toString();
+        QString targetFolder = m_configManager->get(QStringLiteral("SortingRules"), key + QStringLiteral("_target_folder")).toString();
         
         // Skip invalid rules
         if (ruleName.isEmpty() || targetFolder.isEmpty()) {
@@ -258,15 +258,15 @@ QString SortingManager::getSortedDirectory(const QVariantMap &videoMetadata, con
             continue; // Skip to the next rule
         }
 
-        int condSize = m_configManager->get(QStringLiteral("SortingRules"), key + u"_conditions_size", 0).toInt();
+        int condSize = m_configManager->get(QStringLiteral("SortingRules"), key + QStringLiteral("_conditions_size"), 0).toInt();
         // 2. Check if all conditions match
         qDebug() << "    Conditions count:" << condSize;
         bool allConditionsMatch = true;
         for (int c = 0; c < condSize; ++c) {
-            QString condKey = key + u"_condition_" + QString::number(c);
-            QString field = m_configManager->get(QStringLiteral("SortingRules"), condKey + u"_field").toString();
-            QString op = m_configManager->get(QStringLiteral("SortingRules"), condKey + u"_operator").toString();
-            QString value = m_configManager->get(QStringLiteral("SortingRules"), condKey + u"_value").toString();
+            QString condKey = key + QStringLiteral("_condition_") + QString::number(c);
+            QString field = m_configManager->get(QStringLiteral("SortingRules"), condKey + QStringLiteral("_field")).toString();
+            QString op = m_configManager->get(QStringLiteral("SortingRules"), condKey + QStringLiteral("_operator")).toString();
+            QString value = m_configManager->get(QStringLiteral("SortingRules"), condKey + QStringLiteral("_value")).toString();
 
             const QString normalizedOperator = canonicalOperator(op);
             QVariant metadataValue = metadataValueForField(field, sortingMetadata);
@@ -327,7 +327,7 @@ QString SortingManager::getSortedDirectory(const QVariantMap &videoMetadata, con
         if (allConditionsMatch) {
             qDebug() << "  Rule" << i << "(" << ruleName << ") MATCHED!";
 
-            QString subfolderPattern = m_configManager->get(QStringLiteral("SortingRules"), key + u"_subfolder_pattern").toString();
+            QString subfolderPattern = m_configManager->get(QStringLiteral("SortingRules"), key + QStringLiteral("_subfolder_pattern")).toString();
             QString finalSubfolder;
             if (!subfolderPattern.isEmpty()) {
                 finalSubfolder = parseAndReplaceTokens(subfolderPattern, sortingMetadata);

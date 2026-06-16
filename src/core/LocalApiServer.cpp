@@ -225,7 +225,7 @@ void LocalApiServer::handleRequest(QTcpSocket *socket, const QByteArray &request
         } else if (line.startsWith(u"Host:", Qt::CaseInsensitive)) {
             const QStringView host = line.mid(5).trimmed();
             static const QRegularExpression hostRe(QStringLiteral("^(?:127\\.0\\.0\\.1|localhost)(?::\\d+)?$"), QRegularExpression::CaseInsensitiveOption);
-            if (hostRe.matchView(host).hasMatch()) {
+            if (hostRe.match(host.toString()).hasMatch()) {
                 validHost = true;
             }
         } else if (line.startsWith(u"Origin:", Qt::CaseInsensitive)) {

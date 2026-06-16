@@ -54,7 +54,7 @@ This script:
 - Configures a Release build with CMake
 - Builds `LzyDownloader.exe`
 - On Windows, runs `makensis` against `LzyDownloader.nsi` with `/DAPP_VERSION=<version from CMakeLists.txt>` and `/DRELEASE_BUILD_DIR=build-release\Release`
-- On Linux, packages `LzyDownloader-<version>-x86_64.AppImage` with `linuxdeploy`
+- On Linux, stages a clean `build-release/AppDir`, generates a linuxdeploy desktop file whose `Icon` matches the resized release PNG, and packages `LzyDownloader-<version>-x86_64.AppImage` with `linuxdeploy`
 
 ### Step 3b: Run Headless Tests
 

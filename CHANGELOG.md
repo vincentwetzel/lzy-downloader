@@ -9,6 +9,9 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## [Unreleased]
 
+### Fixed
+- **Linux AppImage packaging**: `build_release.py` now stages AppDir under `build-release`, cleans stale Linux packaging state, and generates a desktop file whose icon entry matches the resized release PNG so linuxdeploy can resolve the AppImage icon during WSL builds.
+
 
 ## [1.1.90] - 2026-06-16
 

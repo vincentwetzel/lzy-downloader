@@ -118,6 +118,16 @@ def main():
             sys.exit(1)
 
     elif system_platform == "Linux":
+        appdir = build_dir / "AppDir"
+        if appdir.exists():
+            shutil.rmtree(appdir)
+
+        # Clean PATH to remove Windows mounts (e.g., /mnt/c/...) under WSL.
+        # This prevents linuxdeploy from crashing with a Permission Denied filesystem_error
+        path_env = os.environ.get("PATH", "")
+        filtered_paths = [p for p in path_env.split(":") if not p.startswith("/mnt/")]
+        os.environ["PATH"] = ":".join(filtered_paths)
+
         # Find build artifact (accounting for flexible path locations)
         built_exe = build_dir / "Release" / "LzyDownloader"
         if not built_exe.exists():
@@ -138,8 +148,78 @@ def main():
             urllib.request.urlretrieve("https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-x86_64.AppImage", ld_plugin_path)
             ld_plugin_path.chmod(0o755)
 
+        # Force linuxdeploy-plugin-qt to use the correct Qt6 qmake binary, avoiding qtchooser bugs on Ubuntu
+        qmake_bin = shutil.which("qmake6")
+        if qmake_bin:
+            os.environ["QMAKE"] = qmake_bin
+        elif Path("/usr/lib/qt6/bin/qmake").exists():
+            os.environ["QMAKE"] = "/usr/lib/qt6/bin/qmake"
+        else:
+            os.environ["QT_SELECT"] = "qt6"
+
+        # Generate a temporary 512x512 icon for linuxdeploy to avoid the 1024px limit
+        icon_path = Path("src/resources/icon.png")
+        resized_icon = build_dir / "app-icon.png"
+        icon_resized = False
+
+        # Tier 1: Try PIL (Pillow), auto-installing if missing
+        try:
+            try:
+                from PIL import Image
+            except ImportError:
+                log("Pillow not found. Attempting to install it inside the virtual environment...", YELLOW)
+                subprocess.run([sys.executable, "-m", "pip", "install", "Pillow"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                from PIL import Image
+            with Image.open(icon_path) as img:
+                img.resize((512, 512), Image.Resampling.LANCZOS).save(resized_icon)
+            icon_resized = True
+        except Exception:
+            pass
+
+        # Tier 2: Try FFmpeg fallback
+        if not icon_resized and shutil.which("ffmpeg"):
+            try:
+                subprocess.run(
+                    ["ffmpeg", "-y", "-i", str(icon_path), "-vf", "scale=512:512", str(resized_icon)],
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+                )
+                icon_resized = resized_icon.exists()
+            except Exception:
+                pass
+
+        # Tier 3: Try ImageMagick fallback
+        if not icon_resized and shutil.which("convert"):
+            try:
+                subprocess.run(
+                    ["convert", str(icon_path), "-resize", "512x512", str(resized_icon)],
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+                )
+                icon_resized = resized_icon.exists()
+            except Exception:
+                pass
+
+        if not icon_resized:
+            try:
+                shutil.copy(icon_path, resized_icon)
+            except Exception as e:
+                log(f"Warning: Failed to copy icon fallback to app-icon.png: {e}", YELLOW)
+
+        deploy_icon = resized_icon
+        linux_desktop = build_dir / "LzyDownloader.desktop"
+        desktop_content = Path("src/ui/LzyDownloader.desktop").read_text(encoding="utf-8")
+        desktop_content = re.sub(r"^Icon=.*$", f"Icon={deploy_icon.stem}", desktop_content, flags=re.MULTILINE)
+        linux_desktop.write_text(desktop_content, encoding="utf-8")
+
         os.environ["EXTRA_QT_PLUGINS"] = "sqldrivers/libqsqlite.so"
-        run_command(["./linuxdeploy", "--appdir", "AppDir", "-e", str(built_exe), "-d", "src/ui/LzyDownloader.desktop", "-i", "src/resources/icon.png", "--plugin", "qt", "--output", "appimage"])
+        run_command([
+            "./linuxdeploy",
+            "--appdir", str(appdir),
+            "-e", str(built_exe),
+            "-d", str(linux_desktop),
+            "-i", str(deploy_icon),
+            "--plugin", "qt",
+            "--output", "appimage"
+        ])
 
         generated_appimage = Path("LzyDownloader-x86_64.AppImage")
         if generated_appimage.exists():

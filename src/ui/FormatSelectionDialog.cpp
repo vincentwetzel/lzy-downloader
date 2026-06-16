@@ -123,7 +123,7 @@ void FormatSelectionDialog::populateTable(const QVariantMap &infoDict, const QSt
             }
         }
 
-        connect(checkBox, &QCheckBox::checkStateChanged, this, [this]() {
+        connect(checkBox, &QCheckBox::stateChanged, this, [this]() {
             onSelectionChanged();
         });
     }

@@ -63,7 +63,7 @@ QSqlDatabase ArchiveManager::getDatabase() {
 }
 
 QString ArchiveManager::currentThreadConnectionName() const {
-    return u"archive_connection_" + QString::number(reinterpret_cast<quintptr>(QThread::currentThreadId()));
+    return QStringLiteral("archive_connection_") + QString::number(reinterpret_cast<quintptr>(QThread::currentThreadId()));
 }
 
 void ArchiveManager::closeCurrentThreadDatabase() {
@@ -308,7 +308,7 @@ QString ArchiveManager::normalizeUrl(const QString &urlStr) const {
 
     QString queryString;
     if (!keptParams.isEmpty()) {
-        queryString = u"?" + keptParams.join(u"&");
+        queryString = QStringLiteral("?") + keptParams.join(QStringLiteral("&"));
     }
 
     return host + path + queryString;

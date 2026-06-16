@@ -307,8 +307,13 @@ void MainWindow::applyTheme(const QString &themeName)
     if (themeName == QStringLiteral("Dark")) {
         useDarkTheme = true;
     } else if (themeName == QStringLiteral("System")) {
+#if QT_VERSION >= QT_VERSION_CHECK(6, 5, 0)
         const auto colorScheme = qApp->styleHints()->colorScheme();
         useDarkTheme = (colorScheme == Qt::ColorScheme::Dark);
+#else
+        const QPalette defaultPalette = qApp->palette();
+        useDarkTheme = (defaultPalette.color(QPalette::WindowText).lightness() > defaultPalette.color(QPalette::Window).lightness());
+#endif
     }
 
     if (useDarkTheme) {

@@ -34,6 +34,7 @@ __pycache__/
 *.vcxproj.filters
 .vcpkg-scratch/
 .codex_*
+venv/
 
 # vcpkg
 vcpkg_installed/
@@ -46,6 +47,7 @@ Thumbs.db
 
 # Compiled Binaries and Libraries
 *.exe
+*.AppImage
 *.dll
 *.so
 *.dylib
@@ -58,3 +60,6 @@ Thumbs.db
 # App-specific local cache and downloaded binaries
 *.version
 src/core/version.h
+AppDir/
+linuxdeploy
+linuxdeploy-plugin-qt

@@ -272,7 +272,7 @@ LzyDownloader/
 - **Build System:** CMake.
 - **Qt Configure Resilience:** The build should succeed in IDE-driven configure runs by auto-detecting common Windows Qt SDK locations before `find_package(Qt6 ...)` executes.
 - **Installer:** NSIS is used to create a versioned Windows installer (`LzyDownloader-Setup-X.X.X.exe`).
-- **Release Helper Script:** `build_release.py` refreshes extractor JSONs, performs a clean `build-release` configure/build, and packages the current platform. Windows runs `makensis` with the CMake project version and release build directory; Linux downloads `linuxdeploy` helpers when needed and emits a versioned AppImage.
+- **Release Helper Script:** `build_release.py` refreshes extractor JSONs, performs a clean `build-release` configure/build, and packages the current platform. Windows runs `makensis` with the CMake project version and release build directory; Linux downloads `linuxdeploy` helpers when needed, stages AppImage metadata under `build-release/AppDir`, generates a desktop file whose `Icon` entry matches the resized release PNG, and emits a versioned AppImage.
 - **GitHub Tag Releases:** The `Build and Release` GitHub Actions workflow triggers on `v*` tag pushes, runs `build_release.py` on `windows-latest` and `ubuntu-22.04`, and attaches both `LzyDownloader-Setup-*.exe` and `LzyDownloader-*-x86_64.AppImage` assets to the tag's GitHub Release.
 - **Executable Name:** The final executable will be named `LzyDownloader.exe` to ensure a seamless update from the Python version.
 - **Bundling:** All dependencies (Qt runtime DLLs, binaries) will be included in the installation directory.

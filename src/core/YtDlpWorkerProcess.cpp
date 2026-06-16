@@ -499,9 +499,9 @@ void YtDlpWorker::parseProcessBuffer(QByteArray &buffer, const QByteArray &newDa
         if (c == '\n' || c == '\r') {
             if (i > start) {
                 const QByteArrayView chunk(buffer.constData() + start, i - start);
-                const QByteArrayView trimmedChunk = chunk.trimmed();
-                if (!trimmedChunk.isEmpty()) {
-                    handleOutputLine(QString::fromUtf8(trimmedChunk));
+                const QString trimmedLine = QString::fromUtf8(chunk).trimmed();
+                if (!trimmedLine.isEmpty()) {
+                    handleOutputLine(trimmedLine);
                 }
             }
             start = i + 1;
