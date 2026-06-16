@@ -10,7 +10,7 @@ This document describes how to build, package, and release the C++ version of Lz
    - Verify: `makensis /version` in PowerShell
 
 2. **CMake & MSVC**
-   - Required to build the C++ application. The checked-in CMake presets currently target the Visual Studio 18 2026 generator.
+   - Required to build the C++ application. GitHub Actions uses the hosted Windows MSVC environment; local Windows builds should use an MSVC toolchain compatible with Qt 6.
 
 3. **Qt 6**
    - Required for building the application.
@@ -45,15 +45,16 @@ Also update `vcpkg.json` `version-string` to the same version, keep its `builtin
 
 The preferred release path is the helper script:
 ```powershell
-.\build_release.ps1
+python .\build_release.py
 ```
 
 This script:
-- Deletes the existing `build/` directory to avoid stale DLL mismatches
+- Deletes the existing `build-release/` directory to avoid stale DLL mismatches
 - Refreshes both extractor JSON files
 - Configures a Release build with CMake
 - Builds `LzyDownloader.exe`
-- Runs `makensis` against `LzyDownloader.nsi` with `/DAPP_VERSION=<version from CMakeLists.txt>`
+- On Windows, runs `makensis` against `LzyDownloader.nsi` with `/DAPP_VERSION=<version from CMakeLists.txt>` and `/DRELEASE_BUILD_DIR=build-release\Release`
+- On Linux, packages `LzyDownloader-<version>-x86_64.AppImage` with `linuxdeploy`
 
 ### Step 3b: Run Headless Tests
 
@@ -67,11 +68,11 @@ The helper builds the selected configuration and runs `ctest` with `QT_QPA_PLATF
 
 ### Step 4: Manual Build Steps
 
-If you are not using `build_release.ps1`, run the equivalent commands manually:
+If you are not using `build_release.py`, run the equivalent Windows commands manually:
 ```powershell
-cmake -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build --config Release
-& 'C:\Program Files (x86)\NSIS\makensis.exe' "/DAPP_VERSION=X.X.X" LzyDownloader.nsi
+cmake -B build-release -DCMAKE_BUILD_TYPE=Release
+cmake --build build-release --config Release
+& 'C:\Program Files (x86)\NSIS\makensis.exe' "/DAPP_VERSION=X.X.X" "/DRELEASE_BUILD_DIR=build-release\Release" LzyDownloader.nsi
 ```
 
 Replace `X.X.X` with the exact version from `CMakeLists.txt`.
@@ -80,22 +81,40 @@ Replace `X.X.X` with the exact version from `CMakeLists.txt`.
 
 ## Release to GitHub
 
-### Step 1: Create a Git Tag
+GitHub Actions automatically builds release assets when a `v*` tag is pushed. The workflow at `.github/workflows/release.yml` runs `python build_release.py` on `windows-latest` and `ubuntu-22.04`, then uploads `LzyDownloader-Setup-*.exe` and `LzyDownloader-*-x86_64.AppImage` to the GitHub Release for that tag.
+
+### Step 1: Commit Release Inputs
+
+Before tagging, commit the synchronized release inputs:
+
+```powershell
+git add CMakeLists.txt vcpkg.json CHANGELOG.md UPDATE_AND_RELEASE.md docs/SPEC.md docs/ARCHITECTURE.md AGENTS.md TODO.md .github/workflows/release.yml build_release.py LzyDownloader.nsi src/ui/LzyDownloader.desktop extractors_yt-dlp.json extractors_gallery-dl.json
+git commit -m "Release vX.X.X"
+git push origin HEAD
+```
+
+### Step 2: Create and Push a Git Tag
 
 ```powershell
 git tag -a vX.X.X -m "Release version X.X.X"
 git push origin vX.X.X
 ```
 
-### Step 2: Create GitHub Release
+Pushing the tag starts the `Build and Release` workflow. Watch the Actions run until both matrix jobs complete, then verify the GitHub Release contains:
 
-Navigate to https://github.com/vincentwetzel/lzy-downloader/releases and:
+- `LzyDownloader-Setup-X.X.X.exe`
+- `LzyDownloader-X.X.X-x86_64.AppImage`
+
+### Step 3: Manual GitHub Release Fallback
+
+If the workflow is unavailable, navigate to https://github.com/vincentwetzel/lzy-downloader/releases and:
 
 1. Click "Create a new release"
 2. **Tag version:** `vX.X.X` (must match Git tag)
 3. **Release title:** `LzyDownloader X.X.X`
 4. **Description:** Add release notes.
 5. **Attach Assets:** Upload `LzyDownloader-Setup-X.X.X.exe`
+   - Also attach `LzyDownloader-X.X.X-x86_64.AppImage` for Linux systems.
 6. Click "Publish release"
 
 ## Release Checklist
@@ -106,14 +125,15 @@ Navigate to https://github.com/vincentwetzel/lzy-downloader/releases and:
 - [ ] `vcpkg.json` `version-string` matches `CMakeLists.txt`
 - [ ] `vcpkg.json` `builtin-baseline` is pinned to the intended vcpkg commit
 - [ ] `CHANGELOG.md` has the release notes under the matching dated version
-- [ ] Installer was rebuilt from the current `CMakeLists.txt` version (`build_release.ps1` or `makensis /DAPP_VERSION=...`), not manually renamed afterward
-- [ ] Release build completed (`build_release.ps1` or equivalent manual steps)
+- [ ] Installer was rebuilt from the current `CMakeLists.txt` version (`python build_release.py` or `makensis /DAPP_VERSION=...`), not manually renamed afterward
+- [ ] Release build completed successfully (`python build_release.py`)
 - [ ] Headless Qt tests passed (`python .\run_headless_tests.py --build-dir build --config Release`)
 - [ ] NSIS installer tested (install/uninstall preserves `%LOCALAPPDATA%\LzyDownloader\settings.ini`, `download_archive.db`, `downloads_backup.json`, and log files)
 - [ ] Clean Windows install tested for HTTPS update checks (Qt TLS backend loads with `libcrypto-3-x64.dll` and `libssl-3-x64.dll` beside `LzyDownloader.exe`)
 - [ ] Timestamped logging verified (`%LOCALAPPDATA%\LzyDownloader\LzyDownloader_YYYY-MM-dd_HH-mm-ss.log`)
 - [ ] Log retention verified (startup cleanup keeps only the 5 most recent logs)
 - [ ] GitHub release published with installer asset
+- [ ] Tag `vX.X.X` pushed and the `Build and Release` GitHub Actions workflow attached Windows and Linux assets
 
 ## Application Data Locations (Windows)
 
@@ -130,3 +150,14 @@ The application stores user data in standard Windows directories:
 Server/headless mode still reads user preferences from `%LOCALAPPDATA%\LzyDownloader\settings.ini`, but isolates runtime queue backups, API tokens, and logs under `%LOCALAPPDATA%\LzyDownloader\Server\`.
 
 **Important:** The NSIS installer must NOT overwrite `settings.ini`, `download_archive.db`, `downloads_backup.json`, `api_token.txt`, or log files. These are stored in user data directories, not the installation directory.
+
+### Application Data Locations (Linux)
+
+On Linux, user configuration, databases, and downloads follow the XDG Base Directory specification:
+
+| File | Location |
+|------|----------|
+| Settings | `~/.config/LzyDownloader/settings.ini` |
+| Archive | `~/.local/share/LzyDownloader/download_archive.db` |
+| Queue Backup | `~/.local/share/LzyDownloader/downloads_backup.json` |
+| Logs | `~/.local/share/LzyDownloader/LzyDownloader_YYYY-MM-dd_HH-mm-ss.log` |

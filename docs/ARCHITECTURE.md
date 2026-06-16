@@ -262,7 +262,7 @@ LzyDownloader/
 ### 4.10 Test Automation
 - **CTest registration:** `CMakeLists.txt` registers single-source Qt tests with `lzy_add_test(...)`, including coverage for args building, yt-dlp progress, archive URL normalization, configuration defaults/reset cleanup, Local API auth/enqueue behavior, binary-resolution cache invalidation, sorting sanitization, UI progress widgets, URL validation, and the local end-to-end fixture.
 - **Headless helper:** `run_headless_tests.py` builds the selected CMake configuration and runs `ctest` with `QT_QPA_PLATFORM=offscreen` and parallel jobs based on the host CPU count, making GUI-adjacent tests suitable for non-interactive Windows shells and CI runners.
-- **Workflow templates:** `cmake-tests.yml` and `src/tests/headless_tests.yml` document Windows GitHub Actions flows for installing Qt, configuring CMake, building, and running the test suite.
+- **Workflow templates:** `cmake-tests.yml` and `src/tests/headless_tests.yml` document Windows GitHub Actions flows for installing Qt, configuring CMake, building, and running the test suite. `.github/workflows/release.yml` is the active release workflow; pushing a `v*` tag runs the unified release builder on Windows and Linux and uploads installer/AppImage assets to the matching GitHub Release.
 
 ## 5. Concurrency Model
 - **GUI Thread:** The main thread handles all UI updates and user interactions. **No blocking operations are allowed on this thread.**
@@ -271,8 +271,9 @@ LzyDownloader/
 ## 6. Deployment
 - **Build System:** CMake.
 - **Qt Configure Resilience:** The build should succeed in IDE-driven configure runs by auto-detecting common Windows Qt SDK locations before `find_package(Qt6 ...)` executes.
-- **Installer:** NSIS will be used to create a Windows installer (`LzyDownloader-Setup.exe`).
-- **Release Helper Script:** `build_release.ps1` refreshes extractor JSONs, performs a clean Release configure/build, and runs `makensis` so local release packaging follows the same repeatable steps every time.
+- **Installer:** NSIS is used to create a versioned Windows installer (`LzyDownloader-Setup-X.X.X.exe`).
+- **Release Helper Script:** `build_release.py` refreshes extractor JSONs, performs a clean `build-release` configure/build, and packages the current platform. Windows runs `makensis` with the CMake project version and release build directory; Linux downloads `linuxdeploy` helpers when needed and emits a versioned AppImage.
+- **GitHub Tag Releases:** The `Build and Release` GitHub Actions workflow triggers on `v*` tag pushes, runs `build_release.py` on `windows-latest` and `ubuntu-22.04`, and attaches both `LzyDownloader-Setup-*.exe` and `LzyDownloader-*-x86_64.AppImage` assets to the tag's GitHub Release.
 - **Executable Name:** The final executable will be named `LzyDownloader.exe` to ensure a seamless update from the Python version.
 - **Bundling:** All dependencies (Qt runtime DLLs, binaries) will be included in the installation directory.
 - **Release Output Hygiene:** After `windeployqt`, `CMakeLists.txt` re-copies the resolved Qt runtime DLLs from the configured Qt installation. Keep the deployed compression/runtime DLLs that ship with Qt, including `zlib1.dll`, because `Qt6Network.dll` depends on them on Windows.

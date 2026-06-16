@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=LzyDownloader
+Comment=Lightweight media downloader using yt-dlp
+Exec=LzyDownloader
+Icon=app-icon
+Categories=Network;FileTransfer;
+Terminal=false

@@ -4006,7 +4006,7 @@
     },
     "nitter": {
         "domains": [
-            "nitter.unixfox.eu"
+            "nitter.grimneko.de"
         ]
     },
     "njoy": {
@@ -4472,6 +4472,7 @@
             "peertube.debian.social",
             "peertube.tv",
             "peertube2.cpy.re",
+            "videos.john-livingston.fr",
             "vod.ksite.de"
         ]
     },
