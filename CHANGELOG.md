@@ -10,19 +10,17 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 ## [Unreleased]
 
 
+## [1.1.90] - 2026-06-16
+
+### Changed
+- **Version bump**: Updated project version to 1.1.90.
+
+
 ## [1.1.88] - 2026-06-16
 
 ### Fixed
 - **Release workflow Qt install**: Removed non-installable and unused Qt module requests and switched Windows CI to the Qt 6.6 `win64_msvc2019_64` desktop archive so `aqtinstall` can resolve packages correctly.
-<<<<<<< HEAD
 - **CMake merge cleanup**: Resolved committed version conflict markers and aligned CMake/vcpkg release metadata for `1.1.88`.
-=======
-<<<<<<< HEAD
-- **CMake merge cleanup**: Resolved committed version conflict markers and aligned CMake/vcpkg release metadata for `1.1.87`.
-=======
-- **Version metadata sync**: Aligned vcpkg release metadata with the CMake project version for `1.1.87`.
->>>>>>> 515523b (Fix release Qt archive and sync version metadata)
->>>>>>> 5855ce1 (Fix release Qt archive and sync version metadata)
 
 ## [1.1.75] - 2026-06-16
 
@@ -95,7 +93,7 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 - **Start tab safety/i18n cleanup**: Start-tab URL handling, download actions, and command preview helpers now guard missing UI dependencies more defensively and wrap user-facing strings in Qt translation calls.
 - **Dependency baseline pinning**: The vcpkg manifest now pins a builtin baseline so manifest-mode source builds resolve dependencies reproducibly.
 - **Audio playlist artwork default**: `Metadata/generate_folder_jpg` now defaults to enabled, and audio playlist detection also honors playlist metadata beyond just positive playlist indices.
-- **Process-output memory bounds**: Long-running yt-dlp, gallery-dl, and FFmpeg output buffering now keeps bounded tails or buffered complete lines to avoid unbounded memory growth during livestreams and large galleries.
+- **Process-output memory bounds**: Long-running yt-dlp, gallery-dl, and FFmpeg output buffering now keeps bounded tails or buffered complete lines to avoid unbounded memory growth during livestrimes and large galleries.
 
 ### Fixed
 - **Archive connection teardown scope**: Archive database cleanup now closes/removes the current thread's Qt SQL connection by its thread-local name, avoiding cross-thread connection removal while still releasing SQLite handles on shutdown and tests.
@@ -172,7 +170,7 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 - **External Tools reliability**: Install/update dialogs now run with the app-managed process environment, can be cancelled safely, quote command paths with spaces, clear binary-resolution caches before config changes propagate, and use package-manager-aware update commands for WinGet/Scoop/Chocolatey/Homebrew/pip installs. Standalone Deno updates now use `deno upgrade`.
 - **Output template validation**: Video and audio filename templates now share a single yt-dlp validation path with explicit start/finish timeouts, type-specific templates inherit the current shared default when blank, and gallery template reset/save messaging is clearer.
 - **Extractor refresh automation**: The yt-dlp and gallery-dl extractor update scripts now finish without waiting for a final Enter keypress, share one domain-parsing helper, and keep the app on the two explicit extractor list files used by clipboard checks and the Supported Sites dialog.
-- **Test target registration**: CMake now registers Qt tests through a shared `lzy_add_test(...)` helper and includes the archive, sorting, and UI widget test executables alongside the existing yt-dlp and end-to-end coverage.
+- **Test target registration**: CMake now registers Qt tests through a shared `lzy_add_test(...)` helper and includes the archive, sorting, and UI widget test executables alongside the existing yt-dlp and end-to-end test coverage.
 - **Headless/background launch docs**: Documentation now treats `--background` consistently with server/headless automation for single-instance locks, API startup, and isolated runtime state.
 - **Single-download sleep mode**: Sleep-mode scheduling now starts the first eligible item immediately and waits between subsequent single-download starts.
 - **Local API enqueue IDs**: `POST /enqueue` now accepts an optional `id` field so trusted local integrations can provide stable job IDs instead of always receiving an app-generated UUID.
