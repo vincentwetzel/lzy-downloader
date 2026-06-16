@@ -9,7 +9,7 @@
 - [ ] Integrate Qt Linguist (`.ts`/`.qm` compiler steps) into `CMakeLists.txt` build automation.
 
 ## Completed
-- [x] CI/CD: Fixed the release workflow Qt setup to avoid unused/non-installable Qt module requests, relying on Qt Base for Core/Widgets/Network/Sql.
+- [x] CI/CD: Fixed the release workflow Qt setup to avoid unused/non-installable Qt module requests and use the available Qt 6.6 Windows MSVC archive, relying on Qt Base for Core/Widgets/Network/Sql.
 - [x] CI/CD: Added tag-triggered GitHub Actions release automation that runs the unified release builder and uploads Windows installer plus Linux AppImage assets to GitHub Releases.
 - [x] Performance: Optimized hot-path stdout line parsing in `YtDlpWorkerProgress.cpp` using regex-free string parsing and zero-allocation views.
 - [x] Documented yt-dlp diagnostic classification updates for critical extractor failures, FFmpeg-specific guidance, impersonation recommendations, and SponsorBlock cut argument changes.
