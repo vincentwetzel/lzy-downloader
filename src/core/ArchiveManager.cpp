@@ -259,7 +259,7 @@ QString ArchiveManager::extractVideoId(const QString &urlStr) const {
         const auto parts = normalizedPath.split(u'/', Qt::SkipEmptyParts);
         if (!parts.isEmpty()) {
             const QStringView seg = parts.first();
-            if (idRe.matchView(seg).hasMatch()) return seg.toString();
+            if (idRe.match(seg).hasMatch()) return seg.toString();
         }
     }
 
@@ -303,9 +303,7 @@ QString ArchiveManager::normalizeUrl(const QString &urlStr) const {
             keptParams.append(item.first + u'=' + item.second);
         }
     } else {
-        for (const auto &item : std::as_const(queryItems)) {
-            keptParams.append(item.first + u'=' + item.second);
-        }
+        // For non-YouTube/generic URLs, aggressively strip all query parameters to ensure robust duplicate detection
     }
 
     QString queryString;

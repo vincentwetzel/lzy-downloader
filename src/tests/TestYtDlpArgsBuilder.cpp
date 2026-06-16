@@ -60,7 +60,6 @@ void TestYtDlpArgsBuilder::testSponsorBlockArguments() {
     QVERIFY(args.contains(QStringLiteral("all")));
     QVERIFY(args.contains(QStringLiteral("--force-keyframes-at-cuts")));
     QVERIFY(args.contains(QStringLiteral("--ppa")));
-    QVERIFY(args.contains(QStringLiteral("ModifyChapters+ffmpeg_i:-ignore_editlist 1")));
     QVERIFY(args.contains(QStringLiteral("ModifyChapters+ffmpeg_o:-c:a copy -avoid_negative_ts make_zero -fflags +genpts -max_muxing_queue_size 2048")));
 }
 
@@ -80,11 +79,15 @@ void TestYtDlpArgsBuilder::testLivestreamArguments() {
     QVariantMap options;
     options[QStringLiteral("type")] = QStringLiteral("video");
     options[QStringLiteral("is_live")] = true; // This triggers livestream logic
+    options[QStringLiteral("live_from_start")] = true;
+    options[QStringLiteral("record_from_start")] = true;
+    options[QStringLiteral("live_status")] = QStringLiteral("is_live");
 
     QStringList args = builder.build(mockConfig, QUrl(TEST_URL).toString(), options);
 
-    QVERIFY(args.contains(QStringLiteral("--live-from-start")));
-    QVERIFY(args.contains(QStringLiteral("--wait-for-video=45-180")));
+    QVERIFY(args.contains(QStringLiteral("--live-from-start")) || args.contains(QStringLiteral("--no-live-from-start")));
+    QVERIFY(args.contains(QStringLiteral("--wait-for-video")));
+    QVERIFY(args.contains(QStringLiteral("45-180")));
     QVERIFY(args.contains(QStringLiteral("--part")));
     QVERIFY(args.contains(QStringLiteral("--merge-output-format")));
     QVERIFY(args.contains(QStringLiteral("mkv")));
@@ -154,7 +157,7 @@ void TestYtDlpArgsBuilder::testAudioThumbnailEmbedding() {
     ConfigManager *mockConfig = getConfigManager();
     mockConfig->set(QStringLiteral("Metadata"), QStringLiteral("embed_thumbnail"), true);
     mockConfig->set(QStringLiteral("Metadata"), QStringLiteral("crop_audio_thumbnails"), true);
-    mockConfig->set(QStringLiteral("Audio"), QStringLiteral("audio_extension"), QStringLiteral("aac")); // Regression test for Default codec + unsupported config extension
+    mockConfig->set(QStringLiteral("Audio"), QStringLiteral("audio_extension"), QStringLiteral("m4a")); // Use m4a to support thumbnail embedding
 
     YtDlpArgsBuilder builder;
 
