@@ -46,7 +46,7 @@ jobs:
         with:
           version: '6.6.*'
           arch: ${{ matrix.platform == 'windows' && 'win64_msvc2022' || 'gcc_64' }}
-          modules: 'qtconnectivity qt5compat'
+          modules: 'qtbase qtconnectivity qt5compat'
 
       - name: Set up vcpkg
         uses: lukka/run-vcpkg@v11
@@ -58,7 +58,7 @@ jobs:
         if: matrix.platform == 'linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libgl1-mesa-dev libxkbcommon-x11-0 libxcb-xinerama0 libxcb-cursor0
+          sudo apt-get install -y autoconf autoconf-archive automake libtool libgl1-mesa-dev libxkbcommon-x11-0 libxcb-xinerama0 libxcb-cursor0
 
       - name: Run Unified Release Builder
         env:
