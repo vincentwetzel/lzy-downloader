@@ -116,14 +116,14 @@ bool YtDlpWorker::parseYtDlpProgressLine(const QString &line) {
 
     bool matchedCompletedFormat = false;
     bool matchedIndeterminate = false;
-    QRegularExpressionMatch match = progressRegex.match(normalizedView);
+    QRegularExpressionMatch match = progressRegex.matchView(normalizedView);
 
     if (!match.hasMatch()) {
-        match = completedRegex.match(normalizedView);
+        match = completedRegex.matchView(normalizedView);
         if (match.hasMatch()) {
             matchedCompletedFormat = true;
         } else {
-            match = indeterminateRegex.match(normalizedView);
+            match = indeterminateRegex.matchView(normalizedView);
             if (match.hasMatch()) {
                 matchedIndeterminate = true;
             } else {
@@ -239,7 +239,7 @@ bool YtDlpWorker::parseAria2ProgressLine(const QString &line) {
 
     static const QRegularExpression ariaRegex(
         QStringLiteral(R"(\[#\w+\s+([\d\.]+\s*[KMGTPE]?i?B)(?:/([\d\.]+\s*[KMGTPE]?i?B)\(([\d\.]+)%\))?(?:\s+CN:\d+)?(?:\s+DL:((?:[\d\.]+\s*[KMGTPE]?i?B(?:/s)?)|(?:0B(?:/s)?)))?(?:\s+ETA:([\d\w:]+))?\])"));
-    const QRegularExpressionMatch match = ariaRegex.match(normalizedView);
+    const QRegularExpressionMatch match = ariaRegex.matchView(normalizedView);
     if (!match.hasMatch()) {
         return false;
     }
