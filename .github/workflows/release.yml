@@ -45,8 +45,8 @@ jobs:
         uses: jurplel/install-qt-action@v3
         with:
           version: '6.6.*'
-          arch: ${{ matrix.platform == 'windows' && 'win64_msvc2022' || 'gcc_64' }} # 'qtbase' is installed by default
-          modules: 'qtconnectivity' # 'qt5compat' might not be available for this Qt version/arch
+          arch: ${{ matrix.platform == 'windows' && 'win64_msvc2022' || 'gcc_64' }}
+          modules: 'qtbase qtconnectivity qtsql' # Explicitly listing qtbase and qtsql as per AGENTS.md
 
       - name: Set up vcpkg
         uses: lukka/run-vcpkg@v11
