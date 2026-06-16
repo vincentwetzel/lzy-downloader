@@ -9,6 +9,9 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## [Unreleased]
 
+### Fixed
+- **Release workflow Qt install**: Removed non-installable and unused Qt module requests from the GitHub Actions Qt setup step so `aqtinstall` can resolve Qt 6.6 packages correctly.
+
 ## [1.1.75] - 2026-06-16
 
 ### Added
