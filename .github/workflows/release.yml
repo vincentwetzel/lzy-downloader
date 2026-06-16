@@ -46,7 +46,8 @@ jobs:
         with:
           version: '6.6.*'
           arch: ${{ matrix.platform == 'windows' && 'win64_msvc2022' || 'gcc_64' }}
-          modules: 'qtbase qtconnectivity qt5compat'
+          modules: 'qtconnectivity qt5compat'
+          mirror: 'https://mirrors.qt.io'
 
       - name: Set up vcpkg
         uses: lukka/run-vcpkg@v11
