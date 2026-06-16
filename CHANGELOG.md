@@ -9,11 +9,11 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## [Unreleased]
 
-## [1.1.87] - 2026-06-16
+## [1.1.88] - 2026-06-16
 
 ### Fixed
 - **Release workflow Qt install**: Removed non-installable and unused Qt module requests and switched Windows CI to the Qt 6.6 `win64_msvc2019_64` desktop archive so `aqtinstall` can resolve packages correctly.
-- **Version metadata sync**: Aligned vcpkg release metadata with the CMake project version for `1.1.87`.
+- **CMake merge cleanup**: Resolved committed version conflict markers and aligned CMake/vcpkg release metadata for `1.1.88`.
 
 ## [1.1.75] - 2026-06-16
 
