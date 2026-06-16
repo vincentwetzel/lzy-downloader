@@ -9,6 +9,7 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## [Unreleased]
 
+
 ## [1.1.88] - 2026-06-16
 
 ### Fixed
