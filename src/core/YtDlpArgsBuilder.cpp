@@ -22,11 +22,15 @@ QString sanitizeSectionFilenameLabel(QString label)
     label.replace(QLatin1Char('\\'), QLatin1Char('-'));
     label.replace(QLatin1Char(' '), QLatin1Char('_'));
     static const QRegularExpression illegalCharsRe(QStringLiteral(R"([<>:"/\\|?*])"));
-    static const QRegularExpression multipleUnderscoresRe(QStringLiteral(R"(_{2,})"));
-    static const QRegularExpression multipleDashesRe(QStringLiteral(R"(-{2,})"));
     label.remove(illegalCharsRe);
-    label.replace(multipleUnderscoresRe, QStringLiteral("_"));
-    label.replace(multipleDashesRe, QStringLiteral("-"));
+    if (label.contains(QLatin1String("__"))) {
+        static const QRegularExpression multipleUnderscoresRe(QStringLiteral(R"(_{2,})"));
+        label.replace(multipleUnderscoresRe, QStringLiteral("_"));
+    }
+    if (label.contains(QLatin1String("--"))) {
+        static const QRegularExpression multipleDashesRe(QStringLiteral(R"(-{2,})"));
+        label.replace(multipleDashesRe, QStringLiteral("-"));
+    }
     return label.left(90);
 }
 
@@ -65,9 +69,9 @@ bool hasLiveUrlHint(const QString &url)
         return false;
     }
 
-    const QStringList segments = parsedUrl.path().split(QLatin1Char('/'), Qt::SkipEmptyParts);
-    for (const QString &segment : segments) {
-        if (segment.compare(QStringLiteral("live"), Qt::CaseInsensitive) == 0) {
+    const QString path = parsedUrl.path();
+    for (const auto segment : QStringView(path).split(QLatin1Char('/'), Qt::SkipEmptyParts)) {
+        if (segment.compare(u"live", Qt::CaseInsensitive) == 0) {
             return true;
         }
     }
@@ -181,7 +185,7 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
 
     // --- Basic arguments ---
     rawArgs << QStringLiteral("--ignore-config");
-    rawArgs << QStringLiteral("--proxy") << QString();
+    rawArgs << QStringLiteral("--proxy") << QStringLiteral("");
     rawArgs << QStringLiteral("--verbose");
     rawArgs << QStringLiteral("--write-info-json");
     rawArgs << QStringLiteral("--encoding") << QStringLiteral("utf-8");
@@ -235,8 +239,15 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
         }
 
         if (!options.value(QStringLiteral("skip_dir_creation"), false).toBool()) {
-            if (configManager->get(QStringLiteral("Livestream"), QStringLiteral("live_from_start"), false).toBool()) rawArgs << QStringLiteral("--live-from-start");
-            else rawArgs << QStringLiteral("--no-live-from-start");
+            const QUrl parsedUrl(url);
+            const QString host = parsedUrl.host().toLower();
+            const bool isYouTube = host.contains(QStringLiteral("youtube.com")) || host.contains(QStringLiteral("youtu.be"));
+
+            if (configManager->get(QStringLiteral("Livestream"), QStringLiteral("live_from_start"), false).toBool() && isYouTube) {
+                rawArgs << QStringLiteral("--live-from-start");
+            } else {
+                rawArgs << QStringLiteral("--no-live-from-start");
+            }
 
             if (configManager->get(QStringLiteral("Livestream"), QStringLiteral("wait_for_video"), true).toBool() || options.value(QStringLiteral("wait_for_video"), false).toBool()) {
                 int minWait = options.value(QStringLiteral("livestream_wait_min"), configManager->get(QStringLiteral("Livestream"), QStringLiteral("wait_for_video_min"))).toInt();
@@ -246,9 +257,7 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
                 if (minWait < 15) minWait = 15;
                 if (maxWait <= minWait) maxWait = minWait + 45;
 
-                rawArgs << QStringLiteral("--wait-for-video=%1-%2")
-                           .arg(minWait)
-                           .arg(maxWait);
+                rawArgs << QStringLiteral("--wait-for-video") << QStringLiteral("%1-%2").arg(minWait).arg(maxWait);
             } else {
                 rawArgs << QStringLiteral("--no-wait-for-video");
             }
@@ -346,9 +355,10 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
     if (options.value(QStringLiteral("override_archive"), false).toBool()) rawArgs << QStringLiteral("--force-download");
 
     // --- General Options ---
-    if (configManager->get(QStringLiteral("General"), QStringLiteral("sponsorblock"), false).toBool()) {
+    // Livestreams do not have SponsorBlock segments or chapters, so we completely bypass this to prevent FFmpeg crashes.
+    if (configManager->get(QStringLiteral("General"), QStringLiteral("sponsorblock"), false).toBool() && !isLivestream) {
         rawArgs << QStringLiteral("--sponsorblock-remove") << QStringLiteral("all");
-        if (downloadType == QStringLiteral("video") || isLivestream) {
+        if (downloadType == QStringLiteral("video")) {
             const bool sponsorBlockSegmentsChecked = options.value(QStringLiteral("sponsorblock_segments_checked"), false).toBool();
             const bool sponsorBlockHasSegments = options.value(QStringLiteral("sponsorblock_has_segments"), false).toBool();
             if (!sponsorBlockSegmentsChecked || sponsorBlockHasSegments) {
@@ -375,9 +385,9 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
         rawArgs << QStringLiteral("--geo-verification-proxy") << geoProxy;
     }
 
-    if (configManager->get(QStringLiteral("Metadata"), QStringLiteral("embed_chapters"), true).toBool()) rawArgs << QStringLiteral("--embed-chapters");
+    if (configManager->get(QStringLiteral("Metadata"), QStringLiteral("embed_chapters"), true).toBool() && !isLivestream) rawArgs << QStringLiteral("--embed-chapters");
     if (configManager->get(QStringLiteral("DownloadOptions"), QStringLiteral("split_chapters"), false).toBool()) rawArgs << QStringLiteral("--split-chapters");
-    if (configManager->get(QStringLiteral("Metadata"), QStringLiteral("embed_metadata"), true).toBool()) rawArgs << QStringLiteral("--embed-metadata");
+    if (configManager->get(QStringLiteral("Metadata"), QStringLiteral("embed_metadata"), true).toBool() && !isLivestream) rawArgs << QStringLiteral("--embed-metadata");
 
     // Inject LzyDownloader's internal ID into yt-dlp's metadata engine.
     // This gives users a %(lzy_id)s token for their output templates, guaranteeing
@@ -405,7 +415,7 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
     bool genFolderJpg = (isAudioPlaylist && configManager->get(QStringLiteral("Metadata"), QStringLiteral("generate_folder_jpg"), false).toBool());
 
     bool isAudioDefaultCodec = (downloadType == QLatin1String("audio") && !rawArgs.contains(QStringLiteral("--audio-format")));
-    bool canEmbed = embedThumb && (isAudioDefaultCodec || supportedThumbnailExts.contains(finalOutputExtension, Qt::CaseInsensitive));
+    bool canEmbed = embedThumb && !isLivestream && (isAudioDefaultCodec || supportedThumbnailExts.contains(finalOutputExtension, Qt::CaseInsensitive));
     // We want to write a thumbnail for the UI even if we can't embed it.
     bool shouldWrite = (downloadType == QLatin1String("video") || downloadType == QLatin1String("audio") || isLivestream || genFolderJpg);
 
@@ -454,8 +464,8 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
     }
 
     // --- Subtitles ---
-    bool embedSubs = configManager->get(QStringLiteral("Subtitles"), QStringLiteral("embed_subtitles"), false).toBool();
-    bool writeSubs = configManager->get(QStringLiteral("Subtitles"), QStringLiteral("write_subtitles"), false).toBool();
+    bool embedSubs = configManager->get(QStringLiteral("Subtitles"), QStringLiteral("embed_subtitles"), false).toBool() && !isLivestream;
+    bool writeSubs = configManager->get(QStringLiteral("Subtitles"), QStringLiteral("write_subtitles"), false).toBool() && !isLivestream;
     if (embedSubs || writeSubs) {
         QString subLangsRaw = configManager->get(QStringLiteral("Subtitles"), QStringLiteral("languages"), QStringLiteral("en")).toString();
         QStringList subLangsList = subLangsRaw.split(QLatin1Char(','), Qt::SkipEmptyParts);

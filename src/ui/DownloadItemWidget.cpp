@@ -222,8 +222,16 @@ void DownloadItemWidget::updateProgress(const QVariantMap &progressData) {
         }
     }
 
+    bool isLive = m_itemData.value(QStringLiteral("options")).toMap().value(QStringLiteral("is_live"), false).toBool();
+    if (progressData.contains(QStringLiteral("is_live"))) {
+        isLive = progressData.value(QStringLiteral("is_live")).toBool();
+        QVariantMap options = m_itemData.value(QStringLiteral("options")).toMap();
+        options.insert(QStringLiteral("is_live"), isLive);
+        m_itemData.insert(QStringLiteral("options"), options);
+    }
+
     // Show "Finish Now" button if the download is active and marked as live
-    if (m_itemData.value(QStringLiteral("options")).toMap().value(QStringLiteral("is_live"), false).toBool() && !m_isFinished) {
+    if (isLive && !m_isFinished) {
         m_finishButton->show();
     }
 

@@ -63,7 +63,7 @@ QSqlDatabase ArchiveManager::getDatabase() {
 }
 
 QString ArchiveManager::currentThreadConnectionName() const {
-    return QStringLiteral("archive_connection_%1").arg(reinterpret_cast<quintptr>(QThread::currentThreadId()));
+    return u"archive_connection_" + QString::number(reinterpret_cast<quintptr>(QThread::currentThreadId()));
 }
 
 void ArchiveManager::closeCurrentThreadDatabase() {
@@ -238,7 +238,7 @@ QString ArchiveManager::extractVideoId(const QString &urlStr) const {
 
     static const QRegularExpression idRe(QStringLiteral("^[0-9A-Za-z_-]{11}$"));
 
-    if (host.contains(QStringLiteral("youtube.com"))) {
+    if (host.contains(u"youtube.com")) {
         QUrlQuery query(url);
         QString v = query.queryItemValue(QStringLiteral("v"));
         if (!v.isEmpty()) {
@@ -253,13 +253,13 @@ QString ArchiveManager::extractVideoId(const QString &urlStr) const {
         static const QRegularExpression p1(QStringLiteral(R"((?:v=|/)([0-9A-Za-z_-]{11})(?:[/?#]|$))"));
         const QRegularExpressionMatch m1 = p1.match(urlStr);
         if (m1.hasMatch()) return m1.captured(1);
-    } else if (host.contains(QStringLiteral("youtu.be"))) {
-        QString path = url.path();
-        if (path.startsWith(QLatin1Char('/'))) path = path.mid(1);
-        QStringList parts = path.split(QLatin1Char('/'));
+    } else if (host.contains(u"youtu.be")) {
+        const QStringView pathView(url.path());
+        const QStringView normalizedPath = pathView.startsWith(u'/') ? pathView.mid(1) : pathView;
+        const auto parts = normalizedPath.split(u'/', Qt::SkipEmptyParts);
         if (!parts.isEmpty()) {
-            QString seg = parts.first();
-            if (idRe.match(seg).hasMatch()) return seg;
+            const QStringView seg = parts.first();
+            if (idRe.matchView(seg).hasMatch()) return seg.toString();
         }
     }
 
@@ -275,9 +275,11 @@ QString ArchiveManager::normalizeUrl(const QString &urlStr) const {
 
     QString path = url.path();
     // Remove duplicate slashes and trailing slash
-    static const QRegularExpression duplicateSlashes(QStringLiteral(R"(/{2,})"));
-    path.replace(duplicateSlashes, QLatin1String("/"));
-    if (path.endsWith(QLatin1Char('/')) && path.length() > 1) path.chop(1);
+    if (path.contains(u"//")) {
+        static const QRegularExpression duplicateSlashes(QStringLiteral(R"(/{2,})"));
+        path.replace(duplicateSlashes, QStringLiteral("/"));
+    }
+    if (path.endsWith(u'/') && path.length() > 1) path.chop(1);
 
     QUrlQuery query(url);
     QList<QPair<QString, QString>> queryItems = query.queryItems(QUrl::FullyDecoded);
@@ -288,27 +290,27 @@ QString ArchiveManager::normalizeUrl(const QString &urlStr) const {
     });
 
     QStringList keptParams;
-    if (host.contains(QStringLiteral("youtube")) || host.contains(QStringLiteral("youtu.be"))) {
+    if (host.contains(u"youtube") || host.contains(u"youtu.be")) {
         static constexpr std::array<QStringView, 8> dropParams = {
             u"utm_source", u"utm_medium", u"utm_campaign", u"utm_term", u"utm_content",
             u"si", u"feature", u"pp"
         };
-        for (const auto &item : queryItems) {
+        for (const auto &item : std::as_const(queryItems)) {
             auto it = std::ranges::find_if(dropParams, [&](QStringView p) {
                 return item.first.compare(p, Qt::CaseInsensitive) == 0;
             });
             if (it != dropParams.end()) continue;
-            keptParams.append(QStringLiteral("%1=%2").arg(item.first, item.second));
+            keptParams.append(item.first + u'=' + item.second);
         }
     } else {
-        for (const auto &item : queryItems) {
-            keptParams.append(QStringLiteral("%1=%2").arg(item.first, item.second));
+        for (const auto &item : std::as_const(queryItems)) {
+            keptParams.append(item.first + u'=' + item.second);
         }
     }
 
     QString queryString;
     if (!keptParams.isEmpty()) {
-        queryString = QStringLiteral("?") + keptParams.join(QStringLiteral("&"));
+        queryString = u"?" + keptParams.join(u"&");
     }
 
     return host + path + queryString;

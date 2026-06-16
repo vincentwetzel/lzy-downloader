@@ -70,30 +70,24 @@ void DownloadManager::shutdown() {
     }
 
     const QList<QProcess*> descendantProcesses = findChildren<QProcess*>();
-    for (QProcess *process : descendantProcesses) {
+    for (QProcess *process : std::as_const(descendantProcesses)) {
         process->disconnect(); // Prevent reading buffers from dying process
         ProcessUtils::terminateProcessTree(process);
     }
 
-    const QStringList activeIds = m_activeWorkers.keys();
-    for (const QString &id : activeIds) {
-        QObject *worker = m_activeWorkers.take(id);
-        if (!worker) {
-            continue;
+    for (QObject *worker : std::as_const(m_activeWorkers)) {
+        if (worker) {
+            worker->disconnect(this);
+            worker->deleteLater();
         }
-        worker->disconnect(this);
-        worker->deleteLater();
     }
     m_activeWorkers.clear();
 
-    const QStringList embedderIds = m_activeEmbedders.keys();
-    for (const QString &id : embedderIds) {
-        QObject *embedder = m_activeEmbedders.take(id);
-        if (!embedder) {
-            continue;
+    for (QObject *embedder : std::as_const(m_activeEmbedders)) {
+        if (embedder) {
+            embedder->disconnect(this);
+            embedder->deleteLater();
         }
-        embedder->disconnect(this);
-        embedder->deleteLater();
     }
     m_activeEmbedders.clear();
     m_pendingSponsorBlockPreflights.clear();
@@ -116,10 +110,10 @@ void DownloadManager::onQueueCountsChanged(int queued, int paused) {
     // Update queue position statuses
     if (m_queueManager) {
         int position = 1;
-        for (const DownloadItem &item : m_queueManager->m_downloadQueue) {
+        for (const DownloadItem &item : std::as_const(m_queueManager->m_downloadQueue)) {
             if (!m_queueManager->m_pendingExpansions.contains(item.id)) {
                 QVariantMap progressData;
-                progressData[QStringLiteral("status")] = tr("Queued (Position %1)").arg(position);
+                progressData.insert(QStringLiteral("status"), tr("Queued (Position %1)").arg(position));
                 emit downloadProgress(item.id, progressData);
                 position++;
             }

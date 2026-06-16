@@ -51,10 +51,12 @@ QString normalizeCleanupStem(QString fileName)
         }
     }
 
+    if (fileName.contains(QLatin1String(".f"))) {
         static const QRegularExpression formatIdRe(QStringLiteral("\\.f[a-zA-Z0-9_-]+$"));
-    const QRegularExpressionMatch match = formatIdRe.match(fileName);
-    if (match.hasMatch()) {
-        fileName.chop(match.capturedLength());
+        const QRegularExpressionMatch match = formatIdRe.match(fileName);
+        if (match.hasMatch()) {
+            fileName.chop(match.capturedLength());
+        }
     }
 
     return fileName;
@@ -86,7 +88,7 @@ bool shouldDeleteCleanupCandidate(const QFileInfo &entry, const QFileInfo &ancho
         fileName.endsWith(QStringLiteral(".info.json"), Qt::CaseInsensitive) ||
         fileName.endsWith(QStringLiteral(".aria2"), Qt::CaseInsensitive) ||
         fileName.contains(QStringLiteral(".part-Frag"), Qt::CaseInsensitive)) {
-        for (const QString &stem : stems) {
+        for (const QString &stem : std::as_const(stems)) {
             if (hasCleanupStemBoundary(fileName, stem)) {
                 return true;
             }
@@ -105,7 +107,7 @@ bool shouldDeleteCleanupCandidate(const QFileInfo &entry, const QFileInfo &ancho
         return ext.compare(knownExt, Qt::CaseInsensitive) == 0;
     });
     if (it != knownExts.end()) {
-        for (const QString &stem : stems) {
+        for (const QString &stem : std::as_const(stems)) {
             if (hasCleanupStemBoundary(fileName, stem)) {
                 return true;
             }
@@ -138,7 +140,7 @@ DownloadQueueManager::~DownloadQueueManager() {
 
 DownloadQueueManager::DuplicateStatus DownloadQueueManager::getDuplicateStatus(const QString &url, const QMap<QString, DownloadItem> &activeItems) const {
     // Check in the pending queue
-    for (const DownloadItem &item : m_downloadQueue) {
+    for (const DownloadItem &item : std::as_const(m_downloadQueue)) {
         if (item.url == url) {
             return DuplicateInQueue;
         }
@@ -152,7 +154,7 @@ DownloadQueueManager::DuplicateStatus DownloadQueueManager::getDuplicateStatus(c
     }
 
     // Check in paused items
-    for (const DownloadItem &item : m_pausedItems) {
+    for (const DownloadItem &item : std::as_const(m_pausedItems)) {
         if (item.url == url) {
             return DuplicatePaused;
         }
@@ -239,7 +241,8 @@ bool DownloadQueueManager::cancelQueuedOrPausedDownload(const QString &id) {
             QStringList cleanupPaths;
             collectCleanupPath(cleanupPaths, item.tempFilePath);
             collectCleanupPath(cleanupPaths, item.originalDownloadedFilePath);
-            for (const QString &candidate : item.options.value(QStringLiteral("cleanup_candidates")).toStringList()) {
+            const QStringList candidates = item.options.value(QStringLiteral("cleanup_candidates")).toStringList();
+            for (const QString &candidate : std::as_const(candidates)) {
                 collectCleanupPath(cleanupPaths, candidate);
             }
 
@@ -249,7 +252,7 @@ bool DownloadQueueManager::cancelQueuedOrPausedDownload(const QString &id) {
                     QThread::msleep(2000);
 
                     QSet<QString> visitedDirs;
-                    for (const QString &cleanupPath : cleanupPaths) {
+                    for (const QString &cleanupPath : std::as_const(cleanupPaths)) {
                         const QFileInfo anchor(cleanupPath);
                         if (!anchor.absoluteDir().exists()) {
                             continue;
@@ -269,7 +272,7 @@ bool DownloadQueueManager::cancelQueuedOrPausedDownload(const QString &id) {
 
                         QDir tempDir(dirPath);
                         QSet<QString> cleanupStems;
-                        for (const QString &path : cleanupPaths) {
+                        for (const QString &path : std::as_const(cleanupPaths)) {
                             const QFileInfo candidateInfo(path);
                             if (candidateInfo.absolutePath().compare(dirPath, Qt::CaseInsensitive) != 0) {
                                 continue;
@@ -282,7 +285,7 @@ bool DownloadQueueManager::cancelQueuedOrPausedDownload(const QString &id) {
                         }
 
                         QFileInfoList entries = tempDir.entryInfoList(QDir::Files | QDir::NoDotAndDotDot);
-                        for (const QFileInfo &entry : entries) {
+                        for (const QFileInfo &entry : std::as_const(entries)) {
                             if (shouldDeleteCleanupCandidate(entry, anchor, cleanupStems)) {
                                 QFile::remove(entry.absoluteFilePath());
                             }
@@ -383,7 +386,7 @@ void DownloadQueueManager::saveQueueState(const QMap<QString, DownloadItem> &act
 }
 
 void DownloadQueueManager::processResumeDownloadsSelection(const QJsonArray &arr) {
-    for (const QJsonValue& val : arr) {
+    for (const QJsonValue& val : std::as_const(arr)) {
         QJsonObject obj = val.toObject();
         DownloadItem item;
         item.id = obj.value(QStringLiteral("id")).toString();
@@ -448,7 +451,7 @@ DownloadItem DownloadQueueManager::takeNextQueuedDownload() {
 }
 
 bool DownloadQueueManager::hasQueuedDownloads() const {
-    for (const DownloadItem &item : m_downloadQueue) {
+    for (const DownloadItem &item : std::as_const(m_downloadQueue)) {
         if (!m_pendingExpansions.contains(item.id)) {
             return true;
         }

@@ -32,32 +32,54 @@ namespace {
 }
 
 double YtDlpWorker::parseSizeStringToBytes(const QString &sizeString) {
-    const QString normalized = sizeString.trimmed().remove(QLatin1Char('~'));
-    if (normalized.isEmpty() || normalized.startsWith(QStringLiteral("Unknown"), Qt::CaseInsensitive)) {
+    QStringView view(sizeString);
+    view = view.trimmed();
+
+    if (view.startsWith(u'~')) {
+        view = view.mid(1).trimmed();
+    }
+
+    if (view.isEmpty() || view.startsWith(u"Unknown", Qt::CaseInsensitive)) {
         return 0.0;
     }
 
-    static const QRegularExpression re(QStringLiteral(R"(^([\d\.]+)\s*([KMGTPE]?i?B)(?:/s)?$)"), QRegularExpression::CaseInsensitiveOption);
-    const QRegularExpressionMatch match = re.match(normalized);
-    if (!match.hasMatch()) {
-        return 0.0;
+    qsizetype i = 0;
+    while (i < view.size() && (view.at(i).isDigit() || view.at(i) == u'.')) {
+        ++i;
     }
 
-    const double value = match.capturedView(1).toDouble();
-    const QStringView unit = match.capturedView(2);
+    if (i == 0) return 0.0;
 
-    double multiplier = 0.0;
-    if (unit.compare(u"B", Qt::CaseInsensitive) == 0) multiplier = 1.0;
-    else if (unit.compare(u"KB", Qt::CaseInsensitive) == 0) multiplier = 1000.0;
-    else if (unit.compare(u"MB", Qt::CaseInsensitive) == 0) multiplier = 1000.0 * 1000.0;
-    else if (unit.compare(u"GB", Qt::CaseInsensitive) == 0) multiplier = 1000.0 * 1000.0 * 1000.0;
-    else if (unit.compare(u"TB", Qt::CaseInsensitive) == 0) multiplier = 1000.0 * 1000.0 * 1000.0 * 1000.0;
-    else if (unit.compare(u"PB", Qt::CaseInsensitive) == 0) multiplier = 1000.0 * 1000.0 * 1000.0 * 1000.0 * 1000.0;
-    else if (unit.compare(u"KIB", Qt::CaseInsensitive) == 0) multiplier = 1024.0;
-    else if (unit.compare(u"MIB", Qt::CaseInsensitive) == 0) multiplier = 1024.0 * 1024.0;
-    else if (unit.compare(u"GIB", Qt::CaseInsensitive) == 0) multiplier = 1024.0 * 1024.0 * 1024.0;
-    else if (unit.compare(u"TIB", Qt::CaseInsensitive) == 0) multiplier = 1024.0 * 1024.0 * 1024.0 * 1024.0;
-    else if (unit.compare(u"PIB", Qt::CaseInsensitive) == 0) multiplier = 1024.0 * 1024.0 * 1024.0 * 1024.0 * 1024.0;
+    const double value = view.left(i).toDouble();
+    QStringView unit = view.mid(i).trimmed();
+
+    if (unit.endsWith(u"/s", Qt::CaseInsensitive)) {
+        unit = unit.chopped(2).trimmed();
+    }
+
+    double multiplier = 1.0;
+    if (unit.isEmpty()) return value;
+
+    const char16_t firstChar = unit.at(0).toUpper().unicode();
+    if (unit.length() == 1 && firstChar == u'B') {
+        multiplier = 1.0;
+    } else if (unit.endsWith(u"IB", Qt::CaseInsensitive)) {
+        switch (firstChar) {
+            case u'K': multiplier = 1024.0; break;
+            case u'M': multiplier = 1024.0 * 1024.0; break;
+            case u'G': multiplier = 1024.0 * 1024.0 * 1024.0; break;
+            case u'T': multiplier = 1024.0 * 1024.0 * 1024.0 * 1024.0; break;
+            case u'P': multiplier = 1024.0 * 1024.0 * 1024.0 * 1024.0 * 1024.0; break;
+        }
+    } else if (unit.endsWith(u"B", Qt::CaseInsensitive)) {
+        switch (firstChar) {
+            case u'K': multiplier = 1000.0; break;
+            case u'M': multiplier = 1000.0 * 1000.0; break;
+            case u'G': multiplier = 1000.0 * 1000.0 * 1000.0; break;
+            case u'T': multiplier = 1000.0 * 1000.0 * 1000.0 * 1000.0; break;
+            case u'P': multiplier = 1000.0 * 1000.0 * 1000.0 * 1000.0 * 1000.0; break;
+        }
+    }
 
     return value * multiplier;
 }
@@ -75,37 +97,37 @@ QString YtDlpWorker::formatBytes(double bytes) {
         i++;
     }
 
-    return QStringLiteral("%1 %2").arg(QString::number(d_bytes, 'f', (d_bytes < 10 && i > 0) ? 2 : 1), QLatin1String(units[i]));
+    return QString::number(d_bytes, 'f', (d_bytes < 10 && i > 0) ? 2 : 1) + QLatin1Char(' ') + QString::fromLatin1(units[i]);
 }
 
 bool YtDlpWorker::parseYtDlpProgressLine(const QString &line) {
-    const QString normalized = line.trimmed();
+    const QStringView normalizedView = QStringView(line).trimmed();
 
-    if (!normalized.startsWith(QStringLiteral("[download]"))) {
+    if (!normalizedView.startsWith(u"[download]")) {
         return false;
     }
 
     static const QRegularExpression progressRegex(
-        QStringLiteral(R"(^\[download\]\s+([\d\.]+)%\s+of\s+(?:~\s*)?(.+?)(?=\s+at\s+|\s+ETA\s+|\s+\(frag\s+\d+/\d+\)|$)(?:\s+at\s+(.+?)(?=\s+ETA\s+|\s+\(frag\s+\d+/\d+\)|$))?(?:\s+ETA\s+([^\s]+))?(?:\s+\(frag\s+(\d+)/(\d+)\))?.*$)"));
+        QStringLiteral(R"(^\[download\]\s+([\d\.]+)%\s+of\s+(?:~\s*)?(.+?)(?=\s+at\s+|\s+ETA\s+|\s+\(frag\s+\d+/\d+\)|$)(?:\s+at\s+(.+?)(?=\s+ETA\s+|\s+\(frag\s+\d+/\d+\)|$))?(?:\s+ETA\s+([^\s]+))?(?:\s+\(frag\s+(\d+)/(\d+)\))?)"));
     static const QRegularExpression completedRegex(
-        QStringLiteral(R"(^\[download\]\s+100(?:\.0+)?%\s+of\s+(?:~\s*)?(.+?)(?=\s+in\s+|\s+at\s+|\s+\(frag\s+\d+/\d+\)|$)(?:\s+in\s+([^\s]+))?(?:\s+at\s+(.+?)(?=\s+\(frag\s+\d+/\d+\)|$))?(?:\s+\(frag\s+(\d+)/(\d+)\))?.*$)"));
+        QStringLiteral(R"(^\[download\]\s+100(?:\.0+)?%\s+of\s+(?:~\s*)?(.+?)(?=\s+in\s+|\s+at\s+|\s+\(frag\s+\d+/\d+\)|$)(?:\s+in\s+([^\s]+))?(?:\s+at\s+(.+?)(?=\s+\(frag\s+\d+/\d+\)|$))?(?:\s+\(frag\s+(\d+)/(\d+)\))?)"));
     static const QRegularExpression indeterminateRegex(
-        QStringLiteral(R"(^\[download\]\s+(.+?)\s+at\s+(.+?)\s+\(([^)]+)\).*$)"));
+        QStringLiteral(R"(^\[download\]\s+(.+?)\s+at\s+(.+?)\s+\(([^)]+)\))"));
 
     bool matchedCompletedFormat = false;
     bool matchedIndeterminate = false;
-    QRegularExpressionMatch match = progressRegex.match(normalized);
+    QRegularExpressionMatch match = progressRegex.match(normalizedView);
 
     if (!match.hasMatch()) {
-        match = completedRegex.match(normalized);
+        match = completedRegex.match(normalizedView);
         if (match.hasMatch()) {
             matchedCompletedFormat = true;
         } else {
-            match = indeterminateRegex.match(normalized);
+            match = indeterminateRegex.match(normalizedView);
             if (match.hasMatch()) {
                 matchedIndeterminate = true;
             } else {
-                qWarning() << "[YtDlpWorker] Unmatched native progress line:" << normalized;
+                qWarning() << "[YtDlpWorker] Unmatched native progress line:" << normalizedView;
                 return false;
             }
         }
@@ -140,12 +162,13 @@ bool YtDlpWorker::parseYtDlpProgressLine(const QString &line) {
         etaString = match.captured(3).trimmed();
         if (etaString.isEmpty()) etaString = tr("Unknown");
 
-        if (etaString.startsWith(QStringLiteral("frag "))) {
-            static const QRegularExpression fragRegex(QStringLiteral(R"(frag\s+(\d+)/(\d+))"));
-            const QRegularExpressionMatch fragMatch = fragRegex.match(etaString);
-            if (fragMatch.hasMatch()) {
-                const QStringView fragCurrentStr = fragMatch.capturedView(1);
-                const QStringView fragTotalStr = fragMatch.capturedView(2);
+        if (etaString.startsWith(u"frag ")) {
+            QStringView fragView(etaString);
+            fragView = fragView.mid(5).trimmed();
+            const qsizetype slashIdx = fragView.indexOf(u'/');
+            if (slashIdx > 0) {
+                const QStringView fragCurrentStr = fragView.left(slashIdx);
+                const QStringView fragTotalStr = fragView.mid(slashIdx + 1);
                 const double fragCurrent = fragCurrentStr.toDouble();
                 const double fragTotal = fragTotalStr.toDouble();
                 if (fragTotal > 0) {
@@ -197,7 +220,7 @@ bool YtDlpWorker::parseYtDlpProgressLine(const QString &line) {
     progressData.insert(QStringLiteral("downloaded_size"), !customDownloadedSize.isEmpty() ? customDownloadedSize : (downloadedBytes > 0.0 ? formatBytes(downloadedBytes) : tr("N/A")));
     progressData.insert(QStringLiteral("total_size"), !customTotalSize.isEmpty() ? customTotalSize : (totalBytes > 0.0 ? formatBytes(totalBytes) : totalString));
     applyOverallPrimaryProgress(progressData, percentage, downloadedBytes, totalBytes);
-    progressData.insert(QStringLiteral("speed"), speedBytes > 0.0 ? QStringLiteral("%1%2").arg(formatBytes(speedBytes), tr("/s")) : (speedString.isEmpty() ? tr("Unknown") : speedString));
+    progressData.insert(QStringLiteral("speed"), speedBytes > 0.0 ? (formatBytes(speedBytes) + tr("/s")) : (speedString.isEmpty() ? tr("Unknown") : speedString));
     progressData.insert(QStringLiteral("speed_bytes"), speedBytes);
     progressData.insert(QStringLiteral("eta"), etaString.isEmpty() ? tr("Unknown") : etaString);
     
@@ -208,16 +231,15 @@ bool YtDlpWorker::parseYtDlpProgressLine(const QString &line) {
 }
 
 bool YtDlpWorker::parseAria2ProgressLine(const QString &line) {
-    const QString normalized = line.trimmed();
-
     // High-frequency optimization: bypass expensive regex evaluation entirely for non-aria2 lines
-    if (!normalized.contains(QStringLiteral("[#"))) {
+    if (!line.contains(u"[#")) {
         return false;
     }
+    const QStringView normalizedView = QStringView(line).trimmed();
 
     static const QRegularExpression ariaRegex(
-        QStringLiteral(R"(^.*\[#\w+\s+([\d\.]+\s*[KMGTPE]?i?B)(?:/([\d\.]+\s*[KMGTPE]?i?B)\(([\d\.]+)%\))?(?:\s+CN:\d+)?(?:\s+DL:((?:[\d\.]+\s*[KMGTPE]?i?B(?:/s)?)|(?:0B(?:/s)?)))?(?:\s+ETA:([\d\w:]+))?\].*$)"));
-    const QRegularExpressionMatch match = ariaRegex.match(normalized);
+        QStringLiteral(R"(\[#\w+\s+([\d\.]+\s*[KMGTPE]?i?B)(?:/([\d\.]+\s*[KMGTPE]?i?B)\(([\d\.]+)%\))?(?:\s+CN:\d+)?(?:\s+DL:((?:[\d\.]+\s*[KMGTPE]?i?B(?:/s)?)|(?:0B(?:/s)?)))?(?:\s+ETA:([\d\w:]+))?\])"));
+    const QRegularExpressionMatch match = ariaRegex.match(normalizedView);
     if (!match.hasMatch()) {
         return false;
     }
@@ -237,7 +259,7 @@ bool YtDlpWorker::parseAria2ProgressLine(const QString &line) {
     progressData.insert(QStringLiteral("downloaded_size"), formatBytes(downloadedBytes));
     progressData.insert(QStringLiteral("total_size"), formatBytes(totalBytes));
     applyOverallPrimaryProgress(progressData, percentage, downloadedBytes, totalBytes);
-    progressData.insert(QStringLiteral("speed"), speedBytes > 0.0 ? QStringLiteral("%1%2").arg(formatBytes(speedBytes), tr("/s")) : tr("0 B/s"));
+    progressData.insert(QStringLiteral("speed"), speedBytes > 0.0 ? (formatBytes(speedBytes) + tr("/s")) : tr("0 B/s"));
     progressData.insert(QStringLiteral("speed_bytes"), speedBytes);
     progressData.insert(QStringLiteral("eta"), etaStr.isEmpty() ? tr("N/A") : etaStr);
     

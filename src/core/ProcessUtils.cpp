@@ -199,17 +199,19 @@ QString fetchFfmpegVersion(const QString& execPath) {
         }
 
         // Match specific clean patterns: YYYY-MM-DD, semantic version (e.g., 6.0, 4.4.1), or N-builds
-        static const QRegularExpression re(QStringLiteral("(?:ffmpeg|ffprobe) version ([0-9]{4}-[0-9]{2}-[0-9]{2}|[0-9]+\\.[0-9]+(?:\\.[0-9]+)?|[Nn]-[0-9]+)"));
-        QRegularExpressionMatch match = re.match(output);
-        if (match.hasMatch()) {
-            return match.captured(1);
-        }
+        if (output.contains(QLatin1String("version"))) {
+            static const QRegularExpression re(QStringLiteral("(?:ffmpeg|ffprobe) version ([0-9]{4}-[0-9]{2}-[0-9]{2}|[0-9]+\\.[0-9]+(?:\\.[0-9]+)?|[Nn]-[0-9]+)"));
+            QRegularExpressionMatch match = re.match(output);
+            if (match.hasMatch()) {
+                return match.captured(1);
+            }
 
-        // Fallback: take the first sequence of characters before a hyphen or space
-        static const QRegularExpression fallbackRe(QStringLiteral("(?:ffmpeg|ffprobe) version ([^- ]+)"));
-        QRegularExpressionMatch fallbackMatch = fallbackRe.match(output);
-        if (fallbackMatch.hasMatch()) {
-            return fallbackMatch.captured(1);
+            // Fallback: take the first sequence of characters before a hyphen or space
+            static const QRegularExpression fallbackRe(QStringLiteral("(?:ffmpeg|ffprobe) version ([^- ]+)"));
+            QRegularExpressionMatch fallbackMatch = fallbackRe.match(output);
+            if (fallbackMatch.hasMatch()) {
+                return fallbackMatch.captured(1);
+            }
         }
     } else {
         if (process.state() != QProcess::NotRunning) {

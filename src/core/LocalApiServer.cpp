@@ -159,12 +159,12 @@ void LocalApiServer::onReadyRead()
     if (headerEnd != -1) {
         int contentLength = 0;
 
-        const QString headersStr = QString::fromUtf8(buffer.left(headerEnd));
+        const QString headersStr = QString::fromUtf8(QByteArrayView(buffer).first(headerEnd));
 
         static const QRegularExpression clRe(QStringLiteral("^Content-Length:\\s*(\\d+)"), QRegularExpression::CaseInsensitiveOption | QRegularExpression::MultilineOption);
         const QRegularExpressionMatch clMatch = clRe.match(headersStr);
         if (clMatch.hasMatch()) {
-            contentLength = clMatch.captured(1).toInt();
+            contentLength = clMatch.capturedView(1).toInt();
         }
 
         static const QRegularExpression expectRe(QStringLiteral("^Expect:\\s*100-continue"), QRegularExpression::CaseInsensitiveOption | QRegularExpression::MultilineOption);
@@ -189,47 +189,47 @@ void LocalApiServer::onReadyRead()
 void LocalApiServer::handleRequest(QTcpSocket *socket, const QByteArray &requestData)
 {
     const qsizetype bodyIndex = requestData.indexOf(QByteArrayLiteral("\r\n\r\n"));
-    const QByteArray headersData = (bodyIndex != -1) ? requestData.left(bodyIndex) : requestData;
+    const QByteArrayView headersView = (bodyIndex != -1) ? QByteArrayView(requestData).first(bodyIndex) : QByteArrayView(requestData);
     const QByteArray bodyData = (bodyIndex != -1) ? requestData.mid(bodyIndex + 4) : QByteArray();
 
-    const QString requestStr = QString::fromUtf8(headersData);
-    const QStringList lines = requestStr.split(QStringLiteral("\r\n"));
+    const QString requestStr = QString::fromUtf8(headersView);
+    const auto lines = QStringView(requestStr).split(u"\r\n", Qt::SkipEmptyParts);
     if (lines.isEmpty() || lines.first().trimmed().isEmpty()) {
         sendHttpResponse(socket, 400, QStringLiteral("Bad Request"), QByteArrayLiteral("{\"error\": \"Empty request.\"}"));
         return;
     }
 
-    const QStringList requestParts = lines.first().split(QLatin1Char(' '));
+    const auto requestParts = lines.first().split(u' ', Qt::SkipEmptyParts);
     if (requestParts.size() < 2) {
         sendHttpResponse(socket, 400, QStringLiteral("Bad Request"), QByteArrayLiteral("{\"error\": \"Malformed request line.\"}"));
         return;
     }
 
-    const QString method = requestParts[0];
-    const QString pathQuery = requestParts[1];
-    const QUrl url(pathQuery);
-    const QString path = url.path();
+    const QStringView method = requestParts[0];
+    const QStringView pathQuery = requestParts[1];
+    const qsizetype queryIndex = pathQuery.indexOf(u'?');
+    const QStringView path = (queryIndex != -1) ? pathQuery.first(queryIndex) : pathQuery;
 
     // Enforce API Key, Host, and Origin
     bool authorized = false;
     bool validHost = false;
     QString originHeader;
 
-    for (const QString &line : lines) {
-        if (line.startsWith(QStringLiteral("Authorization:"), Qt::CaseInsensitive)) {
-            QString token = line.mid(14).trimmed();
-            if (token.startsWith(QStringLiteral("Bearer "), Qt::CaseInsensitive)) token = token.mid(7).trimmed();
+    for (const QStringView &line : lines) {
+        if (line.startsWith(u"Authorization:", Qt::CaseInsensitive)) {
+            QStringView token = line.mid(14).trimmed();
+            if (token.startsWith(u"Bearer ", Qt::CaseInsensitive)) token = token.mid(7).trimmed();
             if (token == m_apiKey) {
                 authorized = true;
             }
-        } else if (line.startsWith(QStringLiteral("Host:"), Qt::CaseInsensitive)) {
-            QString host = line.mid(5).trimmed();
+        } else if (line.startsWith(u"Host:", Qt::CaseInsensitive)) {
+            const QStringView host = line.mid(5).trimmed();
             static const QRegularExpression hostRe(QStringLiteral("^(?:127\\.0\\.0\\.1|localhost)(?::\\d+)?$"), QRegularExpression::CaseInsensitiveOption);
-            if (hostRe.match(host).hasMatch()) {
+            if (hostRe.matchView(host).hasMatch()) {
                 validHost = true;
             }
-        } else if (line.startsWith(QStringLiteral("Origin:"), Qt::CaseInsensitive)) {
-            originHeader = line.mid(7).trimmed();
+        } else if (line.startsWith(u"Origin:", Qt::CaseInsensitive)) {
+            originHeader = line.mid(7).trimmed().toString();
         }
     }
 
@@ -241,17 +241,18 @@ void LocalApiServer::handleRequest(QTcpSocket *socket, const QByteArray &request
     if (!originHeader.isEmpty()) {
         QUrl originUrl(originHeader);
         QString originHost = originUrl.host();
-        if (originHost != QStringLiteral("127.0.0.1") && originHost != QStringLiteral("localhost") &&
-            originUrl.scheme() != QStringLiteral("chrome-extension") &&
-            originUrl.scheme() != QStringLiteral("moz-extension")) {
+        if (originHost != u"127.0.0.1" && originHost != u"localhost" &&
+            originUrl.scheme() != u"chrome-extension" &&
+            originUrl.scheme() != u"moz-extension") {
             sendHttpResponse(socket, 403, QStringLiteral("Forbidden"), QByteArrayLiteral("{\"error\": \"Unauthorized cross-origin request.\"}"));
             return;
         }
+        socket->setProperty("RequestOrigin", originHeader);
     }
 
-    if (method == QStringLiteral("OPTIONS")) {
-        // Explicitly reject CORS preflight
-        sendHttpResponse(socket, 403, QStringLiteral("Forbidden"), QByteArrayLiteral("{\"error\": \"CORS preflight rejected.\"}"));
+    if (method == u"OPTIONS") {
+        // Accept CORS preflight for permitted origins
+        sendHttpResponse(socket, 204, QStringLiteral("No Content"), QByteArray());
         return;
     }
 
@@ -261,7 +262,7 @@ void LocalApiServer::handleRequest(QTcpSocket *socket, const QByteArray &request
     }
 
     // Route Endpoints
-    if (method == QStringLiteral("POST") && path == QStringLiteral("/enqueue")) {
+    if (method == u"POST" && path == u"/enqueue") {
         QJsonParseError parseError;
         const QJsonDocument doc = QJsonDocument::fromJson(bodyData, &parseError);
 
@@ -291,13 +292,13 @@ void LocalApiServer::handleRequest(QTcpSocket *socket, const QByteArray &request
         if (doc.isNull()) {
             errObj[QStringLiteral("parse_error")] = parseError.errorString();
             errObj[QStringLiteral("body_length")] = bodyData.size();
-            errObj[QStringLiteral("received_body")] = QString::fromUtf8(bodyData.left(200));
+            errObj[QStringLiteral("received_body")] = QString::fromUtf8(QByteArrayView(bodyData).first(qMin(bodyData.size(), qsizetype(200))));
         } else if (!doc.isObject()) {
             errObj[QStringLiteral("parse_error")] = QStringLiteral("JSON is valid but not an object.");
         }
         QByteArray errBytes = QJsonDocument(errObj).toJson(QJsonDocument::Compact);
         sendHttpResponse(socket, 400, QStringLiteral("Bad Request"), errBytes);
-    } else if (method == QStringLiteral("GET") && path == QStringLiteral("/status")) {
+    } else if (method == u"GET" && path == u"/status") {
         QJsonArray jobsArray;
         for (auto it = m_activeJobs.cbegin(); it != m_activeJobs.cend(); ++it) {
             jobsArray.append(QJsonObject::fromVariantMap(it.value()));
@@ -315,12 +316,19 @@ void LocalApiServer::handleRequest(QTcpSocket *socket, const QByteArray &request
 void LocalApiServer::sendHttpResponse(QTcpSocket *socket, int statusCode, const QString &statusText, const QByteArray &body)
 {
     QByteArray response;
-    response.reserve(body.size() + 128);
+    response.reserve(body.size() + 256);
     response.append(QByteArrayLiteral("HTTP/1.1 "));
     response.append(QByteArray::number(statusCode));
     response.append(' ');
     response.append(statusText.toUtf8());
-    response.append(QByteArrayLiteral("\r\nContent-Type: application/json\r\nConnection: close\r\nContent-Length: "));
+    const QString origin = socket->property("RequestOrigin").toString();
+    response.append(QByteArrayLiteral("\r\nContent-Type: application/json"
+                                      "\r\nConnection: close"
+                                      "\r\nAccess-Control-Allow-Origin: "));
+    response.append(origin.isEmpty() ? QByteArrayLiteral("*") : origin.toUtf8());
+    response.append(QByteArrayLiteral("\r\nAccess-Control-Allow-Methods: GET, POST, OPTIONS"
+                                      "\r\nAccess-Control-Allow-Headers: Content-Type, Authorization"
+                                      "\r\nContent-Length: "));
     response.append(QByteArray::number(body.size()));
     response.append(QByteArrayLiteral("\r\n\r\n"));
     response.append(body);

@@ -9,6 +9,17 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## [Unreleased]
 
+### Changed
+- **Hot-path parsing performance**: Optimized yt-dlp and aria2 progress parsing, output-line routing, sorting token handling, archive URL normalization, and Local API request parsing with fast prefix/substring gates and zero-allocation Qt views before regex fallback.
+- **Local API browser-extension support**: Permitted localhost and trusted browser-extension origins now receive CORS headers, and authorized preflight requests return `204 No Content` instead of being rejected.
+
+### Fixed
+- **Livestream argument safety**: Livestream downloads now skip SponsorBlock, chapter embedding, metadata embedding, thumbnail embedding, and subtitle embedding/writing arguments that can trigger yt-dlp or FFmpeg failures for active live captures.
+- **Livestream UI state**: Active rows update their stored `is_live` option from worker progress metadata so the `Stop & Save` action stays visible when live-state metadata arrives after queue creation.
+- **Cookie fallback diagnostics**: Browser-cookie retry detection now recognizes locked cookie databases and ended-live extractor diagnostics without joining large output buffers.
+- **Wait thumbnail cleanup**: Wait-state thumbnail relocation/removal now identifies worker-owned thumbnail files by download ID prefix and retries removal briefly when Windows holds a file handle.
+- **Playlist expansion live detection**: Playlist probing treats `not currently live` diagnostics as a livestream/premiere bypass signal and preserves fixed `live_status` values while rebuilding playlist entries.
+
 ## [1.1.73] - 2026-06-22
 
 ### Changed

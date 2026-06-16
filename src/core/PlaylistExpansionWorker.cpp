@@ -99,14 +99,9 @@ QStringList PlaylistExpansionWorker::buildProbeArguments(const QString &playlist
     args.removeAll(QStringLiteral("--live-from-start"));
     args.removeAll(QStringLiteral("--no-live-from-start"));
 
-    auto it = args.begin();
-    while (it != args.end()) {
-        if (it->startsWith(QStringLiteral("--wait-for-video"))) {
-            it = args.erase(it);
-        } else {
-            ++it;
-        }
-    }
+    args.removeIf([](const QString &arg) {
+        return arg.startsWith(QStringLiteral("--wait-for-video"));
+    });
 
     removeArgWithValue(QStringLiteral("-o"));
     removeArgWithValue(QStringLiteral("--ffmpeg-location"));
@@ -136,7 +131,7 @@ void PlaylistExpansionWorker::onProcessFinished(int exitCode, QProcess::ExitStat
         }
 
         static const QRegularExpression bypassRe(
-            QStringLiteral("Premieres in|Premiering in|Premiere will begin|live event will begin|is upcoming|Offline \\(expected\\)|Offline expected|waiting for premiere|waiting for livestream|Live in |Starting in |Private video|Sign in to confirm|Video unavailable|This live event has ended"),
+            QStringLiteral("Premieres in|Premiering in|Premiere will begin|live event will begin|is upcoming|Offline \\(expected\\)|Offline expected|waiting for premiere|waiting for livestream|Live in |Starting in |Private video|Sign in to confirm|Video unavailable|This live event has ended|not currently live"),
             QRegularExpression::CaseInsensitiveOption
         );
 
@@ -179,15 +174,18 @@ void PlaylistExpansionWorker::onProcessFinished(int exitCode, QProcess::ExitStat
 
     fixLiveStatus(jsonObj);
     if (jsonObj.contains(QStringLiteral("entries")) && jsonObj.value(QStringLiteral("entries")).isArray()) {
-        QJsonArray entries = jsonObj.value(QStringLiteral("entries")).toArray();
-        for (int i = 0; i < entries.size(); ++i) {
-            if (entries[i].isObject()) {
-                QJsonObject entry = entries[i].toObject();
+        const QJsonArray entries = jsonObj.value(QStringLiteral("entries")).toArray();
+        QJsonArray updatedEntries;
+        for (const QJsonValue &val : std::as_const(entries)) {
+            if (val.isObject()) {
+                QJsonObject entry = val.toObject();
                 fixLiveStatus(entry);
-                entries[i] = entry;
+                updatedEntries.append(entry);
+            } else {
+                updatedEntries.append(val);
             }
         }
-        jsonObj.insert(QStringLiteral("entries"), entries);
+        jsonObj.insert(QStringLiteral("entries"), updatedEntries);
     }
 
     const PlaylistExpansionParseResult result = PlaylistExpansionParser::parse(jsonObj, m_url);

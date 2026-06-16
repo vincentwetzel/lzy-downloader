@@ -8,9 +8,9 @@
 - [ ] CI/CD: Automate GitHub Actions to package the release artifact and compile the NSIS installer on push events.
 - [ ] Implement translations for supported interface languages (see `docs/LANGUAGES.md`).
 - [ ] Integrate Qt Linguist (`.ts`/`.qm` compiler steps) into `CMakeLists.txt` build automation.
-- [ ] Performance: Optimize hot-path stdout line parsing in `YtDlpWorkerProgress.cpp` using regex-free string parsing.
 
 ## Completed
+- [x] Performance: Optimized hot-path stdout line parsing in `YtDlpWorkerProgress.cpp` using regex-free string parsing and zero-allocation views.
 - [x] Documented yt-dlp diagnostic classification updates for critical extractor failures, FFmpeg-specific guidance, impersonation recommendations, and SponsorBlock cut argument changes.
 - [x] Documented v1.1.69 behavior for auto-detected binary path ownership, completed-with-warning downloads, retry-based cleanup, livestream wait metadata safety, and Discord bridge progress refreshes.
 - [x] Refactored external binary resolution through `SmartBinaryResolver` so manual overrides win, the app-local `bin` folder is searched first, stale native-settings ghosts are purged, and multiple candidates can be selected by newest usable version.
