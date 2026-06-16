@@ -45,9 +45,8 @@ jobs:
         uses: jurplel/install-qt-action@v3
         with:
           version: '6.6.*'
-          arch: ${{ matrix.platform == 'windows' && 'win64_msvc2022' || 'gcc_64' }}
-          modules: 'qtconnectivity qt5compat'
-          mirror: 'https://mirrors.qt.io'
+          arch: ${{ matrix.platform == 'windows' && 'win64_msvc2022' || 'gcc_64' }} # 'qtbase' is installed by default
+          modules: 'qtconnectivity' # 'qt5compat' might not be available for this Qt version/arch
 
       - name: Set up vcpkg
         uses: lukka/run-vcpkg@v11
