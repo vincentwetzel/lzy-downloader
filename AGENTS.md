@@ -32,7 +32,7 @@ Agents MUST preserve and respect the following behaviors from the original Pytho
 - Media downloading via `yt-dlp` (for videos/audio) and `gallery-dl` (for image galleries).
 - **No site-specific overrides**: Agents MUST NOT add hardcoded per-domain behavior for individual services (for example special arguments, referers, downloader choices, or extractor workarounds for one named website). Fixes must be generic and based on extractor metadata, documented tool behavior, user-configured settings, protocol/URL structure that applies across sites, or upstream yt-dlp/gallery-dl support. Generic URL-shape hints such as detecting playlist-like or live-like path/query markers are acceptable only when they do not branch on a specific hostname.
 - Concurrent download management with user-defined limits (capped at a maximum of 4 concurrent threads upon application startup, though users can manually increase it up to 8 during a session).
-- Playlist expansion and processing (for `yt-dlp` downloads).
+- Playlist expansion and processing (for `yt-dlp` downloads), including hostname-independent query index hints such as `img_index`, `slide`, `item`, `index`, and `playlist_index` so carousel or playlist item URLs can resolve to the intended entry without adding site-specific overrides.
 - **Configuration**: The app uses a Qt-native `QSettings` INI implementation. It does not need to conform to Python `configparser` quirks.
 - **Archive Portability**: The C++ app MUST use the same `download_archive.db` (SQLite) to respect the user's download history.
 - File lifecycle: download into temp dir → verify file stability → move to completed downloads directory.

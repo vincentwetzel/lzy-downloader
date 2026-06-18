@@ -7,13 +7,81 @@
 #include <QDebug>
 #include <QFileInfo>
 #include <QProcess>
+#include <QTimer>
+#include <QRegularExpression>
 
 YtDlpWorker::YtDlpWorker(const QString &id, const QStringList &args, ConfigManager *configManager, QObject *parent)
     : QObject(parent), m_id(id), m_args(args), m_configManager(configManager), m_process(nullptr), m_finishEmitted(false), m_errorEmitted(false), m_videoTitle(QString()),
       m_thumbnailPath(QString()), m_infoJsonPath(QString()), m_infoJsonRetryCount(0) {
 
     m_process = new QProcess(this);
-    connect(m_process, &QProcess::finished, this, &YtDlpWorker::onProcessFinished);
+
+    // Intercept standard error to check for cookie/API errors for the fallback mechanism
+    connect(m_process, &QProcess::readyReadStandardError, this, [this]() {
+        if (m_process) {
+            QProcess::ProcessChannel oldChannel = m_process->readChannel();
+            m_process->setCurrentReadChannel(QProcess::StandardError);
+            QByteArray errData = m_process->peek(m_process->bytesAvailable());
+            m_process->setCurrentReadChannel(oldChannel);
+
+            QString currentErr = QString::fromUtf8(errData);
+            QString accumulated = m_process->property("accumulated_stderr").toString();
+            accumulated += currentErr;
+            m_process->setProperty("accumulated_stderr", accumulated);
+        }
+    });
+
+    // Intercept process finish to handle browser-cookie fallback/retry logic
+    connect(m_process, &QProcess::finished, this, [this](int exitCode, QProcess::ExitStatus exitStatus) {
+        QString accumulatedStderr = m_process->property("accumulated_stderr").toString();
+        bool retryAttempted = m_process->property("cookie_retry_attempted").toBool();
+
+        if (!retryAttempted && exitStatus == QProcess::NormalExit && exitCode != 0) {
+            bool hasCookies = m_args.contains(QStringLiteral("--cookies-from-browser")) || m_args.contains(QStringLiteral("--cookies"));
+            
+            if (hasCookies) {
+                static const QRegularExpression errorRe(
+                    QStringLiteral("profile is locked|empty media response|not granting access|cookie|decryption|permission denied|sqlite3.OperationalError|access denied"),
+                    QRegularExpression::CaseInsensitiveOption
+                );
+                
+                if (errorRe.match(accumulatedStderr).hasMatch()) {
+                    qWarning() << "[YtDlpWorker] Cookie-related/API-access failure detected. Retrying download once without browser cookies. Error captured:" << accumulatedStderr;
+                    
+                    m_process->setProperty("cookie_retry_attempted", true);
+                    m_process->setProperty("accumulated_stderr", QString()); // Reset for next run
+
+                    // Remove --cookies-from-browser and its argument
+                    qsizetype cookiesIndex = m_args.indexOf(QStringLiteral("--cookies-from-browser"));
+                    if (cookiesIndex != -1) {
+                        m_args.removeAt(cookiesIndex);
+                        if (cookiesIndex < m_args.size()) {
+                            m_args.removeAt(cookiesIndex);
+                        }
+                    }
+
+                    // Remove --cookies and its argument
+                    qsizetype cookiesFileIndex = m_args.indexOf(QStringLiteral("--cookies"));
+                    if (cookiesFileIndex != -1) {
+                        m_args.removeAt(cookiesFileIndex);
+                        if (cookiesFileIndex < m_args.size()) {
+                            m_args.removeAt(cookiesFileIndex);
+                        }
+                    }
+
+                    // Restart the download
+                    QTimer::singleShot(1000, this, [this]() {
+                        start();
+                    });
+                    return;
+                }
+            }
+        }
+
+        // Proceed to the normal process finished slot
+        onProcessFinished(exitCode, exitStatus);
+    });
+
     connect(m_process, &QProcess::errorOccurred, this, &YtDlpWorker::onProcessError);
     connect(m_process, &QProcess::readyReadStandardOutput, this, &YtDlpWorker::onReadyReadStandardOutput);
     connect(m_process, &QProcess::readyReadStandardError, this, &YtDlpWorker::onReadyReadStandardError);

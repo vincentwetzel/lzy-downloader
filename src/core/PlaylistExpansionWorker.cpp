@@ -10,8 +10,37 @@
 #include <QJsonObject>
 #include <QStringList>
 #include <QTimer>
+#include <QUrl>
+#include <QUrlQuery>
+#include <array>
 
 #include <chrono>
+
+namespace {
+QString cleanUrlForProbe(const QString &urlStr)
+{
+    QUrl url(urlStr);
+    if (!url.isValid()) {
+        return urlStr;
+    }
+    QUrlQuery query(url);
+    static constexpr std::array<QStringView, 5> indexKeys = {
+        u"img_index", u"slide", u"item", u"index", u"playlist_index"
+    };
+    bool changed = false;
+    for (const QStringView key : indexKeys) {
+        if (query.hasQueryItem(key.toString())) {
+            query.removeQueryItem(key.toString());
+            changed = true;
+        }
+    }
+    if (changed) {
+        url.setQuery(query);
+        return url.toString();
+    }
+    return urlStr;
+}
+}
 
 PlaylistExpansionWorker::PlaylistExpansionWorker(const QString &url, ConfigManager *configManager, QObject *parent)
     : QObject(parent)
@@ -66,8 +95,10 @@ QStringList PlaylistExpansionWorker::buildProbeArguments(const QString &playlist
     YtDlpArgsBuilder builder;
     m_options.insert(QStringLiteral("playlist_logic"), playlistLogic);
     m_options.insert(QStringLiteral("skip_dir_creation"), true);
+    m_options.insert(QStringLiteral("is_playlist_expansion"), true);
 
-    QStringList args = builder.build(m_configManager, m_url, m_options);
+    const QString cleanUrl = cleanUrlForProbe(m_url);
+    QStringList args = builder.build(m_configManager, cleanUrl, m_options);
 
     const auto removeArgWithValue = [&args](const QString &flag) {
         qsizetype index = args.indexOf(flag);
@@ -131,7 +162,7 @@ void PlaylistExpansionWorker::onProcessFinished(int exitCode, QProcess::ExitStat
         }
 
         static const QRegularExpression bypassRe(
-            QStringLiteral("Premieres in|Premiering in|Premiere will begin|live event will begin|is upcoming|Offline \\(expected\\)|Offline expected|waiting for premiere|waiting for livestream|Live in |Starting in |Private video|Sign in to confirm|Video unavailable|This live event has ended|not currently live"),
+            QStringLiteral("Premieres in|Premiering in|Premiere will begin|live event will begin|is upcoming|Offline \\(expected\\)|Offline expected|waiting for premiere|waiting for livestream|Live in |Starting in |Private video|Sign in to confirm|Video unavailable|This live event has ended|not currently live|empty media response|No video formats found"),
             QRegularExpression::CaseInsensitiveOption
         );
 

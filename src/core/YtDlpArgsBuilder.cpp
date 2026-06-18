@@ -8,6 +8,8 @@
 #include <QFile>
 #include <QDebug>
 #include <QUrl>
+#include <QUrlQuery>
+#include <array>
 
 namespace {
 QString sanitizeSectionFilenameLabel(QString label)
@@ -76,6 +78,31 @@ bool hasLiveUrlHint(const QString &url)
         }
     }
     return false;
+}
+
+QString getGenericPlaylistIndexHint(const QString &url)
+{
+    const QUrl parsedUrl(url);
+    if (!parsedUrl.isValid()) {
+        return QString();
+    }
+
+    const QUrlQuery query(parsedUrl);
+    static constexpr std::array<QStringView, 5> indexKeys = {
+        u"img_index", u"slide", u"item", u"index", u"playlist_index"
+    };
+
+    for (const QStringView key : indexKeys) {
+        if (query.hasQueryItem(key.toString())) {
+            const QString value = query.queryItemValue(key.toString());
+            bool ok = false;
+            const int val = value.toInt(&ok);
+            if (ok && val > 0) {
+                return QString::number(val);
+            }
+        }
+    }
+    return QString();
 }
 
 QString ffmpegCutEncoderArgs(ConfigManager *configManager)
@@ -347,9 +374,23 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
     }
 
     // --- Playlist Logic ---
-    QString playlistLogic = options.value(QStringLiteral("playlist_logic"), QStringLiteral("Ask")).toString(); // "Ask" is fine, it's a UI string
-    if (playlistLogic == QLatin1String("Download All (no prompt)")) rawArgs << QStringLiteral("--yes-playlist");
-    else if (playlistLogic == QLatin1String("Download Single (ignore playlist)")) rawArgs << QStringLiteral("--no-playlist");
+    bool isPlaylistExpansion = options.value(QStringLiteral("is_playlist_expansion"), false).toBool();
+    int optionPlaylistIndex = options.value(QStringLiteral("playlist_index"), -1).toInt();
+
+    if (!isPlaylistExpansion) {
+        if (optionPlaylistIndex > 0) {
+            rawArgs << QStringLiteral("--playlist-items") << QString::number(optionPlaylistIndex);
+        } else {
+            const QString indexHint = getGenericPlaylistIndexHint(url);
+            if (!indexHint.isEmpty()) {
+                rawArgs << QStringLiteral("--playlist-items") << indexHint;
+            } else {
+                QString playlistLogic = options.value(QStringLiteral("playlist_logic"), QStringLiteral("Ask")).toString(); // "Ask" is fine, it's a UI string
+                if (playlistLogic == QLatin1String("Download All (no prompt)")) rawArgs << QStringLiteral("--yes-playlist");
+                else if (playlistLogic == QLatin1String("Download Single (ignore playlist)")) rawArgs << QStringLiteral("--no-playlist");
+            }
+        }
+    }
 
     // --- Duplicate Check Override ---
     if (options.value(QStringLiteral("override_archive"), false).toBool()) rawArgs << QStringLiteral("--force-download");
@@ -551,6 +592,12 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
     }
 
     if (outputTemplate.isEmpty()) outputTemplate = QStringLiteral("%(title)s [%(uploader)s][%(upload_date>%m-%d-%Y)s][%(id)s].%(ext)s");
+
+    // Dynamically inject playlist metadata fallbacks so carousel slides and playlist items resolve gracefully
+    outputTemplate.replace(QStringLiteral("%(uploader)s"), QStringLiteral("%(uploader,playlist_uploader,playlist_uploader_id,uploader_id,channel,playlist_owner|NA)s"));
+    outputTemplate.replace(QStringLiteral("%(upload_date)s"), QStringLiteral("%(upload_date,playlist_upload_date|NA)s"));
+    static const QRegularExpression dateRe(QStringLiteral(R"(%\(upload_date>([^)]+)\)s)"));
+    outputTemplate.replace(dateRe, QStringLiteral(R"(%(upload_date>\1,playlist_upload_date>\1|NA)s)"));
 
     QString sectionFilenameLabel = options.value(QStringLiteral("download_sections_label")).toString();
     if (sectionFilenameLabel.isEmpty() && !downloadSections.isEmpty()) {

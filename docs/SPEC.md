@@ -82,7 +82,8 @@ This document outlines the specifications for the C++ port of the LzyDownloader 
     - Cookies from browser (`--cookies-from-browser`).
     - Browser-cookie fallback: if yt-dlp fails while using browser cookies because cookie extraction is denied or cookie-backed extractor state incorrectly reports public media as unavailable/ended, the worker may retry once without `--cookies-from-browser` and must surface clear diagnostics if the retry still fails.
     - Download sections (`--download-sections`).
-    - Output template (`-o`), including type-specific templates that inherit the shared default when unset.
+    - Output template (`-o`), including type-specific templates that inherit the shared default when unset. Template generation should provide metadata fallbacks for uploader and upload-date tokens so playlist/carousel entries that only expose playlist-level owner/date fields still produce useful filenames instead of `NA` where yt-dlp supports fallback metadata expressions.
+    - Generic playlist item targeting: when a download URL carries a hostname-independent positive item index hint (`img_index`, `slide`, `item`, `index`, or `playlist_index`) or queue metadata supplies `playlist_index`, the builder should use `--playlist-items` for the requested one-based entry. Metadata-only playlist expansion must not apply this limiter, so the parser can inspect the full result set and select the intended item.
     - Max concurrent downloads (`--concurrent-fragments`).
     - Rate limit (`--limit-rate`).
     - Override archive (`--no-download-archive`).
@@ -151,6 +152,7 @@ This document outlines the specifications for the C++ port of the LzyDownloader 
   - **Single videos**: Status updates from "Checking for playlist..." to "Queued" once expansion completes. `DownloadQueueManager` handles updating the placeholder item.
   - **Playlists**: Placeholder item is removed and replaced with individual items for each track
     - If the user chooses partial playlist queueing, only selected expanded entries are enqueued and the original placeholder is still removed cleanly.
+    - If the original URL includes a generic positive item index hint, playlist expansion should strip that hint from the probe URL, expand the complete playlist/carousel, then select the matching entry by title/index metadata or one-based position before replacing the placeholder.
   - Queue state persistence (handled by `DownloadQueueManager`) MUST be deferred via `Qt::QueuedConnection` to prevent GUI thread blocking
   - Playlist-derived items must preserve enough metadata (`is_playlist`, `playlist_title`, and playlist index/context) for downstream sorting rules and finalization to treat them as playlist downloads instead of single-item fallbacks.
 - **Active item actions**: Active rows must label destructive cancellation separately from livestream finalization. `Cancel` discards partial files, while `Stop & Save` is shown for livestreams and sends a graceful interrupt so the captured media can continue through normal finalization.

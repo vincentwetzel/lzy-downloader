@@ -3,6 +3,9 @@
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QStringList>
+#include <QUrl>
+#include <QUrlQuery>
+#include <array>
 
 namespace {
 QString resolveExpandedItemUrl(const QJsonObject &entry)
@@ -81,11 +84,59 @@ void copyCommonMetadata(const QJsonObject &source, QVariantMap *item)
         item->insert(QStringLiteral("thumbnail_url"), thumbnailUrl);
     }
 }
+
+int getRequestedIndex(const QString &url)
+{
+    const QUrl parsedUrl(url);
+    if (!parsedUrl.isValid()) {
+        return -1;
+    }
+
+    const QUrlQuery query(parsedUrl);
+    static constexpr std::array<QStringView, 5> indexKeys = {
+        u"img_index", u"slide", u"item", u"index", u"playlist_index"
+    };
+
+    for (const QStringView key : indexKeys) {
+        if (query.hasQueryItem(key.toString())) {
+            const QString value = query.queryItemValue(key.toString());
+            bool ok = false;
+            const int val = value.toInt(&ok);
+            if (ok && val > 0) {
+                return val;
+            }
+        }
+    }
+    return -1;
+}
+
+bool matchesTitleIndex(const QString &title, int index)
+{
+    if (title.isEmpty()) return false;
+    const QString lowerTitle = title.toLower();
+    const QString numStr = QString::number(index);
+    if (lowerTitle == numStr) return true;
+
+    static constexpr std::array<QStringView, 5> prefixes = {
+        u"video ", u"slide ", u"image ", u"item ", u"post "
+    };
+    for (QStringView prefix : prefixes) {
+        if (lowerTitle.startsWith(prefix) && lowerTitle.mid(prefix.length()).trimmed().startsWith(numStr)) {
+            return true;
+        }
+        const QString searchPattern = prefix.toString() + numStr;
+        if (lowerTitle.contains(searchPattern)) {
+            return true;
+        }
+    }
+    return false;
+}
 }
 
 PlaylistExpansionParseResult PlaylistExpansionParser::parse(const QJsonObject &root, const QString &originalUrl)
 {
     PlaylistExpansionParseResult result;
+    const int reqIndex = getRequestedIndex(originalUrl);
 
     if (root.contains(QStringLiteral("entries")) && root.value(QStringLiteral("entries")).isArray()) {
         result.isPlaylist = true;
@@ -96,6 +147,7 @@ PlaylistExpansionParseResult PlaylistExpansionParser::parse(const QJsonObject &r
             QStringLiteral("title")
         });
         const QJsonArray entries = root.value(QStringLiteral("entries")).toArray();
+        QList<QVariantMap> parsedItems;
         for (const QJsonValue &value : entries) {
             const QJsonObject entry = value.toObject();
             const QString resolvedUrl = resolveExpandedItemUrl(entry);
@@ -120,8 +172,37 @@ PlaylistExpansionParseResult PlaylistExpansionParser::parse(const QJsonObject &r
             if (!entryPlaylistTitle.isEmpty()) {
                 item.insert(QStringLiteral("playlist_title"), entryPlaylistTitle);
             }
-            result.items.append(item);
+            parsedItems.append(item);
         }
+
+        if (reqIndex > 0) {
+            QVariantMap matchedItem;
+            // 1. Try matching the index against the item's title (essential for Instagram carousel items)
+            for (const QVariantMap &item : parsedItems) {
+                if (matchesTitleIndex(item.value(QStringLiteral("title")).toString(), reqIndex)) {
+                    matchedItem = item;
+                    break;
+                }
+            }
+            // 2. Try matching direct playlist index (standard video playlists)
+            if (matchedItem.isEmpty()) {
+                for (const QVariantMap &item : parsedItems) {
+                    if (item.value(QStringLiteral("playlist_index")).toInt() == reqIndex) {
+                        matchedItem = item;
+                        break;
+                    }
+                }
+            }
+            // 3. Fallback to list-offset mapping
+            if (matchedItem.isEmpty() && reqIndex <= parsedItems.size()) {
+                matchedItem = parsedItems.at(reqIndex - 1);
+            }
+            if (!matchedItem.isEmpty()) {
+                result.items.append(matchedItem);
+                return result;
+            }
+        }
+        result.items = parsedItems;
         return result;
     }
 
