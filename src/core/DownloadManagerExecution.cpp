@@ -185,7 +185,12 @@ void DownloadManager::startSponsorBlockPreflight(const DownloadItem &item) {
     progressData.insert(QStringLiteral("progress"), -1);
     emit downloadProgress(item.id, progressData);
 
-    QNetworkAccessManager *networkManager = new QNetworkAccessManager(this);
+    // Optimization: Reuse QNetworkAccessManager to follow Qt best practices and enable HTTP connection pooling
+    QNetworkAccessManager *networkManager = findChild<QNetworkAccessManager*>(QStringLiteral("PreflightManager"));
+    if (!networkManager) {
+        networkManager = new QNetworkAccessManager(this);
+        networkManager->setObjectName(QStringLiteral("PreflightManager"));
+    }
     QNetworkRequest request(sponsorBlockSegmentsUrl(videoId));
     request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
     request.setHeader(QNetworkRequest::UserAgentHeader, QStringLiteral("LzyDownloader"));
@@ -197,10 +202,9 @@ void DownloadManager::startSponsorBlockPreflight(const DownloadItem &item) {
     });
 
     const QString itemId = item.id;
-    connect(reply, &QNetworkReply::finished, this, [this, reply, networkManager, videoId, itemId]() {
+    connect(reply, &QNetworkReply::finished, this, [this, reply, videoId, itemId]() {
         if (m_isShuttingDown || !m_pendingSponsorBlockPreflights.contains(itemId)) {
             reply->deleteLater();
-            networkManager->deleteLater();
             return;
         }
 
@@ -232,7 +236,6 @@ void DownloadManager::startSponsorBlockPreflight(const DownloadItem &item) {
 
         startDownloadItem(checkedItem, true);
         reply->deleteLater();
-        networkManager->deleteLater();
     });
 }
 

@@ -62,11 +62,16 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
                                      !normalizedLine.contains(QStringLiteral("code 0"));
 
     if (hasErrorPrefix || exitedWithCodeError || cookiePermissionDiagnostic) {
+        // Always capture error lines for diagnostics, even if they don't match a specific known error type.
+        // This guarantees the terminal exit popup has context for unknown yt-dlp failures.
+        m_errorLines.append(normalizedLine);
+        constexpr qsizetype MAX_ERROR_LINES = 150;
+        if (m_errorLines.size() > MAX_ERROR_LINES) {
+            m_errorLines.remove(0, MAX_ERROR_LINES - 100);
+        }
+
         auto emitError = [this, normalizedLine](const QString& type, const QString& msg) {
             if (!m_errorEmitted) {
-                // Append the line to m_errorLines when an error is first detected and emitted.
-                // This ensures m_errorLines contains all lines that triggered an error emission.
-                m_errorLines.append(normalizedLine);
                 m_errorEmitted = true;
                 emit ytDlpErrorDetected(m_id, type, msg, normalizedLine);
             }
@@ -145,7 +150,7 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
                       tr("Your FFmpeg version does not support the '-ignore_editlist' option, which is required for accurate SponsorBlock/section cuts.\n\n"
                          "Please update FFmpeg to a recent version (e.g., 6.0 or newer) from the External Tools settings."));
         } else if (normalizedLine.contains(QStringLiteral("Error opening input files"), Qt::CaseInsensitive) ||
-                   (normalizedLine.contains(QStringLiteral("Option not found"), Qt::CaseInsensitive) && !normalizedLine.contains(QStringLiteral("Option ignore_editlist not found"), Qt::CaseInsensitive))) {
+                   normalizedLine.contains(QStringLiteral("Option not found"), Qt::CaseInsensitive)) {
             // Generic FFmpeg post-processing failure, but not the specific ignore_editlist issue.
             // This is still a failure of a post-processing step, so it should be an error.
             emitError(QStringLiteral("ffmpeg_postprocessor_error"),
@@ -167,6 +172,11 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
         // Add other WARNING lines to m_errorLines for diagnostics, even if not a specific error type.
         else {
             m_errorLines.append(normalizedLine);
+            // Optimization: Prevent unbounded memory growth if yt-dlp spams warning lines
+            constexpr qsizetype MAX_WARNING_LINES = 150;
+            if (m_errorLines.size() > MAX_WARNING_LINES) {
+                m_errorLines.remove(0, MAX_WARNING_LINES - 100);
+            }
         }
 
         // Parse specific WARNING: lines that should be surfaced as errors/guidance to the user
@@ -210,7 +220,7 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
         }
         emit progressUpdated(m_id, initialProgressData);
 
-        if (m_videoTitle.isEmpty() && !property("fetchingPreWaitMetadata").toBool()) {
+        if ((m_videoTitle.isEmpty() || m_thumbnailPath.isEmpty()) && !property("fetchingPreWaitMetadata").toBool()) {
             setProperty("fetchingPreWaitMetadata", true);
 
             auto fetchThumbnail = [this](const QString& thumbUrl) {
@@ -237,14 +247,16 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
                             }
 
                             if (!tempDir.isEmpty()) {
-                                QDir().mkpath(tempDir);
+                                if (!QDir().mkpath(tempDir)) {
+                                    qWarning() << "[YtDlpWorker] Failed to create temp directory for pre-wait thumbnail:" << tempDir;
+                                }
                                 const QString ext = reply->url().path().endsWith(QStringLiteral(".webp"), Qt::CaseInsensitive) ? QStringLiteral(".webp") : QStringLiteral(".jpg");
                                 const QString newThumbPath = QDir(tempDir).filePath(QStringLiteral("%1_wait_thumbnail%2").arg(m_id, ext));
                                 QFile file(newThumbPath);
                                 if (file.open(QIODevice::WriteOnly)) {
                                     const QByteArray data = reply->readAll();
                                     if (!data.isEmpty()) {
-                                        if (file.write(data) != -1) {
+                                        if (file.write(data) == data.size()) {
                                             file.close();
                                             m_thumbnailPath = QDir::toNativeSeparators(newThumbPath);
                                             qDebug() << "[YtDlpWorker] Pre-wait thumbnail downloaded to:" << m_thumbnailPath;
@@ -266,6 +278,8 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
                                             qWarning() << "[YtDlpWorker] Failed to remove empty pre-wait thumbnail file:" << newThumbPath;
                                         }
                                     }
+                                } else {
+                                    qWarning() << "[YtDlpWorker] Failed to open temp file for pre-wait thumbnail:" << file.errorString();
                                 }
                             } else {
                                 qWarning() << "[YtDlpWorker] Failed to resolve temporary directory for pre-wait thumbnail.";
@@ -361,6 +375,7 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
 
             connect(fetchProcess, &QProcess::errorOccurred, this, [safeProcess](QProcess::ProcessError error) {
                 if (error == QProcess::FailedToStart && safeProcess) {
+                    qWarning() << "[YtDlpWorker] Pre-wait metadata fetch process failed to start.";
                     safeProcess->deleteLater();
                 }
             });

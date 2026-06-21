@@ -1,19 +1,22 @@
 #include "AppUpdater.h"
-#include <QNetworkRequest>
-#include <QNetworkReply>
+
+#include "VersionParser.h"
+
+#include <QCoreApplication>
+#include <QDebug>
+#include <QDir>
+#include <QFile>
+#include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
-#include <QJsonArray>
-#include <QDebug>
+#include <QNetworkAccessManager>
+#include <QNetworkReply>
+#include <QNetworkRequest>
 #include <QProcess>
-#include <QStandardPaths>
-#include <QFile>
-#include <QCoreApplication>
-#include <QDir>
 #include <QRegularExpression>
-#include <QVersionNumber>
 #include <QSaveFile>
-#include "VersionParser.h" // Ensure this is included
+#include <QStandardPaths>
+#include <QVersionNumber>
 
 namespace {
 QUrl selectInstallerAsset(const QJsonArray &assets)
@@ -28,11 +31,19 @@ QUrl selectInstallerAsset(const QJsonArray &assets)
         const QString assetName = asset[QStringLiteral("name")].toString();
         const QUrl downloadUrl(asset[QStringLiteral("browser_download_url")].toString());
 
-        if (!assetName.endsWith(QStringLiteral(".exe"), Qt::CaseInsensitive) || !downloadUrl.isValid()) {
+#ifdef Q_OS_WIN
+        const QString expectedExt = QStringLiteral(".exe");
+#elif defined(Q_OS_LINUX)
+        const QString expectedExt = QStringLiteral(".AppImage");
+#else
+        const QString expectedExt = QStringLiteral(".dmg");
+#endif
+
+        if (!assetName.endsWith(expectedExt, Qt::CaseInsensitive) || !downloadUrl.isValid()) {
             continue;
         }
 
-        if (assetName.startsWith(QStringLiteral("LzyDownloader-Setup-"), Qt::CaseInsensitive)) {
+        if (assetName.startsWith(QStringLiteral("LzyDownloader-"), Qt::CaseInsensitive)) {
             return downloadUrl;
         }
 
@@ -78,17 +89,15 @@ void AppUpdater::onCheckFinished(QNetworkReply *reply) {
     if (reply->error() != QNetworkReply::NoError) {
         int statusCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         if (statusCode == 403) {
-            emit updateCheckFailed(tr("Update check rate-limited by GitHub. Please try again later."));
+            qWarning() << "Update check rate-limited for URL:" << reply->request().url();
         } else if (statusCode == 404) {
-            emit updateCheckFailed(tr("GitHub release repository not found."));
+            qWarning() << "Update check repository not found for URL:" << reply->request().url();
         } else {
-        qWarning() << "Update check failed for URL:" << reply->request().url() 
-                   << "Error:" << reply->errorString();
-        emit updateCheckFailed(tr("Update check failed: %1").arg(reply->errorString()));
+            qWarning() << "Update check failed for URL:" << reply->request().url() << "Error:" << reply->errorString();
         }
         reply->deleteLater();
         
-        // Try the next fallback URL
+        // Try the next fallback URL quietly
         m_currentUrlIndex++;
         fetchNextUrl();
         return;
@@ -182,7 +191,13 @@ void AppUpdater::onDownloadFinished(QNetworkReply *reply) {
     }
 
     const QString tempPath = QStandardPaths::writableLocation(QStandardPaths::TempLocation);
+#ifdef Q_OS_WIN
     const QString installerPath = QDir(tempPath).filePath(QStringLiteral("LzyDownloader-Setup.exe"));
+#elif defined(Q_OS_LINUX)
+    const QString installerPath = QDir(tempPath).filePath(QStringLiteral("LzyDownloader-Update.AppImage"));
+#else
+    const QString installerPath = QDir(tempPath).filePath(QStringLiteral("LzyDownloader-Update"));
+#endif
 
     QSaveFile installerFile(installerPath);
     if (!installerFile.open(QIODevice::WriteOnly)) {
@@ -201,11 +216,17 @@ void AppUpdater::onDownloadFinished(QNetworkReply *reply) {
 
     emit downloadFinished();
 
+#ifdef Q_OS_WIN
     // Run the installer silently
     QStringList args;
     args << QStringLiteral("/S"); // Silent install
     args << QStringLiteral("/D=%1").arg(QDir::toNativeSeparators(QCoreApplication::applicationDirPath()));
 
     QProcess::startDetached(installerPath, args);
+#else
+    // Make the downloaded AppImage/binary executable and launch it
+    QFile::setPermissions(installerPath, QFile::permissions(installerPath) | QFileDevice::ExeUser);
+    QProcess::startDetached(installerPath, QStringList());
+#endif
     QCoreApplication::quit();
 }

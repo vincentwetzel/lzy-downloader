@@ -1,11 +1,11 @@
 #pragma once
 
+#include <QDebug>
+#include <QRegularExpression>
 #include <QString>
 #include <QStringList>
 #include <QVector>
 #include <QtAlgorithms>
-#include <QDebug>
-#include <QRegularExpression>
 
 /**
  * @struct Version

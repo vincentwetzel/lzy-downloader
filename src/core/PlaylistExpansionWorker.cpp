@@ -24,13 +24,13 @@ QString cleanUrlForProbe(const QString &urlStr)
         return urlStr;
     }
     QUrlQuery query(url);
-    static constexpr std::array<QStringView, 5> indexKeys = {
-        u"img_index", u"slide", u"item", u"index", u"playlist_index"
+    static const QStringList indexKeys = {
+        QStringLiteral("img_index"), QStringLiteral("slide"), QStringLiteral("item"), QStringLiteral("index"), QStringLiteral("playlist_index")
     };
     bool changed = false;
-    for (const QStringView key : indexKeys) {
-        if (query.hasQueryItem(key.toString())) {
-            query.removeQueryItem(key.toString());
+    for (const QString &key : indexKeys) {
+        if (query.hasQueryItem(key)) {
+            query.removeQueryItem(key);
             changed = true;
         }
     }

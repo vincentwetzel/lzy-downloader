@@ -19,7 +19,7 @@ QString normalizedRuleText(const QString &value) {
     QString normalized = value.trimmed().toLower();
     bool hasSpecial = false;
     for (QChar c : normalized) {
-        if (!((c >= u'a' && c <= u'z') || (c >= u'0' && c <= u'9'))) {
+        if (!((c >= QLatin1Char('a') && c <= QLatin1Char('z')) || (c >= QLatin1Char('0') && c <= QLatin1Char('9')))) {
             hasSpecial = true;
             break;
         }
@@ -28,7 +28,7 @@ QString normalizedRuleText(const QString &value) {
         static const QRegularExpression nonAlphaNumRe(QStringLiteral("[^a-z0-9]+"));
         normalized.replace(nonAlphaNumRe, QStringLiteral("_"));
     }
-    if (normalized.startsWith(u'_') || normalized.endsWith(u'_')) {
+    if (normalized.startsWith(QLatin1Char('_')) || normalized.endsWith(QLatin1Char('_'))) {
         static const QRegularExpression trimRe(QStringLiteral("^_+|_+$"));
         normalized.remove(trimRe);
     }
@@ -42,25 +42,25 @@ bool isDurationField(const QString &field) {
 
 QString canonicalOperator(const QString &op) {
     const QString normalized = normalizedRuleText(op);
-    if (normalized == u"equals") {
+    if (normalized == QStringLiteral("equals")) {
         return QStringLiteral("is");
     }
-    if (normalized == u"is_one_of") {
+    if (normalized == QStringLiteral("is_one_of")) {
         return QStringLiteral("is_one_of");
     }
-    if (normalized == u"starts_with") {
+    if (normalized == QStringLiteral("starts_with")) {
         return QStringLiteral("starts_with");
     }
-    if (normalized == u"ends_with") {
+    if (normalized == QStringLiteral("ends_with")) {
         return QStringLiteral("ends_with");
     }
-    if (normalized == u"greater_than") {
+    if (normalized == QStringLiteral("greater_than")) {
         return QStringLiteral("greater_than");
     }
-    if (normalized == u"less_than") {
+    if (normalized == QStringLiteral("less_than")) {
         return QStringLiteral("less_than");
     }
-    if (normalized == u"contains") {
+    if (normalized == QStringLiteral("contains")) {
         return QStringLiteral("contains");
     }
     return normalized;
@@ -77,9 +77,9 @@ QVariantMap mergedSortingMetadata(const QVariantMap &metadata, const QVariantMap
     }
 
     QString metaPlaylistTitle = combined.value(QStringLiteral("playlist_title")).toString().trimmed();
-    if (metaPlaylistTitle.isEmpty() || metaPlaylistTitle.toLower() == u"null" || metaPlaylistTitle == u"NA") {
+    if (metaPlaylistTitle.isEmpty() || metaPlaylistTitle.toLower() == QStringLiteral("null") || metaPlaylistTitle == QStringLiteral("NA")) {
         const QString optionsPlaylistTitle = downloadOptions.value(QStringLiteral("playlist_title")).toString().trimmed();
-        if (!optionsPlaylistTitle.isEmpty() && optionsPlaylistTitle.toLower() != u"null" && optionsPlaylistTitle != u"NA") {
+        if (!optionsPlaylistTitle.isEmpty() && optionsPlaylistTitle.toLower() != QStringLiteral("null") && optionsPlaylistTitle != QStringLiteral("NA")) {
             combined.insert(QStringLiteral("playlist_title"), optionsPlaylistTitle);
         }
     }
@@ -98,7 +98,7 @@ QVariantMap mergedSortingMetadata(const QVariantMap &metadata, const QVariantMap
 bool isValidMetadataString(const QVariant &val) {
     if (!val.isValid()) return false;
     const QString str = val.toString().trimmed();
-    return !str.isEmpty() && str.compare(u"null", Qt::CaseInsensitive) != 0 && str != u"NA";
+    return !str.isEmpty() && str.compare(QStringLiteral("null"), Qt::CaseInsensitive) != 0 && str != QStringLiteral("NA");
 }
 
 bool hasPlaylistContext(const QVariantMap &metadata, const QVariantMap &downloadOptions) {
@@ -141,11 +141,11 @@ QVariant SortingManager::metadataValueForKey(const QString &key, const QVariantM
 QVariant SortingManager::metadataValueForField(const QString &field, const QVariantMap &metadata) const {
     const QString normalizedField = normalizedMetadataKey(field);
 
-    if (normalizedField == u"duration_seconds") {
+    if (normalizedField == QStringLiteral("duration_seconds")) {
         return metadataValueForKey(QStringLiteral("duration"), metadata);
     }
 
-    if (normalizedField == u"playlist_title" || normalizedField == u"playlist") {
+    if (normalizedField == QStringLiteral("playlist_title") || normalizedField == QStringLiteral("playlist")) {
         const QVariant playlistTitle = metadataValueForKey(QStringLiteral("playlist_title"), metadata);
         if (isValidMetadataString(playlistTitle)) {
             return playlistTitle;
@@ -157,7 +157,7 @@ QVariant SortingManager::metadataValueForField(const QString &field, const QVari
         return QVariant();
     }
 
-    if (normalizedField == u"album") {
+    if (normalizedField == QStringLiteral("album")) {
         const QVariant album = metadataValueForKey(QStringLiteral("album"), metadata);
         if (isValidMetadataString(album)) {
             return album;
@@ -240,17 +240,17 @@ QString SortingManager::getSortedDirectory(const QVariantMap &videoMetadata, con
 
         bool typeMatch = false;
         const QString normalizedAppliesTo = normalizedRuleText(appliesTo);
-        if (normalizedAppliesTo == u"any" || normalizedAppliesTo == u"all" || normalizedAppliesTo == u"all_downloads") {
+        if (normalizedAppliesTo == QStringLiteral("any") || normalizedAppliesTo == QStringLiteral("all") || normalizedAppliesTo == QStringLiteral("all_downloads")) {
             typeMatch = true;
-        } else if ((normalizedAppliesTo == u"video" || normalizedAppliesTo == u"video_downloads") && downloadType == u"video" && !isPlaylist) {
+        } else if ((normalizedAppliesTo == QStringLiteral("video") || normalizedAppliesTo == QStringLiteral("video_downloads")) && downloadType == QStringLiteral("video") && !isPlaylist) {
             typeMatch = true;
-        } else if ((normalizedAppliesTo == u"audio" || normalizedAppliesTo == u"audio_downloads") && downloadType == u"audio" && !isPlaylist) {
+        } else if ((normalizedAppliesTo == QStringLiteral("audio") || normalizedAppliesTo == QStringLiteral("audio_downloads")) && downloadType == QStringLiteral("audio") && !isPlaylist) {
             typeMatch = true;
-        } else if ((normalizedAppliesTo == u"gallery" || normalizedAppliesTo == u"gallery_downloads") && downloadType == u"gallery") {
+        } else if ((normalizedAppliesTo == QStringLiteral("gallery") || normalizedAppliesTo == QStringLiteral("gallery_downloads")) && downloadType == QStringLiteral("gallery")) {
             typeMatch = true;
-        } else if ((normalizedAppliesTo == u"video_playlist" || normalizedAppliesTo == u"video_playlist_downloads") && downloadType == u"video" && isPlaylist) {
+        } else if ((normalizedAppliesTo == QStringLiteral("video_playlist") || normalizedAppliesTo == QStringLiteral("video_playlist_downloads")) && downloadType == QStringLiteral("video") && isPlaylist) {
             typeMatch = true;
-        } else if ((normalizedAppliesTo == u"audio_playlist" || normalizedAppliesTo == u"audio_playlist_downloads") && downloadType == u"audio" && isPlaylist) {
+        } else if ((normalizedAppliesTo == QStringLiteral("audio_playlist") || normalizedAppliesTo == QStringLiteral("audio_playlist_downloads")) && downloadType == QStringLiteral("audio") && isPlaylist) {
             typeMatch = true;
         }
 
@@ -281,25 +281,25 @@ QString SortingManager::getSortedDirectory(const QVariantMap &videoMetadata, con
                 const qlonglong durationValue = static_cast<qlonglong>(std::round(metadataValue.toDouble()));
                 const qlonglong conditionValue = static_cast<qlonglong>(std::round(value.toDouble(&ok)));
                 if (ok) {
-                    if (normalizedOperator == u"is") {
+                    if (normalizedOperator == QStringLiteral("is")) {
                         match = (durationValue == conditionValue);
-                    } else if (normalizedOperator == u"greater_than") {
+                    } else if (normalizedOperator == QStringLiteral("greater_than")) {
                         match = (durationValue > conditionValue);
-                    } else if (normalizedOperator == u"less_than") {
+                    } else if (normalizedOperator == QStringLiteral("less_than")) {
                         match = (durationValue < conditionValue);
                     }
                 }
             } else {
-                if (normalizedOperator == u"contains") {
+                if (normalizedOperator == QStringLiteral("contains")) {
                     match = metadataValue.toString().contains(value, Qt::CaseInsensitive);
-                } else if (normalizedOperator == u"is") {
+                } else if (normalizedOperator == QStringLiteral("is")) {
                     match = metadataValue.toString().compare(value, Qt::CaseInsensitive) == 0;
-                } else if (normalizedOperator == u"starts_with") {
+                } else if (normalizedOperator == QStringLiteral("starts_with")) {
                     match = metadataValue.toString().startsWith(value, Qt::CaseInsensitive);
-                } else if (normalizedOperator == u"ends_with") {
+                } else if (normalizedOperator == QStringLiteral("ends_with")) {
                     match = metadataValue.toString().endsWith(value, Qt::CaseInsensitive);
-                } else if (normalizedOperator == u"is_one_of") {
-                    const QStringList values = value.split(u'\n', Qt::SkipEmptyParts);
+                } else if (normalizedOperator == QStringLiteral("is_one_of")) {
+                    const QStringList values = value.split(QLatin1Char('\n'), Qt::SkipEmptyParts);
                     qDebug() << "      Is One Of has" << values.size() << "values. First 5:" << values.mid(0, 5);
                     for (const QString &v : std::as_const(values)) {
                         if (metadataValue.toString().compare(v.trimmed(), Qt::CaseInsensitive) == 0) {
@@ -348,7 +348,7 @@ QString SortingManager::getSortedDirectory(const QVariantMap &videoMetadata, con
 }
 
 QString SortingManager::parseAndReplaceTokens(const QString &pattern, const QVariantMap &metadata) {
-    if (!pattern.contains(u'{')) {
+    if (!pattern.contains(QLatin1Char('{'))) {
         return pattern;
     }
 
@@ -368,9 +368,9 @@ QString SortingManager::parseAndReplaceTokens(const QString &pattern, const QVar
         
         QString key = match.capturedView(1).toString();   // e.g., "title"
 
-        if (key.compare(u"upload_year", Qt::CaseInsensitive) == 0 ||
-            key.compare(u"upload_month", Qt::CaseInsensitive) == 0 ||
-            key.compare(u"upload_day", Qt::CaseInsensitive) == 0) {
+        if (key.compare(QStringLiteral("upload_year"), Qt::CaseInsensitive) == 0 ||
+            key.compare(QStringLiteral("upload_month"), Qt::CaseInsensitive) == 0 ||
+            key.compare(QStringLiteral("upload_day"), Qt::CaseInsensitive) == 0) {
             
             QString dateStr = metadataValueForKey(QStringLiteral("release_date"), metadata).toString();
             if (dateStr.isEmpty() || dateStr.length() != 8) {
@@ -379,13 +379,13 @@ QString SortingManager::parseAndReplaceTokens(const QString &pattern, const QVar
             
             if (dateStr.length() == 8) {
                 const QStringView dateView(dateStr);
-                if (key.compare(u"upload_year", Qt::CaseInsensitive) == 0) result += dateView.left(4);
-                else if (key.compare(u"upload_month", Qt::CaseInsensitive) == 0) result += dateView.mid(4, 2);
-                else if (key.compare(u"upload_day", Qt::CaseInsensitive) == 0) result += dateView.right(2);
+                if (key.compare(QStringLiteral("upload_year"), Qt::CaseInsensitive) == 0) result += dateView.left(4);
+                else if (key.compare(QStringLiteral("upload_month"), Qt::CaseInsensitive) == 0) result += dateView.mid(4, 2);
+                else if (key.compare(QStringLiteral("upload_day"), Qt::CaseInsensitive) == 0) result += dateView.right(2);
             } else {
-                if (key.compare(u"upload_year", Qt::CaseInsensitive) == 0) result += u"Unknown Year";
-                else if (key.compare(u"upload_month", Qt::CaseInsensitive) == 0) result += u"Unknown Month";
-                else if (key.compare(u"upload_day", Qt::CaseInsensitive) == 0) result += u"Unknown Day";
+                if (key.compare(QStringLiteral("upload_year"), Qt::CaseInsensitive) == 0) result += QStringLiteral("Unknown Year");
+                else if (key.compare(QStringLiteral("upload_month"), Qt::CaseInsensitive) == 0) result += QStringLiteral("Unknown Month");
+                else if (key.compare(QStringLiteral("upload_day"), Qt::CaseInsensitive) == 0) result += QStringLiteral("Unknown Day");
             }
             continue;
         }
@@ -411,7 +411,7 @@ QString SortingManager::parseAndReplaceTokens(const QString &pattern, const QVar
 QString SortingManager::sanitize(const QString &name) {
     QString sanitized = name;
     // Remove illegal characters for Windows/Unix paths
-    static const QStringView illegalChars = u"<>:\"/\\|?*";
+    static const QString illegalChars = QStringLiteral("<>:\"/\\|?*");
     bool hasIllegal = false;
     for (QChar c : sanitized) {
         if (illegalChars.contains(c)) {
@@ -425,7 +425,7 @@ QString SortingManager::sanitize(const QString &name) {
     }
 
     // Collapse multiple spaces into a single space
-    if (sanitized.contains(u"  ")) {
+    if (sanitized.contains(QStringLiteral("  "))) {
         static const QRegularExpression multipleSpacesRe(QStringLiteral(" {2,}"));
         sanitized.replace(multipleSpacesRe, QStringLiteral(" "));
     }

@@ -93,13 +93,13 @@ int getRequestedIndex(const QString &url)
     }
 
     const QUrlQuery query(parsedUrl);
-    static constexpr std::array<QStringView, 5> indexKeys = {
-        u"img_index", u"slide", u"item", u"index", u"playlist_index"
+    static const QStringList indexKeys = {
+        QStringLiteral("img_index"), QStringLiteral("slide"), QStringLiteral("item"), QStringLiteral("index"), QStringLiteral("playlist_index")
     };
 
-    for (const QStringView key : indexKeys) {
-        if (query.hasQueryItem(key.toString())) {
-            const QString value = query.queryItemValue(key.toString());
+    for (const QString &key : indexKeys) {
+        if (query.hasQueryItem(key)) {
+            const QString value = query.queryItemValue(key);
             bool ok = false;
             const int val = value.toInt(&ok);
             if (ok && val > 0) {
@@ -117,14 +117,14 @@ bool matchesTitleIndex(const QString &title, int index)
     const QString numStr = QString::number(index);
     if (lowerTitle == numStr) return true;
 
-    static constexpr std::array<QStringView, 5> prefixes = {
-        u"video ", u"slide ", u"image ", u"item ", u"post "
+    static const QStringList prefixes = {
+        QStringLiteral("video "), QStringLiteral("slide "), QStringLiteral("image "), QStringLiteral("item "), QStringLiteral("post ")
     };
-    for (QStringView prefix : prefixes) {
+    for (const QString &prefix : prefixes) {
         if (lowerTitle.startsWith(prefix) && lowerTitle.mid(prefix.length()).trimmed().startsWith(numStr)) {
             return true;
         }
-        const QString searchPattern = prefix.toString() + numStr;
+        const QString searchPattern = prefix + numStr;
         if (lowerTitle.contains(searchPattern)) {
             return true;
         }

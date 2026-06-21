@@ -1,13 +1,18 @@
 #include "ProcessUtils.h"
+
 #include "core/ConfigManager.h"
-#include <QStandardPaths>
+#include "core/SmartBinaryResolver.h"
+
 #include <QCoreApplication>
 #include <QDir>
 #include <QFileInfo>
+#include <QMutex>
 #include <QProcess>
-#include <QRegularExpression>
 #include <QProcessEnvironment>
+#include <QRegularExpression>
+#include <QStandardPaths>
 #include <QStringList>
+
 #ifdef Q_OS_WIN
 #ifndef NOMINMAX
 #define NOMINMAX
@@ -17,8 +22,6 @@
 #include <signal.h>
 #include <sys/types.h>
 #endif
-#include <QMutex>
-#include "core/SmartBinaryResolver.h"
 #include <vector>
 
 namespace ProcessUtils {

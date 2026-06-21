@@ -34,9 +34,9 @@ namespace {
             return false;
         }
         const QStringView view(thumbnailPath);
-        const qsizetype slashIdx = qMax(view.lastIndexOf(u'/'), view.lastIndexOf(u'\\'));
+        const qsizetype slashIdx = qMax(view.lastIndexOf(QLatin1Char('/')), view.lastIndexOf(QLatin1Char('\\')));
         const QStringView fileName = (slashIdx != -1) ? view.mid(slashIdx + 1) : view;
-        return fileName.startsWith(id) && fileName.mid(id.length()).startsWith(u"_wait_thumbnail");
+        return fileName.startsWith(id) && fileName.mid(id.length()).startsWith(QStringLiteral("_wait_thumbnail"));
     }
 
     void safeRemoveFile(const QString& filePath, const QString& description, int retries = 3) {
@@ -113,7 +113,7 @@ void YtDlpWorker::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatu
         QRegularExpression::CaseInsensitiveOption
     );
     for (const QString& line : std::as_const(m_errorLines)) {
-        if (line.contains(u"video", Qt::CaseInsensitive) || line.contains(u"violating", Qt::CaseInsensitive)) {
+        if (line.contains(QStringLiteral("video"), Qt::CaseInsensitive) || line.contains(QStringLiteral("violating"), Qt::CaseInsensitive)) {
             if (criticalErrorRegex.match(line).hasMatch()) {
                 hasCriticalError = true;
                 qWarning() << "[YtDlpWorker] Detected critical error in output, forcing download failure for" << m_id;
@@ -130,12 +130,12 @@ void YtDlpWorker::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatu
                    << "exitCode:" << exitCode
                    << "exitStatus:" << exitStatus;
         if (!m_errorLines.isEmpty()) {
-            qWarning().noquote() << "[YtDlpWorker] Error output captured:" << m_errorLines.join(u'\n');
+            qWarning().noquote() << "[YtDlpWorker] Error output captured:" << m_errorLines.join(QLatin1Char('\n'));
         }
         if (!m_allOutputLines.isEmpty()) {
             constexpr qsizetype MAX_FALLBACK_LOG_LINES = 50; // Log up to 50 lines of context on any failure
             qWarning().noquote() << "[YtDlpWorker] Last diagnostic output (no specific errors captured):"
-                                 << m_allOutputLines.mid(qMax(qsizetype(0), m_allOutputLines.size() - MAX_FALLBACK_LOG_LINES)).join(u'\n');
+                                 << m_allOutputLines.mid(qMax(qsizetype(0), m_allOutputLines.size() - MAX_FALLBACK_LOG_LINES)).join(QLatin1Char('\n'));
         }
     }
     // Add specific logging for "completed with warnings" scenarios
@@ -143,10 +143,10 @@ void YtDlpWorker::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatu
         qWarning() << "[YtDlpWorker] yt-dlp exited with code" << exitCode << "after producing final media for" << m_id
                    << ". This is treated as a completion with warnings. Full output for diagnostics:";
         if (!m_errorLines.isEmpty()) {
-            qWarning().noquote() << "[YtDlpWorker] Captured error/warning lines:" << m_errorLines.join(u'\n');
+            qWarning().noquote() << "[YtDlpWorker] Captured error/warning lines:" << m_errorLines.join(QLatin1Char('\n'));
         }
         if (!m_allOutputLines.isEmpty()) {
-            qWarning().noquote() << "[YtDlpWorker] Full yt-dlp output (stdout/stderr combined):" << m_allOutputLines.join(u'\n');
+            qWarning().noquote() << "[YtDlpWorker] Full yt-dlp output (stdout/stderr combined):" << m_allOutputLines.join(QLatin1Char('\n'));
         } else {
             qWarning() << "[YtDlpWorker] No output lines captured for this warning.";
         }
@@ -173,7 +173,7 @@ void YtDlpWorker::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatu
 
     auto appendMessage = [&message](const QString& extraText) {
         if (!extraText.isEmpty()) {
-            if (!message.isEmpty()) message += u'\n';
+            if (!message.isEmpty()) message += QLatin1Char('\n');
             message += extraText;
         }
     };
@@ -185,7 +185,7 @@ void YtDlpWorker::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatu
             preview.reserve(MAX_ERROR_PREVIEW_LENGTH + 16); // Reserve with some slack
             for (const QString& line : std::as_const(lines)) {
                 if (!preview.isEmpty()) {
-                    preview.append(u'\n');
+                    preview.append(QLatin1Char('\n'));
                 }
                 preview.append(line);
                 if (preview.length() >= MAX_ERROR_PREVIEW_LENGTH) {
@@ -208,11 +208,11 @@ void YtDlpWorker::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatu
 
         bool matchesPremiere = false;
         for (const QString& line : std::as_const(m_errorLines)) {
-            if (line.contains(u"Premiere", Qt::CaseInsensitive) ||
-                line.contains(u"live", Qt::CaseInsensitive) ||
-                line.contains(u"Offline", Qt::CaseInsensitive) ||
-                line.contains(u"Starting", Qt::CaseInsensitive) ||
-                line.contains(u"upcoming", Qt::CaseInsensitive)) {
+            if (line.contains(QStringLiteral("Premiere"), Qt::CaseInsensitive) ||
+                line.contains(QStringLiteral("live"), Qt::CaseInsensitive) ||
+                line.contains(QStringLiteral("Offline"), Qt::CaseInsensitive) ||
+                line.contains(QStringLiteral("Starting"), Qt::CaseInsensitive) ||
+                line.contains(QStringLiteral("upcoming"), Qt::CaseInsensitive)) {
                 if (premiereRegex.match(line).hasMatch()) {
                     matchesPremiere = true;
                     break;
@@ -402,7 +402,7 @@ bool YtDlpWorker::retryWithoutBrowserCookiesIfCookieExtractionFailed() {
         QStringLiteral("Access is denied|Permission denied|PermissionError|database is locked|locked"),
         QRegularExpression::CaseInsensitiveOption
     );
-    static const QStringList permissionGates = {QStringLiteral("Access"), QStringLiteral("Permission")};
+    static const QStringList permissionGates = {QStringLiteral("Access"), QStringLiteral("Permission"), QStringLiteral("locked")};
     const bool permissionFailure = containsAny(m_errorLines, permissionRegex, permissionGates) || containsAny(m_allOutputLines, permissionRegex, permissionGates);
 
     static const QRegularExpression cookieRegex(
@@ -602,8 +602,8 @@ void YtDlpWorker::readInfoJsonWithRetry() {
         const QString acodec = requestMap.value(QStringLiteral("acodec")).toString();
         const QString formatId = requestMap.value(QStringLiteral("format_id")).toString().trimmed();
 
-        const bool hasVideo = !vcodec.isEmpty() && vcodec != u"none";
-        const bool hasAudio = !acodec.isEmpty() && acodec != u"none";
+        const bool hasVideo = !vcodec.isEmpty() && vcodec != QStringLiteral("none");
+        const bool hasAudio = !acodec.isEmpty() && acodec != QStringLiteral("none");
 
         if (hasVideo || hasAudio) {
             QString status = tr("Downloading media stream...");
@@ -641,9 +641,9 @@ void YtDlpWorker::readInfoJsonWithRetry() {
 
     if (obj.contains(QStringLiteral("live_status"))) {
         const QString liveStatus = obj.value(QStringLiteral("live_status")).toString();
-        if (liveStatus == u"was_live" || liveStatus == u"not_live" || liveStatus == u"post_live") {
+        if (liveStatus == QStringLiteral("was_live") || liveStatus == QStringLiteral("not_live") || liveStatus == QStringLiteral("post_live")) {
             updateData.insert(QStringLiteral("is_live"), false);
-        } else if (liveStatus == u"is_live" || liveStatus == u"is_upcoming") {
+        } else if (liveStatus == QStringLiteral("is_live") || liveStatus == QStringLiteral("is_upcoming")) {
             updateData.insert(QStringLiteral("is_live"), true);
         }
     } else if (const QJsonValue isLiveVal = obj.value(QStringLiteral("is_live")); isLiveVal.isBool()) {

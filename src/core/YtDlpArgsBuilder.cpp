@@ -1,15 +1,17 @@
 #include "YtDlpArgsBuilder.h"
-#include <QDir>
+
+#include "core/ConfigManager.h"
 #include "core/ProcessUtils.h"
+
+#include <QCoreApplication>
+#include <QDebug>
+#include <QDir>
+#include <QFile>
+#include <QFileInfo>
 #include <QRegularExpression>
 #include <QStandardPaths>
-#include <QCoreApplication>
-#include <QFileInfo>
-#include <QFile>
-#include <QDebug>
 #include <QUrl>
 #include <QUrlQuery>
-#include <array>
 
 namespace {
 QString sanitizeSectionFilenameLabel(QString label)
@@ -73,7 +75,7 @@ bool hasLiveUrlHint(const QString &url)
 
     const QString path = parsedUrl.path();
     for (const auto segment : QStringView(path).split(QLatin1Char('/'), Qt::SkipEmptyParts)) {
-        if (segment.compare(u"live", Qt::CaseInsensitive) == 0) {
+        if (segment.compare(QStringLiteral("live"), Qt::CaseInsensitive) == 0) {
             return true;
         }
     }
@@ -88,13 +90,13 @@ QString getGenericPlaylistIndexHint(const QString &url)
     }
 
     const QUrlQuery query(parsedUrl);
-    static constexpr std::array<QStringView, 5> indexKeys = {
-        u"img_index", u"slide", u"item", u"index", u"playlist_index"
+    static const QStringList indexKeys = {
+        QStringLiteral("img_index"), QStringLiteral("slide"), QStringLiteral("item"), QStringLiteral("index"), QStringLiteral("playlist_index")
     };
 
-    for (const QStringView key : indexKeys) {
-        if (query.hasQueryItem(key.toString())) {
-            const QString value = query.queryItemValue(key.toString());
+    for (const QString &key : indexKeys) {
+        if (query.hasQueryItem(key)) {
+            const QString value = query.queryItemValue(key);
             bool ok = false;
             const int val = value.toInt(&ok);
             if (ok && val > 0) {

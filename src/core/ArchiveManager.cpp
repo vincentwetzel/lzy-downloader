@@ -238,7 +238,7 @@ QString ArchiveManager::extractVideoId(const QString &urlStr) const {
 
     static const QRegularExpression idRe(QStringLiteral("^[0-9A-Za-z_-]{11}$"));
 
-    if (host.contains(u"youtube.com")) {
+    if (host.contains(QStringLiteral("youtube.com"))) {
         QUrlQuery query(url);
         QString v = query.queryItemValue(QStringLiteral("v"));
         if (!v.isEmpty()) {
@@ -253,13 +253,14 @@ QString ArchiveManager::extractVideoId(const QString &urlStr) const {
         static const QRegularExpression p1(QStringLiteral(R"((?:v=|/)([0-9A-Za-z_-]{11})(?:[/?#]|$))"));
         const QRegularExpressionMatch m1 = p1.match(urlStr);
         if (m1.hasMatch()) return m1.captured(1);
-    } else if (host.contains(u"youtu.be")) {
+    } else if (host.contains(QStringLiteral("youtu.be"))) {
         const QStringView pathView(url.path());
-        const QStringView normalizedPath = pathView.startsWith(u'/') ? pathView.mid(1) : pathView;
-        const auto parts = normalizedPath.split(u'/', Qt::SkipEmptyParts);
+        const QStringView normalizedPath = pathView.startsWith(QLatin1Char('/')) ? pathView.mid(1) : pathView;
+        const auto parts = normalizedPath.split(QLatin1Char('/'), Qt::SkipEmptyParts);
         if (!parts.isEmpty()) {
-            const QStringView seg = parts.first();
-            if (idRe.match(seg).hasMatch()) return seg.toString();
+            const QString segStr = parts.first().toString();
+            // Ensure backwards compatibility with Qt 6.2 by passing a QString to match()
+            if (idRe.match(segStr).hasMatch()) return segStr;
         }
     }
 
@@ -275,11 +276,11 @@ QString ArchiveManager::normalizeUrl(const QString &urlStr) const {
 
     QString path = url.path();
     // Remove duplicate slashes and trailing slash
-    if (path.contains(u"//")) {
+    if (path.contains(QStringLiteral("//"))) {
         static const QRegularExpression duplicateSlashes(QStringLiteral(R"(/{2,})"));
         path.replace(duplicateSlashes, QStringLiteral("/"));
     }
-    if (path.endsWith(u'/') && path.length() > 1) path.chop(1);
+    if (path.endsWith(QLatin1Char('/')) && path.length() > 1) path.chop(1);
 
     QUrlQuery query(url);
     QList<QPair<QString, QString>> queryItems = query.queryItems(QUrl::FullyDecoded);
@@ -290,17 +291,21 @@ QString ArchiveManager::normalizeUrl(const QString &urlStr) const {
     });
 
     QStringList keptParams;
-    if (host.contains(u"youtube") || host.contains(u"youtu.be")) {
-        static constexpr std::array<QStringView, 8> dropParams = {
-            u"utm_source", u"utm_medium", u"utm_campaign", u"utm_term", u"utm_content",
-            u"si", u"feature", u"pp"
+    if (host.contains(QStringLiteral("youtube")) || host.contains(QStringLiteral("youtu.be"))) {
+        static const QStringList dropParams = {
+            QStringLiteral("utm_source"), QStringLiteral("utm_medium"), QStringLiteral("utm_campaign"), QStringLiteral("utm_term"), QStringLiteral("utm_content"),
+            QStringLiteral("si"), QStringLiteral("feature"), QStringLiteral("pp")
         };
         for (const auto &item : std::as_const(queryItems)) {
-            auto it = std::ranges::find_if(dropParams, [&](QStringView p) {
-                return item.first.compare(p, Qt::CaseInsensitive) == 0;
-            });
-            if (it != dropParams.end()) continue;
-            keptParams.append(item.first + u'=' + item.second);
+            bool drop = false;
+            for (const QString &p : dropParams) {
+                if (item.first.compare(p, Qt::CaseInsensitive) == 0) {
+                    drop = true;
+                    break;
+                }
+            }
+            if (drop) continue;
+            keptParams.append(item.first + QLatin1Char('=') + item.second);
         }
     } else {
         // For non-YouTube/generic URLs, aggressively strip all query parameters to ensure robust duplicate detection

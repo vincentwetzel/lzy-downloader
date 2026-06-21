@@ -1,10 +1,13 @@
 #pragma once
 
-#include <QObject>
-#include <QNetworkAccessManager>
-#include <QUrl>
-#include <QStringList>
 #include "VersionParser.h" // Include the new Version Parser struct
+
+#include <QObject>
+#include <QStringList>
+#include <QUrl>
+
+class QNetworkAccessManager;
+class QNetworkReply;
 
 /**
  * @class AppUpdater

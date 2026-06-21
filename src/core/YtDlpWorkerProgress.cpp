@@ -97,7 +97,7 @@ QString YtDlpWorker::formatBytes(double bytes) {
         i++;
     }
 
-    return QString::number(d_bytes, 'f', (d_bytes < 10 && i > 0) ? 2 : 1) + QLatin1Char(' ') + QString::fromLatin1(units[i]);
+    return tr("%1 %2").arg(QString::number(d_bytes, 'f', (d_bytes < 10 && i > 0) ? 2 : 1), QString::fromLatin1(units[i]));
 }
 
 bool YtDlpWorker::parseYtDlpProgressLine(const QString &line) {
@@ -220,7 +220,7 @@ bool YtDlpWorker::parseYtDlpProgressLine(const QString &line) {
     progressData.insert(QStringLiteral("downloaded_size"), !customDownloadedSize.isEmpty() ? customDownloadedSize : (downloadedBytes > 0.0 ? formatBytes(downloadedBytes) : tr("N/A")));
     progressData.insert(QStringLiteral("total_size"), !customTotalSize.isEmpty() ? customTotalSize : (totalBytes > 0.0 ? formatBytes(totalBytes) : totalString));
     applyOverallPrimaryProgress(progressData, percentage, downloadedBytes, totalBytes);
-    progressData.insert(QStringLiteral("speed"), speedBytes > 0.0 ? (formatBytes(speedBytes) + tr("/s")) : (speedString.isEmpty() ? tr("Unknown") : speedString));
+    progressData.insert(QStringLiteral("speed"), speedBytes > 0.0 ? tr("%1/s").arg(formatBytes(speedBytes)) : (speedString.isEmpty() ? tr("Unknown") : speedString));
     progressData.insert(QStringLiteral("speed_bytes"), speedBytes);
     progressData.insert(QStringLiteral("eta"), etaString.isEmpty() ? tr("Unknown") : etaString);
     
@@ -259,7 +259,7 @@ bool YtDlpWorker::parseAria2ProgressLine(const QString &line) {
     progressData.insert(QStringLiteral("downloaded_size"), formatBytes(downloadedBytes));
     progressData.insert(QStringLiteral("total_size"), formatBytes(totalBytes));
     applyOverallPrimaryProgress(progressData, percentage, downloadedBytes, totalBytes);
-    progressData.insert(QStringLiteral("speed"), speedBytes > 0.0 ? (formatBytes(speedBytes) + tr("/s")) : tr("0 B/s"));
+    progressData.insert(QStringLiteral("speed"), speedBytes > 0.0 ? tr("%1/s").arg(formatBytes(speedBytes)) : tr("0 B/s"));
     progressData.insert(QStringLiteral("speed_bytes"), speedBytes);
     progressData.insert(QStringLiteral("eta"), etaStr.isEmpty() ? tr("N/A") : etaStr);
     

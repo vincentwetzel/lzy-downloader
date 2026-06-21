@@ -2,7 +2,8 @@
 
 #include <QStringList>
 #include <QVariantMap>
-#include "ConfigManager.h"
+
+class ConfigManager;
 
 class YtDlpArgsBuilder {
 public:
@@ -16,4 +17,3 @@ private:
     QString getCodecMapping(const QString& codecName) const;
 
 };
-

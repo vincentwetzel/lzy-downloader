@@ -248,7 +248,8 @@ void DownloadFinalizer::finalize(const QString &id, DownloadItem item) {
         if (downloadType != QStringLiteral("gallery") && !item.metadata.contains(QStringLiteral("id"))) {
             qWarning() << "Metadata is missing core fields in finalize for id:" << id << ", attempting to read from disk.";
             const QFileInfo fi(item.tempFilePath);
-            const QString jsonPath = fi.absoluteDir().filePath(QStringLiteral("%1.info.json").arg(fi.completeBaseName()));
+            const QString baseName = cleanupStem(fi.fileName());
+            const QString jsonPath = fi.absoluteDir().filePath(QStringLiteral("%1.info.json").arg(baseName));
 
             QFile jsonFile(jsonPath);
             if (jsonFile.open(QIODevice::ReadOnly)) {
@@ -341,7 +342,8 @@ void DownloadFinalizer::finalize(const QString &id, DownloadItem item) {
         // Capture temp file info BEFORE it's moved/renamed.
         const QFileInfo tempFileInfo(item.tempFilePath);
         const QDir tempDir = tempFileInfo.absoluteDir();
-        const QString mediaInfoJsonPath = tempDir.filePath(QStringLiteral("%1.info.json").arg(tempFileInfo.completeBaseName()));
+        const QString cleanBase = cleanupStem(tempFileInfo.fileName());
+        const QString mediaInfoJsonPath = tempDir.filePath(QStringLiteral("%1.info.json").arg(cleanBase));
 
         QDir().mkpath(finalDir); // Ensure destination directory exists without blocking main thread
 

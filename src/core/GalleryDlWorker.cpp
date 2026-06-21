@@ -45,7 +45,7 @@ void GalleryDlWorker::start()
 
 void GalleryDlWorker::killProcess()
 {
-    if (m_process->state() != QProcess::NotRunning) {
+    if (m_process && m_process->state() != QProcess::NotRunning) {
         disconnect(m_process, &QProcess::readyReadStandardOutput, this, &GalleryDlWorker::onReadyReadStandardOutput);
         disconnect(m_process, &QProcess::readyReadStandardError, this, &GalleryDlWorker::onReadyReadStandardError);
         ProcessUtils::terminateProcessTree(m_process);
@@ -55,6 +55,10 @@ void GalleryDlWorker::killProcess()
 
 void GalleryDlWorker::onReadyReadStandardOutput()
 {
+    if (!m_process) {
+        return;
+    }
+
     m_outputBuffer.append(m_process->readAllStandardOutput());
 
     // Find the last complete line ending
@@ -120,6 +124,10 @@ void GalleryDlWorker::onReadyReadStandardOutput()
 
 void GalleryDlWorker::onReadyReadStandardError()
 {
+    if (!m_process) {
+        return;
+    }
+
     m_errorBuffer.append(m_process->readAllStandardError());
 
     qsizetype lastNewline = m_errorBuffer.lastIndexOf('\n');
@@ -143,9 +151,6 @@ void GalleryDlWorker::onReadyReadStandardError()
         QString trimmedLine = QString::fromUtf8(trimmed);
 
         stderrLines.append(trimmedLine);
-        if (stderrLines.size() > 500) {
-            stderrLines.removeFirst(); // Prevent O(N^2) memory bloat on large galleries
-        }
 
         emit outputReceived(m_id, trimmedLine);
 
@@ -175,6 +180,12 @@ void GalleryDlWorker::onReadyReadStandardError()
                 }
             }
         }
+    }
+
+    // Optimization: Batch-remove to prevent unbounded memory growth while avoiding O(N) array shifts on every single line
+    constexpr qsizetype MAX_LINES = 500;
+    if (stderrLines.size() > MAX_LINES) {
+        stderrLines.remove(0, stderrLines.size() - 400); // Keep the last 400 lines
     }
     m_process->setProperty("fullStderr", stderrLines);
 }

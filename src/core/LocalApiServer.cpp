@@ -193,13 +193,13 @@ void LocalApiServer::handleRequest(QTcpSocket *socket, const QByteArray &request
     const QByteArray bodyData = (bodyIndex != -1) ? requestData.mid(bodyIndex + 4) : QByteArray();
 
     const QString requestStr = QString::fromUtf8(headersView);
-    const auto lines = QStringView(requestStr).split(u"\r\n", Qt::SkipEmptyParts);
+    const auto lines = QStringView(requestStr).split(QStringLiteral("\r\n"), Qt::SkipEmptyParts);
     if (lines.isEmpty() || lines.first().trimmed().isEmpty()) {
         sendHttpResponse(socket, 400, QStringLiteral("Bad Request"), QByteArrayLiteral("{\"error\": \"Empty request.\"}"));
         return;
     }
 
-    const auto requestParts = lines.first().split(u' ', Qt::SkipEmptyParts);
+    const auto requestParts = lines.first().split(QLatin1Char(' '), Qt::SkipEmptyParts);
     if (requestParts.size() < 2) {
         sendHttpResponse(socket, 400, QStringLiteral("Bad Request"), QByteArrayLiteral("{\"error\": \"Malformed request line.\"}"));
         return;
@@ -207,7 +207,7 @@ void LocalApiServer::handleRequest(QTcpSocket *socket, const QByteArray &request
 
     const QStringView method = requestParts[0];
     const QStringView pathQuery = requestParts[1];
-    const qsizetype queryIndex = pathQuery.indexOf(u'?');
+    const qsizetype queryIndex = pathQuery.indexOf(QLatin1Char('?'));
     const QStringView path = (queryIndex != -1) ? pathQuery.first(queryIndex) : pathQuery;
 
     // Enforce API Key, Host, and Origin
@@ -216,19 +216,19 @@ void LocalApiServer::handleRequest(QTcpSocket *socket, const QByteArray &request
     QString originHeader;
 
     for (const QStringView &line : lines) {
-        if (line.startsWith(u"Authorization:", Qt::CaseInsensitive)) {
+        if (line.startsWith(QStringLiteral("Authorization:"), Qt::CaseInsensitive)) {
             QStringView token = line.mid(14).trimmed();
-            if (token.startsWith(u"Bearer ", Qt::CaseInsensitive)) token = token.mid(7).trimmed();
+            if (token.startsWith(QStringLiteral("Bearer "), Qt::CaseInsensitive)) token = token.mid(7).trimmed();
             if (token == m_apiKey) {
                 authorized = true;
             }
-        } else if (line.startsWith(u"Host:", Qt::CaseInsensitive)) {
+        } else if (line.startsWith(QStringLiteral("Host:"), Qt::CaseInsensitive)) {
             const QStringView host = line.mid(5).trimmed();
             static const QRegularExpression hostRe(QStringLiteral("^(?:127\\.0\\.0\\.1|localhost)(?::\\d+)?$"), QRegularExpression::CaseInsensitiveOption);
             if (hostRe.match(host.toString()).hasMatch()) {
                 validHost = true;
             }
-        } else if (line.startsWith(u"Origin:", Qt::CaseInsensitive)) {
+        } else if (line.startsWith(QStringLiteral("Origin:"), Qt::CaseInsensitive)) {
             originHeader = line.mid(7).trimmed().toString();
         }
     }
@@ -241,16 +241,16 @@ void LocalApiServer::handleRequest(QTcpSocket *socket, const QByteArray &request
     if (!originHeader.isEmpty()) {
         QUrl originUrl(originHeader);
         QString originHost = originUrl.host();
-        if (originHost != u"127.0.0.1" && originHost != u"localhost" &&
-            originUrl.scheme() != u"chrome-extension" &&
-            originUrl.scheme() != u"moz-extension") {
+        if (originHost != QStringLiteral("127.0.0.1") && originHost != QStringLiteral("localhost") &&
+            originUrl.scheme() != QStringLiteral("chrome-extension") &&
+            originUrl.scheme() != QStringLiteral("moz-extension")) {
             sendHttpResponse(socket, 403, QStringLiteral("Forbidden"), QByteArrayLiteral("{\"error\": \"Unauthorized cross-origin request.\"}"));
             return;
         }
         socket->setProperty("RequestOrigin", originHeader);
     }
 
-    if (method == u"OPTIONS") {
+    if (method == QStringLiteral("OPTIONS")) {
         // Accept CORS preflight for permitted origins
         sendHttpResponse(socket, 204, QStringLiteral("No Content"), QByteArray());
         return;
@@ -262,7 +262,7 @@ void LocalApiServer::handleRequest(QTcpSocket *socket, const QByteArray &request
     }
 
     // Route Endpoints
-    if (method == u"POST" && path == u"/enqueue") {
+    if (method == QStringLiteral("POST") && path == QStringLiteral("/enqueue")) {
         QJsonParseError parseError;
         const QJsonDocument doc = QJsonDocument::fromJson(bodyData, &parseError);
 
@@ -298,7 +298,7 @@ void LocalApiServer::handleRequest(QTcpSocket *socket, const QByteArray &request
         }
         QByteArray errBytes = QJsonDocument(errObj).toJson(QJsonDocument::Compact);
         sendHttpResponse(socket, 400, QStringLiteral("Bad Request"), errBytes);
-    } else if (method == u"GET" && path == u"/status") {
+    } else if (method == QStringLiteral("GET") && path == QStringLiteral("/status")) {
         QJsonArray jobsArray;
         for (auto it = m_activeJobs.cbegin(); it != m_activeJobs.cend(); ++it) {
             jobsArray.append(QJsonObject::fromVariantMap(it.value()));

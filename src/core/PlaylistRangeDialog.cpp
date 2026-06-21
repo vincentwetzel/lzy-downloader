@@ -1,12 +1,12 @@
 #include "PlaylistRangeDialog.h"
 
-#include <QVBoxLayout>
+#include <QDialogButtonBox>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
 #include <QListWidget>
 #include <QPushButton>
-#include <QDialogButtonBox>
+#include <QVBoxLayout>
 
 PlaylistRangeDialog::PlaylistRangeDialog(const QList<QVariantMap> &playlistItems, QWidget *parent)
     : QDialog(parent), m_playlistItems(playlistItems) {

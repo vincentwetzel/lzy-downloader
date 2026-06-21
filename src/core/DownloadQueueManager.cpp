@@ -1,19 +1,21 @@
 #include "DownloadQueueManager.h"
+
 #include <QDebug>
+#include <QDir>
 #include <QFile>
 #include <QFileInfo>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QMetaObject>
-#include <QTimer>
-#include <QDir>
-#include <QStandardPaths>
-#include <QSet>
 #include <QRegularExpression>
+#include <QSet>
+#include <QStandardPaths>
 #include <QThread>
-#include <array>
+#include <QTimer>
+
 #include <algorithm>
+#include <array>
 
 namespace {
 QString normalizeCleanupStem(QString fileName)
@@ -35,19 +37,19 @@ QString normalizeCleanupStem(QString fileName)
     if (fileName.endsWith(QStringLiteral(".info.json"), Qt::CaseInsensitive)) {
         fileName.chop(10);
     } else {
-        static constexpr std::array<QStringView, 20> knownExts = {
-                u"mp4", u"mkv", u"webm", u"m4a",
-                u"mp3", u"opus", u"ogg", u"ts",
-                u"mov", u"avi", u"flac", u"wav",
-                u"jpg", u"jpeg", u"png", u"webp",
-                u"srt", u"vtt", u"ass", u"lrc"
+        static const QStringList knownExts = {
+                QStringLiteral("mp4"), QStringLiteral("mkv"), QStringLiteral("webm"), QStringLiteral("m4a"),
+                QStringLiteral("mp3"), QStringLiteral("opus"), QStringLiteral("ogg"), QStringLiteral("ts"),
+                QStringLiteral("mov"), QStringLiteral("avi"), QStringLiteral("flac"), QStringLiteral("wav"),
+                QStringLiteral("jpg"), QStringLiteral("jpeg"), QStringLiteral("png"), QStringLiteral("webp"),
+                QStringLiteral("srt"), QStringLiteral("vtt"), QStringLiteral("ass"), QStringLiteral("lrc")
         };
         const QString ext = QFileInfo(fileName).suffix();
-        auto it = std::ranges::find_if(knownExts, [&](QStringView knownExt) {
-            return ext.compare(knownExt, Qt::CaseInsensitive) == 0;
-        });
-        if (it != knownExts.end()) {
-            fileName.chop(ext.length() + 1);
+        for (const QString &knownExt : knownExts) {
+            if (ext.compare(knownExt, Qt::CaseInsensitive) == 0) {
+                fileName.chop(ext.length() + 1);
+                break;
+            }
         }
     }
 
@@ -95,18 +97,22 @@ bool shouldDeleteCleanupCandidate(const QFileInfo &entry, const QFileInfo &ancho
         }
     }
 
-    static constexpr std::array<QStringView, 20> knownExts = {
-        u"mp4", u"mkv", u"webm", u"m4a",
-        u"mp3", u"opus", u"ogg", u"ts",
-        u"mov", u"avi", u"flac", u"wav",
-        u"jpg", u"jpeg", u"png", u"webp",
-        u"srt", u"vtt", u"ass", u"lrc"
+    static const QStringList knownExts = {
+        QStringLiteral("mp4"), QStringLiteral("mkv"), QStringLiteral("webm"), QStringLiteral("m4a"),
+        QStringLiteral("mp3"), QStringLiteral("opus"), QStringLiteral("ogg"), QStringLiteral("ts"),
+        QStringLiteral("mov"), QStringLiteral("avi"), QStringLiteral("flac"), QStringLiteral("wav"),
+        QStringLiteral("jpg"), QStringLiteral("jpeg"), QStringLiteral("png"), QStringLiteral("webp"),
+        QStringLiteral("srt"), QStringLiteral("vtt"), QStringLiteral("ass"), QStringLiteral("lrc")
     };
     const QString ext = entry.suffix();
-    auto it = std::ranges::find_if(knownExts, [&](QStringView knownExt) {
-        return ext.compare(knownExt, Qt::CaseInsensitive) == 0;
-    });
-    if (it != knownExts.end()) {
+    bool isKnownExt = false;
+    for (const QString &knownExt : knownExts) {
+        if (ext.compare(knownExt, Qt::CaseInsensitive) == 0) {
+            isKnownExt = true;
+            break;
+        }
+    }
+    if (isKnownExt) {
         for (const QString &stem : std::as_const(stems)) {
             if (hasCleanupStemBoundary(fileName, stem)) {
                 return true;

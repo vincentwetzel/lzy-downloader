@@ -14,6 +14,10 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 - **Playlist entry filenames**: Output templates now add uploader and upload-date metadata fallbacks so playlist or carousel entries with only playlist-level owner/date fields still produce useful names.
 - **Cookie fallback coverage**: Browser-cookie retries also cover cookie/API-access failures that surface as empty media responses or permission/decryption errors, retrying once without cookie arguments before reporting terminal diagnostics.
 - **Linux AppImage packaging**: `build_release.py` now stages AppDir under `build-release`, cleans stale Linux packaging state, and generates a desktop file whose icon entry matches the resized release PNG so linuxdeploy can resolve the AppImage icon during WSL builds.
+- **App updater portability**: Release asset selection now matches the current platform (`.exe`, `.AppImage`, or `.dmg`) and the downloaded updater is launched accordingly, so non-Windows update flows can proceed without assuming an installer EXE.
+- **Worker diagnostics and bounds**: yt-dlp workers now retain a bounded tail of warnings/errors for terminal diagnostics, treat generic FFmpeg "Option not found" failures as post-processing errors, and tighten pre-wait thumbnail file handling and logging when metadata fetches fail.
+- **Gallery-dl buffering**: Gallery workers now guard against deleted processes before reading buffers and trim retained stderr in batches to keep long gallery runs from growing memory linearly.
+- **Sorting and archive cleanup**: Sorting and archive helpers now use simpler Qt-native comparisons for Qt 6.2 compatibility while preserving the existing metadata fallback and URL normalization rules.
 
 
 ## [1.1.90] - 2026-06-16
