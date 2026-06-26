@@ -22,10 +22,10 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 - **Sorting and archive cleanup**: Sorting and archive helpers now use simpler Qt-native comparisons for Qt 6.2 compatibility while preserving the existing metadata fallback and URL normalization rules.
 
 
-## [1.1.90] - 2026-06-16
+## [1.1.95] - 2026-06-25
 
 ### Changed
-- **Version bump**: Updated project version to 1.1.90.
+- **Version bump**: Updated project version to 1.1.95.
 
 
 ## [1.1.88] - 2026-06-16

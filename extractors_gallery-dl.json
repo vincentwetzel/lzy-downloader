@@ -159,11 +159,6 @@
             "files.catbox.moe"
         ]
     },
-    "cfake": {
-        "domains": [
-            "cfake.com"
-        ]
-    },
     "cien": {
         "domains": [
             "ci-en.net"
@@ -707,7 +702,7 @@
     },
     "motherless": {
         "domains": [
-            "motherless.com"
+            "motherless.xxx"
         ]
     },
     "myhentaigallery": {
@@ -784,6 +779,11 @@
     "patreon": {
         "domains": [
             "patreon.com"
+        ]
+    },
+    "pawchive": {
+        "domains": [
+            "pawchive.st"
         ]
     },
     "pexels": {
