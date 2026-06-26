@@ -417,6 +417,13 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
         QStringList aria2Args;
         aria2Args << QStringLiteral("--summary-interval=1");
         rawArgs << QStringLiteral("--external-downloader") << aria2cPath;
+
+    // Add referer header for aria2c to prevent 403 errors on some sites
+    QUrl parsedUrl(url);
+    if (parsedUrl.isValid()) {
+        QString origin = parsedUrl.scheme() + QLatin1String("://") + parsedUrl.host();
+        if (!origin.isEmpty()) aria2Args << QStringLiteral("--referer=%1").arg(origin);
+    }
         rawArgs << QStringLiteral("--external-downloader-args") << QStringLiteral("aria2c:%1").arg(aria2Args.join(QLatin1Char(' ')));
         qInfo() << "YtDlpArgsBuilder: Using aria2c as external downloader (" << aria2cPath << ")";
     } else {
