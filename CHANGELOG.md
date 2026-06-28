@@ -10,6 +10,8 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 ## [Unreleased]
 
 ### Fixed
+- **Proactive browser-cookie retry**: yt-dlp workers now watch stderr for cookie-backed HTTP 400/Bad Request, JSON metadata, and live-status failures, proactively retry once without browser-cookie options, and add a clearer authentication tip when cookies were involved.
+- **Windows FFmpeg discovery**: `ProcessUtils` now searches a few common manual Windows FFmpeg install folders before broader resolution so locally installed copies are easier to pick up.
 - **aria2c referer propagation**: `YtDlpArgsBuilder` now passes the request origin as an aria2c referer header when an external downloader is used, which improves compatibility with hosts that require a referer for segmented transfers.
 - **FFmpeg mux cleanup resilience**: `FfmpegMuxer` now retries transient output/source cleanup and falls back from rename to copy/remove when moving a single input file to the final destination.
 - **Generic playlist/carousel item targeting**: URLs with hostname-independent item index hints such as `img_index`, `slide`, `item`, `index`, or `playlist_index` now probe the full expanded result set and select the intended entry, while real downloads pass the chosen one-based item to yt-dlp with `--playlist-items`.

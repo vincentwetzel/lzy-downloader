@@ -81,6 +81,9 @@ namespace {
 }
 
 void YtDlpWorker::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatus) {
+    if (this->property("proactiveCookieRetryActive").toBool()) {
+        return;
+    }
     if (m_finishEmitted) {
         return;
     }
@@ -332,6 +335,19 @@ void YtDlpWorker::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatu
             appendMessage(tr("Process crashed: %1").arg(m_process ? m_process->errorString() : tr("Unknown error")));
         }
 
+        // Add a clear hint about cookie authentication if cookies were utilized or attempted
+        const bool hadCookies = m_retriedWithoutBrowserCookies || m_args.contains(QStringLiteral("--cookies-from-browser")) || m_args.contains(QStringLiteral("--cookies"));
+        if (hadCookies) {
+            QString browserName = m_configManager ? m_configManager->get(QStringLiteral("General"), QStringLiteral("cookies_from_browser"), tr("None")).toString() : QString();
+            if (browserName.isEmpty() || browserName.compare(QStringLiteral("None"), Qt::CaseInsensitive) == 0 || browserName.compare(tr("None"), Qt::CaseInsensitive) == 0) {
+                browserName = tr("configured browser");
+            }
+            appendMessage(tr("Authentication Tip: If this platform requires a login (or is a live stream), "
+                             "please verify you are signed in to the service in your %1. "
+                             "Stale or signed-out browser profiles will cause these downloads to fail.")
+                             .arg(browserName));
+        }
+
         if (!m_errorLines.isEmpty()) {
             appendErrorPreview(m_errorLines);
         } else {
@@ -376,13 +392,18 @@ bool YtDlpWorker::retryWithoutBrowserCookiesIfCookieExtractionFailed() {
     }
 
     const qsizetype cookieArgIndex = m_args.indexOf(QStringLiteral("--cookies-from-browser"));
-    if (cookieArgIndex < 0) {
+    const qsizetype cookiesFileIndex = m_args.indexOf(QStringLiteral("--cookies"));
+    
+    if (cookieArgIndex < 0 && cookiesFileIndex < 0) {
         return false;
     }
 
     auto containsAny = [](const QStringList& list, const QRegularExpression& regex, const QStringList& gateKeywords = {}) {
         const bool hasGates = !gateKeywords.isEmpty();
         for (const QString& line : std::as_const(list)) {
+            if (line.startsWith(QStringLiteral("[debug]"))) {
+                continue;
+            }
             if (hasGates) {
                 bool passedGate = false;
                 for (const QString& gate : gateKeywords) {
@@ -406,10 +427,10 @@ bool YtDlpWorker::retryWithoutBrowserCookiesIfCookieExtractionFailed() {
     const bool permissionFailure = containsAny(m_errorLines, permissionRegex, permissionGates) || containsAny(m_allOutputLines, permissionRegex, permissionGates);
 
     static const QRegularExpression cookieRegex(
-        QStringLiteral("Extracting cookies from|temporary\\.sqlite|cookies\\.sqlite|yt_dlp"),
+        QStringLiteral("temporary\\.sqlite|cookies\\.sqlite|yt_dlp|HTTP Error 400|Bad Request|JSON metadata|not currently live"),
         QRegularExpression::CaseInsensitiveOption
     );
-    static const QStringList cookieGates = {QStringLiteral("cookie"), QStringLiteral("sqlite"), QStringLiteral("yt_dlp")};
+    static const QStringList cookieGates = {QStringLiteral("cookie"), QStringLiteral("sqlite"), QStringLiteral("yt_dlp"), QStringLiteral("HTTP"), QStringLiteral("Request"), QStringLiteral("metadata"), QStringLiteral("live")};
     const bool browserCookieFailure = containsAny(m_errorLines, cookieRegex, cookieGates) || containsAny(m_allOutputLines, cookieRegex, cookieGates);
 
     static const QRegularExpression endedRegex(
@@ -419,19 +440,33 @@ bool YtDlpWorker::retryWithoutBrowserCookiesIfCookieExtractionFailed() {
     static const QStringList endedGates = {QStringLiteral("ended")};
     const bool endedLiveExtractorFailure = containsAny(m_errorLines, endedRegex, endedGates) || containsAny(m_allOutputLines, endedRegex, endedGates);
 
-    const bool cookieFailure = (permissionFailure && browserCookieFailure) || endedLiveExtractorFailure;
+    const bool cookieFailure = (permissionFailure && browserCookieFailure) || endedLiveExtractorFailure || browserCookieFailure;
     if (!cookieFailure) {
         return false;
     }
 
     m_retriedWithoutBrowserCookies = true;
-    m_args.removeAt(cookieArgIndex);
-    if (cookieArgIndex < m_args.size()) {
-        m_args.removeAt(cookieArgIndex);
+    
+    // Remove --cookies-from-browser and its argument
+    qsizetype idx = m_args.indexOf(QStringLiteral("--cookies-from-browser"));
+    if (idx != -1) {
+        m_args.removeAt(idx);
+        if (idx < m_args.size()) {
+            m_args.removeAt(idx);
+        }
+    }
+
+    // Remove --cookies and its argument
+    idx = m_args.indexOf(QStringLiteral("--cookies"));
+    if (idx != -1) {
+        m_args.removeAt(idx);
+        if (idx < m_args.size()) {
+            m_args.removeAt(idx);
+        }
     }
 
     qWarning() << "[YtDlpWorker] Browser cookies caused yt-dlp failure for" << m_id
-               << "; retrying once without --cookies-from-browser.";
+               << "; retrying once without cookie options.";
 
     QVariantMap progressData;
     progressData.insert(QStringLiteral("status"), tr("Browser cookies failed; retrying without browser cookies..."));
@@ -443,6 +478,9 @@ bool YtDlpWorker::retryWithoutBrowserCookiesIfCookieExtractionFailed() {
 }
 
 void YtDlpWorker::onProcessError(QProcess::ProcessError error) {
+    if (this->property("proactiveCookieRetryActive").toBool()) {
+        return;
+    }
     if (m_finishEmitted) {
         return;
     }

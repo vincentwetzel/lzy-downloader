@@ -33,6 +33,9 @@ YtDlpWorker::YtDlpWorker(const QString &id, const QStringList &args, ConfigManag
 
     // Intercept process finish to handle browser-cookie fallback/retry logic
     connect(m_process, &QProcess::finished, this, [this](int exitCode, QProcess::ExitStatus exitStatus) {
+        if (this->property("proactiveCookieRetryActive").toBool()) {
+            return;
+        }
         QString accumulatedStderr = m_process->property("accumulated_stderr").toString();
         bool retryAttempted = m_process->property("cookie_retry_attempted").toBool();
 
@@ -41,7 +44,7 @@ YtDlpWorker::YtDlpWorker(const QString &id, const QStringList &args, ConfigManag
             
             if (hasCookies) {
                 static const QRegularExpression errorRe(
-                    QStringLiteral("profile is locked|empty media response|not granting access|cookie|decryption|permission denied|sqlite3.OperationalError|access denied"),
+                    QStringLiteral("profile is locked|empty media response|not granting access|cookie.*(?:invalid|expired|failed|error|rotate|refresh)|decryption|permission denied|sqlite3.OperationalError|access denied|HTTP Error 400|Bad Request|Unable to download JSON metadata|not currently live"),
                     QRegularExpression::CaseInsensitiveOption
                 );
                 

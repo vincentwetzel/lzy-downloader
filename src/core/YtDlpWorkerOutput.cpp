@@ -40,6 +40,38 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
         return; // No need to process this line further
     }
 
+    // Check if browser cookies are causing a metadata/live status bad request or wait state block
+    bool hasCookies = m_args.contains(QStringLiteral("--cookies-from-browser")) || m_args.contains(QStringLiteral("--cookies"));
+    if (hasCookies && !m_retriedWithoutBrowserCookies && !this->property("proactiveCookieRetryActive").toBool() && !normalizedLine.startsWith(QStringLiteral("[debug]"))) {
+        static const QRegularExpression cookieErrorRe(
+            QStringLiteral("HTTP Error 400|Bad Request|Unable to download JSON metadata|not currently live|live event has ended|empty media response|cookie.*(?:invalid|expired|failed|error|rotate|refresh)|decryption|permission denied|sqlite|locked|access is denied"),
+            QRegularExpression::CaseInsensitiveOption
+        );
+        if (cookieErrorRe.match(normalizedLine).hasMatch()) {
+            if (!m_errorLines.contains(normalizedLine)) {
+                m_errorLines.append(normalizedLine);
+            }
+            qWarning() << "[YtDlpWorker] Proactively triggering cookie retry due to detected failure line:" << normalizedLine;
+            
+            this->setProperty("proactiveCookieRetryActive", true);
+            killProcess();
+
+            QVariantMap progressData;
+            progressData.insert(QStringLiteral("status"), tr("Browser cookies failed; retrying without browser cookies..."));
+            progressData.insert(QStringLiteral("progress"), -1);
+            emit progressUpdated(m_id, progressData);
+
+            QTimer::singleShot(1000, this, [this]() {
+                this->setProperty("proactiveCookieRetryActive", false);
+                if (m_process) {
+                    m_process->setProperty("accumulated_stderr", QString());
+                }
+                retryWithoutBrowserCookiesIfCookieExtractionFailed();
+            });
+            return;
+        }
+    }
+
     // Parse ERROR: lines from stderr for specific error types
     // Optimization: Gate expensive regex and array lookups behind fast string containment checks
     bool cookiePermissionDiagnostic = false;

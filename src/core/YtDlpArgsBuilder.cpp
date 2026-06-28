@@ -229,10 +229,12 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
     bool forceKeyframesAtCuts = false;
 
     // --- Format Selection ---
-    bool isLivestream = options.value(QStringLiteral("is_live"), false).toBool() || options.value(QStringLiteral("wait_for_video"), false).toBool();
+    const bool hasLiveUrlHintValue = hasLiveUrlHint(url);
+    bool isLivestream = options.value(QStringLiteral("is_live"), false).toBool() 
+                        || options.value(QStringLiteral("wait_for_video"), false).toBool()
+                        || hasLiveUrlHintValue;
     const QString liveStatus = options.value(QStringLiteral("live_status")).toString();
     const bool isLiveReplay = liveStatus == QStringLiteral("was_live") || liveStatus == QStringLiteral("post_live");
-    const bool hasLiveUrlHintValue = hasLiveUrlHint(url);
 
     // Guard against falsely identified livestreams from parser fallbacks or raw yt-dlp is_live flags
     if (!liveStatus.isEmpty()) {

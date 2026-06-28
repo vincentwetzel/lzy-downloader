@@ -443,6 +443,12 @@ FoundBinary resolveBinary(const QString& name, ConfigManager* configManager)
     if (!localAppData.isEmpty()) {
         searchDirs << QDir(localAppData).filePath(QStringLiteral("Microsoft/WindowsApps"));
     }
+
+    // Common manual installation folders on Windows
+    searchDirs << QStringLiteral("C:\\ffmpeg\\bin");
+    searchDirs << QStringLiteral("C:\\ffmpeg");
+    searchDirs << QStringLiteral("C:\\Program Files\\ffmpeg\\bin");
+    searchDirs << QStringLiteral("C:\\Program Files (x86)\\ffmpeg\\bin");
 #else
     searchDirs << QStringLiteral("/usr/local/bin");
     searchDirs << QStringLiteral("/usr/bin");
