@@ -59,6 +59,9 @@ void DownloadManager::processPlaylistSelection(const QString &url, const QString
             }
         }
         queueOptions.insert(QStringLiteral("is_playlist"), containsPlaylistItems);
+        if (finalItems.size() > 1) {
+            queueOptions.insert(QStringLiteral("is_full_playlist_download"), true);
+        }
     } else if (action == QStringLiteral("Download Single Item") && !expandedItems.isEmpty()) {
         finalItems.append(expandedItems.first());
         queueOptions.insert(QStringLiteral("is_playlist"), expandedItems.first().value(QStringLiteral("is_playlist"), false).toBool());
@@ -276,6 +279,7 @@ void DownloadManager::onPlaylistExpanded(const QString &originalUrl, const QList
             item.options.insert(QStringLiteral("original_playlist_url"), originalUrl);
             item.options.insert(QStringLiteral("playlist_logic"), QStringLiteral("Download Single (ignore playlist)"));
             item.options.insert(QStringLiteral("is_playlist"), true);
+            item.options.insert(QStringLiteral("is_full_playlist_download"), true);
             
             if (itemData.contains(QStringLiteral("playlist_title"))) {
                 item.options.insert(QStringLiteral("playlist_title"), itemData.value(QStringLiteral("playlist_title")));

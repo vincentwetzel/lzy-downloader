@@ -351,8 +351,8 @@ void DownloadFinalizer::finalize(const QString &id, DownloadItem item) {
         QString message;
         QString finalPath = destPath;
 
-        bool isAudioPlaylist = (downloadType == QStringLiteral("audio") && (item.playlistIndex > 0 || !item.options.value(QStringLiteral("playlist_title")).toString().isEmpty() || !item.metadata.value(QStringLiteral("playlist_title")).toString().isEmpty()));
-        if (isAudioPlaylist) {
+        bool isFullPlaylistDownload = item.options.value(QStringLiteral("is_full_playlist_download"), false).toBool();
+        if (downloadType == QStringLiteral("audio") && isFullPlaylistDownload) {
             // Find the generated folder image. It might not be .jpg if the user selected .png or no conversion
             const QStringList thumbFiles = tempDir.entryList({QStringLiteral("%1_folder.*").arg(id)}, QDir::Files);
             if (!thumbFiles.isEmpty()) {

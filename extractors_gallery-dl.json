@@ -370,6 +370,11 @@
             "gofile.io"
         ]
     },
+    "goonbox": {
+        "domains": [
+            "goonbox.cr"
+        ]
+    },
     "harvardlawnuremberg": {
         "domains": [
             "nuremberg.law.harvard.edu"

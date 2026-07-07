@@ -354,11 +354,6 @@
             "archive.org"
         ]
     },
-    "ard": {
-        "domains": [
-            "daserste.de"
-        ]
-    },
     "ardaudiothek": {
         "domains": [
             "ardaudiothek.de",
@@ -2368,11 +2363,6 @@
             "godtube.com"
         ]
     },
-    "gofile": {
-        "domains": [
-            "gofile.io"
-        ]
-    },
     "golem": {
         "domains": [
             "video.golem.de"
@@ -3075,6 +3065,13 @@
             "tv.le.com"
         ]
     },
+    "liability": {
+        "domains": [
+            "motherless.com",
+            "suno.com",
+            "udio.com"
+        ]
+    },
     "libsyn": {
         "domains": [
             "html5-player.libsyn.com"
@@ -3229,6 +3226,11 @@
             "webtools-e18da6642b684f8aa9ae449862783a56.msvdn.net",
             "webtools-f5842579ff984c1c98d63b8d789673eb.msvdn.net",
             "webtools.msvdn.net"
+        ]
+    },
+    "mangomolo": {
+        "domains": [
+            "player.mangomolo.com"
         ]
     },
     "mangotv": {
@@ -3394,6 +3396,12 @@
     "meipai": {
         "domains": [
             "meipai.com"
+        ]
+    },
+    "mellowfan": {
+        "domains": [
+            "mellow-fan.com",
+            "openrec.tv"
         ]
     },
     "melonvod": {
@@ -3668,11 +3676,6 @@
         ]
     },
     "mxplayer": {
-        "domains": [
-            "mxplayer.in"
-        ]
-    },
-    "mxplayershow": {
         "domains": [
             "mxplayer.in"
         ]
@@ -4006,7 +4009,7 @@
     },
     "nitter": {
         "domains": [
-            "nitter.librenode.org"
+            "nitter.evil.site"
         ]
     },
     "njoy": {
@@ -4249,6 +4252,21 @@
             "olympics.com"
         ]
     },
+    "omnyfm": {
+        "domains": [
+            "omny.fm"
+        ]
+    },
+    "omnyfmplaylist": {
+        "domains": [
+            "omny.fm"
+        ]
+    },
+    "omnyfmshow": {
+        "domains": [
+            "omny.fm"
+        ]
+    },
     "on24": {
         "domains": [
             "event.on24.com"
@@ -4309,11 +4327,6 @@
         "domains": [
             "electures.uni-muenster.de",
             "oc-video1.ruhr-uni-bochum.de"
-        ]
-    },
-    "openrec": {
-        "domains": [
-            "openrec.tv"
         ]
     },
     "orf": {
@@ -4555,6 +4568,7 @@
     "piracy": {
         "domains": [
             "dood.to",
+            "gofile.io",
             "thisav.com"
         ]
     },
@@ -6337,16 +6351,6 @@
             "watch.travelchannel.com"
         ]
     },
-    "trovo": {
-        "domains": [
-            "trovo.live"
-        ]
-    },
-    "trovovod": {
-        "domains": [
-            "trovo.live"
-        ]
-    },
     "trtcocukvideo": {
         "domains": [
             "trtcocuk.net.tr"
@@ -7265,12 +7269,7 @@
             "pilot.wp.pl"
         ]
     },
-    "wrestleuniverseppv": {
-        "domains": [
-            "wrestle-universe.com"
-        ]
-    },
-    "wrestleuniversevod": {
+    "wrestleuniverse": {
         "domains": [
             "wrestle-universe.com"
         ]
@@ -7545,6 +7544,11 @@
     "zaikoeticket": {
         "domains": [
             "zaiko.io"
+        ]
+    },
+    "zan": {
+        "domains": [
+            "zan-live.com"
         ]
     },
     "zapiks": {

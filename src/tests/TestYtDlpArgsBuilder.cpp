@@ -179,6 +179,7 @@ void TestYtDlpArgsBuilder::testAudioPlaylistFolderJpg() {
     options[QStringLiteral("type")] = QStringLiteral("audio");
     options[QStringLiteral("id")] = QStringLiteral("uuid123");
     options[QStringLiteral("playlist_title")] = QStringLiteral("My Playlist");
+    options[QStringLiteral("is_full_playlist_download")] = true;
 
     QStringList args = builder.build(mockConfig, QUrl(TEST_URL).toString(), options);
 

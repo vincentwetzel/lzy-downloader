@@ -159,7 +159,7 @@ Settings for embedding metadata, thumbnails, and chapter information into downlo
 | `high_quality_thumbnail` | Boolean | `true` | Use a higher-quality thumbnail source when available. |
 | `convert_thumbnail_to` | String | `jpg` | Convert embedded thumbnails to this format. Options: `None`, `jpg`, `png`. |
 | `crop_artwork_to_square` | Boolean | `true` | Crop audio thumbnails to square aspect ratio. |
-| `generate_folder_jpg` | Boolean | `true` | Generate a `folder.jpg` file for audio playlists. Playlist detection uses playlist index, playlist title, or explicit playlist flags. |
+| `generate_folder_jpg` | Boolean | `true` | Generate a `folder.jpg` file for audio playlists. This setting strictly applies to explicit full playlist/multi-item batch downloads, bypassing single-item tracks and partial playlist selections. |
 | `force_playlist_as_album` | Boolean | `false` | For audio playlist downloads, force the `album` tag to the playlist title and `album_artist` to `Various Artists`. Playlist detection uses playlist index, playlist title, or explicit playlist flags. |
 
 ---

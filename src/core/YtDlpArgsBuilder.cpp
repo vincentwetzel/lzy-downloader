@@ -464,7 +464,8 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
     const QStringList supportedThumbnailExts = {QStringLiteral("mp3"), QStringLiteral("mkv"), QStringLiteral("mka"), QStringLiteral("ogg"), QStringLiteral("opus"), QStringLiteral("flac"), QStringLiteral("m4a"), QStringLiteral("mp4"), QStringLiteral("m4v"), QStringLiteral("mov")};
     
     bool embedThumb = configManager->get(QStringLiteral("Metadata"), QStringLiteral("embed_thumbnail"), true).toBool();
-    bool genFolderJpg = (isAudioPlaylist && configManager->get(QStringLiteral("Metadata"), QStringLiteral("generate_folder_jpg"), false).toBool());
+    bool isFullPlaylistDownload = options.value(QStringLiteral("is_full_playlist_download"), false).toBool();
+    bool genFolderJpg = (downloadType == QLatin1String("audio") && isFullPlaylistDownload && configManager->get(QStringLiteral("Metadata"), QStringLiteral("generate_folder_jpg"), false).toBool());
 
     bool isAudioDefaultCodec = (downloadType == QLatin1String("audio") && !rawArgs.contains(QStringLiteral("--audio-format")));
     bool canEmbed = embedThumb && !isLivestream && (isAudioDefaultCodec || supportedThumbnailExts.contains(finalOutputExtension, Qt::CaseInsensitive));
