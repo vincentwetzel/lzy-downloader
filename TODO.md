@@ -11,6 +11,8 @@
 - [ ] Integrate Qt Linguist (`.ts`/`.qm` compiler steps) into `CMakeLists.txt` build automation.
 
 ## Completed
+- [x] Updated external-binary docs for longer environment-aware version probes and the install-success repair/standalone warning flow.
+- [x] Refreshed bundled extractor domains for Nitter and Zoom coverage updates.
 - [x] Documented generic aria2c referer propagation and FFmpeg single-file copy/remove fallback with transient cleanup retries.
 - [x] Documented generic playlist/carousel item index handling, metadata-only probe cleanup, output-template metadata fallbacks, and browser-cookie retry behavior.
 - [x] Documented cross-platform updater asset selection, bounded worker diagnostics, gallery stderr trimming, and Qt 6.2-safe cleanup/comparison updates.

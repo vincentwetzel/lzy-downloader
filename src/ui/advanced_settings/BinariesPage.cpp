@@ -728,6 +728,7 @@ void BinariesPage::runProcessWithLog(const ProcessRunOptions &opts) {
             outputEdit->moveCursor(QTextCursor::End);
             outputEdit->insertPlainText(QString::fromUtf8(buffer));
         }
+        const QString logText = outputEdit->toPlainText();
         if (exitStatus == QProcess::NormalExit && exitCode == 0) {
             outputEdit->moveCursor(QTextCursor::End);
             outputEdit->insertPlainText(tr("\n--- Process completed successfully. ---\n"));
@@ -774,10 +775,37 @@ void BinariesPage::runProcessWithLog(const ProcessRunOptions &opts) {
                                "Use Refresh after closing this dialog. If it is still missing, restart LzyDownloader or use Browse to select the executable.")
                                 .arg(displayName(opts.binaryName)));
                     } else {
-                        QMessageBox::information(
-                            pDialog,
-                            tr("Install Successful"),
-                            tr("%1 has been installed and detected successfully.").arg(displayName(opts.binaryName)));
+                        // Check if Windows/Python locked file corruption occurred during success
+                        if (logText.contains(QStringLiteral("Ignoring invalid distribution ~"), Qt::CaseInsensitive)) {
+                            QMessageBox msgBox(pDialog);
+                            msgBox.setWindowTitle(tr("Installation Warning"));
+                            msgBox.setIcon(QMessageBox::Warning);
+                            msgBox.setTextFormat(Qt::RichText);
+                            msgBox.setText(tr("<b>%1 installed, but with Windows locking issues.</b><br><br>"
+                                             "Python reported invalid or locked packaging directories (e.g., <code>~t-dlp</code>) in your environment.<br>"
+                                             "This usually happens when Windows locks folders during active operations, causing silent dependency failures.<br><br>"
+                                             "Would you like LzyDownloader to attempt a clean repair, or switch to the robust standalone version?")
+                                              .arg(displayName(opts.binaryName)));
+                            
+                            QPushButton *repairBtn = msgBox.addButton(tr("Attempt Clean Repair"), QMessageBox::AcceptRole);
+                            QPushButton *standaloneBtn = msgBox.addButton(tr("Switch to Standalone (Recommended)"), QMessageBox::ActionRole);
+                            msgBox.addButton(QMessageBox::Ok);
+                            msgBox.exec();
+                            
+                            if (msgBox.clickedButton() == repairBtn) {
+                                ProcessRunOptions repairOpts = opts;
+                                repairOpts.dialogTitle = tr("Repairing %1").arg(displayName(opts.binaryName));
+                                repairOpts.arguments = {QStringLiteral("install"), QStringLiteral("--force-reinstall"), QStringLiteral("--no-cache-dir"), opts.binaryName};
+                                QTimer::singleShot(100, this, [this, repairOpts]() { runProcessWithLog(repairOpts); });
+                            } else if (msgBox.clickedButton() == standaloneBtn) {
+                                QTimer::singleShot(100, this, [this, opts]() { installBinaryFor(opts.binaryName); });
+                            }
+                        } else {
+                            QMessageBox::information(
+                                pDialog,
+                                tr("Install Successful"),
+                                tr("%1 has been installed and detected successfully.").arg(displayName(opts.binaryName)));
+                        }
                     }
                 }
             }
@@ -785,7 +813,6 @@ void BinariesPage::runProcessWithLog(const ProcessRunOptions &opts) {
             outputEdit->moveCursor(QTextCursor::End);
             outputEdit->insertPlainText(tr("\n--- Process failed with exit code %1. ---\n").arg(exitCode));
 
-            const QString logText = outputEdit->toPlainText();
             const QString actionName = opts.isUpdate ? tr("update") : tr("installation");
             if (pDialog) {
                 if (logText.contains(QStringLiteral("Permission denied"), Qt::CaseInsensitive) || logText.contains(QStringLiteral("Access is denied"), Qt::CaseInsensitive)) {

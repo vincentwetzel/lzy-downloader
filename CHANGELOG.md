@@ -7,10 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIVE.md](docs/CHANGELOG_ARCHIVE.md).
 
-## [Unreleased]
+## [1.1.98] - 2026-06-28
 
 ### Fixed
 - **Proactive browser-cookie retry**: yt-dlp workers now watch stderr for cookie-backed HTTP 400/Bad Request, JSON metadata, and live-status failures, proactively retry once without browser-cookie options, and add a clearer authentication tip when cookies were involved.
+- **External binary probing**: Version checks now use the app process environment, allow longer startup timeouts, and recognize date-like version banners so External Binaries rows resolve more reliably.
+- **Python package install warnings**: Successful tool installs that still emit Windows locking/invalid-distribution warnings now surface a follow-up repair or standalone-binary choice instead of showing a plain success dialog.
 - **Windows FFmpeg discovery**: `ProcessUtils` now searches a few common manual Windows FFmpeg install folders before broader resolution so locally installed copies are easier to pick up.
 - **aria2c referer propagation**: `YtDlpArgsBuilder` now passes the request origin as an aria2c referer header when an external downloader is used, which improves compatibility with hosts that require a referer for segmented transfers.
 - **FFmpeg mux cleanup resilience**: `FfmpegMuxer` now retries transient output/source cleanup and falls back from rename to copy/remove when moving a single input file to the final destination.

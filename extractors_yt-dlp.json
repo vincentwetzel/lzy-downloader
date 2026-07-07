@@ -4006,7 +4006,7 @@
     },
     "nitter": {
         "domains": [
-            "uk.unofficialbird.com"
+            "nitter.librenode.org"
         ]
     },
     "njoy": {
@@ -7611,7 +7611,8 @@
             "cityofdetroit.zoom.us",
             "economist.zoom.us",
             "ffgolf.zoom.us",
-            "us02web.zoom.us"
+            "us02web.zoom.us",
+            "zoom.us"
         ]
     },
     "zype": {

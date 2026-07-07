@@ -322,15 +322,16 @@ QString queryBinaryVersion(const QString &binaryName, const QString &path) {
     QProcess process;
     QStringList args;
     args << QStringLiteral("--version");
+    setProcessEnvironment(process);
 
     process.start(path, args);
-    if (process.waitForFinished(1000)) {
+    if (process.waitForFinished(5000)) {
         QString output = QString::fromUtf8(process.readAllStandardOutput()).trimmed();
         if (output.isEmpty()) {
             output = QString::fromUtf8(process.readAllStandardError()).trimmed();
         }
 
-        static const QRegularExpression genericRe(QStringLiteral(R"(\b\d+(\.\d+)+\b)"));
+        static const QRegularExpression genericRe(QStringLiteral(R"(\b\d{4}\.\d{2}\.\d{2}(?:\.\d+)?\b|\b\d+(\.\d+)+\b)"));
         QRegularExpressionMatch match = genericRe.match(output);
         if (match.hasMatch()) return match.captured(0);
     }
