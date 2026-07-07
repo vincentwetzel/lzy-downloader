@@ -4,7 +4,7 @@ This document is the **canonical instruction set for all AI agents** working on 
 
 All agents MUST follow this document as the source of truth.
 
-**Fast Start:** Keep the UI responsive (no blocking I/O on the GUI thread; use `QThread` or `QtConcurrent`). Preserve the download lifecycle (temp → verify → move to completed dir). Prefer discovered or user-configured external binaries. Update `CHANGELOG.md` for significant changes. For releases, run `python build_release.py` on the target platform to compile and package. Update Section 3 + Quick-Reference list when files/roles change. For file locations, jump to the Quick-Reference list in Section 3.
+**Fast Start:** Keep the UI responsive (no blocking I/O on the GUI thread; use `QThread` or `QtConcurrent`). Preserve the download lifecycle (temp -> verify -> move to completed dir). Prefer discovered or user-configured external binaries. Update `CHANGELOG.md` for significant changes. For releases, run `python build_release.py` on the target platform to compile and package. Update Section 3 + Quick-Reference list when files/roles change. For file locations, jump to the Quick-Reference list in Section 3.
 
 ---
 
@@ -130,3 +130,4 @@ Agents MUST NOT:
 ---
 ## 7. Task Tracking
 Agents MUST use `TODO.md` to track pending tasks, planned features, and known issues. Before starting work, check `TODO.md` for high-priority items. After completing a task or identifying a new one, update `TODO.md` accordingly.
+

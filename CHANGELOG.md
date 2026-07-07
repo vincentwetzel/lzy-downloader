@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIVE.md](docs/CHANGELOG_ARCHIVE.md).
 
+## [Unreleased]
+
+### Changed
+- Added `docs/FILE_MANIFEST.md` as a dedicated quick index for file-to-responsibility lookup and redirected the main docs to use it as the primary path map.
+
 ## [1.2.1] - 2026-07-06
 
 ### Fixed

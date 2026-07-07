@@ -3,6 +3,8 @@
 ## 1. Overview
 This document outlines the architecture for the C++ port of LzyDownloader. The application is built with **Qt 6 (Widgets)** and provides a graphical interface for downloading media using **yt-dlp** and **gallery-dl**. The design prioritizes performance, stability, and seamless compatibility with the original Python version.
 
+For a compact file-to-responsibility index, see [docs/FILE_MANIFEST.md](FILE_MANIFEST.md). This document focuses on behavior, data flow, and component interaction rather than duplicating a full manifest.
+
 ## 2. System Design
 
 ### 2.1 Single Instance Enforcement

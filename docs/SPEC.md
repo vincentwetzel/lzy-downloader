@@ -4,7 +4,7 @@
 This document outlines the specifications for the C++ port of the LzyDownloader application. The goal is to create a drop-in replacement for the existing Python application, ensuring 100% feature parity and seamless transition for users.
 
 ### 1.1 Documentation Requirement
-- **Mandatory**: When any agent or developer makes changes to how the app works (e.g., progress parsing, download pipeline, UI behavior, configuration, external binary handling), they MUST update the relevant MD documentation files (`AGENTS.md`, `docs/SPEC.md`, `docs/ARCHITECTURE.md`, `TODO.md`, `CHANGELOG.md`) to reflect the new behavior. Documentation MUST stay in sync with the code.
+- **Mandatory**: When any agent or developer makes changes to how the app works (e.g., progress parsing, download pipeline, UI behavior, configuration, external binary handling), they MUST update the relevant MD documentation files (`AGENTS.md`, `docs/SPEC.md`, `docs/ARCHITECTURE.md`, `docs/FILE_MANIFEST.md`, `TODO.md`, `CHANGELOG.md`) to reflect the new behavior. Documentation MUST stay in sync with the code.
 
 ### 1.2 File Size Constraints
 - **Context Preservation**: To ensure optimal performance with AI agents and preserve context usage, no single file (source code, headers, or documentation) should exceed **500 lines** in length. When a file approaches this limit, it must be refactored or split into smaller, focused modules.

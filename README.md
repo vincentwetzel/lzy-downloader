@@ -125,6 +125,8 @@ Temporary downloads are isolated in per-download UUID folders under the configur
 
 The application is built using **C++20** and the **Qt 6** framework. The core logic, UI components, and utility functions are consolidated into a static library, `LzyAppLib`.
 
+For a quick map of where things live, start with [`docs/FILE_MANIFEST.md`](docs/FILE_MANIFEST.md). Use [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for system behavior and [`docs/SPEC.md`](docs/SPEC.md) for functional requirements.
+
 ```
 LzyDownloader/
 ├── CMakeLists.txt              # Build System Configuration
