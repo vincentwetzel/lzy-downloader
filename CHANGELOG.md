@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIVE.md](docs/CHANGELOG_ARCHIVE.md).
 
-## [1.1.99] - 2026-07-06
+## [1.2.1] - 2026-07-06
 
 ### Fixed
 - **Proactive browser-cookie retry**: yt-dlp workers now watch stderr for cookie-backed HTTP 400/Bad Request, JSON metadata, and live-status failures, proactively retry once without browser-cookie options, and add a clearer authentication tip when cookies were involved.
