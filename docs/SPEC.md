@@ -85,6 +85,7 @@ This document outlines the specifications for the C++ port of the LzyDownloader 
     - Download sections (`--download-sections`).
     - Output template (`-o`), including type-specific templates that inherit the shared default when unset. Template generation should provide metadata fallbacks for uploader and upload-date tokens so playlist/carousel entries that only expose playlist-level owner/date fields still produce useful filenames instead of `NA` where yt-dlp supports fallback metadata expressions.
     - Generic playlist item targeting: when a download URL carries a hostname-independent positive item index hint (`img_index`, `slide`, `item`, `index`, or `playlist_index`) or queue metadata supplies `playlist_index`, the builder should use `--playlist-items` for the requested one-based entry. Metadata-only playlist expansion must not apply this limiter, so the parser can inspect the full result set and select the intended item.
+    - URL hygiene: before launching yt-dlp, the argument builder strips common tracking/query parameters such as `utm_*`, `enter_*`, `igshid`, `fbclid`, `si`, `ref`, and `source` when present, so transient sharing parameters do not affect downloader behavior or archive identity.
     - Max concurrent downloads (`--concurrent-fragments`).
     - Rate limit (`--limit-rate`).
     - Override archive (`--no-download-archive`).
@@ -122,6 +123,7 @@ This document outlines the specifications for the C++ port of the LzyDownloader 
   - Pre-download extraction/setup stages should drive the main bar into an indeterminate state instead of leaving a stale queued `0%` display on screen
   - UTF-8 filenames and metadata
   - **The progress bar MUST update correctly regardless of which downloader (native or aria2c) is active**
+- **Livestream Retry Safety**: If yt-dlp's pre-wait livestream probe reports a stream as offline or unavailable while `--wait-for-video` or `--live-from-start` is active, the worker may retry once without those wait flags to avoid false-offline loops. This retry path must remain generic and must not branch on a specific hostname.
 - **Process Output Bounds**: Long-running process wrappers must avoid retaining unbounded stdout/stderr. Workers may keep recent diagnostic tails, but livestreams, large galleries, and mux failures must not grow memory linearly with process output.
 - **Progress Bar Color Coding**: The UI progress bar MUST use color-coding to provide clear visual feedback on download state:
   - **Colorless/Default** (no custom stylesheet): When download is queued, initializing, or in indeterminate state (progress < 0)

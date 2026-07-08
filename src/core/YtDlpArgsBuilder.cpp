@@ -152,6 +152,34 @@ void appendForcedKeyframeCutArgs(QStringList &args, ConfigManager *configManager
         args << QStringLiteral("--ppa") << QStringLiteral("SponsorBlock+ffmpeg_o:%1").arg(joinedArgs);
     }
 }
+
+QString sanitizeTrackingParams(const QString &url) {
+    QUrl parsedUrl(url);
+    if (parsedUrl.hasQuery()) {
+        QUrlQuery query(parsedUrl);
+        QStringList keysToRemove;
+        for (const auto &item : query.queryItems()) {
+            const QString key = item.first.toLower();
+            if (key.startsWith(QStringLiteral("utm_")) ||
+                key.startsWith(QStringLiteral("enter_")) ||
+                key == QStringLiteral("igshid") ||
+                key == QStringLiteral("fbclid") ||
+                key == QStringLiteral("si") ||
+                key == QStringLiteral("ref") ||
+                key == QStringLiteral("source")) {
+                keysToRemove.append(item.first);
+            }
+        }
+        if (!keysToRemove.isEmpty()) {
+            for (const QString &key : keysToRemove) {
+                query.removeQueryItem(key);
+            }
+            parsedUrl.setQuery(query);
+            return parsedUrl.toString(QUrl::FullyEncoded);
+        }
+    }
+    return url;
+}
 }
 
 YtDlpArgsBuilder::YtDlpArgsBuilder() {
@@ -201,7 +229,7 @@ QStringList YtDlpArgsBuilder::buildValidationArgs(ConfigManager *configManager, 
         args << QStringLiteral("--cookies-from-browser") << cookiesBrowser.toLower();
     }
 
-    args << url;
+    args << sanitizeTrackingParams(url);
     return args;
 }
 
@@ -517,8 +545,11 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
     }
 
     // --- Subtitles ---
-    bool embedSubs = configManager->get(QStringLiteral("Subtitles"), QStringLiteral("embed_subtitles"), false).toBool() && !isLivestream;
-    bool writeSubs = configManager->get(QStringLiteral("Subtitles"), QStringLiteral("write_subtitles"), false).toBool() && !isLivestream;
+    bool configEmbedSubs = configManager->get(QStringLiteral("Subtitles"), QStringLiteral("embed_subtitles"), false).toBool();
+    bool configWriteSubs = configManager->get(QStringLiteral("Subtitles"), QStringLiteral("write_subtitles"), false).toBool();
+    bool embedSubs = configEmbedSubs && !isLivestream;
+    bool writeSubs = configWriteSubs || (configEmbedSubs && isLivestream);
+
     if (embedSubs || writeSubs) {
         QString subLangsRaw = configManager->get(QStringLiteral("Subtitles"), QStringLiteral("languages"), QStringLiteral("en")).toString();
         QStringList subLangsList = subLangsRaw.split(QLatin1Char(','), Qt::SkipEmptyParts);
@@ -539,7 +570,9 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
             if (embedSubs) rawArgs << QStringLiteral("--embed-subs");
             if (writeSubs) {
                 rawArgs << QStringLiteral("--write-subs");
-                rawArgs << QStringLiteral("--sub-format") << configManager->get(QStringLiteral("Subtitles"), QStringLiteral("format"), QStringLiteral("srt")).toString();
+                if (!isLivestream) {
+                    rawArgs << QStringLiteral("--sub-format") << configManager->get(QStringLiteral("Subtitles"), QStringLiteral("format"), QStringLiteral("srt")).toString();
+                }
             }
         }
     }
@@ -555,7 +588,9 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
 
     // --- Cookies ---
     QString cookiesBrowser = configManager->get(QStringLiteral("General"), QStringLiteral("cookies_from_browser"), QStringLiteral("None")).toString();
-    if (cookiesBrowser != QLatin1String("None")) rawArgs << QStringLiteral("--cookies-from-browser") << cookiesBrowser.toLower();
+    if (cookiesBrowser != QLatin1String("None")) {
+        rawArgs << QStringLiteral("--cookies-from-browser") << cookiesBrowser.toLower();
+    }
 
     // --- Custom ffmpeg path ---
     // yt-dlp needs the directory containing ffmpeg and ffprobe
@@ -624,7 +659,8 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
 
     // --- Print final filepath ---
     rawArgs << QStringLiteral("--print") << QStringLiteral("after_move:LZY_FINAL_PATH:%(filepath)s");
-    rawArgs << url;
+    
+    rawArgs << sanitizeTrackingParams(url);
 
     qDebug() << "YtDlpArgsBuilder::build final rawArgs:" << rawArgs; // Debug statement
 

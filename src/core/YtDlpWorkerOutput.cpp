@@ -44,7 +44,7 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
     bool hasCookies = m_args.contains(QStringLiteral("--cookies-from-browser")) || m_args.contains(QStringLiteral("--cookies"));
     if (hasCookies && !m_retriedWithoutBrowserCookies && !this->property("proactiveCookieRetryActive").toBool() && !normalizedLine.startsWith(QStringLiteral("[debug]"))) {
         static const QRegularExpression cookieErrorRe(
-            QStringLiteral("HTTP Error 400|Bad Request|Unable to download JSON metadata|not currently live|live event has ended|empty media response|cookie.*(?:invalid|expired|failed|error|rotate|refresh)|decryption|permission denied|sqlite|locked|access is denied"),
+            QStringLiteral("HTTP Error 400|Bad Request|Unable to download JSON metadata|empty media response|cookie.*(?:invalid|expired|failed|error|rotate|refresh)|decryption|permission denied|sqlite|locked|access is denied"),
             QRegularExpression::CaseInsensitiveOption
         );
         if (cookieErrorRe.match(normalizedLine).hasMatch()) {
@@ -400,7 +400,25 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
                         }
                     } else {
                         qWarning() << "[YtDlpWorker] Pre-wait metadata fetch failed or returned invalid JSON. Exit code:" << exitCode;
-                        qWarning() << "[YtDlpWorker] Stderr:" << safeProcess->readAllStandardError();
+                        QString fetchStderr = QString::fromUtf8(safeProcess->readAllStandardError());
+                        qWarning() << "[YtDlpWorker] Stderr:" << fetchStderr;
+
+                        // Generically break infinite wait loops if the site throws a hard offline/unavailable error
+                        static const QRegularExpression offlineRe(QStringLiteral("not currently live|offline|ended|unavailable"), QRegularExpression::CaseInsensitiveOption);
+                        if (exitCode != 0 && offlineRe.match(fetchStderr).hasMatch() && !this->property("proactiveWaitRetryActive").toBool()) {
+                            qWarning() << "[YtDlpWorker] Detected false-offline or fatal error during wait state. Forcing main process restart without wait-for-video.";
+                            
+                            this->setProperty("proactiveWaitRetryActive", true);
+                            if (m_process) {
+                                m_process->setProperty("accumulated_stderr", fetchStderr);
+                            }
+                            killProcess();
+
+                            QVariantMap progressData;
+                            progressData.insert(QStringLiteral("status"), tr("Stream reported offline; forcing immediate retry..."));
+                            progressData.insert(QStringLiteral("progress"), -1);
+                            emit progressUpdated(m_id, progressData);
+                        }
                     }
                 safeProcess->deleteLater();
             });

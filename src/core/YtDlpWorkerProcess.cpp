@@ -427,10 +427,10 @@ bool YtDlpWorker::retryWithoutBrowserCookiesIfCookieExtractionFailed() {
     const bool permissionFailure = containsAny(m_errorLines, permissionRegex, permissionGates) || containsAny(m_allOutputLines, permissionRegex, permissionGates);
 
     static const QRegularExpression cookieRegex(
-        QStringLiteral("temporary\\.sqlite|cookies\\.sqlite|yt_dlp|HTTP Error 400|Bad Request|JSON metadata|not currently live"),
+        QStringLiteral("temporary\\.sqlite|cookies\\.sqlite|yt_dlp|HTTP Error 400|Bad Request|JSON metadata"),
         QRegularExpression::CaseInsensitiveOption
     );
-    static const QStringList cookieGates = {QStringLiteral("cookie"), QStringLiteral("sqlite"), QStringLiteral("yt_dlp"), QStringLiteral("HTTP"), QStringLiteral("Request"), QStringLiteral("metadata"), QStringLiteral("live")};
+    static const QStringList cookieGates = {QStringLiteral("cookie"), QStringLiteral("sqlite"), QStringLiteral("yt_dlp"), QStringLiteral("HTTP"), QStringLiteral("Request"), QStringLiteral("metadata")};
     const bool browserCookieFailure = containsAny(m_errorLines, cookieRegex, cookieGates) || containsAny(m_allOutputLines, cookieRegex, cookieGates);
 
     static const QRegularExpression endedRegex(

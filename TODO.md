@@ -11,6 +11,7 @@
 - [ ] Integrate Qt Linguist (`.ts`/`.qm` compiler steps) into `CMakeLists.txt` build automation.
 
 ## Completed
+- [x] Trimmed common tracking query parameters from yt-dlp launch URLs and added bounded false-offline livestream retry handling when wait-state probes fail.
 - [x] Added a dedicated file manifest at `docs/FILE_MANIFEST.md` and redirected the main docs to use it as the quick path-to-code index.
 - [x] Documented explicit full-playlist-only `folder.jpg` generation for audio batches and refreshed the extractor domain lists.
 - [x] Updated external-binary docs for longer environment-aware version probes and the install-success repair/standalone warning flow.

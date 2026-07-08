@@ -8,6 +8,7 @@
 #include <QFileInfo>
 #include <QProcess>
 #include <QTimer>
+#include <QUrl>
 #include <QRegularExpression>
 
 YtDlpWorker::YtDlpWorker(const QString &id, const QStringList &args, ConfigManager *configManager, QObject *parent)
@@ -31,29 +32,52 @@ YtDlpWorker::YtDlpWorker(const QString &id, const QStringList &args, ConfigManag
         }
     });
 
-    // Intercept process finish to handle browser-cookie fallback/retry logic
     connect(m_process, &QProcess::finished, this, [this](int exitCode, QProcess::ExitStatus exitStatus) {
         if (this->property("proactiveCookieRetryActive").toBool()) {
             return;
         }
         QString accumulatedStderr = m_process->property("accumulated_stderr").toString();
-        bool retryAttempted = m_process->property("cookie_retry_attempted").toBool();
+        bool cookieRetryAttempted = m_process->property("cookie_retry_attempted").toBool();
+        bool waitRetryAttempted = m_process->property("wait_retry_attempted").toBool();
 
-        if (!retryAttempted && exitStatus == QProcess::NormalExit && exitCode != 0) {
+        // Define common errors that might benefit from a cookie retry or a specific livestream retry
+        static const QRegularExpression errorRe(
+            QStringLiteral("profile is locked|empty media response|not granting access|cookie.*(?:invalid|expired|failed|error|rotate|refresh)|decryption|permission denied|sqlite3.OperationalError|access denied|HTTP Error 400|Bad Request|Unable to download JSON metadata"),
+            QRegularExpression::CaseInsensitiveOption
+        );
+
+        bool isProactiveWaitRetry = this->property("proactiveWaitRetryActive").toBool();
+        if (isProactiveWaitRetry) {
+            this->setProperty("proactiveWaitRetryActive", false);
+        }
+
+        if ((exitStatus == QProcess::NormalExit && exitCode != 0) || isProactiveWaitRetry) {
             bool hasCookies = m_args.contains(QStringLiteral("--cookies-from-browser")) || m_args.contains(QStringLiteral("--cookies"));
-            
-            if (hasCookies) {
-                static const QRegularExpression errorRe(
-                    QStringLiteral("profile is locked|empty media response|not granting access|cookie.*(?:invalid|expired|failed|error|rotate|refresh)|decryption|permission denied|sqlite3.OperationalError|access denied|HTTP Error 400|Bad Request|Unable to download JSON metadata|not currently live"),
-                    QRegularExpression::CaseInsensitiveOption
-                );
-                
-                if (errorRe.match(accumulatedStderr).hasMatch()) {
-                    qWarning() << "[YtDlpWorker] Cookie-related/API-access failure detected. Retrying download once without browser cookies. Error captured:" << accumulatedStderr;
-                    
-                    m_process->setProperty("cookie_retry_attempted", true);
-                    m_process->setProperty("accumulated_stderr", QString()); // Reset for next run
+            bool shouldRetry = false;
+            bool removeCookies = false;
+            bool removeWaitForVideo = false;
 
+            if (hasCookies && !cookieRetryAttempted && errorRe.match(accumulatedStderr).hasMatch() && !isProactiveWaitRetry) {
+                shouldRetry = true;
+                removeCookies = true;
+                qWarning() << "[YtDlpWorker] Cookie-related/API-access failure detected. Retrying download once without browser cookies. Error captured:" << accumulatedStderr;
+            } else if (!waitRetryAttempted) {
+                static const QRegularExpression offlineRe(QStringLiteral("not currently live|live event has ended|offline"), QRegularExpression::CaseInsensitiveOption);
+                if (isProactiveWaitRetry || offlineRe.match(accumulatedStderr).hasMatch()) {
+                    if (m_args.contains(QStringLiteral("--wait-for-video")) || m_args.contains(QStringLiteral("--live-from-start"))) {
+                        shouldRetry = true;
+                        removeWaitForVideo = true;
+                        qWarning() << "[YtDlpWorker] Livestream offline error detected. Retrying download once without --wait-for-video to prevent false-offline hang.";
+                    }
+                }
+            }
+
+            if (shouldRetry) {
+                if (removeCookies) m_process->setProperty("cookie_retry_attempted", true);
+                if (removeWaitForVideo) m_process->setProperty("wait_retry_attempted", true);
+                m_process->setProperty("accumulated_stderr", QString()); // Reset for next run
+
+                if (removeCookies) {
                     // Remove --cookies-from-browser and its argument
                     qsizetype cookiesIndex = m_args.indexOf(QStringLiteral("--cookies-from-browser"));
                     if (cookiesIndex != -1) {
@@ -71,13 +95,29 @@ YtDlpWorker::YtDlpWorker(const QString &id, const QStringList &args, ConfigManag
                             m_args.removeAt(cookiesFileIndex);
                         }
                     }
-
-                    // Restart the download
-                    QTimer::singleShot(1000, this, [this]() {
-                        start();
-                    });
-                    return;
                 }
+
+                if (removeWaitForVideo) {
+                    qsizetype waitIndex = m_args.indexOf(QStringLiteral("--wait-for-video"));
+                    if (waitIndex != -1) {
+                        m_args.removeAt(waitIndex);
+                        if (waitIndex < m_args.size()) {
+                            m_args.removeAt(waitIndex); // Remove the value (e.g., "30-300")
+                        }
+                        m_args << QStringLiteral("--no-wait-for-video"); // Explicitly disable waiting
+                    }
+                    qsizetype liveFromStartIndex = m_args.indexOf(QStringLiteral("--live-from-start"));
+                    if (liveFromStartIndex != -1) {
+                        m_args.removeAt(liveFromStartIndex);
+                        m_args << QStringLiteral("--no-live-from-start");
+                    }
+                }
+
+                // Restart the download
+                QTimer::singleShot(1000, this, [this]() {
+                    start();
+                });
+                return;
             }
         }
 
