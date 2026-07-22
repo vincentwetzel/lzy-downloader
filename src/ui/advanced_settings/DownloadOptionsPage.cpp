@@ -215,7 +215,7 @@ void DownloadOptionsPage::loadSettings() {
     QSignalBlocker b12(m_ffmpegCutCustomArgsInput);
     QSignalBlocker b13(m_prefixPlaylistIndicesCheck);
 
-    ProcessUtils::FoundBinary aria2Binary = ProcessUtils::findBinary("aria2c", m_configManager);
+    ProcessUtils::FoundBinary aria2Binary = ProcessUtils::findBinary(QStringLiteral("aria2c"), m_configManager);
     bool aria2Available = (aria2Binary.source != QStringLiteral("Not Found") && aria2Binary.source != QStringLiteral("Invalid Custom") && !aria2Binary.path.isEmpty());
     
     bool useAria2c = m_configManager->get(QStringLiteral("Metadata"), QStringLiteral("use_aria2c"), false).toBool();
@@ -301,19 +301,19 @@ void DownloadOptionsPage::startHardwareEncoderProbe() {
     m_ffmpegEncoderProbeFinished = false;
     m_gpuProbeFinished = false;
 
-    const QString ffmpegPath = ProcessUtils::findBinary("ffmpeg", m_configManager).path;
+    const QString ffmpegPath = ProcessUtils::findBinary(QStringLiteral("ffmpeg"), m_configManager).path;
     if (ffmpegPath.isEmpty()) {
         m_ffmpegEncoderProbeFinished = true;
     } else {
-        m_ffmpegEncoderProbe->start(ffmpegPath, {"-hide_banner", "-encoders"});
+        m_ffmpegEncoderProbe->start(ffmpegPath, {QStringLiteral("-hide_banner"), QStringLiteral("-encoders")});
     }
 
 #if defined(Q_OS_WIN)
-    m_gpuProbe->start("powershell", {"-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", "Get-CimInstance Win32_VideoController | Select-Object -ExpandProperty Name"});
+    m_gpuProbe->start(QStringLiteral("powershell"), {QStringLiteral("-NoProfile"), QStringLiteral("-ExecutionPolicy"), QStringLiteral("Bypass"), QStringLiteral("-Command"), QStringLiteral("Get-CimInstance Win32_VideoController | Select-Object -ExpandProperty Name")});
 #elif defined(Q_OS_MACOS)
-    m_gpuProbe->start("sh", {"-c", "system_profiler SPDisplaysDataType 2>/dev/null | grep 'Chipset Model'"});
+    m_gpuProbe->start(QStringLiteral("sh"), {QStringLiteral("-c"), QStringLiteral("system_profiler SPDisplaysDataType 2>/dev/null | grep 'Chipset Model'")});
 #else
-    m_gpuProbe->start("sh", {"-c", "lspci 2>/dev/null | grep -Ei 'vga|3d|display'"});
+    m_gpuProbe->start(QStringLiteral("sh"), {QStringLiteral("-c"), QStringLiteral("lspci 2>/dev/null | grep -Ei 'vga|3d|display'")});
 #endif
 }
 
@@ -331,18 +331,18 @@ void DownloadOptionsPage::maybeApplyHardwareEncoderProbe() {
         return encoderName.isEmpty() || encoderOutput.contains(encoderName);
     };
 
-    if (ffmpegHasEncoder("nvenc_h264") && gpuOutput.contains("nvidia")) {
-        visibleEncoders << "nvenc_h264";
+    if (ffmpegHasEncoder(QStringLiteral("nvenc_h264")) && gpuOutput.contains(QStringLiteral("nvidia"))) {
+        visibleEncoders << QStringLiteral("nvenc_h264");
     }
-    if (ffmpegHasEncoder("qsv_h264") && gpuOutput.contains("intel")) {
-        visibleEncoders << "qsv_h264";
+    if (ffmpegHasEncoder(QStringLiteral("qsv_h264")) && gpuOutput.contains(QStringLiteral("intel"))) {
+        visibleEncoders << QStringLiteral("qsv_h264");
     }
-    if (ffmpegHasEncoder("amf_h264") && (gpuOutput.contains("amd") || gpuOutput.contains("radeon") || gpuOutput.contains("advanced micro devices"))) {
-        visibleEncoders << "amf_h264";
+    if (ffmpegHasEncoder(QStringLiteral("amf_h264")) && (gpuOutput.contains(QStringLiteral("amd")) || gpuOutput.contains(QStringLiteral("radeon")) || gpuOutput.contains(QStringLiteral("advanced micro devices")))) {
+        visibleEncoders << QStringLiteral("amf_h264");
     }
 #if defined(Q_OS_MACOS)
-    if (ffmpegHasEncoder("videotoolbox_h264")) {
-        visibleEncoders << "videotoolbox_h264";
+    if (ffmpegHasEncoder(QStringLiteral("videotoolbox_h264"))) {
+        visibleEncoders << QStringLiteral("videotoolbox_h264");
     }
 #endif
 

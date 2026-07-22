@@ -11,6 +11,7 @@
 #include <QStringList>
 #include <QTimer>
 #include <QUrl>
+#include <QBuffer>
 #include <QUrlQuery>
 #include <array>
 
@@ -53,6 +54,20 @@ PlaylistExpansionWorker::PlaylistExpansionWorker(const QString &url, ConfigManag
         if (error == QProcess::FailedToStart) {
             emit expansionFinished(m_url, {}, tr("Failed to start yt-dlp process. Please check your configuration."));
         }
+    });
+
+    QBuffer *stdoutBuffer = new QBuffer(m_process);
+    stdoutBuffer->open(QIODevice::ReadWrite);
+    m_process->setProperty("stdoutBuffer", QVariant::fromValue<QObject*>(stdoutBuffer));
+    connect(m_process, &QProcess::readyReadStandardOutput, this, [this, stdoutBuffer]() {
+        stdoutBuffer->write(m_process->readAllStandardOutput());
+    });
+
+    QBuffer *stderrBuffer = new QBuffer(m_process);
+    stderrBuffer->open(QIODevice::ReadWrite);
+    m_process->setProperty("stderrBuffer", QVariant::fromValue<QObject*>(stderrBuffer));
+    connect(m_process, &QProcess::readyReadStandardError, this, [this, stderrBuffer]() {
+        stderrBuffer->write(m_process->readAllStandardError());
     });
 }
 
@@ -151,8 +166,12 @@ void PlaylistExpansionWorker::onProcessFinished(int exitCode, QProcess::ExitStat
         m_process->setProperty("timed_out", false);
         return;
     }
+
+    QBuffer *stderrBuffer = qobject_cast<QBuffer*>(m_process->property("stderrBuffer").value<QObject*>());
+    if (stderrBuffer) stderrBuffer->write(m_process->readAllStandardError());
+
     if (exitStatus != QProcess::NormalExit || exitCode != 0) {
-        const QString stderrOutput = QString::fromUtf8(m_process->readAllStandardError());
+        const QString stderrOutput = stderrBuffer ? QString::fromUtf8(stderrBuffer->data()) : QString::fromUtf8(m_process->readAllStandardError());
         QString errorMessage = tr("Failed to expand playlist.");
 
         const qsizetype errIdx = stderrOutput.indexOf(QStringLiteral("ERROR:"));
@@ -180,7 +199,10 @@ void PlaylistExpansionWorker::onProcessFinished(int exitCode, QProcess::ExitStat
         return;
     }
 
-    const QByteArray jsonData = m_process->readAllStandardOutput();
+    QBuffer *stdoutBuffer = qobject_cast<QBuffer*>(m_process->property("stdoutBuffer").value<QObject*>());
+    if (stdoutBuffer) stdoutBuffer->write(m_process->readAllStandardOutput());
+    const QByteArray jsonData = stdoutBuffer ? stdoutBuffer->data() : m_process->readAllStandardOutput();
+
     QJsonParseError parseError;
     const QJsonDocument doc = QJsonDocument::fromJson(jsonData, &parseError);
 

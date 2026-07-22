@@ -9,6 +9,8 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## [Unreleased]
 
+## [1.2.5] - 2026-07-07
+
 ### Changed
 - Added `docs/FILE_MANIFEST.md` as a dedicated quick index for file-to-responsibility lookup and redirected the main docs to use it as the primary path map.
 - yt-dlp launch URLs now drop common tracking query parameters before execution, and livestream wait-state recovery can retry once without `--wait-for-video` or `--live-from-start` when the pre-wait probe reports a false-offline stream.

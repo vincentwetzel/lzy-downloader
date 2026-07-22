@@ -639,9 +639,11 @@ void terminateProcessTree(QProcess *process, int gracefulTimeoutMs) {
     }
 
     process->kill();
+    process->waitForFinished(500); // Wait for the process to be fully reaped and transition to NotRunning state
 #else
     Q_UNUSED(gracefulTimeoutMs)
     process->kill();
+    process->waitForFinished(500); // Wait for the process to be fully reaped and transition to NotRunning state
 #endif
 }
 

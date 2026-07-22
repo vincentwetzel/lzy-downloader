@@ -255,6 +255,7 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
     QString downloadType = options.value(QStringLiteral("type")).toString();
     QString finalOutputExtension;
     bool forceKeyframesAtCuts = false;
+    bool isPlaylistExpansion = options.value(QStringLiteral("is_playlist_expansion"), false).toBool();
 
     // --- Format Selection ---
     const bool hasLiveUrlHintValue = hasLiveUrlHint(url);
@@ -283,18 +284,18 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
         }
 
         QString downloadAs = configManager->get(QStringLiteral("Livestream"), QStringLiteral("download_as"), QStringLiteral("MPEG-TS")).toString();
-        if (downloadAs == QLatin1String("MPEG-TS")) {
-            rawArgs << QStringLiteral("--hls-use-mpegts");
-            finalOutputExtension = QStringLiteral("ts"); // With --hls-use-mpegts, the output is .ts for HLS streams.
-        } else {
-            rawArgs << QStringLiteral("--merge-output-format") << QStringLiteral("mkv");
-            finalOutputExtension = QStringLiteral("mkv");
-        }
-
         QString convertTo = configManager->get(QStringLiteral("Livestream"), QStringLiteral("convert_to"), QStringLiteral("None")).toString().toLower();
+
         if (convertTo != QLatin1String("none") && !convertTo.isEmpty()) {
             rawArgs << QStringLiteral("--remux-video") << convertTo;
             finalOutputExtension = convertTo;
+        } else if (downloadAs == QLatin1String("MPEG-TS")) {
+            // Replace --hls-use-mpegts with a post-download remux to avoid conflicts with m3u8:native
+            rawArgs << QStringLiteral("--remux-video") << QStringLiteral("ts");
+            finalOutputExtension = QStringLiteral("ts");
+        } else {
+            rawArgs << QStringLiteral("--remux-video") << QStringLiteral("mkv");
+            finalOutputExtension = QStringLiteral("mkv");
         }
 
         if (!options.value(QStringLiteral("skip_dir_creation"), false).toBool()) {
@@ -325,7 +326,7 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
         if (configManager->get(QStringLiteral("Livestream"), QStringLiteral("use_part"), true).toBool()) rawArgs << QStringLiteral("--part");
         else rawArgs << QStringLiteral("--no-part");
 
-    } else if (downloadType == QLatin1String("video")) {
+    } else if (downloadType == QLatin1String("video") && !isPlaylistExpansion) {
         QString videoQuality = options.contains(QStringLiteral("video_quality")) ? options.value(QStringLiteral("video_quality")).toString() : configManager->get(QStringLiteral("Video"), QStringLiteral("video_quality"), QStringLiteral("1080p (HD)")).toString();
         QString videoCodecSetting = options.contains(QStringLiteral("video_codec")) ? options.value(QStringLiteral("video_codec")).toString() : configManager->get(QStringLiteral("Video"), QStringLiteral("video_codec"), QStringLiteral("Default")).toString();
         QString audioCodecSetting = options.contains(QStringLiteral("video_audio_codec")) ? options.value(QStringLiteral("video_audio_codec")).toString() : configManager->get(QStringLiteral("Video"), QStringLiteral("video_audio_codec"), QStringLiteral("Default")).toString();
@@ -369,7 +370,7 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
             rawArgs << QStringLiteral("--merge-output-format") << requestedExtension;
         }
 
-    } else if (downloadType == QLatin1String("audio")) {
+    } else if (downloadType == QLatin1String("audio") && !isPlaylistExpansion) {
         QString audioQuality = options.value(QStringLiteral("audio_quality"), configManager->get(QStringLiteral("Audio"), QStringLiteral("audio_quality"), QStringLiteral("Best"))).toString();
         QString audioCodecSetting = options.value(QStringLiteral("audio_codec"), configManager->get(QStringLiteral("Audio"), QStringLiteral("audio_codec"), QStringLiteral("Default"))).toString();
         finalOutputExtension = configManager->get(QStringLiteral("Audio"), QStringLiteral("audio_extension"), QStringLiteral("mp3")).toString();
@@ -406,7 +407,6 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
     }
 
     // --- Playlist Logic ---
-    bool isPlaylistExpansion = options.value(QStringLiteral("is_playlist_expansion"), false).toBool();
     int optionPlaylistIndex = options.value(QStringLiteral("playlist_index"), -1).toInt();
 
     if (!isPlaylistExpansion) {
@@ -429,7 +429,7 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
 
     // --- General Options ---
     // Livestreams do not have SponsorBlock segments or chapters, so we completely bypass this to prevent FFmpeg crashes.
-    if (configManager->get(QStringLiteral("General"), QStringLiteral("sponsorblock"), false).toBool() && !isLivestream) {
+    if (configManager->get(QStringLiteral("General"), QStringLiteral("sponsorblock"), false).toBool() && !isLivestream && !isPlaylistExpansion) {
         rawArgs << QStringLiteral("--sponsorblock-remove") << QStringLiteral("all");
         if (downloadType == QStringLiteral("video")) {
             const bool sponsorBlockSegmentsChecked = options.value(QStringLiteral("sponsorblock_segments_checked"), false).toBool();
@@ -442,7 +442,7 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
         }
     }
     const ProcessUtils::FoundBinary aria2Binary = ProcessUtils::findBinary(QStringLiteral("aria2c"), configManager);
-    if (!isLivestream && !isLiveReplay && !hasLiveUrlHintValue && configManager->get(QStringLiteral("Metadata"), QStringLiteral("use_aria2c"), false).toBool() && aria2Binary.source != QLatin1String("Not Found") && aria2Binary.source != QLatin1String("Invalid Custom")) {
+    if (!isLivestream && !isLiveReplay && !isPlaylistExpansion && !hasLiveUrlHintValue && configManager->get(QStringLiteral("Metadata"), QStringLiteral("use_aria2c"), false).toBool() && aria2Binary.source != QLatin1String("Not Found") && aria2Binary.source != QLatin1String("Invalid Custom")) {
         QString aria2cPath = aria2Binary.path;
         QStringList aria2Args;
         aria2Args << QStringLiteral("--summary-interval=1");
@@ -465,9 +465,9 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
         rawArgs << QStringLiteral("--geo-verification-proxy") << geoProxy;
     }
 
-    if (configManager->get(QStringLiteral("Metadata"), QStringLiteral("embed_chapters"), true).toBool() && !isLivestream) rawArgs << QStringLiteral("--embed-chapters");
-    if (configManager->get(QStringLiteral("DownloadOptions"), QStringLiteral("split_chapters"), false).toBool()) rawArgs << QStringLiteral("--split-chapters");
-    if (configManager->get(QStringLiteral("Metadata"), QStringLiteral("embed_metadata"), true).toBool() && !isLivestream) rawArgs << QStringLiteral("--embed-metadata");
+    if (configManager->get(QStringLiteral("Metadata"), QStringLiteral("embed_chapters"), true).toBool() && !isLivestream && !isPlaylistExpansion) rawArgs << QStringLiteral("--embed-chapters");
+    if (configManager->get(QStringLiteral("DownloadOptions"), QStringLiteral("split_chapters"), false).toBool() && !isPlaylistExpansion) rawArgs << QStringLiteral("--split-chapters");
+    if (configManager->get(QStringLiteral("Metadata"), QStringLiteral("embed_metadata"), true).toBool() && !isLivestream && !isPlaylistExpansion) rawArgs << QStringLiteral("--embed-metadata");
 
     // Inject LzyDownloader's internal ID into yt-dlp's metadata engine.
     // This gives users a %(lzy_id)s token for their output templates, guaranteeing
@@ -478,7 +478,7 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
     }
 
     bool isAudioPlaylist = (downloadType == QLatin1String("audio") && (options.value(QStringLiteral("playlist_index"), -1).toInt() > 0 || !options.value(QStringLiteral("playlist_title")).toString().isEmpty() || options.value(QStringLiteral("is_playlist")).toBool()));
-    bool forceSingleAlbum = (isAudioPlaylist && configManager->get(QStringLiteral("Metadata"), QStringLiteral("force_playlist_as_album"), false).toBool());
+    bool forceSingleAlbum = (isAudioPlaylist && !isPlaylistExpansion && configManager->get(QStringLiteral("Metadata"), QStringLiteral("force_playlist_as_album"), false).toBool());
     if (forceSingleAlbum) {
         const QString playlistTitle = options.value(QStringLiteral("playlist_title")).toString().trimmed();
         if (!playlistTitle.isEmpty()) {
@@ -500,33 +500,35 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
     // We want to write a thumbnail for the UI even if we can't embed it.
     bool shouldWrite = (downloadType == QLatin1String("video") || downloadType == QLatin1String("audio") || isLivestream || genFolderJpg);
 
-    if (canEmbed) {
-        rawArgs << QStringLiteral("--embed-thumbnail");
-    } else if (shouldWrite) {
-        rawArgs << QStringLiteral("--write-thumbnail");
-    }
-
-    if (canEmbed || shouldWrite) {
-        QStringList ppaArgs;
-        if (configManager->get(QStringLiteral("Metadata"), QStringLiteral("high_quality_thumbnail"), false).toBool()) {
-            ppaArgs << QStringLiteral("-q:v 0");
-        }
-        
-        // Crop to square if downloading audio
-        if (downloadType == QLatin1String("audio") && configManager->get(QStringLiteral("Metadata"), QStringLiteral("crop_artwork_to_square"), true).toBool()) {
-            ppaArgs << QStringLiteral("-vf crop=(iw+ih-abs(iw-ih))/2:(iw+ih-abs(iw-ih))/2");
+    if (!isPlaylistExpansion) {
+        if (canEmbed) {
+            rawArgs << QStringLiteral("--embed-thumbnail");
+        } else if (shouldWrite) {
+            rawArgs << QStringLiteral("--write-thumbnail");
         }
 
-        if (!ppaArgs.isEmpty()) {
-            rawArgs << QStringLiteral("--ppa") << QStringLiteral("ThumbnailsConvertor+ffmpeg_o:%1").arg(ppaArgs.join(QLatin1Char(' ')));
-        }
+        if (canEmbed || shouldWrite) {
+            QStringList ppaArgs;
+            if (configManager->get(QStringLiteral("Metadata"), QStringLiteral("high_quality_thumbnail"), false).toBool()) {
+                ppaArgs << QStringLiteral("-q:v 0");
+            }
+            
+            // Crop to square if downloading audio
+            if (downloadType == QLatin1String("audio") && configManager->get(QStringLiteral("Metadata"), QStringLiteral("crop_artwork_to_square"), true).toBool()) {
+                ppaArgs << QStringLiteral("-vf crop=(iw+ih-abs(iw-ih))/2:(iw+ih-abs(iw-ih))/2");
+            }
 
-        QString convertThumb = configManager->get(QStringLiteral("Metadata"), QStringLiteral("convert_thumbnail_to"), QStringLiteral("jpg")).toString();
-        if (convertThumb != QLatin1String("None")) {
-            rawArgs << QStringLiteral("--convert-thumbnails") << convertThumb;
-        } else if (genFolderJpg && !canEmbed) {
-            // If we are only writing for folder.jpg, we must convert to jpg.
-            rawArgs << QStringLiteral("--convert-thumbnails") << QStringLiteral("jpg");
+            if (!ppaArgs.isEmpty()) {
+                rawArgs << QStringLiteral("--ppa") << QStringLiteral("ThumbnailsConvertor+ffmpeg_o:%1").arg(ppaArgs.join(QLatin1Char(' ')));
+            }
+
+            QString convertThumb = configManager->get(QStringLiteral("Metadata"), QStringLiteral("convert_thumbnail_to"), QStringLiteral("jpg")).toString();
+            if (convertThumb != QLatin1String("None")) {
+                rawArgs << QStringLiteral("--convert-thumbnails") << convertThumb;
+            } else if (genFolderJpg && !canEmbed) {
+                // If we are only writing for folder.jpg, we must convert to jpg.
+                rawArgs << QStringLiteral("--convert-thumbnails") << QStringLiteral("jpg");
+            }
         }
     }
 
@@ -547,8 +549,8 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
     // --- Subtitles ---
     bool configEmbedSubs = configManager->get(QStringLiteral("Subtitles"), QStringLiteral("embed_subtitles"), false).toBool();
     bool configWriteSubs = configManager->get(QStringLiteral("Subtitles"), QStringLiteral("write_subtitles"), false).toBool();
-    bool embedSubs = configEmbedSubs && !isLivestream;
-    bool writeSubs = configWriteSubs || (configEmbedSubs && isLivestream);
+    bool embedSubs = configEmbedSubs && !isLivestream && !isPlaylistExpansion;
+    bool writeSubs = (configWriteSubs || (configEmbedSubs && isLivestream)) && !isPlaylistExpansion;
 
     if (embedSubs || writeSubs) {
         QString subLangsRaw = configManager->get(QStringLiteral("Subtitles"), QStringLiteral("languages"), QStringLiteral("en")).toString();
@@ -601,7 +603,7 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
 
     // --- Download Sections ---
     QString downloadSections = options.value(QStringLiteral("download_sections")).toString();
-    if (!downloadSections.isEmpty()) {
+    if (!downloadSections.isEmpty() && !isPlaylistExpansion) {
         rawArgs << QStringLiteral("--download-sections") << downloadSections;
 
         // Preserve the user's requested output container instead of forcing an
@@ -612,7 +614,7 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
         }
     }
 
-    if (forceKeyframesAtCuts) {
+    if (forceKeyframesAtCuts && !isPlaylistExpansion) {
         appendForcedKeyframeCutArgs(rawArgs, configManager);
     }
     // --- Rate Limit ---
@@ -626,39 +628,41 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
         QDir().mkpath(tempPath);
     }
     
-    QString outputTemplate;
-    if (downloadType == QLatin1String("audio")) {
-        outputTemplate = configManager->get(QStringLiteral("General"), QStringLiteral("output_template_audio")).toString();
-    } else {
-        outputTemplate = configManager->get(QStringLiteral("General"), QStringLiteral("output_template_video")).toString();
+    if (!isPlaylistExpansion) {
+        QString outputTemplate;
+        if (downloadType == QLatin1String("audio")) {
+            outputTemplate = configManager->get(QStringLiteral("General"), QStringLiteral("output_template_audio")).toString();
+        } else {
+            outputTemplate = configManager->get(QStringLiteral("General"), QStringLiteral("output_template_video")).toString();
+        }
+        
+        // Fallback to legacy combined setting if the specific ones aren't set yet
+        if (outputTemplate.isEmpty()) {
+            outputTemplate = configManager->get(QStringLiteral("General"), QStringLiteral("output_template")).toString();
+        }
+
+        if (outputTemplate.isEmpty()) outputTemplate = QStringLiteral("%(title)s [%(uploader)s][%(upload_date>%m-%d-%Y)s][%(id)s].%(ext)s");
+
+        // Dynamically inject playlist metadata fallbacks so carousel slides and playlist items resolve gracefully
+        outputTemplate.replace(QStringLiteral("%(uploader)s"), QStringLiteral("%(uploader,playlist_uploader,playlist_uploader_id,uploader_id,channel,playlist_owner|NA)s"));
+        outputTemplate.replace(QStringLiteral("%(upload_date)s"), QStringLiteral("%(upload_date,playlist_upload_date|NA)s"));
+        static const QRegularExpression dateRe(QStringLiteral(R"(%\(upload_date>([^)]+)\)s)"));
+        outputTemplate.replace(dateRe, QStringLiteral(R"(%(upload_date>\1,playlist_upload_date>\1|NA)s)"));
+
+        QString sectionFilenameLabel = options.value(QStringLiteral("download_sections_label")).toString();
+        if (sectionFilenameLabel.isEmpty() && !downloadSections.isEmpty()) {
+            sectionFilenameLabel = downloadSections;
+        }
+        outputTemplate = appendSectionLabelToTemplate(outputTemplate, sectionFilenameLabel);
+        if (!sectionFilenameLabel.isEmpty()) {
+            qDebug() << "YtDlpArgsBuilder: applied section filename suffix:" << sectionFilenameLabel;
+        }
+
+        rawArgs << QStringLiteral("-o") << QDir(tempPath).filePath(outputTemplate);
+
+        // --- Print final filepath ---
+        rawArgs << QStringLiteral("--print") << QStringLiteral("after_move:LZY_FINAL_PATH:%(filepath)s");
     }
-    
-    // Fallback to legacy combined setting if the specific ones aren't set yet
-    if (outputTemplate.isEmpty()) {
-        outputTemplate = configManager->get(QStringLiteral("General"), QStringLiteral("output_template")).toString();
-    }
-
-    if (outputTemplate.isEmpty()) outputTemplate = QStringLiteral("%(title)s [%(uploader)s][%(upload_date>%m-%d-%Y)s][%(id)s].%(ext)s");
-
-    // Dynamically inject playlist metadata fallbacks so carousel slides and playlist items resolve gracefully
-    outputTemplate.replace(QStringLiteral("%(uploader)s"), QStringLiteral("%(uploader,playlist_uploader,playlist_uploader_id,uploader_id,channel,playlist_owner|NA)s"));
-    outputTemplate.replace(QStringLiteral("%(upload_date)s"), QStringLiteral("%(upload_date,playlist_upload_date|NA)s"));
-    static const QRegularExpression dateRe(QStringLiteral(R"(%\(upload_date>([^)]+)\)s)"));
-    outputTemplate.replace(dateRe, QStringLiteral(R"(%(upload_date>\1,playlist_upload_date>\1|NA)s)"));
-
-    QString sectionFilenameLabel = options.value(QStringLiteral("download_sections_label")).toString();
-    if (sectionFilenameLabel.isEmpty() && !downloadSections.isEmpty()) {
-        sectionFilenameLabel = downloadSections;
-    }
-    outputTemplate = appendSectionLabelToTemplate(outputTemplate, sectionFilenameLabel);
-    if (!sectionFilenameLabel.isEmpty()) {
-        qDebug() << "YtDlpArgsBuilder: applied section filename suffix:" << sectionFilenameLabel;
-    }
-
-    rawArgs << QStringLiteral("-o") << QDir(tempPath).filePath(outputTemplate);
-
-    // --- Print final filepath ---
-    rawArgs << QStringLiteral("--print") << QStringLiteral("after_move:LZY_FINAL_PATH:%(filepath)s");
     
     rawArgs << sanitizeTrackingParams(url);
 

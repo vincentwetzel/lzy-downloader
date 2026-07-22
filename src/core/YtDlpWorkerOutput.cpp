@@ -44,7 +44,7 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
     bool hasCookies = m_args.contains(QStringLiteral("--cookies-from-browser")) || m_args.contains(QStringLiteral("--cookies"));
     if (hasCookies && !m_retriedWithoutBrowserCookies && !this->property("proactiveCookieRetryActive").toBool() && !normalizedLine.startsWith(QStringLiteral("[debug]"))) {
         static const QRegularExpression cookieErrorRe(
-            QStringLiteral("HTTP Error 400|Bad Request|Unable to download JSON metadata|empty media response|cookie.*(?:invalid|expired|failed|error|rotate|refresh)|decryption|permission denied|sqlite|locked|access is denied"),
+            QStringLiteral("empty media response|cookie.*(?:invalid|expired|failed|error|rotate|refresh)|decryption|permission denied|sqlite|locked|access is denied|Unable to download JSON metadata.*HTTP Error 40[03]"),
             QRegularExpression::CaseInsensitiveOption
         );
         if (cookieErrorRe.match(normalizedLine).hasMatch()) {
@@ -63,9 +63,6 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
 
             QTimer::singleShot(1000, this, [this]() {
                 this->setProperty("proactiveCookieRetryActive", false);
-                if (m_process) {
-                    m_process->setProperty("accumulated_stderr", QString());
-                }
                 retryWithoutBrowserCookiesIfCookieExtractionFailed();
             });
             return;
@@ -160,6 +157,23 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
         else if (contentRemovedRegex.match(normalizedLine).hasMatch()) {
             emitError(QStringLiteral("content_removed"), tr("The requested content is unavailable or has been removed by the uploader."));
         }
+        // Check for offline livestream
+        else if (normalizedLine.contains(QStringLiteral("not currently live"), Qt::CaseInsensitive) ||
+                 normalizedLine.contains(QStringLiteral("live event has ended"), Qt::CaseInsensitive)) {
+            bool hasApiBlock = false;
+            for (const QString& errLine : std::as_const(m_errorLines)) {
+                if (errLine.contains(QStringLiteral("Unable to download JSON metadata: HTTP Error 40"), Qt::CaseInsensitive)) {
+                    hasApiBlock = true;
+                    break;
+                }
+            }
+
+            if (hasApiBlock) {
+                emitError(QStringLiteral("api_block_offline"), tr("The site rejected the metadata request (HTTP 400/403), causing the downloader to falsely report the stream as offline.\n\nThis is usually caused by an upstream extractor issue or a strict site block, and waiting will not resolve it."));
+            } else if (!m_args.contains(QStringLiteral("--wait-for-video"))) {
+                emitError(QStringLiteral("offline"), tr("The channel or livestream is currently offline."));
+            }
+        }
         // Check for No video formats found / Ghost IDs
         else if (normalizedLine.contains(QStringLiteral("No video formats found"), Qt::CaseInsensitive)) {
             emitError(QStringLiteral("no_video_formats"), tr("No video formats found for this URL.\n\n"
@@ -181,6 +195,13 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
             emitError(QStringLiteral("ffmpeg_option_not_found"),
                       tr("Your FFmpeg version does not support the '-ignore_editlist' option, which is required for accurate SponsorBlock/section cuts.\n\n"
                          "Please update FFmpeg to a recent version (e.g., 6.0 or newer) from the External Tools settings."));
+        } else if (normalizedLine.contains(QStringLiteral("ffmpeg exited with code 2812791304"), Qt::CaseInsensitive) ||
+                   normalizedLine.contains(QStringLiteral("ffmpeg exited with code -1482186296"), Qt::CaseInsensitive) ||
+                   normalizedLine.contains(QStringLiteral("ffmpeg exited with code 3221225477"), Qt::CaseInsensitive) ||
+                   normalizedLine.contains(QStringLiteral("ffmpeg exited with code -1482175992"), Qt::CaseInsensitive)) {
+            emitError(QStringLiteral("ffmpeg_network_crash"),
+                      tr("FFmpeg failed to download the stream. This usually happens on rapidly rotating livestreams (HTTP 404) or when the server blocks FFmpeg's connection (HTTP 504/403).\n\n"
+                         "For some livestreams, extracting the direct stream URL (e.g., .flv or .m3u8) manually may bypass this block."));
         } else if (normalizedLine.contains(QStringLiteral("Error opening input files"), Qt::CaseInsensitive) ||
                    normalizedLine.contains(QStringLiteral("Option not found"), Qt::CaseInsensitive)) {
             // Generic FFmpeg post-processing failure, but not the specific ignore_editlist issue.
@@ -190,9 +211,11 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
         }
         // Check for scheduled livestream/premiere
         else if (premiereRegex.match(normalizedLine).hasMatch()) {
-            emitError(QStringLiteral("scheduled_livestream"),
-                tr("This video is a scheduled livestream or premiere that has not started yet.\n\n"
-                   "Would you like to wait for the video to begin and download it automatically?"));
+            if (!m_args.contains(QStringLiteral("--wait-for-video"))) {
+                emitError(QStringLiteral("scheduled_livestream"),
+                    tr("This video is a scheduled livestream or premiere that has not started yet.\n\n"
+                       "Would you like to wait for the video to begin and download it automatically?"));
+            }
         }
     } else if (normalizedLine.startsWith(QStringLiteral("WARNING:"))) { // Separate handling for WARNING: lines
         // Filter out specific non-critical warnings that don't need to be surfaced to the user
@@ -403,21 +426,23 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
                         QString fetchStderr = QString::fromUtf8(safeProcess->readAllStandardError());
                         qWarning() << "[YtDlpWorker] Stderr:" << fetchStderr;
 
-                        // Generically break infinite wait loops if the site throws a hard offline/unavailable error
-                        static const QRegularExpression offlineRe(QStringLiteral("not currently live|offline|ended|unavailable"), QRegularExpression::CaseInsensitiveOption);
-                        if (exitCode != 0 && offlineRe.match(fetchStderr).hasMatch() && !this->property("proactiveWaitRetryActive").toBool()) {
-                            qWarning() << "[YtDlpWorker] Detected false-offline or fatal error during wait state. Forcing main process restart without wait-for-video.";
+                        // Break infinite wait loops if the site throws a hard API block (HTTP 400/403) resulting in a false-offline state
+                        if (exitCode != 0 && !this->property("proactiveWaitRetryActive").toBool()) {
+                            const bool isOffline = fetchStderr.contains(QStringLiteral("not currently live"), Qt::CaseInsensitive) ||
+                                                   fetchStderr.contains(QStringLiteral("offline"), Qt::CaseInsensitive) ||
+                                                   fetchStderr.contains(QStringLiteral("live event has ended"), Qt::CaseInsensitive);
+                            const bool hasApiBlock = fetchStderr.contains(QStringLiteral("Unable to download JSON metadata: HTTP Error 40"), Qt::CaseInsensitive);
                             
-                            this->setProperty("proactiveWaitRetryActive", true);
-                            if (m_process) {
-                                m_process->setProperty("accumulated_stderr", fetchStderr);
+                            if (isOffline && hasApiBlock) {
+                                qWarning() << "[YtDlpWorker] Detected API block causing false-offline during wait state. Breaking native wait loop.";
+                                this->setProperty("proactiveWaitRetryActive", true);
+                                
+                                if (!m_errorEmitted) {
+                                    m_errorEmitted = true;
+                                    emit ytDlpErrorDetected(m_id, QStringLiteral("api_block_offline"), tr("The site rejected the metadata request (HTTP 400/403), causing the downloader to falsely report the stream as offline.\n\nThis is usually caused by an upstream extractor issue or a strict site block, and waiting will not resolve it."), fetchStderr.split(QLatin1Char('\n')).first());
+                                }
+                                killProcess();
                             }
-                            killProcess();
-
-                            QVariantMap progressData;
-                            progressData.insert(QStringLiteral("status"), tr("Stream reported offline; forcing immediate retry..."));
-                            progressData.insert(QStringLiteral("progress"), -1);
-                            emit progressUpdated(m_id, progressData);
                         }
                     }
                 safeProcess->deleteLater();

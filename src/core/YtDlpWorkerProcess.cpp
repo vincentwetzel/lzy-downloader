@@ -255,7 +255,9 @@ void YtDlpWorker::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatu
     if (!m_finalFilename.isEmpty()) {
         qDebug() << "Final filename captured:" << m_finalFilename;
     } else {
-        qWarning() << "Could not determine final filename. Download may have failed or produced no output.";
+        if (!m_errorEmitted && !hasCriticalError) {
+            qWarning() << "Could not determine final filename. Download may have failed or produced no output.";
+        }
         if (exitCode == 0 && exitStatus == QProcess::NormalExit) {
             appendMessage(tr("Could not determine final filename."));
         }
@@ -335,9 +337,19 @@ void YtDlpWorker::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatu
             appendMessage(tr("Process crashed: %1").arg(m_process ? m_process->errorString() : tr("Unknown error")));
         }
 
+        // Avoid showing authentication tips if yt-dlp explicitly handed off to ffmpeg,
+        // because that means metadata/auth extraction succeeded and the error is in the muxer/downloader.
+        bool hasFfmpegError = false;
+        for (const QString& line : std::as_const(m_errorLines)) {
+            if (line.contains(QStringLiteral("ffmpeg exited with code"), Qt::CaseInsensitive)) {
+                hasFfmpegError = true;
+                break;
+            }
+        }
+
         // Add a clear hint about cookie authentication if cookies were utilized or attempted
         const bool hadCookies = m_retriedWithoutBrowserCookies || m_args.contains(QStringLiteral("--cookies-from-browser")) || m_args.contains(QStringLiteral("--cookies"));
-        if (hadCookies) {
+        if (hadCookies && !hasFfmpegError) {
             QString browserName = m_configManager ? m_configManager->get(QStringLiteral("General"), QStringLiteral("cookies_from_browser"), tr("None")).toString() : QString();
             if (browserName.isEmpty() || browserName.compare(QStringLiteral("None"), Qt::CaseInsensitive) == 0 || browserName.compare(tr("None"), Qt::CaseInsensitive) == 0) {
                 browserName = tr("configured browser");
@@ -427,20 +439,13 @@ bool YtDlpWorker::retryWithoutBrowserCookiesIfCookieExtractionFailed() {
     const bool permissionFailure = containsAny(m_errorLines, permissionRegex, permissionGates) || containsAny(m_allOutputLines, permissionRegex, permissionGates);
 
     static const QRegularExpression cookieRegex(
-        QStringLiteral("temporary\\.sqlite|cookies\\.sqlite|yt_dlp|HTTP Error 400|Bad Request|JSON metadata"),
+        QStringLiteral("temporary\\.sqlite|cookies\\.sqlite|Sign in to confirm"),
         QRegularExpression::CaseInsensitiveOption
     );
-    static const QStringList cookieGates = {QStringLiteral("cookie"), QStringLiteral("sqlite"), QStringLiteral("yt_dlp"), QStringLiteral("HTTP"), QStringLiteral("Request"), QStringLiteral("metadata")};
+    static const QStringList cookieGates = {QStringLiteral("cookie"), QStringLiteral("sqlite"), QStringLiteral("Sign")};
     const bool browserCookieFailure = containsAny(m_errorLines, cookieRegex, cookieGates) || containsAny(m_allOutputLines, cookieRegex, cookieGates);
 
-    static const QRegularExpression endedRegex(
-        QStringLiteral("live event has ended"),
-        QRegularExpression::CaseInsensitiveOption
-    );
-    static const QStringList endedGates = {QStringLiteral("ended")};
-    const bool endedLiveExtractorFailure = containsAny(m_errorLines, endedRegex, endedGates) || containsAny(m_allOutputLines, endedRegex, endedGates);
-
-    const bool cookieFailure = (permissionFailure && browserCookieFailure) || endedLiveExtractorFailure || browserCookieFailure;
+    const bool cookieFailure = (permissionFailure && browserCookieFailure) || browserCookieFailure;
     if (!cookieFailure) {
         return false;
     }
