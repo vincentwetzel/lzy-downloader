@@ -341,11 +341,7 @@
     },
     "apple": {
         "domains": [
-            "music.apple.com"
-        ]
-    },
-    "applepodcasts": {
-        "domains": [
+            "music.apple.com",
             "podcasts.apple.com"
         ]
     },
@@ -4009,7 +4005,7 @@
     },
     "nitter": {
         "domains": [
-            "nitter.kylrth.com"
+            "nitter.lacontrevoie.fr"
         ]
     },
     "njoy": {
@@ -5579,7 +5575,7 @@
             "shiey.com"
         ]
     },
-    "showroomlive": {
+    "showroom": {
         "domains": [
             "showroom-live.com"
         ]

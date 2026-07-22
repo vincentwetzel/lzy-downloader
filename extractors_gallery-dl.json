@@ -94,6 +94,11 @@
             "are.na"
         ]
     },
+    "artfight": {
+        "domains": [
+            "artfight.net"
+        ]
+    },
     "artstation": {
         "domains": [
             "artstation.com"
@@ -153,6 +158,11 @@
             "cdn123.bunkr.ru"
         ]
     },
+    "cara": {
+        "domains": [
+            "cara.app"
+        ]
+    },
     "catbox": {
         "domains": [
             "catbox.moe",
@@ -167,6 +177,11 @@
     "civitai": {
         "domains": [
             "civitai.red"
+        ]
+    },
+    "clonr": {
+        "domains": [
+            "clonr.co"
         ]
     },
     "comedywildlifephoto": {
@@ -348,6 +363,11 @@
     "fuskator": {
         "domains": [
             "fuskator.com"
+        ]
+    },
+    "ganknow": {
+        "domains": [
+            "ganknow.com"
         ]
     },
     "gelbooru": {
@@ -567,6 +587,11 @@
             "kabe-uchiroom.com"
         ]
     },
+    "kagane": {
+        "domains": [
+            "kagane.to"
+        ]
+    },
     "kaliscan": {
         "domains": [
             "kaliscan.me"
@@ -700,6 +725,11 @@
             "mangoxo.com"
         ]
     },
+    "mgrenders": {
+        "domains": [
+            "a.mg-renders.net"
+        ]
+    },
     "mixdrop": {
         "domains": [
             "mixdrop.ag"
@@ -788,7 +818,7 @@
     },
     "pawchive": {
         "domains": [
-            "pawchive.st"
+            "pawchive.pw"
         ]
     },
     "pexels": {
@@ -955,6 +985,11 @@
     "s3ndpics": {
         "domains": [
             "s3nd.pics"
+        ]
+    },
+    "sakuhentai": {
+        "domains": [
+            "sakuhentai.net"
         ]
     },
     "sankaku": {
@@ -1167,6 +1202,11 @@
     "vanillarock": {
         "domains": [
             "vanilla-rock.com"
+        ]
+    },
+    "vanlifetrader": {
+        "domains": [
+            "vanlifetrader.com"
         ]
     },
     "vipergirls": {

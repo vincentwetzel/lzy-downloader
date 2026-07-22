@@ -9,6 +9,23 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## [Unreleased]
 
+## [1.2.6] - 2026-07-22
+
+### Changed
+- Added `docs/FILE_MANIFEST.md` as a dedicated quick index for file-to-responsibility lookup and redirected the main docs to use it as the primary path map.
+- External binary discovery and update handling now use longer, environment-aware version probes, preserve explicit user overrides, and keep the active executable aligned with the last successful auto-detected path.
+- The app updater now selects the correct release asset for Windows, Linux, and macOS instead of assuming a Windows-only installer flow.
+- yt-dlp launch URLs now drop common tracking query parameters before execution, and livestream wait-state recovery can retry once without `--wait-for-video` or `--live-from-start` when the pre-wait probe reports a false-offline stream.
+
+### Fixed
+- Browser-cookie failures now retry once without browser cookies when yt-dlp reports public-download breakage caused by extractor cookie state.
+- Active Downloads progress and diagnostics now retain clearer bounded tails so long-running jobs stay informative without growing memory usage unchecked.
+- Playlist and carousel item targeting now respects generic one-based index hints such as `img_index`, `slide`, `item`, `index`, and `playlist_index` without adding site-specific overrides.
+- Linux AppImage packaging now stages AppDir cleanly and generates a desktop file whose icon entry matches the resized release PNG so linuxdeploy can resolve the final bundle reliably.
+- Final file cleanup is more resilient when Windows briefly holds locks after download completion, and FFmpeg single-file moves now fall back to copy/remove when a direct move is not possible.
+- Audio playlist artwork generation is limited to explicit full-playlist or multi-item batches, so single tracks and partial selections no longer create unnecessary `folder.jpg` files.
+- External-binary version notes and update diagnostics now stay compact and clearer during install-success repair flows and standalone-binary warnings.
+
 ## [1.2.5] - 2026-07-07
 
 ### Changed
