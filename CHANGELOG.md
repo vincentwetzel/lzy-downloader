@@ -16,6 +16,16 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 - Tracking-parameter cleanup now uses Qt's default URL serialization after removing transient query items.
 - Refreshed the bundled Nitter extractor domain to `nitter.arcticfoxes.net`.
 
+## [1.2.11] - 2026-07-23
+
+### Changed
+- Synchronized release metadata to version `1.2.11` across the build configuration, generated version header, and vcpkg manifest.
+- Refreshed the documentation for playlist validation, extractor handling, and download-argument safety so the architecture and specification stay aligned with current behavior.
+- Kept metadata-only playlist expansion read-only while maintaining generic item-index hints and URL cleanup rules for real downloads.
+
+### Fixed
+- Versioned release assets now stay aligned with the application binary metadata, installer packaging, and update checks.
+
 ## [Unreleased]
 
 ## [1.2.6] - 2026-07-22
