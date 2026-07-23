@@ -1,13 +1,56 @@
 # Build outputs
 /build/
+/build-release/
+/build-debug/
 /cmake-build-debug/
+/out/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+*.o
+*.obj
+*.a
+*.lib
 *.pdb
+*.exe
+*.dll
+*.so
+*.dylib
+*.AppImage
+*.dmg
+*.msi
 
 # IDE-specific files
 /.idea/
+/.vs/
+/.vscode/
+*.user
+*.suo
+*.sln
+*.vcxproj*
+CMakeSettings.json
 
-# Dependencies
+# Dependencies and External Tools
 /bin/
+venv/
+.venv/
+__pycache__/
+*.pyc
+/.pytest_cache/
+/.mypy_cache/
+*.egg-info/
 
-# Other
+# Runtime state, Databases, and Logs
 *.bak
+*.log
+*.db
+settings.ini
+downloads_backup.json
+api_token.txt
+/Server/
+/temp_downloads/
+
+# OS-specific metadata
+.DS_Store
+Thumbs.db
+desktop.ini

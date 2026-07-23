@@ -224,10 +224,8 @@ QStringList YtDlpArgsBuilder::buildValidationArgs(ConfigManager *configManager, 
     args << QStringLiteral("--simulate");
 
     // --- Cookies ---
-    QString cookiesBrowser = configManager->get(QStringLiteral("General"), QStringLiteral("cookies_from_browser"), QStringLiteral("None")).toString();
-    if (cookiesBrowser != QLatin1String("None")) {
-        args << QStringLiteral("--cookies-from-browser") << cookiesBrowser.toLower();
-    }
+    // For validation, we should never use browser cookies to avoid interactive prompts or file locking.
+    // This ensures validation probes are lightweight and non-blocking.
 
     args << sanitizeTrackingParams(url);
     return args;
@@ -592,7 +590,7 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
 
     // --- Cookies ---
     QString cookiesBrowser = configManager->get(QStringLiteral("General"), QStringLiteral("cookies_from_browser"), QStringLiteral("None")).toString();
-    if (cookiesBrowser != QLatin1String("None")) {
+    if (cookiesBrowser != QLatin1String("None") && !isPlaylistExpansion) {
         rawArgs << QStringLiteral("--cookies-from-browser") << cookiesBrowser.toLower();
     }
 

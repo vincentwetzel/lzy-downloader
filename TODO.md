@@ -11,6 +11,7 @@
 - [ ] Integrate Qt Linguist (`.ts`/`.qm` compiler steps) into `CMakeLists.txt` build automation.
 
 ## Completed
+- [x] Updated the bundled Nitter extractor domain to `nitter.arcticfoxes.net` and kept validation / playlist-expansion probes read-only by omitting browser cookies.
 - [x] Kept playlist metadata expansion read-only when archive override is enabled, constrained aria2c referer generation to complete URL origins, and refreshed the bundled Nitter extractor domain.
 - [x] Trimmed common tracking query parameters from yt-dlp launch URLs and added bounded false-offline livestream retry handling when wait-state probes fail.
 - [x] Added a dedicated file manifest at `docs/FILE_MANIFEST.md` and redirected the main docs to use it as the quick path-to-code index.

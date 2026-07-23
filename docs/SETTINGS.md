@@ -377,7 +377,7 @@ If you see a "database is locked" error when selecting a browser for cookies, cl
 
 ### Browser Cookie Download Failures
 
-If yt-dlp fails during a public video/audio download while browser cookies are enabled, LzyDownloader retries the job once without `--cookies-from-browser`. This covers temporary cookie database permission errors and stale browser-cookie extractor state while still allowing protected media to fail with a clearer diagnostic.
+If yt-dlp fails during a public video/audio download while browser cookies are enabled, LzyDownloader retries the job once without `--cookies-from-browser`. This covers temporary cookie database permission errors and stale browser-cookie extractor state while still allowing protected media to fail with a clearer diagnostic. Read-only validation and playlist-expansion probes intentionally skip browser cookies so they stay lightweight and cannot stall on browser-profile locks.
 
 ### Missing Binaries
 
@@ -385,4 +385,4 @@ If a required binary (`yt-dlp`, `ffmpeg`, `ffprobe`, `deno`) is not found, LzyDo
 
 ---
 
-*Last updated: June 8, 2026 - LzyDownloader C++ Port*
+*Last updated: July 23, 2026 - LzyDownloader C++ Port*
