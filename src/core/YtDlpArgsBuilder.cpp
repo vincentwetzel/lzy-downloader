@@ -175,7 +175,7 @@ QString sanitizeTrackingParams(const QString &url) {
                 query.removeQueryItem(key);
             }
             parsedUrl.setQuery(query);
-            return parsedUrl.toString(QUrl::FullyEncoded);
+            return parsedUrl.toString();
         }
     }
     return url;
@@ -425,7 +425,9 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
     }
 
     // --- Duplicate Check Override ---
-    if (options.value(QStringLiteral("override_archive"), false).toBool()) rawArgs << QStringLiteral("--force-download");
+    if (!isPlaylistExpansion && options.value(QStringLiteral("override_archive"), false).toBool()) {
+        rawArgs << QStringLiteral("--force-download");
+    }
 
     // --- General Options ---
     // Livestreams do not have SponsorBlock segments or chapters, so we completely bypass this to prevent FFmpeg crashes.
@@ -450,9 +452,9 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
 
     // Add referer header for aria2c to prevent 403 errors on some sites
     QUrl parsedUrl(url);
-    if (parsedUrl.isValid()) {
+    if (parsedUrl.isValid() && !parsedUrl.scheme().isEmpty() && !parsedUrl.host().isEmpty()) {
         QString origin = parsedUrl.scheme() + QLatin1String("://") + parsedUrl.host();
-        if (!origin.isEmpty()) aria2Args << QStringLiteral("--referer=%1").arg(origin);
+        aria2Args << QStringLiteral("--referer=%1").arg(origin);
     }
         rawArgs << QStringLiteral("--external-downloader-args") << QStringLiteral("aria2c:%1").arg(aria2Args.join(QLatin1Char(' ')));
         qInfo() << "YtDlpArgsBuilder: Using aria2c as external downloader (" << aria2cPath << ")";

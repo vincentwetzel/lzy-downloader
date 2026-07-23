@@ -34,6 +34,7 @@ Agents MUST preserve and respect the following behaviors from the original Pytho
 - Concurrent download management with user-defined limits (capped at a maximum of 4 concurrent threads upon application startup, though users can manually increase it up to 8 during a session).
 - Playlist expansion and processing (for `yt-dlp` downloads), including hostname-independent query index hints such as `img_index`, `slide`, `item`, `index`, and `playlist_index` so carousel or playlist item URLs can resolve to the intended entry without adding site-specific overrides.
 - **Configuration**: The app uses a Qt-native `QSettings` INI implementation. It does not need to conform to Python `configparser` quirks.
+- **Argument construction safety**: Metadata-only playlist expansion must remain read-only even when duplicate/archive override is enabled. Generic aria2c referer forwarding is permitted only when the request URL has both a scheme and host; incomplete URLs must not produce a referer argument.
 - **Archive Portability**: The C++ app MUST use the same `download_archive.db` (SQLite) to respect the user's download history.
 - File lifecycle: download into temp dir → verify file stability → move to completed downloads directory.
 - Metadata embedding (title, artist, etc.) and thumbnail embedding.

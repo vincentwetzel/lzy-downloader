@@ -9,6 +9,12 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## [Unreleased]
 
+### Changed
+- Playlist metadata expansion now ignores the archive override so probing remains read-only and can inspect already archived entries.
+- aria2c referer arguments are emitted only for URLs with both a scheme and host, avoiding malformed downloader arguments for relative or incomplete URLs.
+- Tracking-parameter cleanup now uses Qt's default URL serialization after removing transient query items.
+- Refreshed the bundled Nitter extractor domain to `nitter.priv.pw`.
+
 ## [1.2.6] - 2026-07-22
 
 ### Changed
