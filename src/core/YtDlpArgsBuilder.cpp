@@ -137,13 +137,27 @@ void appendForcedKeyframeCutArgs(QStringList &args, ConfigManager *configManager
     const QString encoderArgs = ffmpegCutEncoderArgs(configManager);
 
     if (encoder == QStringLiteral("custom")) {
+        // Keep the safe synchronization defaults first; an advanced user can
+        // intentionally override them in the custom output arguments.
+        ppaArgs << QStringLiteral("-c:a aac") << QStringLiteral("-b:a 192k")
+                << QStringLiteral("-af aresample=async=1:first_pts=0")
+                << QStringLiteral("-avoid_negative_ts make_zero")
+                << QStringLiteral("-threads 2") << QStringLiteral("-filter_threads 1")
+                << QStringLiteral("-max_muxing_queue_size 2048");
         if (!encoderArgs.isEmpty()) ppaArgs << encoderArgs;
     } else {
         if (!encoderArgs.isEmpty()) ppaArgs << encoderArgs;
-        // Add essential A/V sync and timestamp preservation arguments.
-        // Copy audio explicitly and reset timestamps to prevent drift and
-        // edit-list desync issues in MP4 containers when cutting segments.
-        ppaArgs << QStringLiteral("-c:a copy") << QStringLiteral("-avoid_negative_ts make_zero") << QStringLiteral("-fflags +genpts") << QStringLiteral("-max_muxing_queue_size 2048");
+        // Accurate cuts rebuild the video timeline and concatenate retained
+        // ranges. Copying the original audio packets here can retain offsets
+        // from removed ranges and produce A/V drift in MP4. Re-encode audio
+        // while normalizing its first PTS so both streams share the rebuilt
+        // timeline. Keep the expensive cut pass bounded so several queued
+        // downloads cannot saturate the entire desktop.
+        ppaArgs << QStringLiteral("-c:a aac") << QStringLiteral("-b:a 192k")
+                << QStringLiteral("-af aresample=async=1:first_pts=0")
+                << QStringLiteral("-avoid_negative_ts make_zero")
+                << QStringLiteral("-threads 2") << QStringLiteral("-filter_threads 1")
+                << QStringLiteral("-max_muxing_queue_size 2048");
     }
 
     if (!ppaArgs.isEmpty()) {

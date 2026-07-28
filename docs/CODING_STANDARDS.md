@@ -35,6 +35,7 @@ When acting as an AI coding assistant modifying this repository, you must adhere
 - **Modern CMake Practices:** Always use modern CMake target-based commands (e.g., `target_include_directories`, `target_link_libraries`, `target_compile_definitions`). Avoid legacy directory-scoped commands (`include_directories`, `link_directories`) to ensure dependencies are properly encapsulated per-target.
 
 ## 3. Concurrency & UI Thread
+- Playlist validation is a non-blocking optimization; transient probe failures must be handed back to the asynchronous download worker for ordinary media URLs rather than synchronously cancelling the queue item.
 - **Never Block the Main Thread:** All network requests, file system scanning, long database operations, and external process executions (`yt-dlp`, `gallery-dl`, `ffmpeg`) MUST occur asynchronously or off the main GUI thread.
 - **Strict GUI Thread Affinity:** NEVER create, modify, or delete `QWidget` subclasses or UI elements from a background thread. All UI updates must strictly reside on the main GUI thread.
 - **Cross-Thread Communication:** Always use Qt's signal/slot mechanism or `QMetaObject::invokeMethod` with `Qt::QueuedConnection` to pass data from worker threads/processes back to the main UI thread. Do not attempt direct UI updates from background threads.
@@ -75,7 +76,10 @@ When acting as an AI coding assistant modifying this repository, you must adhere
 - **Version Control & Secrets:** Never commit sensitive files, dynamically generated tokens (`api_token.txt`), or user databases (`download_archive.db`, `settings.ini`) to version control. Always enforce this exclusion via `.gitignore`.
 
 ## 6. Testing & Quality Assurance
-- **Test-Driven Modifications:** When changing core logic, command arguments building (`YtDlpArgsBuilder`), progress parsing, or file sorting, write or update corresponding Qt tests (`QTest`). 
+- Playlist-expansion tests must cover both transient fallback for an ordinary URL and terminal handling for an explicit playlist-shaped URL or missing yt-dlp.
+- Accurate-cut tests must assert audio re-encoding/timestamp-normalization arguments and reject packet-copy arguments that can preserve pre-cut offsets.
+- External post-processing processes must have bounded resource usage where practical and should run at background priority on Windows; synchronization-sensitive media cuts must not rely on copying timestamps from removed ranges.
+- **Test-Driven Modifications:** When changing core logic, command arguments building (`YtDlpArgsBuilder`), progress parsing, or file sorting, write or update corresponding Qt tests (`QTest`).
 - **Isolated Testing:** Tests must never write to the user's actual `settings.ini` or `download_archive.db`. Always use isolated temporary paths and mock configurations (e.g., via `BaseTest` fixtures).
 - **Testability by Design:** Do not force tests to parse UI presentation layers (e.g., extracting colors from stylesheets). Expose internal state cleanly via `Q_PROPERTY` or explicit public getter methods so UI tests can verify semantic states rather than visual representations.
 - **Static Analysis:** Augment compiler warnings by integrating static analysis tools (e.g., Clang-Tidy, and Clazy for Qt-specific checks) to catch memory leaks, dangling string views, and performance anti-patterns before runtime.

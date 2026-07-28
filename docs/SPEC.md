@@ -9,6 +9,9 @@ This document outlines the specifications for the C++ port of the LzyDownloader 
 ### 1.2 File Size Constraints
 - **Context Preservation**: To ensure optimal performance with AI agents and preserve context usage, no single file (source code, headers, or documentation) should exceed **500 lines** in length. When a file approaches this limit, it must be refactored or split into smaller, focused modules.
 
+### 1.3 Direct-download fallback
+- Playlist expansion is an asynchronous optimization for media URLs. A timeout or transient expansion/JSON failure must fall back to the regular single-item downloader when the URL has no generic playlist path/query markers. Explicit playlist-shaped URLs and missing yt-dlp errors remain visible failures.
+
 ## 2. Core Requirements
 
 ### 2.1. Single Instance Enforcement
@@ -79,7 +82,7 @@ This document outlines the specifications for the C++ port of the LzyDownloader 
     - Filename restriction (`--restrict-filenames`).
       - External downloader (`--external-downloader aria2c`) for ordinary non-livestream downloads only; active/upcoming livestreams, completed live replays (`post_live`/`was_live`), and generic `/live/` URL-shape hints must stay on yt-dlp's native downloader so wait-state, replay manifests, and graceful finish handling remain reliable. When aria2c is selected, the app should forward a generic referer derived from the request URL origin so hosts that require referer-gated segmented transfers can complete without site-specific overrides.
     - Thumbnail conversion (`--convert-thumbnails`).
-    - SponsorBlock (`--sponsorblock-remove all`; non-livestream video jobs preflight SponsorBlock segment availability and only add `--force-keyframes-at-cuts` plus cut-encoder postprocessor output args when segments are confirmed or the preflight cannot be completed. Livestream jobs must skip SponsorBlock because active captures do not have stable removable segments or chapters. The builder must avoid injecting FFmpeg input options such as `-ignore_editlist` into yt-dlp's ModifyChapters/SponsorBlock input phase because unsupported FFmpeg builds can reject them before post-processing begins).
+    - SponsorBlock (`--sponsorblock-remove all`; non-livestream video jobs preflight SponsorBlock segment availability and only add `--force-keyframes-at-cuts` plus cut-encoder postprocessor output args when segments are confirmed or the preflight cannot be completed. The cut pass must re-encode/normalize audio timestamps instead of copying audio packets from the uncut timeline, and must cap FFmpeg cut/filter threads. Livestream jobs must skip SponsorBlock because active captures do not have stable removable segments or chapters. The builder must avoid injecting FFmpeg input options such as `-ignore_editlist` into yt-dlp's ModifyChapters/SponsorBlock input phase because unsupported FFmpeg builds can reject them before post-processing begins).
     - Cookies from browser (`--cookies-from-browser`).
     - Browser-cookie fallback: if yt-dlp fails while using browser cookies because cookie extraction is denied or cookie-backed extractor state incorrectly reports public media as unavailable/ended, the worker may retry once without `--cookies-from-browser` and must surface clear diagnostics if the retry still fails. The worker may also trigger that retry proactively when stderr reports cookie-backed HTTP 400/Bad Request, JSON metadata, or live-status failures so public downloads can recover sooner and the terminal diagnostics stay actionable.
     - Download sections (`--download-sections`).

@@ -281,6 +281,10 @@ Internal settings for window state and UI layout. These are managed automaticall
 
 ## Settings File Location
 
+### Runtime behavior synchronization
+
+Playlist probing and accurate-cut resource limits are runtime policies, not user settings. They apply consistently to GUI, CLI, API, server, headless, and background launches. The cut encoder and custom FFmpeg arguments remain the user-configurable controls; custom arguments are appended after the safe synchronization defaults and may intentionally override them.
+
 The `settings.ini` file is stored in the system's standard user configuration directory:
 - **Windows:** `%LOCALAPPDATA%\LzyDownloader\settings.ini`
 - **Linux:** `~/.config/LzyDownloader/settings.ini`

@@ -87,6 +87,9 @@ FfmpegMuxer::FfmpegMuxer(QObject *parent)
     }
 
     ProcessUtils::setProcessEnvironment(*m_process);
+    connect(m_process, &QProcess::started, this, [this]() {
+        ProcessUtils::setBackgroundProcessPriority(*m_process);
+    });
 
     connect(m_process, &QProcess::readyReadStandardOutput, this, [this]() {
         if (!m_process) {

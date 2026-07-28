@@ -17,6 +17,9 @@ MetadataEmbedder::MetadataEmbedder(ConfigManager *configManager, QObject *parent
       m_targetDurationSeconds(0.0),
       m_stage(Stage::Idle) {
     ProcessUtils::setProcessEnvironment(*m_process);
+    connect(m_process, &QProcess::started, this, [this]() {
+        ProcessUtils::setBackgroundProcessPriority(*m_process);
+    });
     
     QTimer *watchdog = new QTimer(this);
     watchdog->setInterval(std::chrono::seconds(60)); // 60 seconds of inactivity timeout

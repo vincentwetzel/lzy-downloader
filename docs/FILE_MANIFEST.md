@@ -39,12 +39,15 @@ This document is a quick file-to-responsibility index for the C++ port. It is in
 - `src/core/PlaylistExpansionWorker.*`: Playlist validation and expansion.
 - `src/core/PlaylistExpansionParser.*`: yt-dlp JSON expansion parsing and playlist item selection.
 - `src/core/YtDlpArgsBuilder.*`: Command-line argument construction for yt-dlp and aria2c.
+- `src/core/download_pipeline/FfmpegMuxer.*`: Asynchronous FFmpeg muxing, progress, and final output handling.
+- `src/core/MetadataEmbedder.*`: Metadata/thumbnail embedding post-processing.
 - `src/core/AppUpdater.*`: Application update lookup and artifact handling.
 - `src/core/LocalApiServer.*`: Localhost API server and auth handling.
 - `src/ui/MainWindow.*`: Main application shell, tab wiring, and global UI actions.
 - `src/ui/StartTab.*`: Queue entry point and download submission controls.
 - `src/ui/advanced_settings/`: Advanced Settings pages, including template and binary management.
 - `src/ui/widgets/`: Reusable widgets such as custom progress bars and row controls.
+- `src/tests/`: Headless Qt tests for argument construction, parsing, persistence, UI state, and end-to-end behavior.
 
 ## Working Rule of Thumb
 - If you need to change behavior, start in `docs/SPEC.md`.

@@ -22,6 +22,8 @@ This document describes how to build, package, and release the C++ version of Lz
 
 ## Build Process
 
+Before release, review the `[Unreleased]` section of `CHANGELOG.md` and verify that documentation matches the current download lifecycle. In particular, ordinary URLs must recover from transient playlist-probe failures, while accurate cuts must use timestamp-normalized audio and bounded/background-priority FFmpeg work.
+
 ### Step 1: Update Extractor Lists
 
 **IMPORTANT:** Before building a new release, you must refresh the extractor lists to ensure the application can handle the latest website changes.

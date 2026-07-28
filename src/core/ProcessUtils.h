@@ -13,6 +13,7 @@ namespace ProcessUtils {
     FoundBinary findBinary(const QString& name, ConfigManager* configManager);
     FoundBinary resolveBinary(const QString& name, ConfigManager* configManager);
     void setProcessEnvironment(QProcess &process);
+    void setBackgroundProcessPriority(QProcess &process);
     void terminateProcessTree(QProcess *process, int gracefulTimeoutMs = 2000);
     void sendGracefulInterrupt(qint64 pid);
 

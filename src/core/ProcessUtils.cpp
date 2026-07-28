@@ -620,6 +620,28 @@ void setProcessEnvironment(QProcess &process) {
 #endif
 }
 
+void setBackgroundProcessPriority(QProcess &process) {
+#ifdef Q_OS_WIN
+    const qint64 processId = process.processId();
+    if (processId <= 0) {
+        return;
+    }
+
+    HANDLE handle = OpenProcess(PROCESS_SET_INFORMATION, FALSE, static_cast<DWORD>(processId));
+    if (!handle) {
+        qWarning() << "[ProcessUtils] Could not open process to lower priority:" << processId << GetLastError();
+        return;
+    }
+
+    if (!SetPriorityClass(handle, BELOW_NORMAL_PRIORITY_CLASS)) {
+        qWarning() << "[ProcessUtils] Could not lower process priority:" << processId << GetLastError();
+    }
+    CloseHandle(handle);
+#else
+    Q_UNUSED(process)
+#endif
+}
+
 void terminateProcessTree(QProcess *process, int gracefulTimeoutMs) {
     if (!process || process->state() == QProcess::NotRunning) {
         return;

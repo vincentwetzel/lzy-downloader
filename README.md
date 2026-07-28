@@ -123,6 +123,14 @@ Temporary downloads are isolated in per-download UUID folders under the configur
 
 ## Architecture
 
+### Current download behavior
+
+Playlist expansion is an asynchronous optimization. If a normal media URL has no generic playlist markers and its probe times out or returns a transient expansion/JSON error, the queued placeholder is handed to the regular yt-dlp worker. Explicit playlist-shaped URLs and missing yt-dlp errors remain terminal failures.
+
+SponsorBlock and accurate section cuts normalize the rebuilt audio timeline by re-encoding audio; they do not copy packets from the pre-cut timeline. Cut and post-processing processes are resource-bounded and run at below-normal priority on Windows where supported.
+
+See [docs/FILE_MANIFEST.md](docs/FILE_MANIFEST.md) for the path-to-code index, [docs/SPEC.md](docs/SPEC.md) for behavior requirements, and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for data flow.
+
 The application is built using **C++20** and the **Qt 6** framework. The core logic, UI components, and utility functions are consolidated into a static library, `LzyAppLib`.
 
 For a quick map of where things live, start with [`docs/FILE_MANIFEST.md`](docs/FILE_MANIFEST.md). Use [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for system behavior and [`docs/SPEC.md`](docs/SPEC.md) for functional requirements.

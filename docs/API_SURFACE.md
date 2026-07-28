@@ -14,6 +14,12 @@ The API surface adheres to **Qt best practices**:
 
 ## 1. Core Classes
 
+### Current behavioral contracts
+
+- `DownloadManager` treats playlist probing as recoverable for ordinary media URLs when the failure is transient; explicit playlist-shaped URLs and missing tools still fail visibly.
+- `YtDlpArgsBuilder` generates synchronization-safe accurate-cut arguments, including audio timestamp normalization and bounded FFmpeg thread settings.
+- `ProcessUtils::setBackgroundProcessPriority(QProcess&)` lowers supported Windows post-processing processes to below-normal priority.
+
 ### [DownloadManager](file:///E:/coding_workspaces/CPP/lzy-downloader/src/core/DownloadManager.h)
 The central manager coordinating download queues, playlist validation, format metadata selection, and the finalization flow.
 

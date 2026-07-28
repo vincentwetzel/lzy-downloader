@@ -28,6 +28,13 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## [Unreleased]
 
+### Fixed
+- A timed-out or transient playlist probe no longer marks an ordinary media URL cancelled. The existing queue placeholder now falls back to the regular single-item yt-dlp download; explicit playlist URLs and missing-tool errors retain terminal diagnostics.
+- SponsorBlock/accurate section cuts now re-encode and timestamp-normalize audio instead of copying audio packets from the pre-cut timeline, preventing A/V drift. FFmpeg cut/filter work is limited to two worker threads and runs below normal priority on Windows to keep the desktop responsive.
+
+### Documentation
+- Synchronized the README, specification, architecture, settings, API, coding standards, file manifest, language, release, and task-tracking documentation with these runtime contracts.
+
 ## [1.2.6] - 2026-07-22
 
 ### Changed

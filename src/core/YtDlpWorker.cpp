@@ -17,6 +17,13 @@ YtDlpWorker::YtDlpWorker(const QString &id, const QStringList &args, ConfigManag
 
     m_process = new QProcess(this);
 
+    connect(m_process, &QProcess::started, this, [this]() {
+        // yt-dlp launches FFmpeg for merging and post-processing. Lowering the
+        // parent priority also makes those child processes background work on
+        // Windows, keeping the desktop responsive during accurate cuts.
+        ProcessUtils::setBackgroundProcessPriority(*m_process);
+    });
+
     // Intercept standard error to check for cookie/API errors for the fallback mechanism
     connect(m_process, &QProcess::readyReadStandardError, this, [this]() {
         if (m_process) {

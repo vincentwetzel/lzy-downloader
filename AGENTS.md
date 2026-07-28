@@ -33,11 +33,13 @@ Agents MUST preserve and respect the following behaviors from the original Pytho
 - **No site-specific overrides**: Agents MUST NOT add hardcoded per-domain behavior for individual services (for example special arguments, referers, downloader choices, or extractor workarounds for one named website). Fixes must be generic and based on extractor metadata, documented tool behavior, user-configured settings, protocol/URL structure that applies across sites, or upstream yt-dlp/gallery-dl support. Generic URL-shape hints such as detecting playlist-like or live-like path/query markers are acceptable only when they do not branch on a specific hostname.
 - Concurrent download management with user-defined limits (capped at a maximum of 4 concurrent threads upon application startup, though users can manually increase it up to 8 during a session).
 - Playlist expansion and processing (for `yt-dlp` downloads), including hostname-independent query index hints such as `img_index`, `slide`, `item`, `index`, and `playlist_index` so carousel or playlist item URLs can resolve to the intended entry without adding site-specific overrides.
+- Playlist probing is a recoverable optimization for ordinary media URLs: if the asynchronous probe times out or returns a transient expansion/JSON error, non-playlist-shaped URLs must fall back to the normal single-item yt-dlp worker. Explicit playlist-shaped URLs and missing yt-dlp errors remain terminal probe failures.
 - **Configuration**: The app uses a Qt-native `QSettings` INI implementation. It does not need to conform to Python `configparser` quirks.
 - **Argument construction safety**: Metadata-only playlist expansion must remain read-only even when duplicate/archive override is enabled. Generic aria2c referer forwarding is permitted only when the request URL has both a scheme and host; incomplete URLs must not produce a referer argument.
 - **Archive Portability**: The C++ app MUST use the same `download_archive.db` (SQLite) to respect the user's download history.
 - File lifecycle: download into temp dir → verify file stability → move to completed downloads directory.
 - Metadata embedding (title, artist, etc.) and thumbnail embedding.
+- Accurate SponsorBlock/section cuts must normalize audio timestamps rather than copying packets from the pre-cut timeline; FFmpeg cut work must remain resource-bounded and background priority where the platform supports it.
 - Responsive GUI at all times (no blocking I/O on the main thread).
 - In-app updating of the `yt-dlp` and `gallery-dl` executables.
 - The final executable name MUST be `LzyDownloader.exe` to ensure the update process from the Python version works seamlessly.

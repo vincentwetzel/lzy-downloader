@@ -4,11 +4,63 @@
 #include <QUuid>
 #include <QDebug>
 #include <QMetaObject>
+#include <QUrl>
+#include <QUrlQuery>
 
 namespace {
 bool isNonInteractiveRequest(const QVariantMap &options)
 {
     return options.value(QStringLiteral("non_interactive"), false).toBool();
+}
+
+bool looksLikePlaylistUrl(const QString &urlString)
+{
+    const QUrl url(urlString);
+    if (!url.isValid()) {
+        return false;
+    }
+
+    static const QStringList playlistPathMarkers = {
+        QStringLiteral("playlist"), QStringLiteral("collection"), QStringLiteral("album")
+    };
+    const QStringList pathParts = url.path().split(QLatin1Char('/'), Qt::SkipEmptyParts);
+    for (const QString &part : pathParts) {
+        if (playlistPathMarkers.contains(part, Qt::CaseInsensitive)) {
+            return true;
+        }
+    }
+
+    const QUrlQuery query(url);
+    static const QStringList playlistQueryKeys = {
+        QStringLiteral("list"), QStringLiteral("playlist"), QStringLiteral("collection"), QStringLiteral("album")
+    };
+    for (const QString &key : playlistQueryKeys) {
+        if (query.hasQueryItem(key)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool canFallBackToDirectDownload(const QString &urlString, const QString &error)
+{
+    if (looksLikePlaylistUrl(urlString)) {
+        return false;
+    }
+
+    static const QStringList nonRecoverableProbeErrors = {
+        QStringLiteral("could not be found"), QStringLiteral("failed to start yt-dlp")
+    };
+    for (const QString &marker : nonRecoverableProbeErrors) {
+        if (error.contains(marker, Qt::CaseInsensitive)) {
+            return false;
+        }
+    }
+
+    return error.contains(QStringLiteral("timed out"), Qt::CaseInsensitive)
+        || error.contains(QStringLiteral("failed to expand"), Qt::CaseInsensitive)
+        || error.contains(QStringLiteral("failed to parse"), Qt::CaseInsensitive);
 }
 }
 
@@ -198,6 +250,16 @@ void DownloadManager::onPlaylistExpanded(const QString &originalUrl, const QList
             qDebug() << "Playlist expansion hit a known video-level error. Bypassing to let YtDlpWorker handle it. Error:" << error;
             QVariantMap singleItem;
             singleItem.insert(QStringLiteral("url"), originalUrl);
+            singleItem.insert(QStringLiteral("playlist_index"), -1);
+            itemsToProcess.append(singleItem);
+        } else if (canFallBackToDirectDownload(originalUrl, error)) {
+            // Playlist probing is an optimization for ordinary media URLs. A
+            // transient probe timeout must not turn an otherwise downloadable
+            // video into a stopped item; let the normal worker validate it.
+            qWarning() << "Playlist expansion failed for a non-playlist URL; falling back to direct download:" << error;
+            QVariantMap singleItem;
+            singleItem.insert(QStringLiteral("url"), originalUrl);
+            singleItem.insert(QStringLiteral("is_playlist"), false);
             singleItem.insert(QStringLiteral("playlist_index"), -1);
             itemsToProcess.append(singleItem);
         } else {

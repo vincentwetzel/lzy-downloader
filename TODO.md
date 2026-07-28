@@ -1,6 +1,8 @@
 # LzyDownloader C++ Port TODO
 
 ## In Progress
+- [ ] Verify direct-download fallback behavior with a slow playlist probe and an explicit playlist URL.
+- [ ] Add an automated manager-level test for transient playlist-probe fallback and explicit playlist failure classification.
 - [ ] Refactor and split large `.cpp` files above or approaching 500 lines (e.g., `DownloadItemWidget.cpp`, `MainWindowConnections.cpp`, and `YtDlpWorkerProcess.cpp`) to preserve optimal AI context limits.
 - [ ] Split `ProcessUtils.cpp` after the external-binary resolver expansion; the file is currently above the 500-line guidance and should move version parsing/probing into a focused helper.
 - [ ] Review `AppUpdater` release-flow UX and diagnostics now that platform-specific updater assets are supported for Windows, Linux, and macOS.
@@ -11,6 +13,8 @@
 - [ ] Integrate Qt Linguist (`.ts`/`.qm` compiler steps) into `CMakeLists.txt` build automation.
 
 ## Completed
+- [x] Fixed SponsorBlock/accurate-cut A/V synchronization by normalizing the audio timeline and bounded FFmpeg cut resource usage so post-processing does not monopolize the system.
+- [x] Prevented transient playlist-probe timeouts on ordinary media URLs from being marked cancelled; they now fall back to the regular single-item downloader.
 - [x] Updated the bundled Nitter extractor domain to `nitter.arcticfoxes.net` and kept validation / playlist-expansion probes read-only by omitting browser cookies.
 - [x] Kept playlist metadata expansion read-only when archive override is enabled, constrained aria2c referer generation to complete URL origins, and refreshed the bundled Nitter extractor domain.
 - [x] Trimmed common tracking query parameters from yt-dlp launch URLs and added bounded false-offline livestream retry handling when wait-state probes fail.
