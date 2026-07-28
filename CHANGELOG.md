@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIVE.md](docs/CHANGELOG_ARCHIVE.md).
 
+## [1.2.15] - 2026-07-28
+
+### Fixed
+- Ordinary media URLs now recover from timed-out or transient playlist probes by falling back to the normal single-item yt-dlp worker.
+- SponsorBlock and accurate section cuts now normalize audio timestamps during re-encoding, preventing A/V drift.
+
+### Changed
+- FFmpeg cut/filter work is capped at two worker threads and runs below normal priority on Windows to keep the desktop responsive.
+- Release-build output remains in the invoking terminal on Windows.
+- Playlist metadata expansion remains read-only when archive override is enabled.
+- Validation probes omit browser cookies, and aria2c referers are emitted only for complete URL origins.
+
 ## [1.2.9] - 2026-07-23
 
 ### Changed
@@ -29,12 +41,7 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## [Unreleased]
 
-### Fixed
-- A timed-out or transient playlist probe no longer marks an ordinary media URL cancelled. The existing queue placeholder now falls back to the regular single-item yt-dlp download; explicit playlist URLs and missing-tool errors retain terminal diagnostics.
-- SponsorBlock/accurate section cuts now re-encode and timestamp-normalize audio instead of copying audio packets from the pre-cut timeline, preventing A/V drift. FFmpeg cut/filter work is limited to two worker threads and runs below normal priority on Windows to keep the desktop responsive.
-
-### Documentation
-- Synchronized the README, specification, architecture, settings, API, coding standards, file manifest, language, release, and task-tracking documentation with these runtime contracts.
+No changes yet.
 
 ## [1.2.6] - 2026-07-22
 
