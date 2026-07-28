@@ -13,6 +13,7 @@
 - [ ] Integrate Qt Linguist (`.ts`/`.qm` compiler steps) into `CMakeLists.txt` build automation.
 
 ## Completed
+- [x] Kept `build_release.py` output in the invoking terminal by removing its unnecessary Windows shell bootstrap.
 - [x] Fixed SponsorBlock/accurate-cut A/V synchronization by normalizing the audio timeline and bounded FFmpeg cut resource usage so post-processing does not monopolize the system.
 - [x] Prevented transient playlist-probe timeouts on ordinary media URLs from being marked cancelled; they now fall back to the regular single-item downloader.
 - [x] Updated the bundled Nitter extractor domain to `nitter.arcticfoxes.net` and kept validation / playlist-expansion probes read-only by omitting browser cookies.

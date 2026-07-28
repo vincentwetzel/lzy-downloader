@@ -10,6 +10,7 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 ## [1.2.9] - 2026-07-23
 
 ### Changed
+- Release builds now remain in the invoking terminal on Windows instead of opening a separate command window.
 - Playlist metadata expansion now ignores the archive override so probing remains read-only and can inspect already archived entries.
 - Validation and playlist-expansion probes now omit browser cookies so lightweight URL checks stay non-interactive and do not block on browser-profile locks.
 - aria2c referer arguments are emitted only for URLs with both a scheme and host, avoiding malformed downloader arguments for relative or incomplete URLs.

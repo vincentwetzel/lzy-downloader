@@ -3,6 +3,7 @@
 When acting as an AI coding assistant modifying this repository, you must adhere strictly to the following technical constraints to maintain application stability, performance, code quality, and cross-platform compatibility.
 
 ## 1. Core Principles
+- **Release Script I/O:** Build helper subprocesses should inherit the caller's standard streams. Do not invoke a separate shell merely to configure terminal output.
 - **DRY (Don't Repeat Yourself):** Extract repeated boilerplate logic into helper methods or utility classes. Prevent bugs by ensuring logic is updated in a single place.
 - **Separation of Concerns (SoC):** Keep the UI layer (`src/ui/`) strictly decoupled from the business logic (`src/core/`). UI components should react to signals and must not contain heavy processing logic.
 - **Zero Backward Compatibility for Obsolete Code:** When replacing legacy components, do not write legacy fallbacks for obsolete settings or data structures unless explicitly requested for migration.
