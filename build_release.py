@@ -16,7 +16,8 @@ RED = "\033[31m"
 RESET = "\033[0m"
 
 def log(msg, color=RESET):
-    print(f"{color}{msg}{RESET}")
+    use_color = sys.stdout.isatty() and os.environ.get("TERM", "") != "dumb"
+    print(f"{color}{msg}{RESET}" if use_color else msg)
 
 def run_command(cmd, shell=False):
     log(f"Executing: {' '.join(cmd) if isinstance(cmd, list) else cmd}", YELLOW)
@@ -26,9 +27,6 @@ def run_command(cmd, shell=False):
         sys.exit(result.returncode)
 
 def main():
-    if platform.system() == "Windows":
-        os.system("")  # Enable ANSI color sequences in Windows Console
-
     log("=== LzyDownloader Unified Release Builder ===", CYAN)
 
     # 1. Parse Version from CMakeLists.txt

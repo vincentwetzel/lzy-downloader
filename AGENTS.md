@@ -4,7 +4,7 @@ This document is the **canonical instruction set for all AI agents** working on 
 
 All agents MUST follow this document as the source of truth.
 
-**Fast Start:** Keep the UI responsive (no blocking I/O on the GUI thread; use `QThread` or `QtConcurrent`). Preserve the download lifecycle (temp -> verify -> move to completed dir). Prefer discovered or user-configured external binaries. Update `CHANGELOG.md` for significant changes. For releases, run `python build_release.py` on the target platform to compile and package. Update Section 3 + Quick-Reference list when files/roles change. For file locations, jump to the Quick-Reference list in Section 3.
+**Fast Start:** Keep the UI responsive (no blocking I/O on the GUI thread; use `QThread` or `QtConcurrent`). Preserve the download lifecycle (temp -> verify -> move to completed dir). Prefer discovered or user-configured external binaries. Update `CHANGELOG.md` for significant changes. For releases, run `python build_release.py` on the target platform to compile and package; the helper inherits the invoking terminal and does not launch a separate Windows shell. Update Section 3 + Quick-Reference list when files/roles change. For file locations, jump to the Quick-Reference list in Section 3.
 
 ---
 

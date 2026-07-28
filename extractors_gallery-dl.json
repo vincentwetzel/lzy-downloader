@@ -74,6 +74,11 @@
             "allporncomic.com"
         ]
     },
+    "animepictures": {
+        "domains": [
+            "anime-pictures.net"
+        ]
+    },
     "ao3": {
         "domains": [
             "archiveofourown.org"
@@ -546,6 +551,11 @@
             "imx.to"
         ]
     },
+    "imxtw": {
+        "domains": [
+            "imx.tw"
+        ]
+    },
     "inkbunny": {
         "domains": [
             "inkbunny.net"
@@ -738,6 +748,11 @@
     "motherless": {
         "domains": [
             "motherless.xxx"
+        ]
+    },
+    "myfigurecollection": {
+        "domains": [
+            "myfigurecollection.net"
         ]
     },
     "myhentaigallery": {
