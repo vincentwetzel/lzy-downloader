@@ -40,18 +40,9 @@ YtDlpWorker::YtDlpWorker(const QString &id, const QStringList &args, ConfigManag
     });
 
     connect(m_process, &QProcess::finished, this, [this](int exitCode, QProcess::ExitStatus exitStatus) {
-        if (this->property("proactiveCookieRetryActive").toBool()) {
-            return;
-        }
         QString accumulatedStderr = m_process->property("accumulated_stderr").toString();
         bool cookieRetryAttempted = m_process->property("cookie_retry_attempted").toBool();
         bool waitRetryAttempted = m_process->property("wait_retry_attempted").toBool();
-
-        // Define common errors that might benefit from a cookie retry or a specific livestream retry
-        static const QRegularExpression errorRe(
-            QStringLiteral("profile is locked|empty media response|not granting access|cookie.*(?:invalid|expired|failed|error|rotate|refresh)|decryption|permission denied|sqlite3.OperationalError|access denied|HTTP Error 400|Bad Request|Unable to download JSON metadata"),
-            QRegularExpression::CaseInsensitiveOption
-        );
 
         bool isProactiveWaitRetry = this->property("proactiveWaitRetryActive").toBool();
         if (isProactiveWaitRetry) {
@@ -60,14 +51,24 @@ YtDlpWorker::YtDlpWorker(const QString &id, const QStringList &args, ConfigManag
 
         if ((exitStatus == QProcess::NormalExit && exitCode != 0) || isProactiveWaitRetry) {
             bool hasCookies = m_args.contains(QStringLiteral("--cookies-from-browser")) || m_args.contains(QStringLiteral("--cookies"));
+            bool browserCookieFailure = hasBrowserCookieFailureDiagnostic();
+            if (!browserCookieFailure && !accumulatedStderr.isEmpty()) {
+                const QStringList stderrLines = accumulatedStderr.split(QRegularExpression(QStringLiteral("[\\r\\n]")), Qt::SkipEmptyParts);
+                for (const QString &line : stderrLines) {
+                    if (isBrowserCookieFailureLine(line)) {
+                        browserCookieFailure = true;
+                        break;
+                    }
+                }
+            }
             bool shouldRetry = false;
             bool removeCookies = false;
             bool removeWaitForVideo = false;
 
-            if (hasCookies && !cookieRetryAttempted && errorRe.match(accumulatedStderr).hasMatch() && !isProactiveWaitRetry) {
+            if (hasCookies && !cookieRetryAttempted && browserCookieFailure && !isProactiveWaitRetry) {
                 shouldRetry = true;
                 removeCookies = true;
-                qWarning() << "[YtDlpWorker] Cookie-related/API-access failure detected. Retrying download once without browser cookies. Error captured:" << accumulatedStderr;
+                qWarning() << "[YtDlpWorker] Browser-cookie extraction failure detected. Retrying once without browser cookies. Error captured:" << accumulatedStderr;
             } else if (!waitRetryAttempted) {
                 static const QRegularExpression offlineRe(QStringLiteral("not currently live|live event has ended|offline"), QRegularExpression::CaseInsensitiveOption);
                 if (isProactiveWaitRetry || offlineRe.match(accumulatedStderr).hasMatch()) {
@@ -85,6 +86,7 @@ YtDlpWorker::YtDlpWorker(const QString &id, const QStringList &args, ConfigManag
                 m_process->setProperty("accumulated_stderr", QString()); // Reset for next run
 
                 if (removeCookies) {
+                    m_retriedWithoutBrowserCookies = true;
                     // Remove --cookies-from-browser and its argument
                     qsizetype cookiesIndex = m_args.indexOf(QStringLiteral("--cookies-from-browser"));
                     if (cookiesIndex != -1) {

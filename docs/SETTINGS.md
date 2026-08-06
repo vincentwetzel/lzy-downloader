@@ -72,7 +72,7 @@ File system locations for download directories.
 | `completed_downloads_directory` | String | *(user prompt on first launch)* | The directory where finished downloads are moved to after verification. |
 | `temporary_downloads_directory` | String | *(derived from completed_downloads_directory)* | The directory used for active/in-progress downloads. Automatically set when `completed_downloads_directory` is updated. |
 
-> **Note:** The `temporary_downloads_directory` is automatically derived from the `completed_downloads_directory` if not explicitly set. Runtime cleanup code uses the same `<completed_downloads_directory>/temp_downloads` fallback when removing empty per-download UUID folders on finish or process errors, locating fallback `info.json` metadata inside the per-download UUID folder, or moving wait-state thumbnails into managed cleanup scope. Downloads follow a lifecycle: download to temp dir -> verify file stability -> move to completed directory.
+> **Note:** The `temporary_downloads_directory` is automatically derived from the `completed_downloads_directory` if not explicitly set. Runtime cleanup code uses the same `<completed_downloads_directory>/temp_downloads` fallback when removing empty per-download UUID folders on finish or process errors, locating fallback `info.json` metadata inside the per-download UUID folder, or moving wait-state thumbnails into managed cleanup scope. Downloads follow a lifecycle: download to temp dir -> verify file stability -> move to completed directory. Terminal finalization also removes the guarded UUID folder on missing output, missing gallery output, or destination-replacement failure; stopped downloads retain their partial files for resume.
 
 ---
 
@@ -301,7 +301,7 @@ Active, paused, and stopped downloads are automatically serialized to a JSON fil
 
 When launched with `--server`, `--headless`, or `--background`, queue runtime state is isolated under `Server/`, for example `%LOCALAPPDATA%\LzyDownloader\Server\downloads_backup.json` on Windows.
 
-Stopped and failed entries also retain the latest known temporary file paths needed for resume and cleanup workflows. This allows the Active Downloads tab's `Clear Temp` action to appear only when associated temporary files still exist and to remove tracked partial media, sidecar metadata, thumbnails, and downloader state files even after an app restart.
+Stopped and failed entries also retain the latest known temporary file paths needed for resume and cleanup workflows. This allows the Active Downloads tab's `Clear Temp` action to appear only when associated temporary files still exist and to remove tracked partial media, sidecar metadata, thumbnails, and downloader state files even after an app restart. Queue rows can begin a bounded asynchronous thumbnail request immediately when persisted or newly queued metadata contains a remote thumbnail URL.
 
 On restore, the queue loader validates that each `downloads_backup.json` array entry is an object. Malformed non-object entries are skipped and logged rather than being resumed.
 

@@ -104,6 +104,7 @@ All settings are saved to `%LOCALAPPDATA%\LzyDownloader\settings.ini` on Windows
 - **Browser Cookies** - Select a browser to use for authentication
 - **Browser Cookie fallback** - Public media can retry once without browser cookies when yt-dlp's cookie extraction or cookie-backed extractor state fails
 - **Livestream replays** - Completed livestreams are detected from yt-dlp `live_status` metadata and downloaded as archived media; active/upcoming streams keep native wait and Finish Now behavior
+- **Queue previews** - Queued rows begin loading supplied remote thumbnails immediately, and long titles wrap within narrow windows so row actions remain reachable
 - **Local API** - Enable a localhost-only API server from Advanced Settings -> Configuration
 
 ### Local API
@@ -119,7 +120,7 @@ Automation can also launch `LzyDownloader.exe --background <url>`, `LzyDownloade
 
 Extractor-list refresh scripts are non-interactive, so release automation can run `update_yt-dlp_extractors.py` and `update_gallery-dl_extractors.py` without waiting for a final keypress.
 
-Temporary downloads are isolated in per-download UUID folders under the configured temp directory. If that setting is still unset, the app derives the temp path from the completed-downloads folder as `temp_downloads`, including for cleanup after finished, failed-to-start, cancelled, skipped, or wait-state yt-dlp jobs. Playlist expansion checks reuse the full yt-dlp command configuration without creating those transfer-only UUID folders.
+Temporary downloads are isolated in per-download UUID folders under the configured temp directory. If that setting is still unset, the app derives the temp path from the completed-downloads folder as `temp_downloads`, including for cleanup after finished, failed-to-start, cancelled, skipped, or wait-state yt-dlp jobs. Terminal finalization removes the guarded UUID folder on terminal output or final-destination failures, while stopped downloads retain partial files for resume. Playlist expansion checks reuse the full yt-dlp command configuration without creating those transfer-only UUID folders.
 
 ## Architecture
 
@@ -128,6 +129,8 @@ Temporary downloads are isolated in per-download UUID folders under the configur
 Playlist expansion is an asynchronous optimization. If a normal media URL has no generic playlist markers and its probe times out or returns a transient expansion/JSON error, the queued placeholder is handed to the regular yt-dlp worker. Explicit playlist-shaped URLs and missing yt-dlp errors remain terminal failures.
 
 SponsorBlock and accurate section cuts normalize the rebuilt audio timeline by re-encoding audio; they do not copy packets from the pre-cut timeline. Cut and post-processing processes are resource-bounded and run at below-normal priority on Windows where supported.
+
+Livestream mode is selected from yt-dlp metadata or explicit wait options. URL words such as `/live/`, and ordinary title phrases such as `Live in` or `Starting in`, are not treated as livestream evidence.
 
 See [docs/FILE_MANIFEST.md](docs/FILE_MANIFEST.md) for the path-to-code index, [docs/SPEC.md](docs/SPEC.md) for behavior requirements, and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for data flow.
 

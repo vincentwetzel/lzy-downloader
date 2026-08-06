@@ -134,7 +134,7 @@ void TestYtDlpArgsBuilder::testPostLiveReplayUsesVideoArguments() {
     QVERIFY(args.contains(QStringLiteral("mp4")));
 }
 
-void TestYtDlpArgsBuilder::testLiveUrlHintBypassesAria2ForVideoArguments() {
+void TestYtDlpArgsBuilder::testLivePathIsNotLivestreamEvidence() {
     ConfigManager *mockConfig = getConfigManager();
     mockConfig->set(QStringLiteral("Video"), QStringLiteral("video_quality"), QStringLiteral("best"));
     mockConfig->set(QStringLiteral("Video"), QStringLiteral("video_extension"), QStringLiteral("mp4"));
@@ -149,7 +149,7 @@ void TestYtDlpArgsBuilder::testLiveUrlHintBypassesAria2ForVideoArguments() {
     const QStringList args = builder.build(mockConfig, QStringLiteral("https://media.example.test/live/abc123"), options);
     ProcessUtils::clearCache();
 
-    QVERIFY(!args.contains(QStringLiteral("--external-downloader")));
+    QVERIFY(args.contains(QStringLiteral("--external-downloader")));
     QVERIFY(args.contains(QStringLiteral("--merge-output-format")));
     QVERIFY(args.contains(QStringLiteral("mp4")));
 }

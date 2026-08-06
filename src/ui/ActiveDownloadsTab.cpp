@@ -182,6 +182,8 @@ void ActiveDownloadsTab::setupUi() {
 
     // Setup Downloads Container (Page 1)
     m_downloadsContainer = new QWidget(this);
+    m_downloadsContainer->setMinimumWidth(0);
+    m_downloadsContainer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
     m_downloadsLayout = new QVBoxLayout(m_downloadsContainer);
     m_downloadsLayout->setContentsMargins(0, 0, 0, 0);
     m_downloadsLayout->addStretch(); // Push downloads to the top
@@ -190,6 +192,10 @@ void ActiveDownloadsTab::setupUi() {
     QScrollArea *scrollArea = new QScrollArea(this);
     scrollArea->setWidgetResizable(true);
     scrollArea->setFrameShape(QFrame::NoFrame);
+    // Rows are deliberately shrinkable.  A horizontal scrollbar makes the
+    // row actions unreachable when the application is snapped to half a
+    // screen, while the title can wrap within the available width.
+    scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     scrollArea->setWidget(m_downloadsContainer);
 
     // Add widgets to the stacked layout

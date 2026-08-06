@@ -66,22 +66,6 @@ QString canonicalizeCodecSetting(QString codecName)
     return codecName;
 }
 
-bool hasLiveUrlHint(const QString &url)
-{
-    const QUrl parsedUrl(url);
-    if (!parsedUrl.isValid()) {
-        return false;
-    }
-
-    const QString path = parsedUrl.path();
-    for (const auto segment : QStringView(path).split(QLatin1Char('/'), Qt::SkipEmptyParts)) {
-        if (segment.compare(QStringLiteral("live"), Qt::CaseInsensitive) == 0) {
-            return true;
-        }
-    }
-    return false;
-}
-
 QString getGenericPlaylistIndexHint(const QString &url)
 {
     const QUrl parsedUrl(url);
@@ -270,10 +254,12 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
     bool isPlaylistExpansion = options.value(QStringLiteral("is_playlist_expansion"), false).toBool();
 
     // --- Format Selection ---
-    const bool hasLiveUrlHintValue = hasLiveUrlHint(url);
-    bool isLivestream = options.value(QStringLiteral("is_live"), false).toBool() 
-                        || options.value(QStringLiteral("wait_for_video"), false).toBool()
-                        || hasLiveUrlHintValue;
+    // Do not infer livestream behavior from URL words such as "/live/".  Those
+    // paths are also used by ordinary archived media and can force the wrong
+    // format, waiting, and post-processing settings before yt-dlp reports
+    // authoritative metadata.  Explicit metadata/options remain supported.
+    bool isLivestream = options.value(QStringLiteral("is_live"), false).toBool()
+                        || options.value(QStringLiteral("wait_for_video"), false).toBool();
     const QString liveStatus = options.value(QStringLiteral("live_status")).toString();
     const bool isLiveReplay = liveStatus == QStringLiteral("was_live") || liveStatus == QStringLiteral("post_live");
 
@@ -456,7 +442,7 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
         }
     }
     const ProcessUtils::FoundBinary aria2Binary = ProcessUtils::findBinary(QStringLiteral("aria2c"), configManager);
-    if (!isLivestream && !isLiveReplay && !isPlaylistExpansion && !hasLiveUrlHintValue && configManager->get(QStringLiteral("Metadata"), QStringLiteral("use_aria2c"), false).toBool() && aria2Binary.source != QLatin1String("Not Found") && aria2Binary.source != QLatin1String("Invalid Custom")) {
+    if (!isLivestream && !isLiveReplay && !isPlaylistExpansion && configManager->get(QStringLiteral("Metadata"), QStringLiteral("use_aria2c"), false).toBool() && aria2Binary.source != QLatin1String("Not Found") && aria2Binary.source != QLatin1String("Invalid Custom")) {
         QString aria2cPath = aria2Binary.path;
         QStringList aria2Args;
         aria2Args << QStringLiteral("--summary-interval=1");

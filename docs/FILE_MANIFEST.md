@@ -31,20 +31,22 @@ This document is a quick file-to-responsibility index for the C++ port. It is in
 
 ## High-Value Entry Points
 - `src/core/DownloadManager.*`: Queue orchestration, download lifecycle, and finalization flow.
-- `src/core/YtDlpWorker.*`: yt-dlp process handling, output parsing, and progress classification.
+- `src/core/DownloadFinalizer.*`: Background verification, destination moves, and guarded terminal temporary-directory cleanup.
+- `src/core/YtDlpWorker.*`: yt-dlp process handling, output parsing, progress classification, and explicit browser-cookie failure retry detection.
 - `src/core/DownloadQueueState.*`: Queue persistence to `downloads_backup.json`.
 - `src/core/ConfigManager.*`: `settings.ini` persistence and validation.
 - `src/core/ProcessUtils.*`: Process helpers, binary discovery, and termination utilities.
 - `src/core/SmartBinaryResolver.*`: External binary path resolution and auto-detected path ownership.
 - `src/core/PlaylistExpansionWorker.*`: Playlist validation and expansion.
 - `src/core/PlaylistExpansionParser.*`: yt-dlp JSON expansion parsing and playlist item selection.
-- `src/core/YtDlpArgsBuilder.*`: Command-line argument construction for yt-dlp and aria2c.
+- `src/core/YtDlpArgsBuilder.*`: Metadata/option-driven command-line construction for yt-dlp and aria2c, including replay-safe livestream classification.
 - `src/core/download_pipeline/FfmpegMuxer.*`: Asynchronous FFmpeg muxing, progress, and final output handling.
 - `src/core/MetadataEmbedder.*`: Metadata/thumbnail embedding post-processing.
 - `src/core/AppUpdater.*`: Application update lookup and artifact handling.
 - `src/core/LocalApiServer.*`: Localhost API server and auth handling.
 - `src/ui/MainWindow.*`: Main application shell, tab wiring, and global UI actions.
 - `src/ui/StartTab.*`: Queue entry point and download submission controls.
+- `src/ui/ActiveDownloadsTab.*` / `src/ui/DownloadItemWidget.*`: Responsive active-download rows, queued thumbnail previews, progress display, and row actions.
 - `src/ui/advanced_settings/`: Advanced Settings pages, including template and binary management.
 - `src/ui/widgets/`: Reusable widgets such as custom progress bars and row controls.
 - `src/tests/`: Headless Qt tests for argument construction, parsing, persistence, UI state, and end-to-end behavior.

@@ -11,7 +11,7 @@ private slots:
     void testSponsorBlockArguments();
     void testLivestreamArguments();
     void testPostLiveReplayUsesVideoArguments();
-    void testLiveUrlHintBypassesAria2ForVideoArguments();
+    void testLivePathIsNotLivestreamEvidence();
     void testAudioThumbnailEmbedding();
     void testAudioPlaylistFolderJpg();
 };

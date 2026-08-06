@@ -50,6 +50,8 @@ protected: // Changed from private for testing
     int inferPrimaryStreamIndexFromPath(const QString &path) const;
     int inferPrimaryStreamIndexFromTotalBytes(double totalBytes) const;
     bool requestedAudioExtraction() const;
+    bool isBrowserCookieFailureLine(const QString &line) const;
+    bool hasBrowserCookieFailureDiagnostic() const;
     bool retryWithoutBrowserCookiesIfCookieExtractionFailed();
     QString inferPrimaryStreamStatusFromPath(const QString &path) const;
     QString inferPrimaryStreamStatusFromMetadata(int index) const;

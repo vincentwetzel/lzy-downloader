@@ -17,6 +17,8 @@ The API surface adheres to **Qt best practices**:
 ### Current behavioral contracts
 
 - `DownloadManager` treats playlist probing as recoverable for ordinary media URLs when the failure is transient; explicit playlist-shaped URLs and missing tools still fail visibly.
+- `DownloadManager` emits the initial queue row before playlist expansion completes. A supplied `thumbnail_url` is carried into that placeholder and playlist entry metadata so the UI can load a preview immediately.
+- `DownloadFinalizer` removes a temporary directory only when its final directory name matches the download ID; stopped downloads retain their temporary data for resume.
 - `YtDlpArgsBuilder` generates synchronization-safe accurate-cut arguments, including audio timestamp normalization and bounded FFmpeg thread settings.
 - `ProcessUtils::setBackgroundProcessPriority(QProcess&)` lowers supported Windows post-processing processes to below-normal priority.
 
