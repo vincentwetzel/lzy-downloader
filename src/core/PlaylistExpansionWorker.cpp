@@ -153,8 +153,10 @@ QStringList PlaylistExpansionWorker::buildProbeArguments(const QString &playlist
     removeArgWithValue(QStringLiteral("--ffmpeg-location"));
     removeArgWithValue(QStringLiteral("--print"));
 
-    args << QStringLiteral("--flat-playlist")
-         << QStringLiteral("--dump-single-json")
+    // Do not use --flat-playlist here. Flat entries are fast, but yt-dlp can
+    // omit per-entry thumbnails, leaving queued rows with no preview metadata.
+    // This remains asynchronous and is still metadata-only/no-download work.
+    args << QStringLiteral("--dump-single-json")
          << QStringLiteral("--no-download");
 
     return args;

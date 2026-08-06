@@ -40,35 +40,6 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
         return; // No need to process this line further
     }
 
-    // Check if browser cookies are causing a metadata/live status bad request or wait state block
-    bool hasCookies = m_args.contains(QStringLiteral("--cookies-from-browser")) || m_args.contains(QStringLiteral("--cookies"));
-    if (hasCookies && !m_retriedWithoutBrowserCookies && !this->property("proactiveCookieRetryActive").toBool() && !normalizedLine.startsWith(QStringLiteral("[debug]"))) {
-        static const QRegularExpression cookieErrorRe(
-            QStringLiteral("empty media response|cookie.*(?:invalid|expired|failed|error|rotate|refresh)|decryption|permission denied|sqlite|locked|access is denied|Unable to download JSON metadata.*HTTP Error 40[03]"),
-            QRegularExpression::CaseInsensitiveOption
-        );
-        if (cookieErrorRe.match(normalizedLine).hasMatch()) {
-            if (!m_errorLines.contains(normalizedLine)) {
-                m_errorLines.append(normalizedLine);
-            }
-            qWarning() << "[YtDlpWorker] Proactively triggering cookie retry due to detected failure line:" << normalizedLine;
-            
-            this->setProperty("proactiveCookieRetryActive", true);
-            killProcess();
-
-            QVariantMap progressData;
-            progressData.insert(QStringLiteral("status"), tr("Browser cookies failed; retrying without browser cookies..."));
-            progressData.insert(QStringLiteral("progress"), -1);
-            emit progressUpdated(m_id, progressData);
-
-            QTimer::singleShot(1000, this, [this]() {
-                this->setProperty("proactiveCookieRetryActive", false);
-                retryWithoutBrowserCookiesIfCookieExtractionFailed();
-            });
-            return;
-        }
-    }
-
     // Parse ERROR: lines from stderr for specific error types
     // Optimization: Gate expensive regex and array lookups behind fast string containment checks
     bool cookiePermissionDiagnostic = false;
@@ -126,7 +97,10 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
             QRegularExpression::CaseInsensitiveOption
         );
         static const QRegularExpression premiereRegex(
-            QStringLiteral("Premieres in|Premiering in|Premiere will begin|live event will begin|is upcoming|Offline \\(expected\\)|Offline expected|waiting for premiere|waiting for livestream|Live in |Starting in "),
+            // Do not match generic phrases such as "Live in" or "Starting in".
+            // They commonly occur in ordinary video titles and are not evidence
+            // that yt-dlp classified the media as a scheduled livestream.
+            QStringLiteral("Premieres in|Premiering in|Premiere will begin|live event will begin|is upcoming|Offline \\(expected\\)|Offline expected|waiting for premiere|waiting for livestream"),
             QRegularExpression::CaseInsensitiveOption
         );
 
@@ -588,6 +562,57 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
     if (!parseYtDlpProgressLine(normalizedLine)) {
         parseAria2ProgressLine(normalizedLine);
     }
+}
+
+bool YtDlpWorker::isBrowserCookieFailureLine(const QString &line) const {
+    if (line.isEmpty() || line.startsWith(QStringLiteral("[debug]"), Qt::CaseInsensitive)) {
+        return false;
+    }
+
+    const bool hasCookieContext = line.contains(QStringLiteral("cookie"), Qt::CaseInsensitive) ||
+                                  line.contains(QStringLiteral("temporary.sqlite"), Qt::CaseInsensitive) ||
+                                  line.contains(QStringLiteral("cookies.sqlite"), Qt::CaseInsensitive) ||
+                                  line.contains(QStringLiteral("browser profile"), Qt::CaseInsensitive) ||
+                                  line.contains(QStringLiteral("browser database"), Qt::CaseInsensitive) ||
+                                  line.contains(QStringLiteral("Sign in to confirm"), Qt::CaseInsensitive);
+    if (!hasCookieContext) {
+        return false;
+    }
+
+    const bool isDiagnosticLine = line.startsWith(QStringLiteral("ERROR:"), Qt::CaseInsensitive) ||
+                                  line.startsWith(QStringLiteral("WARNING:"), Qt::CaseInsensitive) ||
+                                  line.startsWith(QStringLiteral("[download] Got error:"), Qt::CaseInsensitive) ||
+                                  line.contains(QStringLiteral("PermissionError"), Qt::CaseInsensitive) ||
+                                  line.contains(QStringLiteral("Sign in to confirm"), Qt::CaseInsensitive);
+    if (!isDiagnosticLine) {
+        return false;
+    }
+
+    // Require explicit browser-cookie/authentication evidence. A standalone
+    // word such as "locked" also occurs in ordinary descriptions and must not
+    // kill the active yt-dlp process or leave the retry state unresolved.
+    static const QRegularExpression cookieFailureRegex(
+        QStringLiteral("Sign in to confirm|"
+                       "(?:cookie|cookies?\\.sqlite|temporary\\.sqlite|browser\\s+(?:profile|database|cookies?)).{0,120}"
+                       "(?:invalid|expired|no longer valid|failed|error|permission|denied|locked|decrypt|unable|could not|cannot|access)|"
+                       "(?:invalid|expired|no longer valid|failed|error|permission|denied|locked|decrypt|unable|could not|cannot|access).{0,120}"
+                       "(?:cookie|cookies?\\.sqlite|temporary\\.sqlite|browser)"),
+        QRegularExpression::CaseInsensitiveOption);
+    return cookieFailureRegex.match(line).hasMatch();
+}
+
+bool YtDlpWorker::hasBrowserCookieFailureDiagnostic() const {
+    for (const QString &line : std::as_const(m_errorLines)) {
+        if (isBrowserCookieFailureLine(line)) {
+            return true;
+        }
+    }
+    for (const QString &line : std::as_const(m_allOutputLines)) {
+        if (isBrowserCookieFailureLine(line)) {
+            return true;
+        }
+    }
+    return false;
 }
 
 QString YtDlpWorker::normalizeConsoleLine(const QString &line) const {

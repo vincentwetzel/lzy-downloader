@@ -143,6 +143,9 @@ void DownloadManager::processPlaylistSelection(const QString &url, const QString
                 if (itemData.contains(QStringLiteral("live_status"))) {
                     item.options.insert(QStringLiteral("live_status"), itemData.value(QStringLiteral("live_status")).toString());
                 }
+                if (itemData.contains(QStringLiteral("thumbnail_url"))) {
+                    item.options.insert(QStringLiteral("thumbnail_url"), itemData.value(QStringLiteral("thumbnail_url")).toString());
+                }
                 found = true;
                 break;
             }

@@ -1,6 +1,10 @@
 # LzyDownloader C++ Port TODO
 
 ## In Progress
+- [x] Keep Active Downloads rows compact at narrow window widths so long titles do not hide row actions behind horizontal scrolling.
+- [x] Display queued thumbnail URLs immediately, including preserving the thumbnail when a single-item playlist placeholder is updated.
+- [x] Keep thumbnail metadata in asynchronous playlist probes so queued rows can display previews before download starts.
+- [x] Remove per-download temporary directories on all terminal finalization failure paths while preserving stopped-download resume data.
 - [ ] Verify direct-download fallback behavior with a slow playlist probe and an explicit playlist URL.
 - [ ] Add an automated manager-level test for transient playlist-probe fallback and explicit playlist failure classification.
 - [ ] Refactor and split large `.cpp` files above or approaching 500 lines (e.g., `DownloadItemWidget.cpp`, `MainWindowConnections.cpp`, and `YtDlpWorkerProcess.cpp`) to preserve optimal AI context limits.
@@ -13,6 +17,9 @@
 - [ ] Integrate Qt Linguist (`.ts`/`.qm` compiler steps) into `CMakeLists.txt` build automation.
 
 ## Completed
+- [x] Prevented false browser-cookie retries from matching ordinary metadata prose such as `locked in a heated race`; cookie fallback now uses explicit cookie/database/sign-in diagnostics and the normal process-finished path.
+- [x] Prevented ordinary title phrases such as `Starting in` or `Live in` from triggering scheduled-livestream error handling.
+- [x] Prevented ordinary URLs containing a `/live/` path segment from being misclassified as livestreams before yt-dlp metadata is available.
 - [x] Kept `build_release.py` output in the invoking terminal by removing its unnecessary Windows shell bootstrap.
 - [x] Fixed SponsorBlock/accurate-cut A/V synchronization by normalizing the audio timeline and bounded FFmpeg cut resource usage so post-processing does not monopolize the system.
 - [x] Prevented transient playlist-probe timeouts on ordinary media URLs from being marked cancelled; they now fall back to the regular single-item downloader.

@@ -109,6 +109,10 @@ void DownloadManager::enqueueDownload(const QString &url, const QVariantMap &opt
         uiData.insert(QStringLiteral("url"), url);
         uiData.insert(QStringLiteral("status"), tr("Checking for playlist..."));
         uiData.insert(QStringLiteral("options"), effectiveOptions);
+        const QString thumbnailUrl = effectiveOptions.value(QStringLiteral("thumbnail_url")).toString().trimmed();
+        if (!thumbnailUrl.isEmpty()) {
+            uiData.insert(QStringLiteral("thumbnail_path"), thumbnailUrl);
+        }
         emit downloadAddedToQueue(uiData);
 
         PlaylistExpansionWorker *expander = new PlaylistExpansionWorker(url, m_configManager, this);

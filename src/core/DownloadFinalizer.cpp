@@ -181,6 +181,30 @@ void cleanupTempFiles(const DownloadItem &item, const QDir &tempDir, const QStri
     }
 }
 
+bool removeUuidTempDirectory(const QString &id, const DownloadItem &item, const QString &downloadType)
+{
+    if (id.isEmpty() || item.tempFilePath.isEmpty()) {
+        return false;
+    }
+
+    const QString candidatePath = downloadType == QStringLiteral("gallery")
+        ? QDir::fromNativeSeparators(item.tempFilePath)
+        : QFileInfo(item.tempFilePath).absoluteDir().absolutePath();
+    const QFileInfo candidateInfo(candidatePath);
+    if (candidateInfo.fileName() != id || !candidateInfo.exists() || !candidateInfo.isDir()) {
+        qWarning() << "Refusing to remove unexpected temporary path for" << id << ":" << candidatePath;
+        return false;
+    }
+
+    QDir uuidDir(candidateInfo.absoluteFilePath());
+    if (!uuidDir.removeRecursively()) {
+        qWarning() << "Failed to remove temporary UUID directory for" << id << ":" << uuidDir.absolutePath();
+        return false;
+    }
+    qDebug() << "Removed terminal download temporary directory:" << uuidDir.absolutePath();
+    return true;
+}
+
 bool copyDirectoryRecursivelyInternal(const QString &sourceDir, const QString &destDir) {
     const QDir source(sourceDir);
     if (!source.exists()) {
@@ -245,6 +269,10 @@ void DownloadFinalizer::finalize(const QString &id, DownloadItem item) {
 
     QThread *thread = QThread::create([self, id, item, sortingManager, archiveManager, prefixPlaylistIndices, downloadType]() mutable {
 
+        const auto cleanupTerminalTempDirectory = [&]() {
+            removeUuidTempDirectory(id, item, downloadType);
+        };
+
         if (downloadType != QStringLiteral("gallery") && !item.metadata.contains(QStringLiteral("id"))) {
             qWarning() << "Metadata is missing core fields in finalize for id:" << id << ", attempting to read from disk.";
             const QFileInfo fi(item.tempFilePath);
@@ -296,6 +324,7 @@ void DownloadFinalizer::finalize(const QString &id, DownloadItem item) {
 
         const QFileInfo fileInfo(item.tempFilePath);
         if (!fileInfo.exists()) {
+            cleanupTerminalTempDirectory();
             QMetaObject::invokeMethod(QCoreApplication::instance(), [self, id]() {
                 if (self) emit self->finalizationComplete(id, false, DownloadFinalizer::tr("Downloaded file not found."));
             }, Qt::QueuedConnection);
@@ -376,6 +405,7 @@ void DownloadFinalizer::finalize(const QString &id, DownloadItem item) {
             const QDir galleryTempDir(tempPath);
             if (!galleryTempDir.exists()) {
                 message = DownloadFinalizer::tr("Gallery download failed: temp directory missing.");
+                cleanupTerminalTempDirectory();
                 QMetaObject::invokeMethod(QCoreApplication::instance(), [self, id, message]() {
                     if (self) emit self->finalizationComplete(id, false, message);
                 }, Qt::QueuedConnection);
@@ -446,6 +476,7 @@ void DownloadFinalizer::finalize(const QString &id, DownloadItem item) {
 
             if (QFile::exists(destPath) && !safeRemoveWithRetry(destPath)) {
                 message = DownloadFinalizer::tr("Download completed, but failed to replace existing file.");
+                cleanupTerminalTempDirectory();
                 QMetaObject::invokeMethod(QCoreApplication::instance(), [self, id, message]() {
                     if (self) emit self->finalizationComplete(id, false, message);
                 }, Qt::QueuedConnection);
@@ -482,15 +513,9 @@ void DownloadFinalizer::finalize(const QString &id, DownloadItem item) {
         // Because yt-dlp downloads are now isolated into their own UUID subfolders
         // to prevent naming collisions, we must delete the UUID folder afterward.
         if (downloadType != QStringLiteral("gallery")) {
-            if (tempDir.dirName() == id) {
-                QDir dirToRemove(tempDir);
-                dirToRemove.removeRecursively();
-            }
+            cleanupTerminalTempDirectory();
         } else {
-            QDir galleryTempDir(item.tempFilePath);
-            if (galleryTempDir.exists() && galleryTempDir.dirName() == id) {
-                galleryTempDir.removeRecursively();
-            }
+            cleanupTerminalTempDirectory();
         }
 
         QMetaObject::invokeMethod(QCoreApplication::instance(), [self, id, success, message, finalPath, archiveManager, url = item.url]() {

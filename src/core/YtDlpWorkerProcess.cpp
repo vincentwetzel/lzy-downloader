@@ -81,9 +81,6 @@ namespace {
 }
 
 void YtDlpWorker::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatus) {
-    if (this->property("proactiveCookieRetryActive").toBool()) {
-        return;
-    }
     if (m_finishEmitted) {
         return;
     }
@@ -348,8 +345,8 @@ void YtDlpWorker::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatu
         }
 
         // Add a clear hint about cookie authentication if cookies were utilized or attempted
-        const bool hadCookies = m_retriedWithoutBrowserCookies || m_args.contains(QStringLiteral("--cookies-from-browser")) || m_args.contains(QStringLiteral("--cookies"));
-        if (hadCookies && !hasFfmpegError) {
+        const bool hadCookieFailure = m_retriedWithoutBrowserCookies || hasBrowserCookieFailureDiagnostic();
+        if (hadCookieFailure && !hasFfmpegError) {
             QString browserName = m_configManager ? m_configManager->get(QStringLiteral("General"), QStringLiteral("cookies_from_browser"), tr("None")).toString() : QString();
             if (browserName.isEmpty() || browserName.compare(QStringLiteral("None"), Qt::CaseInsensitive) == 0 || browserName.compare(tr("None"), Qt::CaseInsensitive) == 0) {
                 browserName = tr("configured browser");
@@ -410,43 +407,7 @@ bool YtDlpWorker::retryWithoutBrowserCookiesIfCookieExtractionFailed() {
         return false;
     }
 
-    auto containsAny = [](const QStringList& list, const QRegularExpression& regex, const QStringList& gateKeywords = {}) {
-        const bool hasGates = !gateKeywords.isEmpty();
-        for (const QString& line : std::as_const(list)) {
-            if (line.startsWith(QStringLiteral("[debug]"))) {
-                continue;
-            }
-            if (hasGates) {
-                bool passedGate = false;
-                for (const QString& gate : gateKeywords) {
-                    if (line.contains(gate, Qt::CaseInsensitive)) {
-                        passedGate = true;
-                        break;
-                    }
-                }
-                if (!passedGate) continue;
-            }
-            if (regex.match(line).hasMatch()) return true;
-        }
-        return false;
-    };
-
-    static const QRegularExpression permissionRegex(
-        QStringLiteral("Access is denied|Permission denied|PermissionError|database is locked|locked"),
-        QRegularExpression::CaseInsensitiveOption
-    );
-    static const QStringList permissionGates = {QStringLiteral("Access"), QStringLiteral("Permission"), QStringLiteral("locked")};
-    const bool permissionFailure = containsAny(m_errorLines, permissionRegex, permissionGates) || containsAny(m_allOutputLines, permissionRegex, permissionGates);
-
-    static const QRegularExpression cookieRegex(
-        QStringLiteral("temporary\\.sqlite|cookies\\.sqlite|Sign in to confirm"),
-        QRegularExpression::CaseInsensitiveOption
-    );
-    static const QStringList cookieGates = {QStringLiteral("cookie"), QStringLiteral("sqlite"), QStringLiteral("Sign")};
-    const bool browserCookieFailure = containsAny(m_errorLines, cookieRegex, cookieGates) || containsAny(m_allOutputLines, cookieRegex, cookieGates);
-
-    const bool cookieFailure = (permissionFailure && browserCookieFailure) || browserCookieFailure;
-    if (!cookieFailure) {
+    if (!hasBrowserCookieFailureDiagnostic()) {
         return false;
     }
 
@@ -483,9 +444,6 @@ bool YtDlpWorker::retryWithoutBrowserCookiesIfCookieExtractionFailed() {
 }
 
 void YtDlpWorker::onProcessError(QProcess::ProcessError error) {
-    if (this->property("proactiveCookieRetryActive").toBool()) {
-        return;
-    }
     if (m_finishEmitted) {
         return;
     }

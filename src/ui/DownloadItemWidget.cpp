@@ -68,6 +68,11 @@ void DownloadItemWidget::setupUi() {
     m_titleLabel->setTextFormat(Qt::RichText);
     m_titleLabel->setOpenExternalLinks(true);
     m_titleLabel->setWordWrap(true);
+    // Rich-text labels otherwise report the unwrapped title width as their
+    // minimum size.  That makes the row wider than the viewport on compact
+    // windows and pushes its action buttons off-screen.
+    m_titleLabel->setMinimumWidth(0);
+    m_titleLabel->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
     m_titleLabel->setToolTip(tr("The URL or title of the media being downloaded."));
 
     QString displayTitle = initialTitle.isEmpty() ? url : initialTitle;
@@ -142,6 +147,8 @@ void DownloadItemWidget::setupUi() {
     m_openFolderButton->hide();
 
     QWidget *buttonContainer = new QWidget(this);
+    buttonContainer->setMinimumWidth(0);
+    buttonContainer->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Preferred);
 
     QHBoxLayout *buttonLayout = new QHBoxLayout(buttonContainer);
     buttonLayout->setContentsMargins(0, 0, 0, 0);
@@ -173,6 +180,9 @@ void DownloadItemWidget::setupUi() {
     mainLayout->addWidget(m_thumbnailLabel);
     mainLayout->addLayout(infoLayout, 1);
     mainLayout->addWidget(buttonContainer);
+    mainLayout->setStretch(2, 1);
+    setMinimumWidth(0);
+    setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
 
     connect(m_cancelButton, &QPushButton::clicked, this, &DownloadItemWidget::onCancelClicked);
     connect(m_finishButton, &QPushButton::clicked, this, &DownloadItemWidget::onFinishClicked);
@@ -358,9 +368,11 @@ void DownloadItemWidget::setThumbnail(const QString &imagePath) {
     if (imagePath.isEmpty() || imagePath == m_currentThumbnailPath) {
         return;
     }
-    m_currentThumbnailPath = imagePath;
 
-    if (imagePath.startsWith(QStringLiteral("http://")) || imagePath.startsWith(QStringLiteral("https://"))) {
+    const QUrl imageUrl(imagePath);
+    if (imageUrl.isValid() && (imageUrl.scheme().compare(QStringLiteral("http"), Qt::CaseInsensitive) == 0
+                               || imageUrl.scheme().compare(QStringLiteral("https"), Qt::CaseInsensitive) == 0)) {
+        m_currentThumbnailPath = imagePath;
         QNetworkAccessManager *manager = qApp->findChild<QNetworkAccessManager*>(QStringLiteral("sharedThumbnailManager"));
         if (!manager) {
             manager = new QNetworkAccessManager(qApp);
@@ -393,6 +405,8 @@ void DownloadItemWidget::setThumbnail(const QString &imagePath) {
     if (pixmap.isNull()) {
         return;
     }
+
+    m_currentThumbnailPath = imagePath;
 
     // Scale the pixmap to fit the label while maintaining aspect ratio
     QPixmap scaled = pixmap.scaled(m_thumbnailLabel->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation);

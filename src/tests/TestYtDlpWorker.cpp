@@ -102,6 +102,22 @@ void TestYtDlpWorker::testYtDlpErrorParsing() {
     worker.callHandleOutputLine(errorLine);
     QCOMPARE(errorSpy.count(), 1);
     QCOMPARE(errorSpy.takeFirst().at(1).toString(), QStringLiteral("scheduled_livestream"));
+
+    // Ordinary title text must not open the scheduled-livestream dialog.
+    worker.resetErrorEmitted();
+    worker.callHandleOutputLine(QStringLiteral("[youtube] Title: Starting in the morning"));
+    QVERIFY(errorSpy.isEmpty());
+
+    // Ordinary metadata text containing "locked" must not trigger the old
+    // browser-cookie retry false positive.
+    TestableYtDlpWorker cookieWorker(QStringLiteral("cookieFalsePositive"),
+                                     {QStringLiteral("--cookies-from-browser"), QStringLiteral("firefox")},
+                                     config, nullptr);
+    QSignalSpy cookieProgressSpy(&cookieWorker, &YtDlpWorker::progressUpdated);
+    cookieWorker.callHandleOutputLine(QStringLiteral("Follow Crooked on Instagram - locked in a heated race"));
+    for (const QList<QVariant> &arguments : cookieProgressSpy) {
+        QVERIFY(!arguments.at(1).toMap().value(QStringLiteral("status")).toString().contains(QStringLiteral("Browser cookies")));
+    }
 }
 
 void TestYtDlpWorker::testAria2ProgressParsing() {
