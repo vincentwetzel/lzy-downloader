@@ -7,15 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIVE.md](docs/CHANGELOG_ARCHIVE.md).
 
-- **Terminal temporary-directory cleanup**: Download finalization now removes the per-download UUID temporary directory on missing-output, missing-gallery-directory, and destination-replacement failure paths, preventing stranded folders after terminal runs while preserving stopped downloads for resume.
-
-## Unreleased
+## [1.2.18] - 2026-08-05
 
 ### Fixed
-- Browser-cookie retry detection no longer treats ordinary metadata text such as “locked in a heated race” as a cookie failure. The worker now waits for process completion and retries only on explicit cookie/database/sign-in diagnostics, preventing a false retry state from leaving a download hanging.
+- Terminal download finalization now removes the guarded per-download UUID temporary directory on failure exits while preserving stopped-download partial files for resume.
+- Browser-cookie retry detection no longer treats ordinary metadata text such as "locked in a heated race" as a cookie failure. The worker now waits for process completion and retries only on explicit cookie/database/sign-in diagnostics, preventing a false retry state from leaving a download hanging.
 - Active Downloads rows now compact correctly in narrow or half-screen windows: long titles wrap within the viewport and no longer push row actions into a horizontal scroll area.
 - URLs containing a `/live/` path segment are no longer forced into livestream mode; yt-dlp metadata or explicit options now determine livestream behavior.
 - Ordinary title text containing phrases such as `Starting in` or `Live in` no longer triggers the scheduled-livestream cookie/wait dialog.
+
+### Changed
 - Queued download rows now start loading available remote thumbnails immediately, including thumbnails preserved when a single-item playlist placeholder is updated.
 - Playlist metadata probing now retains per-entry thumbnail data instead of using flat entries that often omit it.
 

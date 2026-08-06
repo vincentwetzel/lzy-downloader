@@ -120,6 +120,16 @@
             "audiochan.com"
         ]
     },
+    "bakashots": {
+        "domains": [
+            "compare.bakashots.me"
+        ]
+    },
+    "batcave": {
+        "domains": [
+            "batcave.biz"
+        ]
+    },
     "bbc": {
         "domains": [
             "bbc.co.uk"
@@ -232,6 +242,12 @@
     "dankefuerslesen": {
         "domains": [
             "danke.moe"
+        ]
+    },
+    "dcinside": {
+        "domains": [
+            "gall.dcinside.com",
+            "gallog.dcinside.com"
         ]
     },
     "desktopography": {
@@ -959,11 +975,6 @@
     "rawkuma": {
         "domains": [
             "rawkuma.net"
-        ]
-    },
-    "readcomiconline": {
-        "domains": [
-            "readcomiconline.li"
         ]
     },
     "realbooru": {
