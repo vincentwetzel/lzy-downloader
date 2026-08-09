@@ -1,5 +1,6 @@
 #include "GalleryDlWorker.h"
 #include "core/ConfigManager.h"
+#include "core/DownloadTempCleanup.h"
 #include "core/ProcessUtils.h"
 #include <QCoreApplication>
 #include <QDir>
@@ -9,6 +10,18 @@
 #include <QFileInfo>
 #include <QProcess>
 #include <QDateTime>
+
+namespace {
+QString outputDirectoryFromArgs(const QStringList &args)
+{
+    for (qsizetype i = 0; i + 1 < args.size(); ++i) {
+        if ((args.at(i) == QStringLiteral("--directory") || args.at(i) == QStringLiteral("-D"))) {
+            return args.at(i + 1);
+        }
+    }
+    return QString();
+}
+}
 
 GalleryDlWorker::GalleryDlWorker(const QString &id, const QStringList &args, ConfigManager *configManager, QObject *parent)
     : QObject(parent), m_configManager(configManager), m_id(id), m_args(args)
@@ -25,6 +38,7 @@ void GalleryDlWorker::start()
 {
     const QString galleryDlPath = resolveExecutablePath(QStringLiteral("gallery-dl"));
     if (galleryDlPath.isEmpty()) {
+        (void)DownloadTempCleanup::removeEmptyOwnedDirectory(m_id, outputDirectoryFromArgs(m_args));
         emit finished(m_id, false, tr("gallery-dl executable was not found."), QString(), QVariantMap());
         return;
     }
@@ -51,6 +65,11 @@ void GalleryDlWorker::killProcess()
         ProcessUtils::terminateProcessTree(m_process);
         m_process->kill(); // Forcefully kill the QProcess instance as fallback
     }
+
+    // A stopped gallery download may have created its UUID directory before
+    // producing any files. Remove that empty container, but preserve any
+    // partial gallery data for resume/manual cleanup.
+    (void)DownloadTempCleanup::removeEmptyOwnedDirectory(m_id, outputDirectoryFromArgs(m_args));
 }
 
 void GalleryDlWorker::onReadyReadStandardOutput()
@@ -234,13 +253,7 @@ void GalleryDlWorker::onProcessFinished(int exitCode, QProcess::ExitStatus exitS
         {QStringLiteral("status"), partialSuccess ? tr("Finalizing (with warnings)...") : tr("Finalizing...")}
     });
 
-    QString outputDirectory;
-    for (qsizetype i = 0; i < m_args.size(); ++i) {
-        if ((m_args[i] == QStringLiteral("--directory") || m_args[i] == QStringLiteral("-D")) && i + 1 < m_args.size()) {
-            outputDirectory = m_args[i + 1];
-            break;
-        }
-    }
+    const QString outputDirectory = outputDirectoryFromArgs(m_args);
 
     QString message = partialSuccess ? tr("Gallery download completed with some warnings.") : tr("Download completed successfully.");
     emit finished(m_id, true, message, outputDirectory, QVariantMap());
@@ -250,6 +263,7 @@ void GalleryDlWorker::onProcessError(QProcess::ProcessError processError)
 {
     if (processError == QProcess::FailedToStart) {
         qWarning() << "GalleryDlWorker failed to start process:" << m_process->errorString();
+        (void)DownloadTempCleanup::removeEmptyOwnedDirectory(m_id, outputDirectoryFromArgs(m_args));
         emit finished(m_id, false, tr("Failed to start gallery-dl process. Please check if it's installed and in your PATH, or configure the path in settings."), QString(), QVariantMap());
     }
 }

@@ -39,6 +39,7 @@ public:
     void processResumeDownloadsSelection(const QJsonArray &arr);
 
     void saveQueueState(const QMap<QString, DownloadItem> &activeItems);
+    void cleanupOrphanedTempDirectories();
     DownloadItem takeNextQueuedDownload();
     bool hasQueuedDownloads() const;
     int queuedDownloadsCount() const { return m_downloadQueue.size(); }
@@ -67,6 +68,7 @@ private:
 
     QQueue<DownloadItem> m_downloadQueue;
     QMap<QString, DownloadItem> m_pausedItems;
+    bool m_tempCleanupInProgress = false;
 
     void emitQueueCountsChanged();
 };

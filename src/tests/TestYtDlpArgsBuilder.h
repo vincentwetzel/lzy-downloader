@@ -12,6 +12,9 @@ private slots:
     void testLivestreamArguments();
     void testPostLiveReplayUsesVideoArguments();
     void testLivePathIsNotLivestreamEvidence();
+    void testAria2RetryPolicyArguments();
     void testAudioThumbnailEmbedding();
     void testAudioPlaylistFolderJpg();
+    void testOrphanedTemporaryDirectorySweep();
+    void testTemporaryDirectoryOwnershipGuard();
 };

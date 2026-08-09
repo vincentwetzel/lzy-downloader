@@ -1,9 +1,12 @@
 #include "TestYtDlpArgsBuilder.h" // Include the new header
 #include "core/YtDlpArgsBuilder.h"
 #include "core/ConfigManager.h"
+#include "core/DownloadTempCleanup.h"
 #include "core/ProcessUtils.h"
 
 #include <QUrl> // Add QUrl include
+#include <QDir>
+#include <QFile>
 
 #include <algorithm>
 
@@ -154,6 +157,29 @@ void TestYtDlpArgsBuilder::testLivePathIsNotLivestreamEvidence() {
     QVERIFY(args.contains(QStringLiteral("mp4")));
 }
 
+void TestYtDlpArgsBuilder::testAria2RetryPolicyArguments() {
+    ConfigManager *mockConfig = getConfigManager();
+    mockConfig->set(QStringLiteral("Metadata"), QStringLiteral("use_aria2c"), true);
+    mockConfig->set(QStringLiteral("Video"), QStringLiteral("video_quality"), QStringLiteral("best"));
+    mockConfig->set(QStringLiteral("Video"), QStringLiteral("video_extension"), QStringLiteral("mp4"));
+    ProcessUtils::cacheBinary(QStringLiteral("aria2c"), {QStringLiteral("aria2c"), QStringLiteral("System PATH")});
+
+    YtDlpArgsBuilder builder;
+    QVariantMap options;
+    options[QStringLiteral("type")] = QStringLiteral("video");
+
+    const QStringList args = builder.build(mockConfig, QUrl(TEST_URL).toString(), options);
+    ProcessUtils::clearCache();
+
+    const qsizetype externalArgsIndex = args.indexOf(QStringLiteral("--external-downloader-args"));
+    QVERIFY(externalArgsIndex >= 0);
+    QVERIFY(externalArgsIndex + 1 < args.size());
+    const QString externalArgs = args.at(externalArgsIndex + 1);
+    QVERIFY(externalArgs.contains(QStringLiteral("--max-tries=6")));
+    QVERIFY(externalArgs.contains(QStringLiteral("--retry-wait=3")));
+    QVERIFY(externalArgs.contains(QStringLiteral("--max-connection-per-server=4")));
+}
+
 void TestYtDlpArgsBuilder::testAudioThumbnailEmbedding() {
     ConfigManager *mockConfig = getConfigManager();
     mockConfig->set(QStringLiteral("Metadata"), QStringLiteral("embed_thumbnail"), true);
@@ -193,6 +219,47 @@ void TestYtDlpArgsBuilder::testAudioPlaylistFolderJpg() {
         }
     }
     QVERIFY(hasFolderJpg);
+}
+
+void TestYtDlpArgsBuilder::testOrphanedTemporaryDirectorySweep()
+{
+    const QString root = QDir(getTempDir()).filePath(QStringLiteral("temp_downloads"));
+    const QString orphanId = QStringLiteral("11111111-1111-4111-8111-111111111111");
+    const QString preservedId = QStringLiteral("22222222-2222-4222-8222-222222222222");
+    const QString userDirectory = QStringLiteral("keep-me");
+
+    QVERIFY(QDir().mkpath(QDir(root).filePath(orphanId)));
+    QVERIFY(QDir().mkpath(QDir(root).filePath(preservedId)));
+    QVERIFY(QDir().mkpath(QDir(root).filePath(userDirectory)));
+    QFile marker(QDir(root).filePath(orphanId + QStringLiteral("/partial.part")));
+    QVERIFY(marker.open(QIODevice::WriteOnly));
+    marker.close();
+
+    QSet<QString> preservedIds;
+    preservedIds.insert(preservedId);
+    QCOMPARE(DownloadTempCleanup::removeOrphanedUuidDirectories(root, preservedIds), 1);
+    QVERIFY(!QDir(QDir(root).filePath(orphanId)).exists());
+    QVERIFY(QDir(QDir(root).filePath(preservedId)).exists());
+    QVERIFY(QDir(QDir(root).filePath(userDirectory)).exists());
+}
+
+void TestYtDlpArgsBuilder::testTemporaryDirectoryOwnershipGuard()
+{
+    const QString root = QDir(getTempDir()).filePath(QStringLiteral("temp_downloads"));
+    const QString id = QStringLiteral("33333333-3333-4333-8333-333333333333");
+    const QString ownedPath = QDir(root).filePath(id);
+    QVERIFY(QDir().mkpath(ownedPath));
+    QVERIFY(QFile(QDir(ownedPath).filePath(QStringLiteral("partial.part"))).open(QIODevice::WriteOnly));
+
+    QVERIFY(!DownloadTempCleanup::removeEmptyOwnedDirectory(id, ownedPath));
+    QVERIFY(QDir(ownedPath).exists());
+    QVERIFY(DownloadTempCleanup::removeOwnedDirectory(id, ownedPath));
+    QVERIFY(!QDir(ownedPath).exists());
+
+    const QString unexpectedPath = QDir(root).filePath(QStringLiteral("not-the-id"));
+    QVERIFY(QDir().mkpath(unexpectedPath));
+    QVERIFY(!DownloadTempCleanup::removeOwnedDirectory(id, unexpectedPath));
+    QVERIFY(QDir(unexpectedPath).exists());
 }
 
 // Generates the main() function for the test executable

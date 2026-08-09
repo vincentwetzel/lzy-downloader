@@ -72,7 +72,7 @@ File system locations for download directories.
 | `completed_downloads_directory` | String | *(user prompt on first launch)* | The directory where finished downloads are moved to after verification. |
 | `temporary_downloads_directory` | String | *(derived from completed_downloads_directory)* | The directory used for active/in-progress downloads. Automatically set when `completed_downloads_directory` is updated. |
 
-> **Note:** The `temporary_downloads_directory` is automatically derived from the `completed_downloads_directory` if not explicitly set. Runtime cleanup code uses the same `<completed_downloads_directory>/temp_downloads` fallback when removing empty per-download UUID folders on finish or process errors, locating fallback `info.json` metadata inside the per-download UUID folder, or moving wait-state thumbnails into managed cleanup scope. Downloads follow a lifecycle: download to temp dir -> verify file stability -> move to completed directory. Terminal finalization also removes the guarded UUID folder on missing output, missing gallery output, or destination-replacement failure; stopped downloads retain their partial files for resume.
+> **Note:** The `temporary_downloads_directory` is automatically derived from the `completed_downloads_directory` if not explicitly set. Runtime cleanup and download builders share one fallback resolver: configured temporary directory, `<completed_downloads_directory>/temp_downloads`, then `<OS temp>/LzyDownloader` when neither setting is available. After queue restoration, startup asynchronously removes only orphaned direct-child UUID folders; restored stopped/failed folders, non-UUID folders, symlinks, and the shared root are preserved. Downloads follow a lifecycle: download to temp dir -> verify file stability -> move to completed directory. Terminal finalization also removes the guarded UUID folder on missing output, missing gallery output, or destination-replacement failure; stopped downloads retain their partial files for resume.
 
 ---
 
@@ -152,7 +152,7 @@ Settings for embedding metadata, thumbnails, and chapter information into downlo
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `use_aria2c` | Boolean | `true` | Use aria2c as an external downloader for segmented, concurrent non-livestream downloads. Livestreams are forced through yt-dlp's native downloader so wait/finish-now behavior remains reliable. |
+| `use_aria2c` | Boolean | `false` | Use aria2c as an external downloader for segmented, concurrent non-livestream downloads. The generated aria2c options use bounded retry/backoff and a conservative per-server connection limit. Transient exit codes 2, 5, 6, and 29 may trigger one native yt-dlp fallback while preserving media `.part` files. Livestreams are forced through yt-dlp's native downloader so wait/finish-now behavior remains reliable. |
 | `embed_chapters` | Boolean | `true` | Embed chapter markers into video files when available. |
 | `embed_metadata` | Boolean | `true` | Embed metadata (title, artist, description, etc.) into downloaded files. |
 | `embed_thumbnail` | Boolean | `true` | Embed thumbnail images into downloaded files as cover art. |

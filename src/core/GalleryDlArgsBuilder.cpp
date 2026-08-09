@@ -1,8 +1,8 @@
 #include "GalleryDlArgsBuilder.h"
 #include "core/ProcessUtils.h"
+#include "core/DownloadTempCleanup.h"
 
 #include <QDir>
-#include <QStandardPaths>
 
 GalleryDlArgsBuilder::GalleryDlArgsBuilder(ConfigManager *configManager)
     : m_configManager(configManager) {
@@ -13,11 +13,8 @@ QStringList GalleryDlArgsBuilder::build(const QString &url, const QVariantMap &o
     args << QStringLiteral("--verbose");
 
     // Output path - gallery-dl's --directory sets the base download directory
-    QString tempPath = m_configManager->get(QStringLiteral("Paths"), QStringLiteral("temporary_downloads_directory")).toString();
-    if (tempPath.isEmpty()) {
-        tempPath = QDir(QStandardPaths::writableLocation(QStandardPaths::TempLocation)).filePath(QStringLiteral("LzyDownloader"));
-    }
-    tempPath = QDir(tempPath).filePath(options.value(QStringLiteral("id")).toString());
+    const QString tempRoot = DownloadTempCleanup::resolveRoot(m_configManager);
+    const QString tempPath = DownloadTempCleanup::pathForId(tempRoot, options.value(QStringLiteral("id")).toString());
     QDir().mkpath(tempPath);
     args << QStringLiteral("--directory") << tempPath;
 

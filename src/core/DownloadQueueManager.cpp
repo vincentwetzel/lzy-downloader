@@ -1,4 +1,5 @@
 #include "DownloadQueueManager.h"
+#include "DownloadTempCleanup.h"
 
 #include <QDebug>
 #include <QDir>
@@ -264,7 +265,7 @@ bool DownloadQueueManager::cancelQueuedOrPausedDownload(const QString &id) {
                             continue;
                         }
                         if (anchor.isDir() && anchor.fileName() == id) {
-                            QDir(anchor.absoluteFilePath()).removeRecursively();
+                            (void)DownloadTempCleanup::removeOwnedDirectory(id, anchor.absoluteFilePath());
                             continue;
                         }
 
@@ -299,7 +300,7 @@ bool DownloadQueueManager::cancelQueuedOrPausedDownload(const QString &id) {
 
                         tempDir.refresh();
                         if (tempDir.dirName() == id) {
-                            tempDir.removeRecursively();
+                            (void)DownloadTempCleanup::removeOwnedDirectory(id, tempDir.absolutePath());
                         }
                     }
                     qDebug() << "Cleaned up temporary files for cleared download:" << id;
@@ -457,6 +458,9 @@ DownloadItem DownloadQueueManager::takeNextQueuedDownload() {
 }
 
 bool DownloadQueueManager::hasQueuedDownloads() const {
+    if (m_tempCleanupInProgress) {
+        return false;
+    }
     for (const DownloadItem &item : std::as_const(m_downloadQueue)) {
         if (!m_pendingExpansions.contains(item.id)) {
             return true;

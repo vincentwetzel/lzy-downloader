@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIVE.md](docs/CHANGELOG_ARCHIVE.md).
 
+## Unreleased
+
+### Fixed
+- Temporary download cleanup now uses one shared root resolver, removes empty folders when yt-dlp/gallery-dl cannot start, and asynchronously removes orphaned UUID folders after queue restoration while preserving resumable stopped/failed downloads.
+- Transient aria2c failures now use bounded retry/backoff settings and one delayed fallback to yt-dlp's native downloader for timeout, slow-transfer, network, and temporary-server failures. Automatic recovery removes stale `.info.json` sidecars while preserving media partials for resume, and reports the recovery status in the download row.
+
 ## [1.2.18] - 2026-08-05
 
 ### Fixed

@@ -5,12 +5,14 @@
 - [x] Display queued thumbnail URLs immediately, including preserving the thumbnail when a single-item playlist placeholder is updated.
 - [x] Keep thumbnail metadata in asynchronous playlist probes so queued rows can display previews before download starts.
 - [x] Remove per-download temporary directories on all terminal finalization failure paths while preserving stopped-download resume data.
+- [x] Audit temporary-folder creation and cleanup paths; centralize root resolution, remove pre-start failure leftovers, and reconcile orphaned UUID folders after queue restoration.
 - [ ] Verify direct-download fallback behavior with a slow playlist probe and an explicit playlist URL.
 - [ ] Add an automated manager-level test for transient playlist-probe fallback and explicit playlist failure classification.
 - [ ] Refactor and split large `.cpp` files above or approaching 500 lines (e.g., `DownloadItemWidget.cpp`, `MainWindowConnections.cpp`, and `YtDlpWorkerProcess.cpp`) to preserve optimal AI context limits.
 - [ ] Split `ProcessUtils.cpp` after the external-binary resolver expansion; the file is currently above the 500-line guidance and should move version parsing/probing into a focused helper.
 - [ ] Review `AppUpdater` release-flow UX and diagnostics now that platform-specific updater assets are supported for Windows, Linux, and macOS.
 - [ ] Evaluate whether `YtDlpWorker` should expose a reusable capped diagnostic tail helper so warning/error retention stays consistent across workers.
+- [x] Added bounded aria2 retry/backoff, transient aria2-to-native fallback, and stale metadata-sidecar cleanup while preserving resumable media partials.
 
 ## Planned / Future Enhancements
 - [ ] Implement translations for supported interface languages (see `docs/LANGUAGES.md`).

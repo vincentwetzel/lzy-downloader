@@ -32,8 +32,10 @@ This document is a quick file-to-responsibility index for the C++ port. It is in
 ## High-Value Entry Points
 - `src/core/DownloadManager.*`: Queue orchestration, download lifecycle, and finalization flow.
 - `src/core/DownloadFinalizer.*`: Background verification, destination moves, and guarded terminal temporary-directory cleanup.
-- `src/core/YtDlpWorker.*`: yt-dlp process handling, output parsing, progress classification, and explicit browser-cookie failure retry detection.
+- `src/core/YtDlpWorker.*`: yt-dlp process handling, output parsing, progress classification, browser-cookie failure retry detection, and bounded aria2c-to-native recovery.
 - `src/core/DownloadQueueState.*`: Queue persistence to `downloads_backup.json`.
+- `src/core/DownloadQueueManagerCleanup.cpp`: Asynchronous startup reconciliation of orphaned UUID folders while queue IDs are protected.
+- `src/core/DownloadTempCleanup.*`: Shared temporary-root resolution, guarded deletion, and startup orphan-folder reconciliation.
 - `src/core/ConfigManager.*`: `settings.ini` persistence and validation.
 - `src/core/ProcessUtils.*`: Process helpers, binary discovery, and termination utilities.
 - `src/core/SmartBinaryResolver.*`: External binary path resolution and auto-detected path ownership.

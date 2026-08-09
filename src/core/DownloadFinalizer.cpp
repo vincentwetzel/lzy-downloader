@@ -1,5 +1,6 @@
 #include "DownloadFinalizer.h"
 #include "ConfigManager.h"
+#include "DownloadTempCleanup.h"
 #include "SortingManager.h"
 #include "ArchiveManager.h"
 
@@ -190,19 +191,7 @@ bool removeUuidTempDirectory(const QString &id, const DownloadItem &item, const 
     const QString candidatePath = downloadType == QStringLiteral("gallery")
         ? QDir::fromNativeSeparators(item.tempFilePath)
         : QFileInfo(item.tempFilePath).absoluteDir().absolutePath();
-    const QFileInfo candidateInfo(candidatePath);
-    if (candidateInfo.fileName() != id || !candidateInfo.exists() || !candidateInfo.isDir()) {
-        qWarning() << "Refusing to remove unexpected temporary path for" << id << ":" << candidatePath;
-        return false;
-    }
-
-    QDir uuidDir(candidateInfo.absoluteFilePath());
-    if (!uuidDir.removeRecursively()) {
-        qWarning() << "Failed to remove temporary UUID directory for" << id << ":" << uuidDir.absolutePath();
-        return false;
-    }
-    qDebug() << "Removed terminal download temporary directory:" << uuidDir.absolutePath();
-    return true;
+    return DownloadTempCleanup::removeOwnedDirectory(id, candidatePath);
 }
 
 bool copyDirectoryRecursivelyInternal(const QString &sourceDir, const QString &destDir) {

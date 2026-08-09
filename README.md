@@ -67,7 +67,7 @@ Qt test executables are registered through CMake and can be run with CTest. For 
 python run_headless_tests.py --build-dir build --config Release
 ```
 
-Current coverage includes argument construction, progress parsing, archive normalization, configuration defaults/reset cleanup, Local API auth/enqueue behavior, process binary-resolution caching, URL validation, sorting sanitization, playlist range selection, UI progress widgets, and a local end-to-end download fixture.
+Current coverage includes argument construction (including aria2c retry policy), progress parsing, protected temporary-directory cleanup, archive normalization, configuration defaults/reset cleanup, Local API auth/enqueue behavior, process binary-resolution caching, URL validation, sorting sanitization, playlist range selection, UI progress widgets, and a local end-to-end download fixture.
 
 ### Release Checklist
 
@@ -120,7 +120,9 @@ Automation can also launch `LzyDownloader.exe --background <url>`, `LzyDownloade
 
 Extractor-list refresh scripts are non-interactive, so release automation can run `update_yt-dlp_extractors.py` and `update_gallery-dl_extractors.py` without waiting for a final keypress.
 
-Temporary downloads are isolated in per-download UUID folders under the configured temp directory. If that setting is still unset, the app derives the temp path from the completed-downloads folder as `temp_downloads`, including for cleanup after finished, failed-to-start, cancelled, skipped, or wait-state yt-dlp jobs. Terminal finalization removes the guarded UUID folder on terminal output or final-destination failures, while stopped downloads retain partial files for resume. Playlist expansion checks reuse the full yt-dlp command configuration without creating those transfer-only UUID folders.
+Temporary downloads are isolated in per-download UUID folders under the shared temporary-root resolver: the configured temporary directory, `<completed_downloads_directory>/temp_downloads`, or the operating-system temp directory under `LzyDownloader` when neither setting is available. Terminal finalization removes the guarded UUID folder on terminal output or final-destination failures, while stopped and failed downloads retain their partial data for resume or manual cleanup. After queue restoration, an asynchronous startup sweep removes only unprotected direct-child UUID folders; restored stopped/failed IDs, non-UUID folders, symlinks, and the shared root are preserved. Playlist expansion checks reuse the full yt-dlp command configuration without creating transfer-only UUID folders.
+
+When aria2c is enabled for an ordinary non-livestream download, the app uses bounded retries and a conservative per-server connection limit. A transient aria2c exit code (2, 5, 6, or 29) triggers at most one delayed retry through yt-dlp's native downloader. The recovery removes stale `.info.json` sidecars but preserves media `.part` files, and reports the recovery stage and retained diagnostics in the queue row.
 
 ## Architecture
 

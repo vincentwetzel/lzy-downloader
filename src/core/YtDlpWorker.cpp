@@ -1,5 +1,6 @@
 #include "YtDlpWorker.h"
 #include "core/ConfigManager.h"
+#include "core/DownloadTempCleanup.h"
 #include "core/ProcessUtils.h"
 
 #include <QDir>
@@ -10,6 +11,16 @@
 #include <QTimer>
 #include <QUrl>
 #include <QRegularExpression>
+
+namespace {
+    constexpr int ARIA2_FALLBACK_DELAY_MS = 1000;
+
+    bool isMetadataSidecar(const QFileInfo &fileInfo) {
+        const QString fileName = fileInfo.fileName();
+        return fileName.endsWith(QStringLiteral(".info.json"), Qt::CaseInsensitive)
+               || fileName.contains(QStringLiteral(".info.json."), Qt::CaseInsensitive);
+    }
+}
 
 YtDlpWorker::YtDlpWorker(const QString &id, const QStringList &args, ConfigManager *configManager, QObject *parent)
     : QObject(parent), m_id(id), m_args(args), m_configManager(configManager), m_process(nullptr), m_finishEmitted(false), m_errorEmitted(false), m_videoTitle(QString()),
@@ -128,6 +139,10 @@ YtDlpWorker::YtDlpWorker(const QString &id, const QStringList &args, ConfigManag
                 });
                 return;
             }
+
+            if (retryWithoutAria2cIfTransientFailure(accumulatedStderr)) {
+                return;
+            }
         }
 
         // Proceed to the normal process finished slot
@@ -146,6 +161,9 @@ void YtDlpWorker::start() {
     m_finishEmitted = false;
     m_errorEmitted = false;
     m_promptDelayActive = false;
+    if (!m_retriedWithoutAria2c) {
+        m_recoveryDiagnostic.clear();
+    }
     m_finalFilename.clear();
     m_originalDownloadedFilename.clear();
     m_videoTitle.clear();
@@ -173,6 +191,8 @@ void YtDlpWorker::start() {
         qWarning() << message;
         if (!m_finishEmitted) {
             m_finishEmitted = true;
+            const QString tempRoot = DownloadTempCleanup::resolveRoot(m_configManager);
+            (void)DownloadTempCleanup::removeEmptyOwnedDirectory(m_id, DownloadTempCleanup::pathForId(tempRoot, m_id));
             emit finished(m_id, false, message, QString(), QString(), QVariantMap());
         }
         return;
@@ -256,20 +276,87 @@ void YtDlpWorker::killProcess() {
         m_thumbnailPath.clear();
     }
     
-    // Attempt to remove the UUID directory if it's completely empty
-    if (m_configManager) {
-        QString tempDir = m_configManager->get(QStringLiteral("Paths"), QStringLiteral("temporary_downloads_directory")).toString();
-        if (tempDir.isEmpty()) {
-            QString completedDir = m_configManager->get(QStringLiteral("Paths"), QStringLiteral("completed_downloads_directory")).toString();
-            if (!completedDir.isEmpty()) {
-                tempDir = QDir(completedDir).filePath(QStringLiteral("temp_downloads"));
-            }
+    const QString tempRoot = DownloadTempCleanup::resolveRoot(m_configManager);
+    (void)DownloadTempCleanup::removeEmptyOwnedDirectory(m_id, DownloadTempCleanup::pathForId(tempRoot, m_id));
+}
+
+void YtDlpWorker::cleanupMetadataSidecarsForRetry() {
+    const QString tempRoot = DownloadTempCleanup::resolveRoot(m_configManager);
+    const QDir uuidDirectory(DownloadTempCleanup::pathForId(tempRoot, m_id));
+    if (!uuidDirectory.exists()) {
+        return;
+    }
+
+    const QFileInfoList sidecars = uuidDirectory.entryInfoList(QDir::Files | QDir::NoDotAndDotDot,
+                                                                QDir::Name);
+    for (const QFileInfo &sidecar : sidecars) {
+        if (!isMetadataSidecar(sidecar)) {
+            continue;
         }
-        if (!tempDir.isEmpty()) {
-            QString uuidDirPath = QDir(tempDir).filePath(m_id);
-            QDir().rmdir(uuidDirPath);
+        if (!QFile::remove(sidecar.absoluteFilePath())) {
+            qWarning() << "[YtDlpWorker] Could not remove stale metadata sidecar before retry:"
+                       << sidecar.absoluteFilePath();
+        } else {
+            qDebug() << "[YtDlpWorker] Removed stale metadata sidecar before retry:"
+                     << sidecar.absoluteFilePath();
         }
     }
+}
+
+bool YtDlpWorker::retryWithoutAria2cIfTransientFailure(const QString &diagnostic) {
+    if (m_retriedWithoutAria2c || !m_args.contains(QStringLiteral("--external-downloader"))) {
+        return false;
+    }
+
+    static const QRegularExpression transientAria2Error(
+        QStringLiteral("aria2c exited with code\\s+(?:2|5|6|29)\\b"),
+        QRegularExpression::CaseInsensitiveOption);
+    if (!transientAria2Error.match(diagnostic).hasMatch()) {
+        return false;
+    }
+
+    m_retriedWithoutAria2c = true;
+    const QRegularExpressionMatch errorMatch = transientAria2Error.match(diagnostic);
+    m_recoveryDiagnostic = tr("aria2c exited with transient error code %1 before native fallback.")
+                               .arg(errorMatch.captured(0).section(QLatin1Char(' '), -1));
+    const qsizetype downloaderIndex = m_args.indexOf(QStringLiteral("--external-downloader"));
+    if (downloaderIndex >= 0) {
+        m_args.removeAt(downloaderIndex);
+        if (downloaderIndex < m_args.size()) {
+            m_args.removeAt(downloaderIndex);
+        }
+    }
+
+    const qsizetype downloaderArgsIndex = m_args.indexOf(QStringLiteral("--external-downloader-args"));
+    if (downloaderArgsIndex >= 0) {
+        m_args.removeAt(downloaderArgsIndex);
+        if (downloaderArgsIndex < m_args.size()) {
+            m_args.removeAt(downloaderArgsIndex);
+        }
+    }
+
+    cleanupMetadataSidecarsForRetry();
+    m_process->setProperty("accumulated_stderr", QString());
+
+    qWarning() << "[YtDlpWorker] Transient aria2c failure detected for" << m_id
+               << "; retrying once with yt-dlp's native downloader.";
+
+    QVariantMap progressData;
+    progressData.insert(QStringLiteral("status"),
+                        tr("aria2c encountered a temporary server or network error; retrying with the native downloader..."));
+    progressData.insert(QStringLiteral("progress"), -1);
+    emit progressUpdated(m_id, progressData);
+
+    QTimer::singleShot(ARIA2_FALLBACK_DELAY_MS, this, [this]() {
+        if (!m_finishEmitted) {
+            // A short second pass handles Windows scanners or child-process
+            // teardown that still held the metadata sidecar during the first
+            // cleanup attempt.
+            cleanupMetadataSidecarsForRetry();
+            start();
+        }
+    });
+    return true;
 }
 
 void YtDlpWorker::finishGracefully() {

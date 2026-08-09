@@ -2,6 +2,7 @@
 
 #include "core/ConfigManager.h"
 #include "core/ProcessUtils.h"
+#include "core/DownloadTempCleanup.h"
 
 #include <QCoreApplication>
 #include <QDebug>
@@ -9,7 +10,6 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QRegularExpression>
-#include <QStandardPaths>
 #include <QUrl>
 #include <QUrlQuery>
 
@@ -446,6 +446,11 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
         QString aria2cPath = aria2Binary.path;
         QStringList aria2Args;
         aria2Args << QStringLiteral("--summary-interval=1");
+        // Keep transient remote-server failures inside aria2 for a short,
+        // bounded window before YtDlpWorker falls back to its native downloader.
+        aria2Args << QStringLiteral("--max-tries=6");
+        aria2Args << QStringLiteral("--retry-wait=3");
+        aria2Args << QStringLiteral("--max-connection-per-server=4");
         rawArgs << QStringLiteral("--external-downloader") << aria2cPath;
 
     // Add referer header for aria2c to prevent 403 errors on some sites
@@ -532,8 +537,7 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
         }
     }
 
-    QString tempPath = configManager->get(QStringLiteral("Paths"), QStringLiteral("temporary_downloads_directory")).toString();
-    if (tempPath.isEmpty()) tempPath = QDir(QStandardPaths::writableLocation(QStandardPaths::TempLocation)).filePath(QStringLiteral("LzyDownloader"));
+    QString tempPath = DownloadTempCleanup::resolveRoot(configManager);
 
     // Isolate the temporary directory per-download to prevent concurrent corruption
     // when multiple independent URLs evaluate to the exact same output filename.

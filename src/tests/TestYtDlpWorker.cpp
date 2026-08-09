@@ -3,6 +3,8 @@
 #include "core/ConfigManager.h"
 
 #include <QtTest/QtTest>
+#include <QDir>
+#include <QFile>
 #include <QSignalSpy>
 
 // Define a testable YtDlpWorker that allows direct access to protected parsing methods
@@ -16,6 +18,8 @@ public:
     void callParseStandardOutput(const QByteArray &output) { parseStandardOutput(output); }
     void callParseStandardError(const QByteArray &output) { parseStandardError(output); }
     void callHandleOutputLine(const QString &line) { handleOutputLine(line); }
+    bool callRetryWithoutAria2c(const QString &diagnostic) { return retryWithoutAria2cIfTransientFailure(diagnostic); }
+    QStringList arguments() const { return m_args; }
 
     // Expose internal state for assertions
     bool errorEmitted() const { return m_errorEmitted; }
@@ -33,6 +37,7 @@ private slots:
     void testYtDlpErrorParsing();
     void testAria2ProgressParsing();
     void testAria2AdvancedProgressParsing();
+    void testTransientAria2FailureFallsBackToNativeDownloader();
     void testYtDlpProgressStalledParsing();
     void testLifecycleStatusParsing();
     void testLivestreamWaitParsing();
@@ -172,6 +177,33 @@ void TestYtDlpWorker::testAria2AdvancedProgressParsing() {
     QVariantMap progressData = progressSpy.takeFirst().at(1).toMap();
     QCOMPARE(progressData[QStringLiteral("progress")].toInt(), 96);
     QCOMPARE(progressData[QStringLiteral("speed")].toString(), QStringLiteral("2.50 MiB/s"));
+}
+
+void TestYtDlpWorker::testTransientAria2FailureFallsBackToNativeDownloader() {
+    ConfigManager *config = getConfigManager();
+    const QString tempRoot = QDir(getTempDir()).filePath(QStringLiteral("temp_downloads"));
+    const QString id = QStringLiteral("44444444-4444-4444-8444-444444444444");
+    const QString uuidDirectory = QDir(tempRoot).filePath(id);
+    QVERIFY(QDir().mkpath(uuidDirectory));
+
+    QFile staleInfo(QDir(uuidDirectory).filePath(QStringLiteral("video.info.json")));
+    QVERIFY(staleInfo.open(QIODevice::WriteOnly));
+    staleInfo.write("{}");
+    staleInfo.close();
+
+    config->set(QStringLiteral("Paths"), QStringLiteral("temporary_downloads_directory"), tempRoot);
+    TestableYtDlpWorker worker(id,
+                               {QStringLiteral("--external-downloader"), QStringLiteral("aria2c"),
+                                QStringLiteral("--external-downloader-args"), QStringLiteral("aria2c:--max-tries=6")},
+                               config, nullptr);
+    QSignalSpy progressSpy(&worker, &YtDlpWorker::progressUpdated);
+
+    QVERIFY(worker.callRetryWithoutAria2c(QStringLiteral("ERROR: aria2c exited with code 29")));
+    QVERIFY(!worker.arguments().contains(QStringLiteral("--external-downloader")));
+    QVERIFY(!worker.arguments().contains(QStringLiteral("--external-downloader-args")));
+    QVERIFY(!QFile::exists(QDir(uuidDirectory).filePath(QStringLiteral("video.info.json"))));
+    QVERIFY(!progressSpy.isEmpty());
+    QVERIFY(progressSpy.last().at(1).toMap().value(QStringLiteral("status")).toString().contains(QStringLiteral("native downloader")));
 }
 
 void TestYtDlpWorker::testYtDlpProgressStalledParsing() {

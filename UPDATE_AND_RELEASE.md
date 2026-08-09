@@ -22,7 +22,7 @@ This document describes how to build, package, and release the C++ version of Lz
 
 ## Build Process
 
-Before release, review the `[Unreleased]` section of `CHANGELOG.md` and verify that documentation matches the current download lifecycle. In particular, ordinary URLs must recover from transient playlist-probe failures, while accurate cuts must use timestamp-normalized audio and bounded/background-priority FFmpeg work.
+Before release, review the `[Unreleased]` section of `CHANGELOG.md` and verify that documentation matches the current download lifecycle. In particular, ordinary URLs must recover from transient playlist-probe failures, aria2c transport failures must use the bounded native-downloader fallback while preserving partials, and accurate cuts must use timestamp-normalized audio and bounded/background-priority FFmpeg work.
 
 ### Step 1: Update Extractor Lists
 
@@ -134,6 +134,8 @@ If the workflow is unavailable, navigate to https://github.com/vincentwetzel/lzy
 - [ ] Clean Windows install tested for HTTPS update checks (Qt TLS backend loads with `libcrypto-3-x64.dll` and `libssl-3-x64.dll` beside `LzyDownloader.exe`)
 - [ ] Timestamped logging verified (`%LOCALAPPDATA%\LzyDownloader\LzyDownloader_YYYY-MM-dd_HH-mm-ss.log`)
 - [ ] Log retention verified (startup cleanup keeps only the 5 most recent logs)
+- [ ] Temporary-root reconciliation verified (orphan UUID folders are removed asynchronously while stopped/failed IDs, symlinks, non-UUID folders, and the shared root are preserved)
+- [ ] aria2c recovery verified (transient exit codes fall back once to native yt-dlp, stale `.info.json` sidecars are removed, and `.part` files remain)
 - [ ] GitHub release published with installer asset
 - [ ] Tag `vX.X.X` pushed and the `Build and Release` GitHub Actions workflow attached Windows and Linux assets
 

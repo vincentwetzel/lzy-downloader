@@ -1,5 +1,6 @@
 #include "YtDlpWorker.h"
 #include "core/ConfigManager.h"
+#include "core/DownloadTempCleanup.h"
 #include "core/ProcessUtils.h"
 
 #include <QDebug>
@@ -264,16 +265,7 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
                     if (reply->error() == QNetworkReply::NoError) {
                         const int statusCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
                         if (statusCode >= 200 && statusCode < 300) {
-                            QString tempDir;
-                            if (m_configManager) {
-                                tempDir = m_configManager->get(QStringLiteral("Paths"), QStringLiteral("temporary_downloads_directory")).toString();
-                                if (tempDir.isEmpty()) {
-                                    const QString completedDir = m_configManager->get(QStringLiteral("Paths"), QStringLiteral("completed_downloads_directory")).toString();
-                                    if (!completedDir.isEmpty()) {
-                                        tempDir = QDir(completedDir).filePath(QStringLiteral("temp_downloads"));
-                                    }
-                                }
-                            }
+                            const QString tempDir = DownloadTempCleanup::resolveRoot(m_configManager);
 
                             if (!tempDir.isEmpty()) {
                                 if (!QDir().mkpath(tempDir)) {

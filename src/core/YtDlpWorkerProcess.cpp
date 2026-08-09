@@ -1,6 +1,7 @@
 #include "YtDlpWorker.h"
 
 #include "core/ConfigManager.h"
+#include "core/DownloadTempCleanup.h"
 
 #include <QDebug>
 #include <QDir>
@@ -16,19 +17,6 @@
 #include <utility>
 
 namespace {
-    [[nodiscard]] QString resolveTempDirectory(ConfigManager* configManager) {
-        if (!configManager) {
-            return QString();
-        }
-        QString tempDir = configManager->get(QStringLiteral("Paths"), QStringLiteral("temporary_downloads_directory")).toString();
-        if (tempDir.isEmpty()) {
-            if (const QString completedDir = configManager->get(QStringLiteral("Paths"), QStringLiteral("completed_downloads_directory")).toString(); !completedDir.isEmpty()) {
-                tempDir = QDir(completedDir).filePath(QStringLiteral("temp_downloads"));
-            }
-        }
-        return tempDir;
-    }
-
     [[nodiscard]] bool isWaitThumbnail(const QString& thumbnailPath, const QString& id) {
         if (thumbnailPath.isEmpty()) {
             return false;
@@ -59,13 +47,6 @@ namespace {
         if (isWaitThumbnail(thumbnailPath, id)) {
             safeRemoveFile(thumbnailPath, QStringLiteral("orphaned wait thumbnail"));
             thumbnailPath.clear();
-        }
-    }
-
-    void cleanupEmptyUuidDir(ConfigManager* configManager, const QString& id) {
-        const QString resolvedTempDir = resolveTempDirectory(configManager);
-        if (!resolvedTempDir.isEmpty() && QDir(resolvedTempDir).rmdir(id)) {
-            qDebug() << "Removed empty UUID directory:" << QDir(resolvedTempDir).filePath(id);
         }
     }
 
@@ -237,7 +218,7 @@ void YtDlpWorker::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatu
     }
 
     // Resolve temporary directory once for all fallback logic in this scope
-    const QString resolvedTempDir = resolveTempDirectory(m_configManager);
+    const QString resolvedTempDir = DownloadTempCleanup::resolveRoot(m_configManager);
 
     if (recoveredFromPostProcessorFailure) {
         message = tr("Download completed, but thumbnail/post-processing reported a warning.");
@@ -367,12 +348,16 @@ void YtDlpWorker::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatu
             }
         }
 
+        if (!m_recoveryDiagnostic.isEmpty()) {
+            appendMessage(tr("Automatic downloader fallback: %1").arg(m_recoveryDiagnostic));
+        }
+
         cleanupWaitThumbnail(m_thumbnailPath, m_id);
     }
 
     // Try to clean up empty UUID directory if yt-dlp failed before writing anything,
     // or if the process completed but left the directory empty (e.g. skipped downloads).
-    cleanupEmptyUuidDir(m_configManager, m_id);
+    (void)DownloadTempCleanup::removeEmptyOwnedDirectory(m_id, DownloadTempCleanup::pathForId(resolvedTempDir, m_id));
 
     // Ensure core properties are included in the metadata for the finished signal
     auto insertMetadataIfMissing = [&metadata](const QString& key, const QString& value) {
@@ -464,7 +449,8 @@ void YtDlpWorker::onProcessError(QProcess::ProcessError error) {
         cleanupWaitThumbnail(m_thumbnailPath, m_id);
 
         // Try to clean up empty UUID directory since finished() won't run
-        cleanupEmptyUuidDir(m_configManager, m_id);
+        const QString tempRoot = DownloadTempCleanup::resolveRoot(m_configManager);
+        (void)DownloadTempCleanup::removeEmptyOwnedDirectory(m_id, DownloadTempCleanup::pathForId(tempRoot, m_id));
 
         emit finished(m_id, false, message, QString(), QString(), QVariantMap());
     }
@@ -546,7 +532,7 @@ void YtDlpWorker::readInfoJsonWithRetry() {
     if (!jsonFile.open(QIODevice::ReadOnly)) {
         bool foundFallback = false;
         if (m_configManager) {
-            const QString tempDir = resolveTempDirectory(m_configManager);
+            const QString tempDir = DownloadTempCleanup::resolveRoot(m_configManager);
             if (!tempDir.isEmpty()) {
                 QDir uuidDir(QDir(tempDir).filePath(m_id));
                 if (uuidDir.exists()) {

@@ -4,7 +4,9 @@
 #include "ArchiveManager.h"
 #include "SortingManager.h"
 #include "DownloadFinalizer.h"
+#include "GalleryDlWorker.h"
 #include "core/ProcessUtils.h"
+#include "YtDlpWorker.h"
 #include <QDebug>
 #include <QMetaObject>
 #include <QProcess>
@@ -44,7 +46,12 @@ DownloadManager::DownloadManager(ConfigManager *configManager, QObject *parent) 
     connect(m_queueManager, &DownloadQueueManager::queueCountsChanged, this, &DownloadManager::onQueueCountsChanged);
     connect(m_queueManager, &DownloadQueueManager::playlistExpansionPlaceholderRemoved, this, &DownloadManager::onPlaylistExpansionPlaceholderRemoved);
     connect(m_queueManager, &DownloadQueueManager::playlistExpansionPlaceholderUpdated, this, &DownloadManager::onPlaylistExpansionPlaceholderUpdated);
-    QTimer::singleShot(0, this, [this]() { m_queueState->load(); }); // Load queue state after connections are established
+    QTimer::singleShot(0, this, [this]() {
+        m_queueState->load();
+        // Queue restoration is synchronous within load(); reconcile only after
+        // restored stopped/paused items have been registered as protected IDs.
+        m_queueManager->cleanupOrphanedTempDirectories();
+    });
 
     emitDownloadStats();
 }
@@ -77,6 +84,11 @@ void DownloadManager::shutdown() {
 
     for (QObject *worker : std::as_const(m_activeWorkers)) {
         if (worker) {
+            if (auto *ytDlpWorker = qobject_cast<YtDlpWorker*>(worker)) {
+                ytDlpWorker->killProcess();
+            } else if (auto *galleryDlWorker = qobject_cast<GalleryDlWorker*>(worker)) {
+                galleryDlWorker->killProcess();
+            }
             worker->disconnect(this);
             worker->deleteLater();
         }

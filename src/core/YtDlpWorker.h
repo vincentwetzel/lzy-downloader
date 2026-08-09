@@ -53,6 +53,10 @@ protected: // Changed from private for testing
     bool isBrowserCookieFailureLine(const QString &line) const;
     bool hasBrowserCookieFailureDiagnostic() const;
     bool retryWithoutBrowserCookiesIfCookieExtractionFailed();
+    /** Retries a transient aria2-backed transfer once through yt-dlp's native downloader. */
+    bool retryWithoutAria2cIfTransientFailure(const QString &diagnostic);
+    /** Removes only metadata sidecars that can collide with yt-dlp's atomic JSON write on retry. */
+    void cleanupMetadataSidecarsForRetry();
     QString inferPrimaryStreamStatusFromPath(const QString &path) const;
     QString inferPrimaryStreamStatusFromMetadata(int index) const;
     void updateInferredTransferStage(double percentage, double downloadedBytes, double totalBytes);
@@ -79,6 +83,8 @@ protected: // Changed from private for testing
     QStringList m_errorLines;      // Stores ERROR: lines from stderr
     bool m_promptDelayActive{false};
     bool m_retriedWithoutBrowserCookies = false;
+    bool m_retriedWithoutAria2c = false;
+    QString m_recoveryDiagnostic;
     QStringList m_requestedTransferStatuses;
     QStringList m_requestedTransferFormatIds;
     QList<double> m_requestedTransferSizes;
