@@ -16,12 +16,25 @@ The API surface adheres to **Qt best practices**:
 
 ### Current behavioral contracts
 
+- `ActiveDownloadsTab` and `DownloadItemWidget` keep their scroll content and
+  flexible text columns shrinkable to the viewport. Horizontal scrolling is
+  disabled, so Cancel/Retry/folder actions remain reachable at narrow widths.
+- `BinariesPage` installs standalone Windows FFmpeg and FFprobe files through a
+  staged destination-side file and bounded replacement retries. A persistent
+  sharing violation leaves the existing executable in place and reports the
+  failure.
+- `YtDlpArgsBuilder` adds the item-level artist fallback expression only for
+  audio playlist downloads with metadata embedding enabled. Playlist-level
+  ownership fields are intentionally excluded, and metadata-only expansion
+  remains unaffected.
+
 - `DownloadManager` treats playlist probing as recoverable for ordinary media URLs when the failure is transient; explicit playlist-shaped URLs and missing tools still fail visibly.
 - `DownloadManager` emits the initial queue row before playlist expansion completes. A supplied `thumbnail_url` is carried into that placeholder and playlist entry metadata so the UI can load a preview immediately.
 - `DownloadFinalizer` removes a temporary directory only when its final directory name matches the download ID; stopped downloads retain their temporary data for resume. `DownloadTempCleanup` supplies the configured/completed-downloads/OS-temp fallback chain and refuses shared-root, non-ID, and symlink removal.
 - `DownloadQueueManager::cleanupOrphanedTempDirectories()` runs the protected startup reconciliation asynchronously after queue restoration, deleting only unprotected direct-child UUID folders.
 - `YtDlpWorker` may retry one transient aria2c transport failure (exit codes 2, 5, 6, or 29) with the native downloader, deleting stale metadata sidecars but retaining media partials.
 - `YtDlpArgsBuilder` generates synchronization-safe accurate-cut arguments, including audio timestamp normalization and bounded FFmpeg thread settings.
+- `ConfigManager` and `DownloadOptionsPage` use `DownloadOptions/prefix_playlist_indices=true` as the canonical default, so playlist audio filenames are consistently prefixed unless the user opts out.
 - `ProcessUtils::setBackgroundProcessPriority(QProcess&)` lowers supported Windows post-processing processes to below-normal priority.
 
 ### [DownloadManager](file:///E:/coding_workspaces/CPP/lzy-downloader/src/core/DownloadManager.h)
@@ -67,6 +80,9 @@ A wrapper around `QSettings` managing read/write operations on the application's
 #### Signals
 - `void settingChanged(const QString &section, const QString &key, const QVariant &value)`: Emitted immediately on value modification.
 - `void settingsReset()`: Emitted after standard preferences are restored.
+
+#### Relevant defaults
+- `DownloadOptions/prefix_playlist_indices` defaults to `true`. Invalid or missing values are replaced with the canonical setting default.
 
 ---
 

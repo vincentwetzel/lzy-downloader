@@ -19,6 +19,7 @@ This document is a quick file-to-responsibility index for the C++ port. It is in
 - `docs/ARCHITECTURE.md`: System design, component responsibilities, and data flow.
 - `docs/SPEC.md`: Functional requirements, behavior guarantees, and product rules.
 - `docs/SETTINGS.md`: Settings schema, keys, groups, and validation rules.
+- `docs/API_SURFACE.md`: Public class methods, signals, and cross-component behavioral contracts.
 - `docs/CODING_STANDARDS.md`: Contribution and implementation standards.
 - `docs/LANGUAGES.md`: Planned translation coverage.
 - `docs/CHANGELOG_ARCHIVE.md`: Historical changelog entries preserved for reference.
@@ -37,6 +38,7 @@ This document is a quick file-to-responsibility index for the C++ port. It is in
 - `src/core/DownloadQueueManagerCleanup.cpp`: Asynchronous startup reconciliation of orphaned UUID folders while queue IDs are protected.
 - `src/core/DownloadTempCleanup.*`: Shared temporary-root resolution, guarded deletion, and startup orphan-folder reconciliation.
 - `src/core/ConfigManager.*`: `settings.ini` persistence and validation.
+- `src/core/DownloadFinalizer.*`: File-stability verification, playlist filename finalization, destination moves, and guarded terminal cleanup.
 - `src/core/ProcessUtils.*`: Process helpers, binary discovery, and termination utilities.
 - `src/core/SmartBinaryResolver.*`: External binary path resolution and auto-detected path ownership.
 - `src/core/PlaylistExpansionWorker.*`: Playlist validation and expansion.
@@ -50,8 +52,11 @@ This document is a quick file-to-responsibility index for the C++ port. It is in
 - `src/ui/StartTab.*`: Queue entry point and download submission controls.
 - `src/ui/ActiveDownloadsTab.*` / `src/ui/DownloadItemWidget.*`: Responsive active-download rows, queued thumbnail previews, progress display, and row actions.
 - `src/ui/advanced_settings/`: Advanced Settings pages, including template and binary management.
+- `src/ui/advanced_settings/BinariesPage.*`: External-binary discovery, install/update actions, version status, and staged Windows FFmpeg replacement.
+- `src/ui/advanced_settings/DownloadOptionsPage.*`: Download-option controls, including the enabled-by-default playlist-index prefix.
 - `src/ui/widgets/`: Reusable widgets such as custom progress bars and row controls.
-- `src/tests/`: Headless Qt tests for argument construction, parsing, persistence, UI state, and end-to-end behavior.
+- `src/tests/`: Headless Qt tests for argument construction, parsing, persistence, UI state, binary/API behavior, and end-to-end behavior.
+- `extractors_yt-dlp.json` / `extractors_gallery-dl.json`: Bundled extractor-domain data used by URL validation, smart type selection, and Supported Sites UI.
 
 ## Working Rule of Thumb
 - If you need to change behavior, start in `docs/SPEC.md`.

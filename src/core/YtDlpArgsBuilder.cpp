@@ -470,9 +470,23 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
         rawArgs << QStringLiteral("--geo-verification-proxy") << geoProxy;
     }
 
+    const bool isAudioPlaylist = (downloadType == QLatin1String("audio") && (options.value(QStringLiteral("playlist_index"), -1).toInt() > 0 || !options.value(QStringLiteral("playlist_title")).toString().isEmpty() || options.value(QStringLiteral("is_playlist")).toBool()));
+    const bool embedMetadata = configManager->get(QStringLiteral("Metadata"), QStringLiteral("embed_metadata"), true).toBool();
+
     if (configManager->get(QStringLiteral("Metadata"), QStringLiteral("embed_chapters"), true).toBool() && !isLivestream && !isPlaylistExpansion) rawArgs << QStringLiteral("--embed-chapters");
     if (configManager->get(QStringLiteral("DownloadOptions"), QStringLiteral("split_chapters"), false).toBool() && !isPlaylistExpansion) rawArgs << QStringLiteral("--split-chapters");
-    if (configManager->get(QStringLiteral("Metadata"), QStringLiteral("embed_metadata"), true).toBool() && !isLivestream && !isPlaylistExpansion) rawArgs << QStringLiteral("--embed-metadata");
+    if (embedMetadata && !isLivestream && !isPlaylistExpansion) rawArgs << QStringLiteral("--embed-metadata");
+
+    // yt-dlp can otherwise use playlist-level ownership when it derives the
+    // audio artist tag.  Prefer track metadata, then item-level creator/channel
+    // information, and deliberately exclude playlist_uploader/playlist_owner.
+    // The expression is only applied to playlist audio items and remains
+    // metadata-only safe because playlist expansion returns before this path.
+    if (embedMetadata && isAudioPlaylist && !isLivestream && !isPlaylistExpansion) {
+        qInfo() << "YtDlpArgsBuilder: preserving item-level artist metadata for audio playlist item";
+        rawArgs << QStringLiteral("--parse-metadata")
+                << QStringLiteral("%(artist,artists,creator,channel,uploader)s:%(artist)s");
+    }
 
     // Inject LzyDownloader's internal ID into yt-dlp's metadata engine.
     // This gives users a %(lzy_id)s token for their output templates, guaranteeing
@@ -482,7 +496,6 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
         rawArgs << QStringLiteral("--parse-metadata") << QStringLiteral("%1:%(lzy_id)s").arg(internalId);
     }
 
-    bool isAudioPlaylist = (downloadType == QLatin1String("audio") && (options.value(QStringLiteral("playlist_index"), -1).toInt() > 0 || !options.value(QStringLiteral("playlist_title")).toString().isEmpty() || options.value(QStringLiteral("is_playlist")).toBool()));
     bool forceSingleAlbum = (isAudioPlaylist && !isPlaylistExpansion && configManager->get(QStringLiteral("Metadata"), QStringLiteral("force_playlist_as_album"), false).toBool());
     if (forceSingleAlbum) {
         const QString playlistTitle = options.value(QStringLiteral("playlist_title")).toString().trimmed();

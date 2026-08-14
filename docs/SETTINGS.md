@@ -4,6 +4,11 @@ This document provides a complete reference for all configuration settings used 
 
 > **Portability Note:** The C++ port uses a pure Qt-native INI format. Backwards compatibility with the Python application's `configparser` quirks is no longer required, and invalid/legacy keys are pruned or reset to defaults as needed.
 
+> **Current behavior note:** Playlist audio filenames use zero-padded index
+> prefixes by default. The canonical default is
+> `DownloadOptions/prefix_playlist_indices=true`; users can disable it in
+> Advanced Settings → Download Options.
+
 ---
 
 ## Table of Contents
@@ -160,7 +165,7 @@ Settings for embedding metadata, thumbnails, and chapter information into downlo
 | `convert_thumbnail_to` | String | `jpg` | Convert embedded thumbnails to this format. Options: `None`, `jpg`, `png`. |
 | `crop_artwork_to_square` | Boolean | `true` | Crop audio thumbnails to square aspect ratio. |
 | `generate_folder_jpg` | Boolean | `true` | Generate a `folder.jpg` file for audio playlists. This setting strictly applies to explicit full playlist/multi-item batch downloads, bypassing single-item tracks and partial playlist selections. |
-| `force_playlist_as_album` | Boolean | `false` | For audio playlist downloads, force the `album` tag to the playlist title and `album_artist` to `Various Artists`. Playlist detection uses playlist index, playlist title, or explicit playlist flags. |
+| `force_playlist_as_album` | Boolean | `false` | For audio playlist downloads, force the `album` tag to the playlist title and `album_artist` to `Various Artists`. Playlist detection uses playlist index, playlist title, or explicit playlist flags. Track-level `artist` preservation/fallback is applied independently when metadata embedding is enabled. |
 
 ---
 
@@ -222,7 +227,7 @@ Additional download behavior and UI preferences.
 | `download_sections_enabled` | Boolean | `false` | If enabled, a dialog will appear before downloading to let you specify time ranges or chapters to download. |
 | `ffmpeg_cut_encoder` | String | `cpu` | Encoder mode used for yt-dlp's accurate FFmpeg cut pass. Options include `cpu`, `nvenc_h264`, `qsv_h264`, `amf_h264`, `videotoolbox_h264`, and `custom`; unavailable hardware options are hidden in the UI after probing FFmpeg and local GPUs. Built-in hardware presets favor speed for large SponsorBlock/section cuts. |
 | `ffmpeg_cut_custom_args` | String | *(empty)* | Custom FFmpeg output arguments used only when `ffmpeg_cut_encoder` is set to `custom`. |
-| `prefix_playlist_indices` | Boolean | `false` | Prefix playlist downloads with a padded index such as `01 - `. Audio downloads still default to prefixing unless this setting is explicitly present. |
+| `prefix_playlist_indices` | Boolean | `true` | Prefix playlist downloads with a padded index such as `01 - `. Users may explicitly disable playlist filename prefixes. |
 | `auto_clear_completed` | Boolean | `false` | Automatically clear completed downloads from the Active Downloads tab. |
 | `geo_verification_proxy` | String | *(empty)* | Proxy URL for geo-restricted content (e.g., `http://proxy.server:port`). |
 

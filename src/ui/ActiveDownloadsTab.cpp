@@ -182,8 +182,13 @@ void ActiveDownloadsTab::setupUi() {
 
     // Setup Downloads Container (Page 1)
     m_downloadsContainer = new QWidget(this);
-    m_downloadsContainer->setMinimumWidth(0);
-    m_downloadsContainer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+    m_downloadsContainer->setMinimumSize(0, 0);
+    // QScrollArea otherwise honors the row's size hint even when the
+    // horizontal scrollbar is disabled.  That leaves the right edge of a
+    // row outside the viewport, hiding Cancel/Retry and folder actions.
+    // Ignored makes the content follow the viewport width and lets each row
+    // give its flexible title column the remaining space.
+    m_downloadsContainer->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
     m_downloadsLayout = new QVBoxLayout(m_downloadsContainer);
     m_downloadsLayout->setContentsMargins(0, 0, 0, 0);
     m_downloadsLayout->addStretch(); // Push downloads to the top
@@ -191,6 +196,7 @@ void ActiveDownloadsTab::setupUi() {
     // Wrap the downloads container in a QScrollArea
     QScrollArea *scrollArea = new QScrollArea(this);
     scrollArea->setWidgetResizable(true);
+    scrollArea->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     scrollArea->setFrameShape(QFrame::NoFrame);
     // Rows are deliberately shrinkable.  A horizontal scrollbar makes the
     // row actions unreachable when the application is snapped to half a

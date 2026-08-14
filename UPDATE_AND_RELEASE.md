@@ -22,7 +22,7 @@ This document describes how to build, package, and release the C++ version of Lz
 
 ## Build Process
 
-Before release, review the `[Unreleased]` section of `CHANGELOG.md` and verify that documentation matches the current download lifecycle. In particular, ordinary URLs must recover from transient playlist-probe failures, aria2c transport failures must use the bounded native-downloader fallback while preserving partials, and accurate cuts must use timestamp-normalized audio and bounded/background-priority FFmpeg work.
+Before release, review the `[Unreleased]` section of `CHANGELOG.md` and verify that the maintained documentation set (`README.md`, `AGENTS.md`, `TODO.md`, and the active files under `docs/`) matches the current implementation. In particular, ordinary URLs must recover from transient playlist-probe failures, aria2c transport failures must use the bounded native-downloader fallback while preserving partials, accurate cuts must use timestamp-normalized audio and bounded/background-priority FFmpeg work, playlist audio filename prefixes must agree with the settings default, narrow Active Downloads rows must keep actions visible, and Windows FFmpeg/FFprobe replacement must tolerate transient locks.
 
 ### Step 1: Update Extractor Lists
 
@@ -90,7 +90,7 @@ GitHub Actions automatically builds release assets when a `v*` tag is pushed. Th
 Before tagging, commit the synchronized release inputs:
 
 ```powershell
-git add CMakeLists.txt vcpkg.json CHANGELOG.md UPDATE_AND_RELEASE.md docs/SPEC.md docs/ARCHITECTURE.md AGENTS.md TODO.md .github/workflows/release.yml build_release.py LzyDownloader.nsi src/ui/LzyDownloader.desktop extractors_yt-dlp.json extractors_gallery-dl.json
+git add CMakeLists.txt vcpkg.json CHANGELOG.md README.md UPDATE_AND_RELEASE.md docs/ AGENTS.md TODO.md .github/workflows/release.yml build_release.py LzyDownloader.nsi src/ui/LzyDownloader.desktop extractors_yt-dlp.json extractors_gallery-dl.json
 git commit -m "Release vX.X.X"
 git push origin HEAD
 ```

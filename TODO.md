@@ -1,6 +1,7 @@
 # LzyDownloader C++ Port TODO
 
 ## In Progress
+- [x] Keep the Active Downloads scroll content and rows constrained to the viewport so right-side Cancel/Retry and folder actions remain visible at compact widths.
 - [x] Keep Active Downloads rows compact at narrow window widths so long titles do not hide row actions behind horizontal scrolling.
 - [x] Display queued thumbnail URLs immediately, including preserving the thumbnail when a single-item playlist placeholder is updated.
 - [x] Keep thumbnail metadata in asynchronous playlist probes so queued rows can display previews before download starts.
@@ -11,21 +12,27 @@
 - [ ] Refactor and split large `.cpp` files above or approaching 500 lines (e.g., `DownloadItemWidget.cpp`, `MainWindowConnections.cpp`, and `YtDlpWorkerProcess.cpp`) to preserve optimal AI context limits.
 - [ ] Split `ProcessUtils.cpp` after the external-binary resolver expansion; the file is currently above the 500-line guidance and should move version parsing/probing into a focused helper.
 - [ ] Review `AppUpdater` release-flow UX and diagnostics now that platform-specific updater assets are supported for Windows, Linux, and macOS.
+- [x] Make Windows FFmpeg/FFprobe updates resilient to transient executable locks by staging replacements and retrying bounded moves.
 - [ ] Evaluate whether `YtDlpWorker` should expose a reusable capped diagnostic tail helper so warning/error retention stays consistent across workers.
 - [x] Added bounded aria2 retry/backoff, transient aria2-to-native fallback, and stale metadata-sidecar cleanup while preserving resumable media partials.
+- [x] Preserve track-level artist metadata for audio playlists by using item-level yt-dlp artist/creator/channel/uploader fields and excluding playlist-owner fields.
+
+Documentation was synchronized with the current implementation on 2026-08-13.
 
 ## Planned / Future Enhancements
 - [ ] Implement translations for supported interface languages (see `docs/LANGUAGES.md`).
 - [ ] Integrate Qt Linguist (`.ts`/`.qm` compiler steps) into `CMakeLists.txt` build automation.
 
 ## Completed
+- [x] Enabled zero-padded playlist filename prefixes by default while preserving an explicit user opt-out.
 - [x] Prevented false browser-cookie retries from matching ordinary metadata prose such as `locked in a heated race`; cookie fallback now uses explicit cookie/database/sign-in diagnostics and the normal process-finished path.
 - [x] Prevented ordinary title phrases such as `Starting in` or `Live in` from triggering scheduled-livestream error handling.
 - [x] Prevented ordinary URLs containing a `/live/` path segment from being misclassified as livestreams before yt-dlp metadata is available.
 - [x] Kept `build_release.py` output in the invoking terminal by removing its unnecessary Windows shell bootstrap.
 - [x] Fixed SponsorBlock/accurate-cut A/V synchronization by normalizing the audio timeline and bounded FFmpeg cut resource usage so post-processing does not monopolize the system.
 - [x] Prevented transient playlist-probe timeouts on ordinary media URLs from being marked cancelled; they now fall back to the regular single-item downloader.
-- [x] Updated the bundled Nitter extractor domain to `nitter.arcticfoxes.net` and kept validation / playlist-expansion probes read-only by omitting browser cookies.
+- [x] Updated the bundled Nitter extractor domain to `nitter.nicfab.eu` and kept validation / playlist-expansion probes read-only by omitting browser cookies.
+- [x] Synchronized active documentation with the playlist filename-prefix default, current extractor data, temporary-folder lifecycle, and aria2c recovery behavior.
 - [x] Kept playlist metadata expansion read-only when archive override is enabled, constrained aria2c referer generation to complete URL origins, and refreshed the bundled Nitter extractor domain.
 - [x] Trimmed common tracking query parameters from yt-dlp launch URLs and added bounded false-offline livestream retry handling when wait-state probes fail.
 - [x] Added a dedicated file manifest at `docs/FILE_MANIFEST.md` and redirected the main docs to use it as the quick path-to-code index.

@@ -9,6 +9,15 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## Unreleased
 
+- Active Downloads rows now force their scroll content to shrink with the viewport, keeping right-side actions visible when the window is narrow.
+- Playlist audio filenames now receive zero-padded playlist index prefixes by default (for example, `01 - Title.opus`); users can still disable the prefix in Download Options.
+- Refreshed the bundled yt-dlp extractor domain data; the current Nitter entry is `nitter.nicfab.eu`.
+- Audio playlist metadata now preserves an explicit track artist and falls back only to item-level artist/creator/channel/uploader fields, preventing playlist owners from being written as the track artist.
+- Synchronized the active README, specification, architecture, settings, API, manifest, and release documentation with current runtime behavior.
+- Windows FFmpeg/FFprobe updates now stage extracted binaries and retry locked-file replacement for up to one minute, avoiding immediate failure when a media process is still releasing the old executable.
+
+## [1.2.20] - 2026-08-09
+
 ### Fixed
 - Temporary download cleanup now uses one shared root resolver, removes empty folders when yt-dlp/gallery-dl cannot start, and asynchronously removes orphaned UUID folders after queue restoration while preserving resumable stopped/failed downloads.
 - Transient aria2c failures now use bounded retry/backoff settings and one delayed fallback to yt-dlp's native downloader for timeout, slow-transfer, network, and temporary-server failures. Automatic recovery removes stale `.info.json` sidecars while preserving media partials for resume, and reports the recovery status in the download row.
@@ -57,10 +66,6 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ### Fixed
 - Versioned release assets now stay aligned with the application binary metadata, installer packaging, and update checks.
-
-## [Unreleased]
-
-No changes yet.
 
 ## [1.2.6] - 2026-07-22
 

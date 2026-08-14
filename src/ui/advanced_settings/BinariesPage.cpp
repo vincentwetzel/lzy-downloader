@@ -31,6 +31,7 @@
 #include <QPointer>
 #include <QEvent>
 #include <QSettings>
+#include <QScrollBar>
 #include <QRegularExpression>
 
 namespace {
@@ -57,7 +58,6 @@ BinariesPage::BinariesPage(ConfigManager *configManager, QWidget *parent)
     scrollArea->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 
     QWidget *scrollWidget = new QWidget(scrollArea);
-    scrollWidget->setMinimumWidth(0);
     scrollWidget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Minimum);
 
     QVBoxLayout *layout = new QVBoxLayout(scrollWidget);
@@ -66,7 +66,6 @@ BinariesPage::BinariesPage(ConfigManager *configManager, QWidget *parent)
 
     QGroupBox *group = new QGroupBox(tr("External Binaries"), scrollWidget);
     group->setToolTip(tr("Review detected tool locations, choose manual executable paths, install missing tools, or update installed tools."));
-    group->setMinimumWidth(0);
     group->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Minimum);
 
     QVBoxLayout *groupLayout = new QVBoxLayout(group);
@@ -86,7 +85,8 @@ BinariesPage::BinariesPage(ConfigManager *configManager, QWidget *parent)
     introLabel->setWordWrap(true);
     introLabel->setTextFormat(Qt::RichText);
     introLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
-    introLabel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Minimum);
+    introLabel->setMinimumWidth(0);
+    introLabel->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Minimum);
     introLabel->setToolTip(tr("Explains which external tools are required, which are optional, and how Browse, Clear Path, Install, and Refresh affect detection."));
 
     groupLayout->addWidget(introLabel);
@@ -141,6 +141,7 @@ BinariesPage::BinariesPage(ConfigManager *configManager, QWidget *parent)
     layout->addWidget(group, 0, Qt::AlignTop);
 
     scrollArea->setWidget(scrollWidget);
+    scrollArea->setMinimumWidth(scrollWidget->minimumSizeHint().width() + scrollArea->verticalScrollBar()->sizeHint().width());
 
     mainLayout->addWidget(scrollArea);
 
@@ -167,8 +168,7 @@ void BinariesPage::setupRow(QVBoxLayout *layout,
     }
 
     QGroupBox *rowGroup = new QGroupBox(layout->parentWidget());
-    rowGroup->setMinimumWidth(0);
-    rowGroup->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    rowGroup->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Minimum);
 
     const QString title = optional ? tr("%1 (Optional)").arg(labelText) : labelText;
     rowGroup->setTitle(title);
@@ -183,7 +183,7 @@ void BinariesPage::setupRow(QVBoxLayout *layout,
     rowLayout->setAlignment(Qt::AlignTop);
 
     QLabel *statusLabel = new QLabel(rowGroup);
-    statusLabel->setWordWrap(false);
+    statusLabel->setWordWrap(true);
     statusLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
     statusLabel->setToolTip(tr("Shows whether %1 was found automatically, found through a manual override, or is missing.").arg(labelText));
     statusLabel->setAlignment(Qt::AlignTop | Qt::AlignLeft);
@@ -191,7 +191,7 @@ void BinariesPage::setupRow(QVBoxLayout *layout,
     statusLabel->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Minimum);
 
     QLabel *versionLabel = new QLabel(tr("Version: Unknown"), rowGroup);
-    versionLabel->setWordWrap(false);
+    versionLabel->setWordWrap(true);
     versionLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
     versionLabel->setToolTip(tr("Detected version reported by %1. Shows Unknown until a version check succeeds.").arg(labelText));
     versionLabel->setAlignment(Qt::AlignTop | Qt::AlignLeft);
@@ -215,7 +215,7 @@ void BinariesPage::setupRow(QVBoxLayout *layout,
 
     QLabel *descLabel = new QLabel(QStringLiteral("<i>%1</i>").arg(description), rowGroup);
     descLabel->setToolTip(tr("What LzyDownloader uses %1 for.").arg(labelText));
-    descLabel->setWordWrap(false);
+    descLabel->setWordWrap(true);
     descLabel->setAlignment(Qt::AlignTop | Qt::AlignLeft);
     descLabel->setMinimumWidth(0);
     descLabel->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Minimum);
@@ -585,7 +585,6 @@ void BinariesPage::installBinaryFor(const QString &binaryName) {
 
     QLabel *commandLabel = new QLabel(&dialog);
     commandLabel->setWordWrap(true);
-    commandLabel->setMaximumWidth(550);
     commandLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
     commandLabel->setToolTip(tr("Command that will be launched when you choose Run Install Command."));
     layout->addWidget(commandLabel);
@@ -1169,12 +1168,28 @@ QList<BinariesPage::InstallOption> BinariesPage::buildInstallOptions(const QStri
                     "$extractDir = Join-Path $env:TEMP 'ffmpeg_extracted'; "
                     "if (Test-Path $extractDir) { Remove-Item -Recurse -Force $extractDir }; "
                     "Expand-Archive -Path $zipPath -DestinationPath $extractDir -Force; "
-                    "$ffmpegExe = Get-ChildItem -Path $extractDir -Filter 'ffmpeg.exe' -Recurse | Select-Object -First 1; "
-                    "$ffprobeExe = Get-ChildItem -Path $extractDir -Filter 'ffprobe.exe' -Recurse | Select-Object -First 1; "
-                    "if ($ffmpegExe -and $ffprobeExe) { "
-                    "  Copy-Item -Path $ffmpegExe.FullName -Destination $binDir -Force; "
-                    "  Copy-Item -Path $ffprobeExe.FullName -Destination $binDir -Force; "
-                    "  Write-Host 'FFmpeg and FFprobe installed successfully!'; "
+                     "$ffmpegExe = Get-ChildItem -Path $extractDir -Filter 'ffmpeg.exe' -Recurse | Select-Object -First 1; "
+                     "$ffprobeExe = Get-ChildItem -Path $extractDir -Filter 'ffprobe.exe' -Recurse | Select-Object -First 1; "
+                     "if ($ffmpegExe -and $ffprobeExe) { "
+                     "  function Install-FfmpegBinary($source, $name) { "
+                     "    $target = Join-Path $binDir $name; "
+                     "    $staged = Join-Path $binDir ($name + '.lzy-update'); "
+                     "    Copy-Item -Path $source -Destination $staged -Force; "
+                     "    $lastError = $null; "
+                     "    for ($attempt = 1; $attempt -le 60; $attempt++) { "
+                     "      try { "
+                     "        Move-Item -Path $staged -Destination $target -Force -ErrorAction Stop; "
+                     "        return; "
+                     "      } catch { "
+                     "        $lastError = $_; Start-Sleep -Seconds 1; "
+                     "      } "
+                     "    } "
+                     "    if (Test-Path $staged) { Remove-Item -Path $staged -Force -ErrorAction SilentlyContinue }; "
+                     "    throw ('Timed out replacing ' + $name + ': ' + $lastError.Exception.Message); "
+                     "  }; "
+                     "  Install-FfmpegBinary $ffmpegExe.FullName 'ffmpeg.exe'; "
+                     "  Install-FfmpegBinary $ffprobeExe.FullName 'ffprobe.exe'; "
+                     "  Write-Host 'FFmpeg and FFprobe installed successfully!'; "
                     "} else { "
                     "  throw 'Failed to locate binaries inside archive'; "
                     "}; "

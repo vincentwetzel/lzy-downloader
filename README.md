@@ -2,11 +2,16 @@
 
 A lightweight, high-performance desktop application for downloading media (video and audio) from online platforms using **yt-dlp**.
 
+The current C++ release line is 1.2.x. See [CHANGELOG.md](CHANGELOG.md) for
+unreleased changes and [UPDATE_AND_RELEASE.md](UPDATE_AND_RELEASE.md) for the
+maintainer release workflow.
+
 ## Features
 
 - 🎬 **Download Video & Audio** — Support for YouTube, TikTok, Instagram, and 1000+ other sites via yt-dlp
 - 🎵 **Audio Extraction** — Extract audio as MP3, M4A, opus, or other formats
 - 📋 **Playlist Support** - Download entire playlists, only the first item, or a selected range of expanded playlist entries
+- 🔢 **Playlist Filename Prefixes** - Audio playlist files use zero-padded index prefixes by default (for example, `01 - Title.opus`), with an explicit opt-out in Download Options
 - 🖼️ **Gallery Support** — Download image galleries from supported sites (e.g., Instagram, Twitter) via `gallery-dl`
 - 🎨 **Advanced Settings** — Quality selection, format filtering, SponsorBlock integration, metadata embedding
 - 🎛️ **Runtime Format Selection** — Optionally prompt for specific video/audio qualities on every download, supporting multiple simultaneous format selections for the same media
@@ -105,6 +110,7 @@ All settings are saved to `%LOCALAPPDATA%\LzyDownloader\settings.ini` on Windows
 - **Browser Cookie fallback** - Public media can retry once without browser cookies when yt-dlp's cookie extraction or cookie-backed extractor state fails
 - **Livestream replays** - Completed livestreams are detected from yt-dlp `live_status` metadata and downloaded as archived media; active/upcoming streams keep native wait and Finish Now behavior
 - **Queue previews** - Queued rows begin loading supplied remote thumbnails immediately, and long titles wrap within narrow windows so row actions remain reachable
+- **Playlist audio filenames** - Playlist audio downloads are prefixed with zero-padded indices by default; change `Download Options -> Prefix playlist indices` to disable this behavior
 - **Local API** - Enable a localhost-only API server from Advanced Settings -> Configuration
 
 ### Local API
@@ -134,11 +140,11 @@ SponsorBlock and accurate section cuts normalize the rebuilt audio timeline by r
 
 Livestream mode is selected from yt-dlp metadata or explicit wait options. URL words such as `/live/`, and ordinary title phrases such as `Live in` or `Starting in`, are not treated as livestream evidence.
 
-See [docs/FILE_MANIFEST.md](docs/FILE_MANIFEST.md) for the path-to-code index, [docs/SPEC.md](docs/SPEC.md) for behavior requirements, and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for data flow.
+See [docs/FILE_MANIFEST.md](docs/FILE_MANIFEST.md) for the path-to-code index, [docs/API_SURFACE.md](docs/API_SURFACE.md) for public interfaces, [docs/SPEC.md](docs/SPEC.md) for behavior requirements, and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for data flow.
 
 The application is built using **C++20** and the **Qt 6** framework. The core logic, UI components, and utility functions are consolidated into a static library, `LzyAppLib`.
 
-For a quick map of where things live, start with [`docs/FILE_MANIFEST.md`](docs/FILE_MANIFEST.md). Use [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for system behavior and [`docs/SPEC.md`](docs/SPEC.md) for functional requirements.
+For a quick map of where things live, start with [`docs/FILE_MANIFEST.md`](docs/FILE_MANIFEST.md). Use [`docs/API_SURFACE.md`](docs/API_SURFACE.md) for integration contracts, [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for system behavior, and [`docs/SPEC.md`](docs/SPEC.md) for functional requirements.
 
 ```
 LzyDownloader/

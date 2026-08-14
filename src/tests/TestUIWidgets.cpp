@@ -1,6 +1,7 @@
 #include "TestUIWidgets.h"
 #include <QSignalSpy>
 #include <QVariantMap>
+#include <QPushButton>
 
 void TestUIWidgets::testProgressLabelBarFilling() {
     ProgressLabelBar progressBar;
@@ -54,6 +55,30 @@ void TestUIWidgets::testDownloadItemWidgetFinishedState() {
     QCOMPARE(widget.isSuccessful(), false);
     progressBar = widget.findChild<ProgressLabelBar*>();
     QVERIFY(progressBar != nullptr);
+}
+
+void TestUIWidgets::testDownloadItemWidgetKeepsActionsVisibleWhenNarrow() {
+    QVariantMap itemData;
+    itemData[QStringLiteral("id")] = QStringLiteral("narrow-row");
+    itemData[QStringLiteral("title")] = QStringLiteral("A very long title that must wrap instead of pushing the row actions outside the viewport");
+    itemData[QStringLiteral("url")] = QStringLiteral("https://example.com/a-long-media-url");
+
+    DownloadItemWidget widget(itemData);
+    widget.resize(620, 120);
+    widget.show();
+    QCoreApplication::processEvents();
+
+    QPushButton *cancelButton = nullptr;
+    for (QPushButton *button : widget.findChildren<QPushButton*>()) {
+        if (button->text() == QObject::tr("Cancel")) {
+            cancelButton = button;
+            break;
+        }
+    }
+
+    QVERIFY(cancelButton != nullptr);
+    QVERIFY(cancelButton->isVisible());
+    QVERIFY(cancelButton->geometry().right() <= widget.rect().right());
 }
 
 QTEST_MAIN(TestUIWidgets)

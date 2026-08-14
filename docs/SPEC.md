@@ -4,7 +4,7 @@
 This document outlines the specifications for the C++ port of the LzyDownloader application. The goal is to create a drop-in replacement for the existing Python application, ensuring 100% feature parity and seamless transition for users.
 
 ### 1.1 Documentation Requirement
-- **Mandatory**: When any agent or developer makes changes to how the app works (e.g., progress parsing, download pipeline, UI behavior, configuration, external binary handling), they MUST update the relevant MD documentation files (`AGENTS.md`, `docs/SPEC.md`, `docs/ARCHITECTURE.md`, `docs/FILE_MANIFEST.md`, `TODO.md`, `CHANGELOG.md`) to reflect the new behavior. Documentation MUST stay in sync with the code.
+- **Mandatory**: When any agent or developer makes changes to how the app works (e.g., progress parsing, download pipeline, UI behavior, configuration, external binary handling), they MUST update the relevant maintained documentation files (`AGENTS.md`, `README.md`, `docs/SPEC.md`, `docs/ARCHITECTURE.md`, `docs/SETTINGS.md`, `docs/API_SURFACE.md`, `docs/FILE_MANIFEST.md`, `UPDATE_AND_RELEASE.md`, `TODO.md`, `CHANGELOG.md`) to reflect the new behavior. Documentation MUST stay in sync with the code; historical entries in `docs/CHANGELOG_ARCHIVE.md` are not rewritten.
 
 ### 1.2 File Size Constraints
 - **Context Preservation**: To ensure optimal performance with AI agents and preserve context usage, no single file (source code, headers, or documentation) should exceed **500 lines** in length. When a file approaches this limit, it must be refactored or split into smaller, focused modules.
@@ -54,7 +54,7 @@ This document outlines the specifications for the C++ port of the LzyDownloader 
     - Displays a list of queued, actively downloading, and completed items.
     - Each download GUI element must play/display a thumbnail preview for audio/video downloads on the left side of the widget. Remote thumbnails must use bounded network requests and may share an app-owned `QNetworkAccessManager` instead of creating one manager per widget. If queue metadata already contains a thumbnail URL, the request begins while the row is queued; it must not wait for the main download worker.
     - The toolbar provides Stop All, Resume All, Clear Inactive, Open Temporary Folder, and Open Downloads Folder actions.
-    - Rows remain within the available viewport width on compact or snapped windows. Title text wraps and yields width to row actions, and the Active Downloads list does not expose a horizontal scrollbar.
+    - Rows remain within the available viewport width on compact or snapped windows. The scroll content and rows are explicitly shrinkable, title text wraps and yields width to row actions, and the Active Downloads list does not expose a horizontal scrollbar.
     - Adding a row for an existing internal download ID must replace the previous row instead of rendering duplicates, so placeholder refreshes, restored items, and playlist transitions keep the UI one-row-per-download.
     - Stopped, failed, or cancelled rows must show their row-level `Clear Temp` action only when the item has an existing per-download UUID temp folder, tracked temp path, original downloaded temp path, or persisted cleanup candidate on disk.
 - **Advanced Settings Tab**:
@@ -100,6 +100,7 @@ This document outlines the specifications for the C++ port of the LzyDownloader 
     - Rate limit (`--limit-rate`).
     - Override archive (`--no-download-archive`).
     - **Playlist Album Unification**: When `Force Playlist as Single Album` is enabled for audio playlist downloads, the builder must inject `--parse-metadata "playlist_title:%(album)s"` and `--parse-metadata "Various Artists:%(album_artist)s"` to ensure consistent album grouping in local music players.
+    - **Playlist Artist Preservation**: For audio playlist downloads, the builder must inject `--parse-metadata "%(artist,artists,creator,channel,uploader)s:%(artist)s"` while embedding metadata, preserving an explicit track artist and otherwise using only item-level artist/creator/channel/uploader fields. Playlist-level owner fields such as `playlist_uploader` and `playlist_owner` must not be used for the track `artist` tag.
     - Embed chapters (`--embed-chapters`) for non-livestream media only.
     - **Section Container Preservation**: Section downloads must preserve the user's requested output container/extension (for example MP4 video clips stay MP4) instead of forcing an intermediate MKV remux. The app may add `--force-keyframes-at-cuts` for video precision, but it must not silently switch the container behind the user's back.
     - **Section Filename Labeling**: When a section/chapter clip is queued, the output filename must include a filename-safe label describing the selected range or chapter (for example `[section 15-00_to_end]`) before the extension so the saved file clearly identifies which part of the source it contains.
@@ -188,7 +189,7 @@ This document outlines the specifications for the C++ port of the LzyDownloader 
     - Final file movement must be Unicode-safe and shell-independent (use Qt file APIs with copy/remove fallback for cross-volume moves).
     - Final replacement and temporary sidecar cleanup should retry briefly when file removal fails, because Windows virus scanners, thumbnailers, and recently exited child processes can hold handles for a short time after the download process exits.
 - **Audio Playlist Tagging**: For audio downloads from a playlist, `ffmpeg` must be used as a post-processing step to embed the `track` number metadata into the completed file.
-- **Filename Prefixing**: Audio files from playlists must have their filenames prefixed with a zero-padded track number (e.g., `01 - Title.mp3`).
+- **Filename Prefixing**: Audio files from playlists must have their filenames prefixed with a zero-padded track number (e.g., `01 - Title.mp3`). `DownloadOptions/prefix_playlist_indices` defaults to enabled; users may disable the prefix explicitly.
 - **Audio Playlist Artwork**: Audio playlist downloads should generate `folder.jpg` only for explicit full playlist or multi-item batch downloads. Single-item tracks and partial playlist selections should skip this artwork step, while playlist metadata (`playlist_title`, `is_playlist`, or playlist index) still remains enough context to enable other playlist artwork/tag behavior.
 - **Sorting Path Sanitization**: Sorting destination tokens must replace illegal filesystem characters with safe separators and collapse repeated spaces so metadata such as titles, album names, and uploader fields remain readable while still preventing path traversal or invalid paths.
 
@@ -220,6 +221,8 @@ This document outlines the specifications for the C++ port of the LzyDownloader 
 - **Build System**: CMake
 - **Qt SDK Discovery**: CMake must honor explicit `Qt6_DIR`/`CMAKE_PREFIX_PATH` configuration and also auto-check common Windows Qt install prefixes (for example `C:\Qt\6.*\msvc2022_64` and `C:\Qt\6.*\mingw_64`) so IDE-driven configure steps can find Qt without manual edits on typical developer machines.
 - **Local Debug Builds**: Developer debug presets may build into `build-debug` with a standalone Qt install instead of vcpkg. When `LZY_SKIP_QT_DEPLOY=ON`, CMake must avoid `windeployqt` and copy only the minimal Qt/MinGW runtime DLLs and plugin folders needed to launch `LzyDownloader.exe` from the build tree.
+
+- **Windows FFmpeg update replacement**: The standalone FFmpeg/FFprobe installer must stage each downloaded executable and retry replacing the existing local binary for a bounded period, allowing transient locks from active or recently completed media processes to clear while preserving the old executable if replacement cannot complete.
 - **Database**: SQLite (via Qt SQL module)
 - **Process Management**: `QProcess`
 

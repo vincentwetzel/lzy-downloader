@@ -4,7 +4,7 @@ This document is the **canonical instruction set for all AI agents** working on 
 
 All agents MUST follow this document as the source of truth.
 
-**Fast Start:** Keep the UI responsive (no blocking I/O on the GUI thread; use `QThread` or `QtConcurrent`). Preserve the download lifecycle (temp -> verify -> move to completed dir). Prefer discovered or user-configured external binaries. Update `CHANGELOG.md` for significant changes. For releases, run `python build_release.py` on the target platform to compile and package; the helper inherits the invoking terminal and does not launch a separate Windows shell. Update Section 3 + Quick-Reference list when files/roles change. For file locations, jump to the Quick-Reference list in Section 3.
+**Fast Start:** Keep the UI responsive (no blocking I/O on the GUI thread; use `QThread` or `QtConcurrent`). Preserve the download lifecycle (temp -> verify -> move to completed dir). Prefer discovered or user-configured external binaries. Update the maintained docs and `CHANGELOG.md` for significant changes. For releases, run `python build_release.py` on the target platform to compile and package; the helper inherits the invoking terminal and does not launch a separate Windows shell. Update Section 3 + Quick-Reference list when files/roles change. For file locations, jump to the Quick-Reference list in Section 3.
 
 ---
 
@@ -34,11 +34,12 @@ Agents MUST preserve and respect the following behaviors from the original Pytho
 - Concurrent download management with user-defined limits (capped at a maximum of 4 concurrent threads upon application startup, though users can manually increase it up to 8 during a session).
 - Playlist expansion and processing (for `yt-dlp` downloads), including hostname-independent query index hints such as `img_index`, `slide`, `item`, `index`, and `playlist_index` so carousel or playlist item URLs can resolve to the intended entry without adding site-specific overrides.
 - Playlist probing is a recoverable optimization for ordinary media URLs: if the asynchronous probe times out or returns a transient expansion/JSON error, non-playlist-shaped URLs must fall back to the normal single-item yt-dlp worker. Explicit playlist-shaped URLs and missing yt-dlp errors remain terminal probe failures.
-- **Configuration**: The app uses a Qt-native `QSettings` INI implementation. It does not need to conform to Python `configparser` quirks.
+- **Configuration**: The app uses a Qt-native `QSettings` INI implementation. It does not need to conform to Python `configparser` quirks. Playlist downloads prefix audio filenames with zero-padded playlist indices by default; users may disable this under Advanced Settings -> Download Options.
 - **Argument construction safety**: Metadata-only playlist expansion must remain read-only even when duplicate/archive override is enabled. Generic aria2c referer forwarding is permitted only when the request URL has both a scheme and host; incomplete URLs must not produce a referer argument.
 - **Archive Portability**: The C++ app MUST use the same `download_archive.db` (SQLite) to respect the user's download history.
 - File lifecycle: download into temp dir → verify file stability → move to completed downloads directory. Terminal finalization must also remove the guarded per-download UUID temp folder on failure exits, while stopped downloads retain their partial files for resume. Startup reconciles orphaned UUID folders after queue restoration while preserving stopped/failed IDs; the shared temp root and non-UUID folders are never removed by that sweep.
 - Metadata embedding (title, artist, etc.) and thumbnail embedding.
+- For audio playlist items, metadata embedding must preserve an explicit track-level `artist`; when it is absent, yt-dlp arguments may derive `artist` only from item-level `artists`, `creator`, `channel`, or `uploader` fields. Never use playlist-level owner fields such as `playlist_uploader` or `playlist_owner` as the track artist.
 - Accurate SponsorBlock/section cuts must normalize audio timestamps rather than copying packets from the pre-cut timeline; FFmpeg cut work must remain resource-bounded and background priority where the platform supports it.
 - Responsive GUI at all times (no blocking I/O on the main thread).
 - In-app updating of the `yt-dlp` and `gallery-dl` executables.
@@ -65,6 +66,7 @@ Agents MUST preserve and respect the following behaviors from the original Pytho
   - Playlists remove the placeholder and add individual items for each track
   - Queue state persistence (`saveQueueState`) MUST be deferred via `Qt::QueuedConnection` to avoid blocking the GUI thread
 - **Queued Thumbnails**: When queue metadata contains a thumbnail URL, the Active Downloads row MUST begin its bounded asynchronous thumbnail request while the item is queued. Playlist expansion must preserve the thumbnail URL when replacing a single-item placeholder, and the UI must not wait for the main download worker to emit a converted thumbnail.
+- **Compact Active Downloads Layout**: The Active Downloads scroll content and each download row MUST be allowed to shrink to the viewport width. Long title text MUST wrap/yield space so right-side Cancel, Retry, and folder actions remain visible; horizontal scrolling MUST remain disabled for the list.
 - **Headless State Persistence**: The application MUST guarantee that final terminal states (such as a fully cleared queue upon completion) are successfully serialized to `downloads_backup.json` before `QCoreApplication::quit()` is called, especially during `--server --exit-after` execution flows that bypass `closeEvent()`.
 - **Livestream Replay Handling**: The app MUST preserve yt-dlp `live_status` from playlist expansion, runtime metadata, and `info.json`. `post_live` and `was_live` items are completed replays and must download as archived media, while active/upcoming livestreams keep wait/finalization behavior. Livestream mode must not be inferred from URL words such as a path segment named `live`; use extractor metadata or an explicit livestream/wait option, and never add hostname-specific livestream or replay overrides.
 - **Browser Cookie Fallback**: When a download using `--cookies-from-browser` fails because browser-cookie extraction or browser-cookie extractor state breaks an otherwise public download, `YtDlpWorker` may retry once without browser cookies and must keep clear diagnostics for the terminal failure path. Detection must require explicit cookie/browser-database/sign-in evidence; ordinary media text containing words such as `locked` must never terminate the worker or enter a retry state.
@@ -136,4 +138,6 @@ Agents MUST NOT:
 ---
 ## 7. Task Tracking
 Agents MUST use `TODO.md` to track pending tasks, planned features, and known issues. Before starting work, check `TODO.md` for high-priority items. After completing a task or identifying a new one, update `TODO.md` accordingly.
+
+Windows FFmpeg/FFprobe installs stage extracted executables beside the destination and retry replacement for a bounded period, because active downloader/post-processing processes may temporarily hold the existing binaries open.
 

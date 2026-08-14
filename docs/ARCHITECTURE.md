@@ -3,7 +3,13 @@
 ## 1. Overview
 This document outlines the architecture for the C++ port of LzyDownloader. The application is built with **Qt 6 (Widgets)** and provides a graphical interface for downloading media using **yt-dlp** and **gallery-dl**. The design prioritizes performance, stability, and seamless compatibility with the original Python version.
 
-For a compact file-to-responsibility index, see [docs/FILE_MANIFEST.md](FILE_MANIFEST.md). This document focuses on behavior, data flow, and component interaction rather than duplicating a full manifest.
+For a compact file-to-responsibility index, see [docs/FILE_MANIFEST.md](FILE_MANIFEST.md). For public methods and signals, see [docs/API_SURFACE.md](API_SURFACE.md). This document focuses on behavior, data flow, and component interaction rather than duplicating a full manifest.
+
+The active documentation set is maintained together: user-visible behavior is
+described in `README.md` and `docs/SPEC.md`, configuration in `docs/SETTINGS.md`,
+interfaces in `docs/API_SURFACE.md`, and release implications in
+`UPDATE_AND_RELEASE.md`. Historical changelog entries are intentionally kept
+unchanged.
 
 ## 2. System Design
 
@@ -25,7 +31,7 @@ The application ensures that only one GUI instance can run at a time. This is ac
   - **Windows debug console toggle**: When the app owns its console window, Advanced Settings exposes `General/show_debug_console` and `MainWindow` can allocate, show, or hide that console at runtime without changing the executable type.
   - **UI Builders**: `MainWindowUiBuilder` and `StartTabUiBuilder` classes are introduced to encapsulate the creation and layout of UI elements for `MainWindow` and `StartTab` respectively, improving modularity.
   - **Sorting Rule Dialog**: The dialog for creating/editing sorting rules uses a `QScrollArea` with `QVBoxLayout` instead of `QListWidget` for smooth pixel-level scrolling without item-snapping. The scroll area is capped at 150-400px height with 4px spacing between conditions. Condition widgets use a `CONDITION_VALUE_INPUT_HEIGHT` constant (100px) for consistent text entry sizing via `setFixedHeight()`. Dialog minimum size is 650x500px.
-  - **Active Downloads toolbar**: The monitoring tab now favors compact icon-driven controls, including Resume All plus a unified Clear Inactive action for finished, stopped, and failed rows. Resume All snapshots row IDs before prompting so later UI changes do not invalidate widget pointers. If a download item is added with an ID already visible in the tab, the existing row is removed before the replacement widget is inserted so placeholder refreshes and restored queue items do not duplicate UI rows. Row-level Clear Temp controls are shown only when `DownloadItemWidget` can find an existing per-download temp folder, tracked temp path, original temp output, or persisted cleanup candidate on disk. Download rows use an explicitly shrinkable title region and a viewport-constrained scroll container, allowing long titles to wrap while keeping row actions visible when the window is snapped to a narrow width; horizontal scrolling is disabled for this list.
+  - **Active Downloads toolbar**: The monitoring tab now favors compact icon-driven controls, including Resume All plus a unified Clear Inactive action for finished, stopped, and failed rows. Resume All snapshots row IDs before prompting so later UI changes do not invalidate widget pointers. If a download item is added with an ID already visible in the tab, the existing row is removed before the replacement widget is inserted so placeholder refreshes and restored queue items do not duplicate UI rows. Row-level Clear Temp controls are shown only when `DownloadItemWidget` can find an existing per-download temp folder, tracked temp path, original temp output, or persisted cleanup candidate on disk. Download rows use an explicitly shrinkable title region and a viewport-constrained scroll container; both the list content and rows may shrink below their natural title size so long titles wrap while Cancel/Retry and folder actions stay inside the visible window when snapped narrow. Horizontal scrolling is disabled for this list.
 - **Core Logic (`src/core/`):** Manages download queues, file operations, configuration, and external process execution.
 - **Exit Cleanup:** `MainWindow::closeEvent` warns if downloads are queued or active, explains that state will be resumed on next launch, then calls `DownloadManager::shutdown()` to cleanly tear down active downloader/post-processing trees and flush terminal queue states to disk. It finally performs a catch-all sweep of its own `QProcess` children using `ProcessUtils::terminateProcessTree()`. **Note:** Headless or `--exit-after` automated shutdowns explicitly replicate this sequence before invoking `QCoreApplication::quit()`, as `quit()` natively bypasses window close events.
 - **Utilities (`src/utils/`):** Provides helper modules for binary discovery, browser detection, extractor-domain loading, and logging.
@@ -43,6 +49,9 @@ The application ensures that only one GUI instance can run at a time. This is ac
 ### 2.4 Window/Tray Lifecycle
 - The main window close action (`X`) performs an application exit after temp-file safety checks.
 - The tray icon remains available for manual show/hide and quit commands, but close-to-tray behavior is not used.
+
+### 2.5 External Binary Replacement
+The Windows standalone FFmpeg/FFprobe install option downloads and extracts into temporary storage, stages each executable in the local binary directory, and retries the final move for up to one minute. This accommodates transient sharing locks from active or recently completed FFmpeg processes without deleting the previous executable before the replacement is ready.
 
 ### 2.3 Data Flow
 1.  **Input:** User enters a URL in `StartTab`, passes one as a direct CLI argument, or submits it to the optional localhost API.
@@ -117,7 +126,7 @@ LzyDownloader/
 ### 4.1 ConfigManager (`src/core/ConfigManager.h`)
 - **Responsibilities:**
   - Loads and saves application settings to `settings.ini` using `QSettings`.
-  - Provides default configuration values using an internal `m_defaultSettings` map.
+  - Provides default configuration values using an internal `m_defaultSettings` map. `DownloadOptions/prefix_playlist_indices` defaults to `true`, and the Advanced Settings control uses the same fallback so new installations consistently number playlist audio filenames.
   - Uses the application's Qt-native INI schema. GUI and server/headless launches share the same app-local `settings.ini` so user preferences have one source of truth. Obsolete `Server/settings.ini` files are not used; if the main settings file is missing, one may be copied back once as a migration source.
   - Emits `settingChanged` signal when a setting is modified.
   - Automatically prunes legacy and dead keys from `settings.ini` on startup, ensuring the configuration file remains clean and canonical.
@@ -146,7 +155,7 @@ LzyDownloader/
   - In single-download sleep mode, starts the first eligible item immediately and waits between subsequent starts.
   - Preserves playlist context (`is_playlist`, `playlist_title`, playlist index, and original playlist URL) across single-item playlist handling, full playlist expansion, resume, sorting, and finalization.
   - Preflights YouTube SponsorBlock segment availability before starting video/livestream jobs so no-segment videos can skip expensive accurate-cut encoder arguments while unavailable preflights still fall back to the safer cut path.
-  - Reinforces audio playlist album metadata before sorting and embedding when "Force Playlist as Single Album" is enabled, keeping album and album artist tags stable even when extractor metadata omits playlist context.
+  - Reinforces audio playlist metadata before sorting and embedding: the builder preserves an explicit track-level artist and otherwise derives the audio `artist` tag only from item-level `artists`, `creator`, `channel`, or `uploader` metadata, never playlist owner fields. When "Force Playlist as Single Album" is enabled, it also keeps album and album artist tags stable even when extractor metadata omits playlist context.
   - Performs post-processing (renaming, metadata embedding), including carrying completion warnings from workers into the persisted item options and active-row status.
   - **Defers queue state persistence (`saveQueueState`) and download initiation (`startNextDownload`) via `QMetaObject::invokeMethod` with `Qt::QueuedConnection` to prevent GUI thread blocking.** Queue-finished detection also guards against false positives by waiting for pending playlist expansions and actively paused items to drain before emitting `queueFinished`.
 
@@ -262,7 +271,7 @@ LzyDownloader/
   - Detects livestream and live-replay options from queue metadata, preserving yt-dlp `live_status` so active/upcoming streams use wait/download container settings with safe wait interval bounds while `post_live`/`was_live` replays avoid livestream recorder args. Livestream mode is not inferred from generic URL path words such as `/live/`; active livestreams and completed live replays are selected from extractor metadata or explicit options. Active captures suppress aria2c, SponsorBlock, chapter/metadata embedding, thumbnail embedding, and subtitle arguments.
   - Normalizes legacy codec labels from saved settings (for example `H.264` -> `H.264 (AVC)`) and translates codec preferences into yt-dlp regex selectors that match common aliases such as `avc1`, `hev1`, `hvc1`, and `mp4a`.
   - Respects the Advanced Settings `restrict_filenames` toggle instead of hardcoding `--no-restrict-filenames`.
-  - Injects `--parse-metadata` arguments to unify album/album_artist tags for audio playlists when the "Force Playlist as Single Album" setting is enabled.
+  - Injects `--parse-metadata "%(artist,artists,creator,channel,uploader)s:%(artist)s"` for audio playlist items so yt-dlp's embedded artist tag follows track metadata instead of playlist ownership. The expression deliberately excludes `playlist_uploader` and `playlist_owner`. It also injects album/album_artist mappings when the "Force Playlist as Single Album" setting is enabled.
   - Preserves the requested output container for `--download-sections` jobs instead of forcing an intermediate MKV remux; section video jobs only add `--force-keyframes-at-cuts` for cleaner clip boundaries.
   - Adds optional `ModifyChapters+ffmpeg_o` postprocessor arguments when a hardware/custom FFmpeg cut encoder is configured and SponsorBlock segments are confirmed or could not be preflighted, speeding up yt-dlp's accurate re-encode path without paying that cost for videos with no removable segments. It does not add `-ignore_editlist` to the ModifyChapters/SponsorBlock input phase because some FFmpeg builds reject that option there.
   - Injects the internal download ID as `%(lzy_id)s` and scopes yt-dlp output to a per-download temporary subfolder so concurrent jobs with identical site filenames do not corrupt each other.

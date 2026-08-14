@@ -161,7 +161,7 @@ void ConfigManager::initializeDefaultSettings() {
     m_defaultSettings[QStringLiteral("DownloadOptions")][QStringLiteral("ffmpeg_cut_custom_args")] = QString();
     m_defaultSettings[QStringLiteral("DownloadOptions")][QStringLiteral("auto_clear_completed")] = false;
     m_defaultSettings[QStringLiteral("DownloadOptions")][QStringLiteral("geo_verification_proxy")] = QString();
-    m_defaultSettings[QStringLiteral("DownloadOptions")][QStringLiteral("prefix_playlist_indices")] = false;
+    m_defaultSettings[QStringLiteral("DownloadOptions")][QStringLiteral("prefix_playlist_indices")] = true;
     m_defaultSettings[QStringLiteral("Livestream")][QStringLiteral("live_from_start")] = false;
     m_defaultSettings[QStringLiteral("Livestream")][QStringLiteral("wait_for_video")] = true; // Wait for scheduled streams by default
     m_defaultSettings[QStringLiteral("Livestream")][QStringLiteral("wait_for_video_min")] = 60; // Wait at least 1 minute between checks

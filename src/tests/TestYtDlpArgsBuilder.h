@@ -15,6 +15,7 @@ private slots:
     void testAria2RetryPolicyArguments();
     void testAudioThumbnailEmbedding();
     void testAudioPlaylistFolderJpg();
+    void testAudioPlaylistArtistMetadataFallback();
     void testOrphanedTemporaryDirectorySweep();
     void testTemporaryDirectoryOwnershipGuard();
 };

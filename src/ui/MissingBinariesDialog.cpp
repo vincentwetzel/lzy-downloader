@@ -35,6 +35,8 @@ MissingBinariesDialog::MissingBinariesDialog(const QStringList &binaryNames,
         "Install a missing tool or browse to an existing executable, then refresh the checklist."),
         this);
     introLabel->setWordWrap(true);
+    introLabel->setMinimumWidth(0);
+    introLabel->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Minimum);
     introLabel->setToolTip(tr("Explains why this setup dialog is being shown."));
     mainLayout->addWidget(introLabel);
 
@@ -61,6 +63,8 @@ MissingBinariesDialog::MissingBinariesDialog(const QStringList &binaryNames,
         QLabel *statusLabel = new QLabel(tr("Checking..."), toolsGroup);
         statusLabel->setWordWrap(true);
         statusLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
+        statusLabel->setMinimumWidth(0);
+        statusLabel->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Minimum);
         statusLabel->setToolTip(tr("Current detection status for %1.").arg(binaryName));
 
         QPushButton *installButton = new QPushButton(tr("Install..."), toolsGroup);
@@ -144,13 +148,19 @@ void MissingBinariesDialog::refreshStatuses()
         const bool resolved = foundBinary.source != QStringLiteral("Not Found") && foundBinary.source != QStringLiteral("Invalid Custom");
 
         if (resolved) {
-            row.statusLabel->setText(tr("Found via %1\n%2")
-                                         .arg(foundBinary.source, QFileInfo(foundBinary.path).absoluteFilePath()));
+            QString displayPath = QFileInfo(foundBinary.path).absoluteFilePath().toHtmlEscaped();
+            displayPath.replace(QStringLiteral("\\"), QStringLiteral("\\\u200B"));
+            displayPath.replace(QStringLiteral("/"), QStringLiteral("/\u200B"));
+            row.statusLabel->setText(tr("Found via %1<br>%2")
+                                         .arg(foundBinary.source.toHtmlEscaped(), displayPath));
             if (row.installButton) {
                 row.installButton->setVisible(false);
             }
         } else if (foundBinary.source == QStringLiteral("Invalid Custom")) {
-            row.statusLabel->setText(tr("Invalid manual path\n%1").arg(foundBinary.path));
+            QString displayPath = foundBinary.path.toHtmlEscaped();
+            displayPath.replace(QStringLiteral("\\"), QStringLiteral("\\\u200B"));
+            displayPath.replace(QStringLiteral("/"), QStringLiteral("/\u200B"));
+            row.statusLabel->setText(tr("Invalid manual path<br>%1").arg(displayPath));
             if (row.installButton) {
                 row.installButton->setVisible(true);
             }

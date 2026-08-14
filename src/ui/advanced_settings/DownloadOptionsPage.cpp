@@ -248,7 +248,7 @@ void DownloadOptionsPage::loadSettings() {
     m_autoPasteModeCombo->setCurrentIndex(m_configManager->get(QStringLiteral("General"), QStringLiteral("auto_paste_mode"), 0).toInt());
     m_singleLineCommandPreviewCheck->setChecked(m_configManager->get(QStringLiteral("General"), QStringLiteral("single_line_preview"), false).toBool());
     m_restrictFilenamesCheck->setChecked(m_configManager->get(QStringLiteral("General"), QStringLiteral("restrict_filenames"), false).toBool());
-    m_prefixPlaylistIndicesCheck->setChecked(m_configManager->get(QStringLiteral("DownloadOptions"), QStringLiteral("prefix_playlist_indices"), false).toBool());
+    m_prefixPlaylistIndicesCheck->setChecked(m_configManager->get(QStringLiteral("DownloadOptions"), QStringLiteral("prefix_playlist_indices"), true).toBool());
 
     m_geoProxyInput->setText(m_configManager->get(QStringLiteral("DownloadOptions"), QStringLiteral("geo_verification_proxy"), QStringLiteral("")).toString());
 }

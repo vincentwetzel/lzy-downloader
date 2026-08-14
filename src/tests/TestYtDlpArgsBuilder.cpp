@@ -221,6 +221,32 @@ void TestYtDlpArgsBuilder::testAudioPlaylistFolderJpg() {
     QVERIFY(hasFolderJpg);
 }
 
+void TestYtDlpArgsBuilder::testAudioPlaylistArtistMetadataFallback()
+{
+    ConfigManager *mockConfig = getConfigManager();
+    mockConfig->set(QStringLiteral("Metadata"), QStringLiteral("embed_metadata"), true);
+
+    YtDlpArgsBuilder builder;
+    QVariantMap options;
+    options[QStringLiteral("type")] = QStringLiteral("audio");
+    options[QStringLiteral("is_playlist")] = true;
+    options[QStringLiteral("playlist_title")] = QStringLiteral("Radiohead playlist");
+    options[QStringLiteral("playlist_index")] = 1;
+
+    const QStringList args = builder.build(mockConfig, QUrl(TEST_URL).toString(), options);
+    const qsizetype parseMetadataIndex = args.indexOf(QStringLiteral("--parse-metadata"));
+
+    QVERIFY(parseMetadataIndex >= 0);
+    QVERIFY(parseMetadataIndex + 1 < args.size());
+    QCOMPARE(args.at(parseMetadataIndex + 1), QStringLiteral("%(artist,artists,creator,channel,uploader)s:%(artist)s"));
+    QVERIFY(!args.at(parseMetadataIndex + 1).contains(QStringLiteral("playlist_uploader")));
+    QVERIFY(!args.at(parseMetadataIndex + 1).contains(QStringLiteral("playlist_owner")));
+
+    options[QStringLiteral("is_playlist_expansion")] = true;
+    const QStringList probeArgs = builder.build(mockConfig, QUrl(TEST_URL).toString(), options);
+    QVERIFY(!probeArgs.contains(QStringLiteral("%(artist,artists,creator,channel,uploader)s:%(artist)s")));
+}
+
 void TestYtDlpArgsBuilder::testOrphanedTemporaryDirectorySweep()
 {
     const QString root = QDir(getTempDir()).filePath(QStringLiteral("temp_downloads"));

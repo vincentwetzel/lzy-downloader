@@ -84,14 +84,22 @@ void DownloadItemWidget::setupUi() {
     }
 
     m_statusLabel = new QLabel(tr("Queued"), this);
+    m_statusLabel->setWordWrap(true);
+    m_statusLabel->setMinimumWidth(0);
+    m_statusLabel->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
     m_statusLabel->setToolTip(tr("Current status of this download."));
 
     m_progressBar = new ProgressLabelBar(this);
     m_progressBar->setRange(0, 100);
     m_progressBar->setValue(0);
+    m_progressBar->setMinimumWidth(0);
+    m_progressBar->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
     m_progressBar->setToolTip(tr("Progress for the currently active stream or processing stage."));
 
     m_overallProgressLabel = new QLabel(tr("Overall progress"), this);
+    m_overallProgressLabel->setWordWrap(true);
+    m_overallProgressLabel->setMinimumWidth(0);
+    m_overallProgressLabel->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
     m_overallProgressLabel->setToolTip(tr("Overall progress across all primary streams in this download."));
     m_overallProgressLabel->hide();
 
@@ -100,6 +108,8 @@ void DownloadItemWidget::setupUi() {
     m_overallProgressBar->setValue(0);
     m_overallProgressBar->setTextVisible(false);
     m_overallProgressBar->setMaximumHeight(8);
+    m_overallProgressBar->setMinimumWidth(0);
+    m_overallProgressBar->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
     m_overallProgressBar->setToolTip(tr("Overall progress across all primary streams in this download."));
     m_overallProgressBar->hide();
 
@@ -181,8 +191,11 @@ void DownloadItemWidget::setupUi() {
     mainLayout->addLayout(infoLayout, 1);
     mainLayout->addWidget(buttonContainer);
     mainLayout->setStretch(2, 1);
-    setMinimumWidth(0);
-    setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+    setMinimumSize(0, 0);
+    // The row is hosted by a horizontal-scroll-disabled viewport.  It must
+    // be permitted to shrink below its title's natural size so the action
+    // buttons remain inside the visible window.
+    setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
 
     connect(m_cancelButton, &QPushButton::clicked, this, &DownloadItemWidget::onCancelClicked);
     connect(m_finishButton, &QPushButton::clicked, this, &DownloadItemWidget::onFinishClicked);
