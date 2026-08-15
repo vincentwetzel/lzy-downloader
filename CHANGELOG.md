@@ -9,6 +9,10 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## Unreleased
 
+No unreleased changes.
+
+## [1.2.22] - 2026-08-15
+
 - Active Downloads rows now force their scroll content to shrink with the viewport, keeping right-side actions visible when the window is narrow.
 - Playlist audio filenames now receive zero-padded playlist index prefixes by default (for example, `01 - Title.opus`); users can still disable the prefix in Download Options.
 - Refreshed the bundled yt-dlp extractor domain data; the current Nitter entry is `nitter.nicfab.eu`.

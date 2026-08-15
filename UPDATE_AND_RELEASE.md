@@ -40,6 +40,7 @@ This will update `extractors_yt-dlp.json` and `extractors_gallery-dl.json`. Both
 Update the version in `CMakeLists.txt` (`project(VERSION x.y.z)`). This is the single source of truth for the release version. The app version is generated from there into `version.h`, used by the Windows resources, and passed into the NSIS installer build by `build_release.ps1`.
 
 Also update `vcpkg.json` `version-string` to the same version, keep its `builtin-baseline` pinned to the intended vcpkg commit, and ensure `CHANGELOG.md` has the release notes under the matching dated version heading.
+The matching GitHub release body belongs in `release-notes/vX.Y.Z.md`; the tag-triggered workflow attaches it automatically.
 
 **Release rule:** Do not manually rename the installer `.exe` to fix a version mismatch. If the setup filename version is wrong, fix the release inputs/scripts and rebuild so the installer filename, Windows app version, and uninstall `DisplayVersion` all match the same `CMakeLists.txt` version.
 
@@ -127,6 +128,7 @@ If the workflow is unavailable, navigate to https://github.com/vincentwetzel/lzy
 - [ ] `vcpkg.json` `version-string` matches `CMakeLists.txt`
 - [ ] `vcpkg.json` `builtin-baseline` is pinned to the intended vcpkg commit
 - [ ] `CHANGELOG.md` has the release notes under the matching dated version
+- [ ] `release-notes/vX.Y.Z.md` contains the GitHub release description
 - [ ] Active documentation matches the release behavior, including the README, API, architecture, settings, specification, manifest, coding standards, and release guides
 - [ ] Installer was rebuilt from the current `CMakeLists.txt` version (`python build_release.py` or `makensis /DAPP_VERSION=...`), not manually renamed afterward
 - [ ] Release build completed successfully (`python build_release.py`)

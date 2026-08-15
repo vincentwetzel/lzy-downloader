@@ -72,5 +72,6 @@ jobs:
           files: |
             LzyDownloader-Setup-*.exe
             LzyDownloader-*-x86_64.AppImage
+          body_path: release-notes/${{ github.ref_name }}.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
