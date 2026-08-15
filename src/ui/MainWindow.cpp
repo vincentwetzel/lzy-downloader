@@ -26,7 +26,8 @@ MainWindow::MainWindow(ExtractorJsonParser *extractorJsonParser, QWidget *parent
       m_localApiServer(nullptr),
       m_clipboard(nullptr), m_startTab(nullptr), m_activeDownloadsTab(nullptr),
       m_advancedSettingsTab(nullptr), m_trayIcon(nullptr), m_trayMenu(nullptr),
-      m_silentUpdateCheck(false), m_nonInteractiveLaunch(MainWindowHelpers::hasNonInteractiveLaunchArgument()), m_lastAutoPasteTimestamp(0)
+      m_silentUpdateCheck(false), m_nonInteractiveLaunch(MainWindowHelpers::hasNonInteractiveLaunchArgument()),
+      m_initialBinarySetupShown(false), m_lastAutoPasteTimestamp(0)
 {
     // Intercept window creation BEFORE it can be shown by main.cpp
     if (QCoreApplication::arguments().contains(QStringLiteral("--headless")) || QCoreApplication::arguments().contains(QStringLiteral("--server"))) {
@@ -54,6 +55,20 @@ MainWindow::MainWindow(ExtractorJsonParser *extractorJsonParser, QWidget *parent
     m_appUpdater = new AppUpdater(repoUrls, QStringLiteral(APP_VERSION_STRING), this);
     m_urlValidator = new UrlValidator(m_configManager, this);
     m_clipboard = QApplication::clipboard(); // Initialize QClipboard
+
+    const QStringList trackedBinaries = {QStringLiteral("yt-dlp"), QStringLiteral("ffmpeg"),
+                                         QStringLiteral("ffprobe"), QStringLiteral("gallery-dl"),
+                                         QStringLiteral("aria2c"), QStringLiteral("deno")};
+    bool hadSavedBinaryConfiguration = false;
+    for (const QString &binary : trackedBinaries) {
+        if (!m_configManager->get(QStringLiteral("Binaries"), binary + QStringLiteral("_path")).toString().isEmpty()) {
+            hadSavedBinaryConfiguration = true;
+            break;
+        }
+    }
+    if (hadSavedBinaryConfiguration && !m_configManager->get(QStringLiteral("Binaries"), QStringLiteral("setup_completed"), false).toBool()) {
+        m_configManager->set(QStringLiteral("Binaries"), QStringLiteral("setup_completed"), true);
+    }
 
     // --- Dynamic Binary Discovery ---
     QMap<QString, QString> foundBinaries = BinaryFinder::findAllBinaries();

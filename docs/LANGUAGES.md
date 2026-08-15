@@ -42,6 +42,6 @@ implementation work remains tracked in `TODO.md`.
 - Gujarati
 - Levantine Arabic
 - Bhojpuri
-# Translation status
+## Translation status
 
 The current release documentation and the newly synchronized playlist-probe and accurate-cut behavior descriptions are maintained in English. Translation support remains planned; new user-facing strings must continue to use Qt translation calls so they can be extracted when `.ts`/`.qm` build automation is enabled.

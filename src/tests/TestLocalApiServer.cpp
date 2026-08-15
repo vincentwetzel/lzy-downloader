@@ -78,6 +78,7 @@ void TestLocalApiServer::testValidEnqueueRequest() {
     QJsonObject json;
     json[QStringLiteral("url")] = QStringLiteral("https://www.youtube.com/watch?v=dQw4w9WgXcQ");
     json[QStringLiteral("type")] = QStringLiteral("video");
+    json[QStringLiteral("override_archive")] = true;
     QByteArray data = QJsonDocument(json).toJson(QJsonDocument::Compact);
     
     QNetworkReply *reply = manager.post(request, data);
@@ -103,6 +104,7 @@ void TestLocalApiServer::testValidEnqueueRequest() {
     QCOMPARE(args.at(0).toString(), QStringLiteral("https://www.youtube.com/watch?v=dQw4w9WgXcQ"));
     QCOMPARE(args.at(1).toString(), QStringLiteral("video"));
     QVERIFY(!args.at(2).toString().isEmpty()); // Job ID should be generated and not empty
+    QVERIFY(args.at(3).toBool());
 }
 
 QTEST_GUILESS_MAIN(TestLocalApiServer)

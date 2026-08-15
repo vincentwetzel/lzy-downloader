@@ -16,8 +16,10 @@
 - [ ] Evaluate whether `YtDlpWorker` should expose a reusable capped diagnostic tail helper so warning/error retention stays consistent across workers.
 - [x] Added bounded aria2 retry/backoff, transient aria2-to-native fallback, and stale metadata-sidecar cleanup while preserving resumable media partials.
 - [x] Preserve track-level artist metadata for audio playlists by using item-level yt-dlp artist/creator/channel/uploader fields and excluding playlist-owner fields.
+- [x] Add first-launch external-tool provisioning with a system-first/app-managed-first choice, optional-tool selection, non-modal update guidance, and configurable automatic updates for app-managed tools.
 
-Documentation was synchronized with the current implementation on 2026-08-13.
+Documentation was synchronized with the current implementation on 2026-08-15, including first-launch binary provisioning and explicit Local API archive overrides.
+- [x] Allow Discord bridge enqueue requests to explicitly override completed archive entries without a GUI confirmation dialog.
 
 ## Planned / Future Enhancements
 - [ ] Implement translations for supported interface languages (see `docs/LANGUAGES.md`).

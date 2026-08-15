@@ -78,6 +78,29 @@ void ConfigManager::commonInitialization() {
     initializeDefaultSettings();
     cleanUpLegacyKeys();
 
+    const QString updateFrequencyKey = QStringLiteral("Binaries/automatic_update_frequency");
+    const QString updateFrequency = m_settings->value(updateFrequencyKey, QStringLiteral("daily")).toString();
+    if (updateFrequency != QStringLiteral("launch") && updateFrequency != QStringLiteral("daily") &&
+        updateFrequency != QStringLiteral("weekly")) {
+        qWarning() << "Discarding invalid automatic binary update frequency:" << updateFrequency;
+        m_settings->setValue(updateFrequencyKey, QStringLiteral("daily"));
+        m_settings->sync();
+    }
+
+    const auto normalizeBinaryBoolean = [this](const QString &key, bool defaultValue) {
+        const QString value = m_settings->value(key, defaultValue).toString().trimmed().toLower();
+        if (value == QStringLiteral("true") || value == QStringLiteral("1")) {
+            m_settings->setValue(key, true);
+        } else if (value == QStringLiteral("false") || value == QStringLiteral("0")) {
+            m_settings->setValue(key, false);
+        } else {
+            qWarning() << "Discarding invalid binary-management boolean setting:" << key << value;
+            m_settings->setValue(key, defaultValue);
+        }
+    };
+    normalizeBinaryBoolean(QStringLiteral("Binaries/setup_completed"), false);
+    normalizeBinaryBoolean(QStringLiteral("Binaries/prefer_app_managed"), false);
+
     // Enforce max concurrency cap of 4 on startup to prevent accidental aggressive spam
     const QString maxThreads = m_settings->value(QStringLiteral("General/max_threads"), QStringLiteral("4")).toString();
     bool isInt = false;
@@ -133,6 +156,9 @@ void ConfigManager::initializeDefaultSettings() {
     m_defaultSettings[QStringLiteral("General")][QStringLiteral("warn_stable_yt_dlp")] = true;
     m_defaultSettings[QStringLiteral("General")][QStringLiteral("enable_local_api")] = false;
     m_defaultSettings[QStringLiteral("General")][QStringLiteral("enable_local_api_server")] = false; // Fallback for UI naming differences
+    m_defaultSettings[QStringLiteral("Binaries")][QStringLiteral("setup_completed")] = false;
+    m_defaultSettings[QStringLiteral("Binaries")][QStringLiteral("prefer_app_managed")] = false;
+    m_defaultSettings[QStringLiteral("Binaries")][QStringLiteral("automatic_update_frequency")] = QStringLiteral("daily");
     m_defaultSettings[QStringLiteral("Video")][QStringLiteral("video_quality")] = QStringLiteral("best");
     m_defaultSettings[QStringLiteral("Video")][QStringLiteral("video_codec")] = QStringLiteral("H.264 (AVC)");
     m_defaultSettings[QStringLiteral("Video")][QStringLiteral("video_extension")] = QStringLiteral("mp4");

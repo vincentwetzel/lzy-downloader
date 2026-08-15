@@ -88,6 +88,7 @@ The application is transitioning to an **unbundled external-binary model**.
 Current expectations:
 - Prefer user-installed or manually configured executables for `yt-dlp`, `ffmpeg`, `ffprobe`, `gallery-dl`, `aria2c`, and `deno`.
 - External binary resolution should preserve manual overrides first, then consider the app-local `bin` folder, user AppData `bin` folders, system `PATH`, and discovered package-manager candidates through the shared resolver. Startup and the External Binaries page may persist freshly auto-detected best paths back to `settings.ini` so later runtime lookups use the same executable, but must track auto-detected paths separately from manual overrides so rediscovery never replaces an explicit user selection.
+- Fresh interactive launches must use the guided binary setup flow: only offer a system-first versus app-managed-first choice when a system tool is actually available, select optional tools by default, and use visible install progress. App-managed tools may update automatically according to the configured cadence; external or package-managed tools must retain an explicit user-confirmed update flow.
 - External binary updates must avoid overwriting package-managed tools directly; prefer package-manager commands or tool-native self-updaters (`yt-dlp -U`, `gallery-dl -U`, `deno upgrade`) surfaced through the External Binaries UI.
 - Keep Qt runtime/plugin deployment self-contained, including `qsqlite.dll`.
 
@@ -140,4 +141,6 @@ Agents MUST NOT:
 Agents MUST use `TODO.md` to track pending tasks, planned features, and known issues. Before starting work, check `TODO.md` for high-priority items. After completing a task or identifying a new one, update `TODO.md` accordingly.
 
 Windows FFmpeg/FFprobe installs stage extracted executables beside the destination and retry replacement for a bounded period, because active downloader/post-processing processes may temporarily hold the existing binaries open.
+
+Local API automation clients may send `override_archive: true` (top-level or under `options`) on intentional re-download requests; the server forwards this explicit confirmation into the normal non-interactive queue path.
 

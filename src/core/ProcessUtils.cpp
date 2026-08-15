@@ -363,11 +363,24 @@ FoundBinary findBinary(const QString& name, ConfigManager* configManager)
 
 FoundBinary resolveBinary(const QString& name, ConfigManager* configManager)
 {
+    const bool preferAppManaged = configManager && configManager->get(
+        QStringLiteral("Binaries"), QStringLiteral("prefer_app_managed"), false).toBool();
+    const QString managedRoot = configManager
+        ? QDir(configManager->getConfigDir()).filePath(QStringLiteral("bin"))
+        : QString();
+    const auto isAppManagedPath = [&managedRoot](const QString &path) {
+        return !managedRoot.isEmpty() && QDir::cleanPath(path).startsWith(
+            QDir::cleanPath(managedRoot), Qt::CaseInsensitive);
+    };
+
     // 1. Check INI first
     if (configManager) {
         QString configKey = name + QStringLiteral("_path");
         QString configuredPath = configManager->get(QStringLiteral("Binaries"), configKey).toString();
-        if (!configuredPath.isEmpty() && QFileInfo::exists(configuredPath)) {
+        const bool autoDetected = configManager->get(
+            QStringLiteral("Binaries"), name + QStringLiteral("_auto_detected"), true).toBool();
+        if (!configuredPath.isEmpty() && QFileInfo::exists(configuredPath) &&
+            (!autoDetected || preferAppManaged == isAppManagedPath(configuredPath))) {
             FoundBinary found;
             found.path = QDir::toNativeSeparators(configuredPath);
             found.source = QStringLiteral("Custom");
@@ -498,6 +511,17 @@ FoundBinary resolveBinary(const QString& name, ConfigManager* configManager)
         return notFound;
     }
 
+    QStringList appManagedCandidates;
+    QStringList systemCandidates;
+    for (const QString &candidate : candidatePaths) {
+        (isAppManagedPath(candidate) ? appManagedCandidates : systemCandidates).append(candidate);
+    }
+    if (preferAppManaged && !appManagedCandidates.isEmpty()) {
+        candidatePaths = appManagedCandidates;
+    } else if (!preferAppManaged && !systemCandidates.isEmpty()) {
+        candidatePaths = systemCandidates;
+    }
+
     qInfo() << "[ProcessUtils::resolveBinary] Discovered candidates for" << name << "in priority order:" << candidatePaths;
 
     // 3. Find the newest candidate among all found binaries
@@ -557,6 +581,8 @@ FoundBinary resolveBinary(const QString& name, ConfigManager* configManager)
         source = QStringLiteral("WinGet");
     } else if (bestPathLower.contains(QStringLiteral("homebrew"))) {
         source = QStringLiteral("Homebrew");
+    } else if (isAppManagedPath(bestPath)) {
+        source = QStringLiteral("LzyDownloader managed");
     } else if (bestPathLower.contains(QStringLiteral("lzydownloader"))) {
         source = QStringLiteral("User AppData");
     }

@@ -20,7 +20,7 @@ public:
     QString getApiKey() const;
 
 signals:
-    void enqueueRequested(const QString &url, const QString &type, const QString &jobId);
+    void enqueueRequested(const QString &url, const QString &type, const QString &jobId, bool overrideArchive);
 
 public slots:
     void onDownloadAdded(const QVariantMap &itemData);

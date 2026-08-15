@@ -19,6 +19,8 @@ public:
     explicit BinariesPage(ConfigManager *configManager, QWidget *parent = nullptr);
     void browseBinaryFor(const QString &binaryName);
     void installBinaryFor(const QString &binaryName);
+    void installRecommendedBinary(const QString &binaryName);
+    bool tryAutomaticUpdate(const QString &binaryName);
     void setBinaryWarning(const QString &binaryName, const QString &details);
     void refreshBinaryStatus(const QString &binaryName);
     void setGalleryDlVersion(const QString &version);
@@ -68,6 +70,8 @@ private:
     QList<InstallOption> buildInstallOptions(const QString &binaryName) const;
     QString commandPreview(const InstallOption &option) const;
     QString displayName(const QString &binaryName) const;
+    bool automaticUpdateIsDue(const QString &binaryName) const;
+    bool isAppManagedPath(const QString &path) const;
 
     ConfigManager *m_configManager;
     QMap<QString, QString> m_configKeys;

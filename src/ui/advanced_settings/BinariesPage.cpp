@@ -7,6 +7,7 @@
 
 #include <QComboBox>
 #include <QDesktopServices>
+#include <QDateTime>
 #include <QDialog>
 #include <QDialogButtonBox>
 #include <QDir>
@@ -70,7 +71,7 @@ BinariesPage::BinariesPage(ConfigManager *configManager, QWidget *parent)
 
     QVBoxLayout *groupLayout = new QVBoxLayout(group);
     groupLayout->setSpacing(6);
-    groupLayout->setContentsMargins(12, 10, 12, 10);
+    groupLayout->setContentsMargins(12, 0, 12, 10);
 
     QLabel *introLabel = new QLabel(
         tr("<b>REQUIRED:</b> yt-dlp, ffmpeg, ffprobe, deno<br>"
@@ -90,6 +91,40 @@ BinariesPage::BinariesPage(ConfigManager *configManager, QWidget *parent)
     introLabel->setToolTip(tr("Explains which external tools are required, which are optional, and how Browse, Clear Path, Install, and Refresh affect detection."));
 
     groupLayout->addWidget(introLabel);
+
+    QGroupBox *managementGroup = new QGroupBox(tr("Automatic management"), group);
+    managementGroup->setToolTip(tr("Choose whether LzyDownloader prefers its own tool copies and how often it may install updates."));
+    QFormLayout *managementLayout = new QFormLayout(managementGroup);
+    QLabel *preferenceLabel = new QLabel(tr("Tool preference:"), managementGroup);
+    preferenceLabel->setToolTip(tr("Controls whether app-managed tools are preferred over discovered system tools."));
+    QComboBox *preferenceCombo = new QComboBox(managementGroup);
+    preferenceCombo->addItem(tr("Use system tools when available"), false);
+    preferenceCombo->addItem(tr("Prefer LzyDownloader-managed tools"), true);
+    preferenceCombo->setToolTip(tr("System tools remain supported. App-managed tools are stored in LzyDownloader's private bin folder."));
+    preferenceCombo->setCurrentIndex(m_configManager->get(QStringLiteral("Binaries"), QStringLiteral("prefer_app_managed"), false).toBool() ? 1 : 0);
+    managementLayout->addRow(preferenceLabel, preferenceCombo);
+
+    QLabel *frequencyLabel = new QLabel(tr("Automatic updates:"), managementGroup);
+    frequencyLabel->setToolTip(tr("Controls how often app-managed tools may be updated after their startup version check."));
+    QComboBox *frequencyCombo = new QComboBox(managementGroup);
+    frequencyCombo->addItem(tr("Every launch"), QStringLiteral("launch"));
+    frequencyCombo->addItem(tr("Once per day (recommended)"), QStringLiteral("daily"));
+    frequencyCombo->addItem(tr("Once per week"), QStringLiteral("weekly"));
+    frequencyCombo->setToolTip(tr("yt-dlp and gallery-dl are checked every launch. This setting limits automatic replacement of app-managed tools."));
+    const QString savedFrequency = m_configManager->get(QStringLiteral("Binaries"), QStringLiteral("automatic_update_frequency"), QStringLiteral("daily")).toString();
+    frequencyCombo->setCurrentIndex(qMax(0, frequencyCombo->findData(savedFrequency)));
+    managementLayout->addRow(frequencyLabel, frequencyCombo);
+    connect(preferenceCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this, preferenceCombo](int) {
+        m_configManager->set(QStringLiteral("Binaries"), QStringLiteral("prefer_app_managed"), preferenceCombo->currentData().toBool());
+        m_configManager->save();
+        ProcessUtils::clearCache();
+        loadSettings();
+    });
+    connect(frequencyCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this, frequencyCombo](int) {
+        m_configManager->set(QStringLiteral("Binaries"), QStringLiteral("automatic_update_frequency"), frequencyCombo->currentData().toString());
+        m_configManager->save();
+    });
+    groupLayout->addWidget(managementGroup);
 
     QPushButton *refreshButton = new QPushButton(tr("Refresh All Statuses"), group);
     refreshButton->setObjectName(QStringLiteral("refreshAllStatusesButton"));
@@ -138,6 +173,9 @@ BinariesPage::BinariesPage(ConfigManager *configManager, QWidget *parent)
     setupRow(groupLayout, QStringLiteral("gallery-dl"), QStringLiteral("gallery-dl"), QStringLiteral("gallery-dl_path"), QStringLiteral("https://github.com/mikf/gallery-dl"), true);
     setupRow(groupLayout, QStringLiteral("aria2c"), QStringLiteral("aria2c"), QStringLiteral("aria2c_path"), QStringLiteral("https://github.com/aria2/aria2/releases"), true);
 
+    // Keep the scrollable document exactly as tall as its tool controls.  A
+    // trailing stretch becomes part of the scroll range once the page is
+    // taller than the viewport, leaving a large empty region after aria2c.
     layout->addWidget(group, 0, Qt::AlignTop);
 
     scrollArea->setWidget(scrollWidget);
@@ -644,6 +682,127 @@ void BinariesPage::installBinaryFor(const QString &binaryName) {
     dialog.exec();
 }
 
+void BinariesPage::installRecommendedBinary(const QString &binaryName)
+{
+    const QList<InstallOption> options = buildInstallOptions(binaryName);
+    if (options.isEmpty()) {
+        qWarning() << "No automatic install option is available for" << binaryName;
+        QMessageBox::warning(this, tr("Automatic Install Unavailable"),
+                             tr("LzyDownloader could not find a supported automatic install method for %1 on this computer. "
+                                "Use the External Tools page to choose a manual installation method.")
+                                 .arg(displayName(binaryName)));
+        return;
+    }
+
+    const InstallOption &option = options.first();
+    ProcessRunOptions opts;
+    opts.dialogTitle = tr("Installing %1").arg(displayName(binaryName));
+    opts.program = option.program;
+    opts.arguments = option.arguments;
+    opts.binaryName = binaryName;
+    opts.isAlias = option.extraData.value(QStringLiteral("is_windows_apps_alias")).toBool();
+    opts.setCustomPath = option.extraData.value(QStringLiteral("set_custom_path")).toString();
+    qInfo() << "Running recommended binary installation for" << binaryName << "using" << option.label;
+    runProcessWithLog(opts);
+}
+
+bool BinariesPage::tryAutomaticUpdate(const QString &binaryName)
+{
+    const ProcessUtils::FoundBinary foundBinary = ProcessUtils::resolveBinary(binaryName, m_configManager);
+    if (!isAppManagedPath(foundBinary.path) || !automaticUpdateIsDue(binaryName)) {
+        return false;
+    }
+
+    if (binaryName == QStringLiteral("ffmpeg") || binaryName == QStringLiteral("ffprobe")) {
+        QTimer::singleShot(0, this, [this, binaryName]() {
+            installRecommendedBinary(binaryName);
+        });
+        return true;
+    }
+    if (binaryName == QStringLiteral("aria2c")) {
+        return false;
+    }
+
+    QStringList arguments;
+    if (binaryName == QStringLiteral("deno")) {
+        arguments = {QStringLiteral("upgrade")};
+    } else if (binaryName == QStringLiteral("yt-dlp") || binaryName == QStringLiteral("gallery-dl")) {
+        arguments = {QStringLiteral("-U")};
+    } else {
+        return false;
+    }
+
+    qInfo() << "Starting automatic update for app-managed binary:" << binaryName;
+    auto *process = new QProcess(this);
+    ProcessUtils::setProcessEnvironment(*process);
+    process->setProcessChannelMode(QProcess::MergedChannels);
+    auto *watchdog = new QTimer(process);
+    watchdog->setSingleShot(true);
+    connect(watchdog, &QTimer::timeout, process, [process, binaryName]() {
+        qWarning() << "Automatic update timed out for" << binaryName;
+        ProcessUtils::terminateProcessTree(process);
+    });
+    connect(process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished), this,
+            [this, process, binaryName](int exitCode, QProcess::ExitStatus exitStatus) {
+        const QString output = QString::fromUtf8(process->readAllStandardOutput()).trimmed();
+        m_configManager->set(QStringLiteral("Binaries"),
+                             QStringLiteral("%1_last_automatic_update").arg(binaryName),
+                             QDateTime::currentDateTimeUtc().toSecsSinceEpoch());
+        if (exitStatus == QProcess::NormalExit && exitCode == 0) {
+            qInfo() << "Automatic update finished for" << binaryName;
+            m_configManager->set(QStringLiteral("Binaries"), QStringLiteral("%1_update_available").arg(binaryName), false);
+            m_configManager->remove(QStringLiteral("Binaries"), QStringLiteral("%1_latest_version").arg(binaryName));
+            m_binaryWarnings.remove(binaryName);
+            ProcessUtils::clearCache();
+            refreshBinaryStatus(binaryName);
+        } else {
+            const QString details = output.isEmpty()
+                ? tr("Automatic update failed with exit code %1.").arg(exitCode)
+                : tr("Automatic update failed: %1").arg(output.left(500));
+            qWarning() << binaryName << details;
+            m_binaryWarnings.insert(binaryName, details);
+            refreshBinaryStatus(binaryName);
+        }
+        m_configManager->save();
+        process->deleteLater();
+    });
+    connect(process, &QProcess::errorOccurred, this, [this, process, binaryName](QProcess::ProcessError) {
+        m_configManager->set(QStringLiteral("Binaries"),
+                             QStringLiteral("%1_last_automatic_update").arg(binaryName),
+                             QDateTime::currentDateTimeUtc().toSecsSinceEpoch());
+        m_binaryWarnings.insert(binaryName, tr("Automatic update could not start: %1").arg(process->errorString()));
+        m_configManager->save();
+        refreshBinaryStatus(binaryName);
+        process->deleteLater();
+    });
+    process->start(foundBinary.path, arguments);
+    process->closeWriteChannel();
+    watchdog->start(120000);
+    return true;
+}
+
+bool BinariesPage::automaticUpdateIsDue(const QString &binaryName) const
+{
+    const QString frequency = m_configManager->get(
+        QStringLiteral("Binaries"), QStringLiteral("automatic_update_frequency"), QStringLiteral("daily")).toString();
+    if (frequency == QStringLiteral("launch")) {
+        return true;
+    }
+    const qint64 lastUpdate = m_configManager->get(
+        QStringLiteral("Binaries"), QStringLiteral("%1_last_automatic_update").arg(binaryName), 0).toLongLong();
+    const qint64 minimumSeconds = frequency == QStringLiteral("weekly") ? 7 * 24 * 60 * 60 : 24 * 60 * 60;
+    return lastUpdate <= 0 || QDateTime::currentDateTimeUtc().toSecsSinceEpoch() - lastUpdate >= minimumSeconds;
+}
+
+bool BinariesPage::isAppManagedPath(const QString &path) const
+{
+    if (path.isEmpty() || !m_configManager) {
+        return false;
+    }
+    const QString managedRoot = QDir(m_configManager->getConfigDir()).filePath(QStringLiteral("bin"));
+    return QDir::cleanPath(path).startsWith(QDir::cleanPath(managedRoot), Qt::CaseInsensitive);
+}
+
 void BinariesPage::runProcessWithLog(const ProcessRunOptions &opts) {
     QDialog progressDialog(this);
     progressDialog.setWindowTitle(opts.dialogTitle);
@@ -880,7 +1039,8 @@ void BinariesPage::saveBinaryOverride(const QString &binaryName, const QString &
 
     QStringList keysToClear;
     keysToClear << QStringLiteral("Binaries/%1_update_available").arg(binaryName)
-                << QStringLiteral("Binaries/%1_latest_version").arg(binaryName);
+                << QStringLiteral("Binaries/%1_latest_version").arg(binaryName)
+                << QStringLiteral("Binaries/%1_auto_detected").arg(binaryName);
 
     if (path.isEmpty()) {
         keysToClear << QStringLiteral("Binaries/%1").arg(configKey);
@@ -889,7 +1049,8 @@ void BinariesPage::saveBinaryOverride(const QString &binaryName, const QString &
             const QString siblingKey = (binaryName == QStringLiteral("ffmpeg")) ? QStringLiteral("ffprobe_path") : QStringLiteral("ffmpeg_path");
             keysToClear << QStringLiteral("Binaries/%1").arg(siblingKey)
                         << QStringLiteral("Binaries/%1_update_available").arg(siblingName)
-                        << QStringLiteral("Binaries/%1_latest_version").arg(siblingName);
+                        << QStringLiteral("Binaries/%1_latest_version").arg(siblingName)
+                        << QStringLiteral("Binaries/%1_auto_detected").arg(siblingName);
             m_binaryWarnings.remove(siblingName);
         }
     }
@@ -911,6 +1072,7 @@ void BinariesPage::saveBinaryOverride(const QString &binaryName, const QString &
 
     if (!path.isEmpty()) {
         m_configManager->set(QStringLiteral("Binaries"), configKey, path);
+        m_configManager->set(QStringLiteral("Binaries"), QStringLiteral("%1_auto_detected").arg(binaryName), isAppManagedPath(path));
     }
     m_configManager->save();
 }
@@ -1020,12 +1182,15 @@ void BinariesPage::refreshBinaryStatus(const QString &binaryName) {
         statusLabel->setText(tr("<b>Status:</b> %1 (invalid manual override)<br><b>Path:</b> %2").arg(statusPrefix, displayPath));
         versionLabel->setText(tr("Version: Unknown"));
     } else if (foundBinary.source == QStringLiteral("Custom")) {
+        const QString locationDescription = isAppManagedPath(foundBinary.path)
+            ? tr("app-managed copy")
+            : tr("manual override");
         if (hasWarning) {
             const QString statusPrefix = QStringLiteral("<span style='color: #d97706;'>Update Recommended</span>");
-            statusLabel->setText(tr("<b>Status:</b> %1 (manual override)<br><b>Details:</b> %2<br><b>Path:</b> %3").arg(statusPrefix, warningDetails.toHtmlEscaped(), displayPath));
+            statusLabel->setText(tr("<b>Status:</b> %1 (%2)<br><b>Details:</b> %3<br><b>Path:</b> %4").arg(statusPrefix, locationDescription, warningDetails.toHtmlEscaped(), displayPath));
         } else {
             const QString statusPrefix = QStringLiteral("<span style='color: #16a34a;'>Found</span>");
-            statusLabel->setText(tr("<b>Status:</b> %1 (manual override)<br><b>Path:</b> %2").arg(statusPrefix, displayPath));
+            statusLabel->setText(tr("<b>Status:</b> %1 (%2)<br><b>Path:</b> %3").arg(statusPrefix, locationDescription, displayPath));
         }
         fetchBinaryVersion(binaryName, foundBinary.path);
     } else {

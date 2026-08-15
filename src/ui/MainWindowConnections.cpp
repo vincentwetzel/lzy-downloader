@@ -522,7 +522,9 @@ void MainWindow::connectStartupWorkerSignals()
     connect(m_startupWorker, &StartupWorker::finished, m_startupThread, &QThread::quit);
     connect(m_startupThread, &QThread::finished, m_startupWorker, &QObject::deleteLater);
     connect(m_startupWorker, &StartupWorker::binariesChecked, this, [this](const QStringList &missingBinaries) {
-        if (!missingBinaries.isEmpty() && !m_nonInteractiveLaunch) {
+        if (!m_nonInteractiveLaunch && !m_configManager->get(QStringLiteral("Binaries"), QStringLiteral("setup_completed"), false).toBool()) {
+            showInitialBinarySetup(missingBinaries);
+        } else if (!missingBinaries.isEmpty() && !m_nonInteractiveLaunch) {
             showMissingBinariesDialog(missingBinaries);
         }
     });
@@ -537,19 +539,18 @@ void MainWindow::connectStartupWorkerSignals()
             }
         }
 
-        QMessageBox::StandardButton button = QMessageBox::warning(
-            this,
-            tr("Binary Update Needed"),
-            tr("The external tool '%1' is out of date or failed to update.\nDetails: %2\n\nWould you like to open the Binaries Manager to update it?")
-                .arg(binaryName, details),
-            QMessageBox::Yes | QMessageBox::No
-        );
-
-        if (button == QMessageBox::Yes) {
-            // Switch to Advanced Settings Tab and navigate to the Binaries/External Tools section
-            m_uiBuilder->tabWidget()->setCurrentWidget(m_advancedSettingsTab);
-                    m_advancedSettingsTab->navigateToCategory(QStringLiteral("External Tools"));
+        bool automaticUpdateStarted = false;
+        if (m_configManager->get(QStringLiteral("Binaries"), QStringLiteral("setup_completed"), false).toBool() &&
+            m_configManager->get(QStringLiteral("Binaries"), QStringLiteral("%1_update_available").arg(binaryName), false).toBool() &&
+            m_advancedSettingsTab) {
+            if (auto *binariesPage = m_advancedSettingsTab->findChild<BinariesPage*>()) {
+                automaticUpdateStarted = binariesPage->tryAutomaticUpdate(binaryName);
+            }
         }
+        statusBar()->showMessage(automaticUpdateStarted
+                                      ? tr("Updating app-managed %1 in the background.").arg(binaryName)
+                                      : tr("%1: %2").arg(binaryName, details),
+                                  8000);
     });
     connect(m_startupWorker, &StartupWorker::ytDlpVersionFetched, this, &MainWindow::setYtDlpVersion);
     connect(m_startupWorker, &StartupWorker::galleryDlVersionFetched, m_advancedSettingsTab, &AdvancedSettingsTab::setGalleryDlVersion);

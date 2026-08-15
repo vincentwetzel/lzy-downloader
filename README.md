@@ -19,7 +19,7 @@ maintainer release workflow.
 - 🔌 **Local API** — Optional localhost API for trusted local integrations such as Discord bots
 - 📊 **Concurrent Downloads** — Queue and manage multiple downloads simultaneously
 - ⏸️ **Pause & Resume** — Safely stop downloads, preserve partial `.part` files, and resume validated queue backups across application restarts
-- 🧰 **External Binaries Manager** — Detect, version-check, install, and update `yt-dlp`, `gallery-dl`, `ffmpeg`, `ffprobe`, `aria2c`, and `deno` from inside the app, with version-aware local `bin` discovery, package-manager-aware commands, update warnings, SHA-256 checks when available, and cancellable install/update logs
+- 🧰 **External Binaries Manager** — Detect, version-check, install, and update `yt-dlp`, `gallery-dl`, `ffmpeg`, `ffprobe`, `aria2c`, and `deno` from inside the app, with version-aware local `bin` discovery, package-manager-aware commands, update warnings, SHA-256 checks when available, and cancellable install/update logs. Fresh interactive installs use guided system-first/app-managed-first setup with optional-tool provisioning.
 - 🖼️ **Thumbnail Embedding** — Automatic thumbnail download, bounded preview loading, and embedding for videos and audio
 - 🌐 **Browser Cookies** — Use saved cookies from Firefox, Chrome, Edge, or other browsers for age-restricted content
 - 📂 **Smart Sorting** — Automatically organize downloads into subfolders based on uploader, playlist, date, or custom patterns
@@ -112,12 +112,13 @@ All settings are saved to `%LOCALAPPDATA%\LzyDownloader\settings.ini` on Windows
 - **Queue previews** - Queued rows begin loading supplied remote thumbnails immediately, and long titles wrap within narrow windows so row actions remain reachable
 - **Playlist audio filenames** - Playlist audio downloads are prefixed with zero-padded indices by default; change `Download Options -> Prefix playlist indices` to disable this behavior
 - **Local API** - Enable a localhost-only API server from Advanced Settings -> Configuration
+- **Binary management** - Choose app-managed-first or system-first resolution and configure launch, daily, or weekly automatic updates for app-managed tools in Advanced Settings -> External Tools
 
 ### Local API
 
 When enabled in the GUI, or when launched with `--server`, `--headless`, or `--background`, LzyDownloader listens only on `127.0.0.1:8765`. The API token is stored in the app-local data directory as `api_token.txt`; server/headless/background mode keeps its runtime token under `Server/api_token.txt`. Requests must send the token as a Bearer token.
 
-- `POST /enqueue` with JSON body `{"url":"https://...","type":"video","id":"optional-stable-job-id"}` queues a download using non-interactive defaults. `type` is optional and may be `video`, `audio`, or `gallery`; omitted requests default to `video`. `id` is optional; when omitted, the app generates a UUID.
+- `POST /enqueue` with JSON body `{"url":"https://...","type":"video","id":"optional-stable-job-id","override_archive":true}` queues a download using non-interactive defaults. `type` is optional and may be `video`, `audio`, or `gallery`; omitted requests default to `video`. `id` is optional; when omitted, the app generates a UUID. `override_archive` is optional and may also be supplied under `options`; it must be explicitly true for an intentional re-download.
 - `GET /status` returns current tracked jobs, including progress fields when available.
 - Requests are bounded and validated; malformed request lines, oversized payloads, invalid Host headers, or untrusted browser origins are rejected.
 - **Webhook Outbound**: The application automatically emits real-time HTTP POST JSON payloads to `http://127.0.0.1:8766/webhook` whenever download status, progress, speed, or ETA changes. Payloads are throttled to 1.5 seconds, sanitize long or multi-line status strings, preserve terminal completion/cancellation state for local bridge clients, include `parent_id` mapping to track playlist child items, and clean up bounded network replies through the owning window context.

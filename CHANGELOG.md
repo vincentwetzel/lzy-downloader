@@ -15,6 +15,9 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 - Audio playlist metadata now preserves an explicit track artist and falls back only to item-level artist/creator/channel/uploader fields, preventing playlist owners from being written as the track artist.
 - Synchronized the active README, specification, architecture, settings, API, manifest, and release documentation with current runtime behavior.
 - Windows FFmpeg/FFprobe updates now stage extracted binaries and retry locked-file replacement for up to one minute, avoiding immediate failure when a media process is still releasing the old executable.
+- First interactive launch now provides a guided external-tool setup with system-first or app-managed-first selection only when system tools are detected, default optional-tool choices, and progress-backed provisioning. App-managed tool updates can run on a launch/daily/weekly cadence, while externally selected and package-managed tools retain explicit update confirmation.
+- Discord bridge enqueue requests now carry an explicit archive-override confirmation, allowing intentional re-downloads to proceed without waiting for the GUI duplicate-download dialog.
+- Documentation was reconciled across the active user, API, architecture, settings, specification, manifest, coding, and release guides; historical changelog entries remain unchanged.
 
 ## [1.2.20] - 2026-08-09
 

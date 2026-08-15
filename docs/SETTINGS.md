@@ -210,8 +210,12 @@ Manual path overrides for external executables. If not set, the application auto
 | `<binary>_auto_detected` | Boolean | `true` | Marks whether the saved `<binary>_path` came from automatic discovery. Startup may temporarily clear and refresh auto-detected paths, but must preserve manual paths. |
 | `<binary>_update_available` | Boolean | `false` | Runtime status flag used by the External Tools page to show an update warning for a detected tool. Cleared when overrides are changed. |
 | `<binary>_latest_version` | String | *(empty)* | Runtime status value used with `<binary>_update_available` to display the newest detected version. Cleared when overrides are changed. |
+| `setup_completed` | Boolean | `false` | Marks that the first interactive binary setup has been completed. Existing configurations with saved tool paths are migrated without showing the setup again. Invalid values reset to `false`. |
+| `prefer_app_managed` | Boolean | `false` | When true, selects app-managed copies in the app-data `bin` folder ahead of auto-detected system copies. Explicit external overrides still win. Invalid values reset to `false`. |
+| `automatic_update_frequency` | String | `daily` | Cadence for automatic updates of app-managed tools: `launch`, `daily`, or `weekly`. Invalid values are reset to `daily`. |
+| `<binary>_last_automatic_update` | Integer | `0` | UTC epoch seconds of the latest automatic update attempt, used to enforce the selected update cadence. |
 
-> **Binary Resolution Order:** The application searches in this order: (1) User-configured path, (2) app-local `bin` folder, (3) System PATH, (4) user-local install locations (e.g., Deno, Scoop shims, WindowsApps, Chocolatey, and Python Scripts). If multiple executable candidates are found, the resolver probes versions with a short timeout and prefers the newest usable candidate.
+> **Binary Resolution Order:** Explicit external paths always win. Otherwise the selected preference chooses app-managed `bin` copies before system candidates, or system candidates before app-managed copies. The resolver then probes candidates in that preferred group with a short timeout and prefers the newest usable candidate.
 
 The External Tools page can also run install/update commands through detected package managers or safe tool-native updaters. WinGet updates use exact package IDs where available (`yt-dlp.yt-dlp`, `mikf.gallery-dl`, `Gyan.FFmpeg`, `aria2.aria2`, `DenoLand.Deno`), Deno standalone updates use `deno upgrade`, and cancellable progress dialogs preserve command output for troubleshooting. Version checks are bounded by short watchdogs, install/update helpers close stdin so package aliases cannot hang waiting for input, and successful updates clear update-warning flags before refreshing binary status.
 
@@ -319,7 +323,7 @@ When `General/enable_local_api` is enabled in GUI mode, or when `--server`, `--h
 
 Server/headless mode isolates this runtime token under `Server/`, for example `%LOCALAPPDATA%\LzyDownloader\Server\api_token.txt` on Windows.
 
-The server binds only to `127.0.0.1:8765`. Requests must include `Authorization: Bearer <token>`. Supported endpoints are `POST /enqueue` with a JSON `url` field plus optional `type` (`video`, `audio`, or `gallery`) and optional caller-provided `id`, plus `GET /status`. If `id` is omitted, LzyDownloader generates a UUID.
+The server binds only to `127.0.0.1:8765`. Requests must include `Authorization: Bearer <token>`. Supported endpoints are `POST /enqueue` with a JSON `url` field plus optional `type` (`video`, `audio`, or `gallery`), optional caller-provided `id`, and optional boolean `override_archive` (also accepted under `options`) for intentional re-downloads, plus `GET /status`. If `id` is omitted, LzyDownloader generates a UUID.
 
 ## Log File Location
 
@@ -394,4 +398,4 @@ If a required binary (`yt-dlp`, `ffmpeg`, `ffprobe`, `deno`) is not found, LzyDo
 
 ---
 
-*Last updated: July 23, 2026 - LzyDownloader C++ Port*
+*Last updated: August 15, 2026 - LzyDownloader C++ Port*

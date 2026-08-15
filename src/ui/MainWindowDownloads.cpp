@@ -24,12 +24,15 @@ QString MainWindow::appVersion() const
     return QStringLiteral(APP_VERSION_STRING);
 }
 
-void MainWindow::onLocalApiEnqueueRequested(const QString &url, const QString &type, const QString &jobId)
+void MainWindow::onLocalApiEnqueueRequested(const QString &url, const QString &type, const QString &jobId, bool overrideArchive)
 {
     QVariantMap options;
     options.insert(QStringLiteral("type"), type.isEmpty() ? QStringLiteral("video") : type);
     if (!jobId.isEmpty()) {
         options.insert(QStringLiteral("id"), jobId);
+    }
+    if (overrideArchive) {
+        options.insert(QStringLiteral("override_archive"), true);
     }
     MainWindowHelpers::applyNonInteractiveDownloadDefaults(options);
 

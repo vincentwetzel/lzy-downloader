@@ -51,7 +51,7 @@ private slots:
     void updateTotalSpeed(double speed);
     void onDownloadStatsUpdated(int queued, int active, int completed, int errors);
     void setYtDlpVersion(const QString &version);
-    void onLocalApiEnqueueRequested(const QString &url, const QString &type, const QString &jobId);
+    void onLocalApiEnqueueRequested(const QString &url, const QString &type, const QString &jobId, bool overrideArchive);
     void onClipboardChanged(); // New slot for clipboard changes
     void onRuntimeInfoReady(const QVariantMap &info);
     void onRuntimeInfoError(const QString &error);
@@ -67,6 +67,7 @@ private:
     void setupWindowsDebugConsole();
     void connectAppUpdaterSignals();
     void scheduleInitialSetup();
+    void showInitialBinarySetup(const QStringList &missingBinaries);
     void connectDownloadManagerSignals();
     void connectDiscordWebhookSignals();
     void connectStartupWorkerSignals();
@@ -104,6 +105,7 @@ private:
     QVariantMap m_pendingOptions;
     bool m_silentUpdateCheck;
     bool m_nonInteractiveLaunch;
+    bool m_initialBinarySetupShown;
     QString m_lastAutoPastedUrl; // Track last auto-pasted URL to prevent duplicates
     qint64 m_lastAutoPasteTimestamp; // Timestamp of last auto-paste to enforce cooldown
 };

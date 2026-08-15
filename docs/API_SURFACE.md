@@ -23,6 +23,11 @@ The API surface adheres to **Qt best practices**:
   staged destination-side file and bounded replacement retries. A persistent
   sharing violation leaves the existing executable in place and reports the
   failure.
+- `BinariesPage::installRecommendedBinary(const QString&)` runs the preferred
+  unattended first-launch install path. `tryAutomaticUpdate(const QString&)`
+  only updates copies inside the managed application-data `bin` folder.
+- `InitialBinarySetupDialog` records a fresh install's system-first or
+  app-managed-first preference and selects gallery-dl and aria2c by default.
 - `YtDlpArgsBuilder` adds the item-level artist fallback expression only for
   audio playlist downloads with metadata embedding enabled. Playlist-level
   ownership fields are intentionally excluded, and metadata-only expansion
@@ -36,8 +41,9 @@ The API surface adheres to **Qt best practices**:
 - `YtDlpArgsBuilder` generates synchronization-safe accurate-cut arguments, including audio timestamp normalization and bounded FFmpeg thread settings.
 - `ConfigManager` and `DownloadOptionsPage` use `DownloadOptions/prefix_playlist_indices=true` as the canonical default, so playlist audio filenames are consistently prefixed unless the user opts out.
 - `ProcessUtils::setBackgroundProcessPriority(QProcess&)` lowers supported Windows post-processing processes to below-normal priority.
+- `LocalApiServer::enqueueRequested` carries an explicit `overrideArchive` flag so automation clients can confirm intentional re-downloads without a GUI dialog.
 
-### [DownloadManager](file:///E:/coding_workspaces/CPP/lzy-downloader/src/core/DownloadManager.h)
+### [DownloadManager](../src/core/DownloadManager.h)
 The central manager coordinating download queues, playlist validation, format metadata selection, and the finalization flow.
 
 #### Public Methods
@@ -65,7 +71,7 @@ The central manager coordinating download queues, playlist validation, format me
 
 ---
 
-### [ConfigManager](file:///E:/coding_workspaces/CPP/lzy-downloader/src/core/ConfigManager.h)
+### [ConfigManager](../src/core/ConfigManager.h)
 A wrapper around `QSettings` managing read/write operations on the application's configuration file (`settings.ini`).
 
 #### Public Methods
@@ -86,7 +92,7 @@ A wrapper around `QSettings` managing read/write operations on the application's
 
 ---
 
-### [ArchiveManager](file:///E:/coding_workspaces/CPP/lzy-downloader/src/core/ArchiveManager.h)
+### [ArchiveManager](../src/core/ArchiveManager.h)
 Manages the SQLite-based download history database (`download_archive.db`) to enforce duplicate prevention.
 
 #### Public Methods
@@ -97,7 +103,7 @@ Manages the SQLite-based download history database (`download_archive.db`) to en
 
 ---
 
-### [LocalApiServer](file:///E:/coding_workspaces/CPP/lzy-downloader/src/core/LocalApiServer.h)
+### [LocalApiServer](../src/core/LocalApiServer.h)
 A localhost-bound HTTP daemon (`127.0.0.1:8765`) providing local API automation for enqueuing jobs.
 
 #### Public Methods
@@ -106,11 +112,11 @@ A localhost-bound HTTP daemon (`127.0.0.1:8765`) providing local API automation 
 - `QString getApiKey() const`: Returns the Bearer token read/generated on startup (`api_token.txt`).
 
 #### Signals
-- `void enqueueRequested(const QString &url, const QString &type, const QString &jobId)`: Emitted when an external API call passes bearer authentication and submits a valid payload.
+- `void enqueueRequested(const QString &url, const QString &type, const QString &jobId, bool overrideArchive)`: Emitted when an external API call passes bearer authentication and submits a valid payload. The final flag is true only when the caller explicitly confirms an intentional archive re-download.
 
 ---
 
-### [AppUpdater](file:///E:/coding_workspaces/CPP/lzy-downloader/src/core/AppUpdater.h)
+### [AppUpdater](../src/core/AppUpdater.h)
 Handles remote update lookups and triggers installer downloads asynchronously.
 
 #### Public Methods
@@ -126,7 +132,7 @@ Handles remote update lookups and triggers installer downloads asynchronously.
 
 ## 2. Utility Namespaces & Helper APIs
 
-### [ProcessUtils](file:///E:/coding_workspaces/CPP/lzy-downloader/src/core/ProcessUtils.h)
+### [ProcessUtils](../src/core/ProcessUtils.h)
 Shared utilities for process configuration, binary location, and termination.
 
 #### Key Functions
@@ -135,14 +141,14 @@ Shared utilities for process configuration, binary location, and termination.
 - `void terminateProcessTree(QProcess *process, int gracefulTimeoutMs = 2000)`: Cleanly interrupts (or kills) a process and all spawned sub-processes.
 - `void clearCache()`: Invalidates resolved binary path mappings.
 
-### [SmartBinaryResolver](file:///E:/coding_workspaces/CPP/lzy-downloader/src/core/SmartBinaryResolver.h)
+### [SmartBinaryResolver](../src/core/SmartBinaryResolver.h)
 Implements version-aware discovery logic for external binary dependencies (`yt-dlp`, `ffmpeg`, `gallery-dl`, `aria2c`, `deno`).
 
 #### Key Functions
 - `ProcessUtils::FoundBinary resolve(const QString& binaryName, ConfigManager* configManager)`: Dynamically searches system folders, package manager installs (Scoop, WinGet, Chocolatey), and resolves the highest-version executable.
 - `QString readIniKeyDirect(const QString &filePath, const QString &section, const QString &key)`: Bypass registry/QSettings caches to read direct config files.
 
-### [SortingManager](file:///E:/coding_workspaces/CPP/lzy-downloader/src/core/SortingManager.h)
+### [SortingManager](../src/core/SortingManager.h)
 Applies custom naming rules and tags to structure download targets automatically.
 
 #### Key Functions

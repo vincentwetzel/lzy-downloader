@@ -127,6 +127,7 @@ If the workflow is unavailable, navigate to https://github.com/vincentwetzel/lzy
 - [ ] `vcpkg.json` `version-string` matches `CMakeLists.txt`
 - [ ] `vcpkg.json` `builtin-baseline` is pinned to the intended vcpkg commit
 - [ ] `CHANGELOG.md` has the release notes under the matching dated version
+- [ ] Active documentation matches the release behavior, including the README, API, architecture, settings, specification, manifest, coding standards, and release guides
 - [ ] Installer was rebuilt from the current `CMakeLists.txt` version (`python build_release.py` or `makensis /DAPP_VERSION=...`), not manually renamed afterward
 - [ ] Release build completed successfully (`python build_release.py`)
 - [ ] Headless Qt tests passed (`python .\run_headless_tests.py --build-dir build --config Release`)
@@ -149,6 +150,8 @@ The application stores user data in standard Windows directories:
 | Archive | `%LOCALAPPDATA%\LzyDownloader\download_archive.db` |
 | Queue Backup | `%LOCALAPPDATA%\LzyDownloader\downloads_backup.json` |
 | Local API token | `%LOCALAPPDATA%\LzyDownloader\api_token.txt` (`Server\api_token.txt` for server/headless/background runtime) |
+
+The Local API also accepts `override_archive: true` on intentional automation re-downloads; verify the Discord bridge and C++ executable are updated together so this confirmation reaches the queue manager.
 | Logs | `%LOCALAPPDATA%\LzyDownloader\LzyDownloader_YYYY-MM-dd_HH-mm-ss.log` (one new file per run; oldest logs deleted after the most recent 5) |
 
 Server/headless mode still reads user preferences from `%LOCALAPPDATA%\LzyDownloader\settings.ini`, but isolates runtime queue backups, API tokens, and logs under `%LOCALAPPDATA%\LzyDownloader\Server\`.

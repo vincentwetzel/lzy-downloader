@@ -38,7 +38,6 @@ This document is a quick file-to-responsibility index for the C++ port. It is in
 - `src/core/DownloadQueueManagerCleanup.cpp`: Asynchronous startup reconciliation of orphaned UUID folders while queue IDs are protected.
 - `src/core/DownloadTempCleanup.*`: Shared temporary-root resolution, guarded deletion, and startup orphan-folder reconciliation.
 - `src/core/ConfigManager.*`: `settings.ini` persistence and validation.
-- `src/core/DownloadFinalizer.*`: File-stability verification, playlist filename finalization, destination moves, and guarded terminal cleanup.
 - `src/core/ProcessUtils.*`: Process helpers, binary discovery, and termination utilities.
 - `src/core/SmartBinaryResolver.*`: External binary path resolution and auto-detected path ownership.
 - `src/core/PlaylistExpansionWorker.*`: Playlist validation and expansion.
@@ -53,6 +52,7 @@ This document is a quick file-to-responsibility index for the C++ port. It is in
 - `src/ui/ActiveDownloadsTab.*` / `src/ui/DownloadItemWidget.*`: Responsive active-download rows, queued thumbnail previews, progress display, and row actions.
 - `src/ui/advanced_settings/`: Advanced Settings pages, including template and binary management.
 - `src/ui/advanced_settings/BinariesPage.*`: External-binary discovery, install/update actions, version status, and staged Windows FFmpeg replacement.
+- `src/ui/InitialBinarySetupDialog.*`: First-launch binary preference and optional-tool selection UI that drives guided provisioning.
 - `src/ui/advanced_settings/DownloadOptionsPage.*`: Download-option controls, including the enabled-by-default playlist-index prefix.
 - `src/ui/widgets/`: Reusable widgets such as custom progress bars and row controls.
 - `src/tests/`: Headless Qt tests for argument construction, parsing, persistence, UI state, binary/API behavior, and end-to-end behavior.
