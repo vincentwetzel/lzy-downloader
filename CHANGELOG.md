@@ -7,9 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIVE.md](docs/CHANGELOG_ARCHIVE.md).
 
+## [1.2.24] - 2026-08-16
+
+- Windows installer now offers to launch LzyDownloader after installation completes.
+- Download History source URLs are now rendered as clickable hyperlinks that open in the default browser.
+- Incomplete yt-dlp media is no longer treated as completed merely because a final path was printed. Missing fragments, empty data blocks, and invalid media input now fail before metadata embedding, with a diagnostic that distinguishes the transfer failure from a missing FFmpeg installation.
+- Active documentation now agrees on recovery diagnostics, explicit upcoming-stream fallback metadata, Qt-native data-file locations, and the release-note file required by tag-based publishing.
+
 ## Unreleased
 
 No unreleased changes.
+
+## [1.2.23] - 2026-08-15
+
+- Synchronized release metadata and Windows executable version information to `1.2.23` so CMake, vcpkg, the application binary, and installer packaging remain aligned.
+- Refreshed the GitHub release notes workflow to publish the version-matched release description automatically.
 
 ## [1.2.22] - 2026-08-15
 
@@ -28,6 +40,7 @@ No unreleased changes.
 ### Fixed
 - Temporary download cleanup now uses one shared root resolver, removes empty folders when yt-dlp/gallery-dl cannot start, and asynchronously removes orphaned UUID folders after queue restoration while preserving resumable stopped/failed downloads.
 - Transient aria2c failures now use bounded retry/backoff settings and one delayed fallback to yt-dlp's native downloader for timeout, slow-transfer, network, and temporary-server failures. Automatic recovery removes stale `.info.json` sidecars while preserving media partials for resume, and reports the recovery status in the download row.
+- Explicit yt-dlp premiere/upcoming diagnostics now survive playlist-probe fallback, keeping active livestreams on yt-dlp's native downloader instead of aria2c and reducing failures from rotating live manifests.
 
 ## [1.2.18] - 2026-08-05
 

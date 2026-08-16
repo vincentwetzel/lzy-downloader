@@ -19,6 +19,9 @@ public:
     void callParseStandardError(const QByteArray &output) { parseStandardError(output); }
     void callHandleOutputLine(const QString &line) { handleOutputLine(line); }
     bool callRetryWithoutAria2c(const QString &diagnostic) { return retryWithoutAria2cIfTransientFailure(diagnostic); }
+    bool callIsIncompleteMediaDiagnosticLine(const QString &line) const { return isIncompleteMediaDiagnosticLine(line); }
+    bool callHasFatalDownloadDiagnostic() const { return hasFatalDownloadDiagnostic(); }
+    bool callHasIncompleteMediaDiagnostic() const { return hasIncompleteMediaDiagnostic(); }
     QStringList arguments() const { return m_args; }
 
     // Expose internal state for assertions
@@ -41,6 +44,7 @@ private slots:
     void testYtDlpProgressStalledParsing();
     void testLifecycleStatusParsing();
     void testLivestreamWaitParsing();
+    void testIncompleteMediaDiagnosticClassification();
 };
 
 void TestYtDlpWorker::init() {
@@ -245,6 +249,25 @@ void TestYtDlpWorker::testLivestreamWaitParsing() {
     progressData = progressSpy.takeFirst().at(1).toMap();
     QCOMPARE(progressData[QStringLiteral("progress")].toInt(), -1);
     QCOMPARE(progressData[QStringLiteral("status")].toString(), QStringLiteral("Waiting for livestream to start..."));
+}
+
+void TestYtDlpWorker::testIncompleteMediaDiagnosticClassification() {
+    ConfigManager *config = getConfigManager();
+    TestableYtDlpWorker worker(QStringLiteral("incompleteMedia"), {}, config, nullptr);
+    QSignalSpy errorSpy(&worker, &YtDlpWorker::ytDlpErrorDetected);
+
+    worker.callHandleOutputLine(QStringLiteral("ERROR: Did not get any data blocks"));
+    worker.callHandleOutputLine(QStringLiteral("[download] fragment not found; Skipping fragment 826 ..."));
+    worker.callHandleOutputLine(QStringLiteral("ERROR: Error opening input files: Invalid data found when processing input"));
+
+    QVERIFY(worker.callIsIncompleteMediaDiagnosticLine(QStringLiteral("ERROR: Did not get any data blocks")));
+    QVERIFY(worker.callIsIncompleteMediaDiagnosticLine(QStringLiteral("[download] fragment not found; Skipping fragment 826 ...")));
+    QVERIFY(worker.callHasFatalDownloadDiagnostic());
+    QVERIFY(worker.callHasIncompleteMediaDiagnostic());
+    QCOMPARE(errorSpy.count(), 1);
+    const QVariantList errorArgs = errorSpy.first();
+    QCOMPARE(errorArgs.at(1).toString(), QStringLiteral("incomplete_media"));
+    QVERIFY(errorArgs.at(2).toString().contains(QStringLiteral("incomplete"), Qt::CaseInsensitive));
 }
 
 // Generates the main() function for the test executable

@@ -3,6 +3,7 @@
 #include "core/ConfigManager.h"
 #include "core/DownloadTempCleanup.h"
 #include "core/ProcessUtils.h"
+#include "core/YtDlpLiveStatus.h"
 
 #include <QUrl> // Add QUrl include
 #include <QDir>
@@ -99,6 +100,21 @@ void TestYtDlpArgsBuilder::testLivestreamArguments() {
     QVERIFY(args.contains(QStringLiteral("mp4")));
     QVERIFY(args.contains(QStringLiteral("-f")));
     QVERIFY(args.contains(QStringLiteral("bestvideo[height<=?720]+bestaudio/best")));
+
+    mockConfig->set(QStringLiteral("Metadata"), QStringLiteral("use_aria2c"), true);
+    ProcessUtils::cacheBinary(QStringLiteral("aria2c"), {QStringLiteral("aria2c"), QStringLiteral("System PATH")});
+    args = builder.build(mockConfig, QUrl(TEST_URL).toString(), options);
+    QVERIFY(!args.contains(QStringLiteral("--external-downloader")));
+
+    QVariantMap upcomingItem;
+    upcomingItem.insert(QStringLiteral("type"), QStringLiteral("video"));
+    QVERIFY(YtDlpLiveStatus::isExplicitUpcomingDiagnostic(QStringLiteral("ERROR: [youtube] Premieres in 5 minutes")));
+    YtDlpLiveStatus::markUpcoming(&upcomingItem);
+    const QStringList upcomingArgs = builder.build(mockConfig, QUrl(TEST_URL).toString(), upcomingItem);
+    QVERIFY(!upcomingArgs.contains(QStringLiteral("--external-downloader")));
+    QVERIFY(upcomingArgs.contains(QStringLiteral("--wait-for-video")));
+    QVERIFY(!YtDlpLiveStatus::isExplicitUpcomingDiagnostic(QStringLiteral("[youtube] Title: Starting in the morning")));
+    ProcessUtils::clearCache();
 
     // Test with MPEG-TS
     mockConfig->set(QStringLiteral("Livestream"), QStringLiteral("download_as"), QStringLiteral("MPEG-TS"));

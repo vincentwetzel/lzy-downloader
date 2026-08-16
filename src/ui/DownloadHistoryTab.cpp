@@ -92,8 +92,26 @@ public:
         titleLabel->setFont(titleFont);
         titleLabel->setWordWrap(true);
         
-        QLabel *urlLabel = new QLabel(data.url, this);
-        urlLabel->setTextFormat(Qt::PlainText);
+        QLabel *urlLabel = new QLabel(this);
+        const QUrl sourceUrl(data.url);
+        const bool canOpenSourceUrl = sourceUrl.isValid()
+            && !sourceUrl.scheme().isEmpty()
+            && !sourceUrl.host().isEmpty()
+            && (sourceUrl.scheme().compare(QStringLiteral("http"), Qt::CaseInsensitive) == 0
+                || sourceUrl.scheme().compare(QStringLiteral("https"), Qt::CaseInsensitive) == 0);
+        if (canOpenSourceUrl) {
+            const QString escapedUrl = data.url.toHtmlEscaped();
+            urlLabel->setText(QStringLiteral("<a href=\"%1\">%1</a>").arg(escapedUrl));
+            urlLabel->setTextFormat(Qt::RichText);
+            urlLabel->setOpenExternalLinks(true);
+            urlLabel->setTextInteractionFlags(Qt::LinksAccessibleByMouse | Qt::LinksAccessibleByKeyboard);
+            urlLabel->setCursor(Qt::PointingHandCursor);
+            urlLabel->setToolTip(tr("Open the original source URL"));
+        } else {
+            urlLabel->setText(data.url);
+            urlLabel->setTextFormat(Qt::PlainText);
+            urlLabel->setToolTip(tr("Original source URL is unavailable"));
+        }
         QFont urlFont = urlLabel->font();
         urlFont.setPointSize(qMax(8, urlFont.pointSize() - 1));
         urlLabel->setFont(urlFont);

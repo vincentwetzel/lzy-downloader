@@ -8,6 +8,11 @@ maintainer release workflow.
 
 ## Features
 
+The downloader keeps actionable diagnostics through transfer and
+post-processing. A printed yt-dlp final path is not treated as proof of valid
+media: missing fragments, empty data blocks, invalid headers, and invalid
+input are reported as incomplete-transfer failures before metadata embedding.
+
 - 🎬 **Download Video & Audio** — Support for YouTube, TikTok, Instagram, and 1000+ other sites via yt-dlp
 - 🎵 **Audio Extraction** — Extract audio as MP3, M4A, opus, or other formats
 - 📋 **Playlist Support** - Download entire playlists, only the first item, or a selected range of expanded playlist entries
@@ -20,6 +25,7 @@ maintainer release workflow.
 - 📊 **Concurrent Downloads** — Queue and manage multiple downloads simultaneously
 - ⏸️ **Pause & Resume** — Safely stop downloads, preserve partial `.part` files, and resume validated queue backups across application restarts
 - 🧰 **External Binaries Manager** — Detect, version-check, install, and update `yt-dlp`, `gallery-dl`, `ffmpeg`, `ffprobe`, `aria2c`, and `deno` from inside the app, with version-aware local `bin` discovery, package-manager-aware commands, update warnings, SHA-256 checks when available, and cancellable install/update logs. Fresh interactive installs use guided system-first/app-managed-first setup with optional-tool provisioning.
+- 🛡️ **Recovery Diagnostics** — Distinguishes incomplete media and critical extractor failures from recoverable post-processing warnings, even when yt-dlp printed a final path
 - 🖼️ **Thumbnail Embedding** — Automatic thumbnail download, bounded preview loading, and embedding for videos and audio
 - 🌐 **Browser Cookies** — Use saved cookies from Firefox, Chrome, Edge, or other browsers for age-restricted content
 - 📂 **Smart Sorting** — Automatically organize downloads into subfolders based on uploader, playlist, date, or custom patterns
@@ -32,7 +38,7 @@ Download the latest installer from [Releases](https://github.com/vincentwetzel/L
 
 1. Download `LzyDownloader-Setup-X.X.X.exe`
 2. Run the installer
-3. Launch from Start Menu or desktop shortcut
+3. On the final installer page, leave “Launch LzyDownloader” checked to start the app immediately, or launch it later from the Start Menu or desktop shortcut
 
 ### From Source
 
@@ -109,6 +115,7 @@ All settings are saved to `%LOCALAPPDATA%\LzyDownloader\settings.ini` on Windows
 - **Browser Cookies** - Select a browser to use for authentication
 - **Browser Cookie fallback** - Public media can retry once without browser cookies when yt-dlp's cookie extraction or cookie-backed extractor state fails
 - **Livestream replays** - Completed livestreams are detected from yt-dlp `live_status` metadata and downloaded as archived media; active/upcoming streams keep native wait and Finish Now behavior
+- **Download History links** - Valid HTTP/HTTPS source URLs are keyboard-accessible links; malformed or incomplete values remain plain text
 - **Queue previews** - Queued rows begin loading supplied remote thumbnails immediately, and long titles wrap within narrow windows so row actions remain reachable
 - **Playlist audio filenames** - Playlist audio downloads are prefixed with zero-padded indices by default; change `Download Options -> Prefix playlist indices` to disable this behavior
 - **Local API** - Enable a localhost-only API server from Advanced Settings -> Configuration
@@ -140,6 +147,15 @@ Playlist expansion is an asynchronous optimization. If a normal media URL has no
 SponsorBlock and accurate section cuts normalize the rebuilt audio timeline by re-encoding audio; they do not copy packets from the pre-cut timeline. Cut and post-processing processes are resource-bounded and run at below-normal priority on Windows where supported.
 
 Livestream mode is selected from yt-dlp metadata or explicit wait options. URL words such as `/live/`, and ordinary title phrases such as `Live in` or `Starting in`, are not treated as livestream evidence.
+
+If playlist probing encounters an explicit premiere/upcoming diagnostic, that
+metadata is preserved on the fallback item before downloader arguments are
+constructed. Ordinary media URLs may recover from transient probe failures,
+while explicit playlist-shaped URLs and missing tools remain terminal errors.
+
+When yt-dlp reports missing fragments, empty data blocks, invalid media input,
+or related FFmpeg input errors, the observed final path is rejected and the
+download is reported as incomplete before metadata embedding begins.
 
 See [docs/FILE_MANIFEST.md](docs/FILE_MANIFEST.md) for the path-to-code index, [docs/API_SURFACE.md](docs/API_SURFACE.md) for public interfaces, [docs/SPEC.md](docs/SPEC.md) for behavior requirements, and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for data flow.
 

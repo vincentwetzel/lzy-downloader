@@ -52,6 +52,12 @@ protected: // Changed from private for testing
     bool requestedAudioExtraction() const;
     bool isBrowserCookieFailureLine(const QString &line) const;
     bool hasBrowserCookieFailureDiagnostic() const;
+    /** Returns whether one output line proves that the media transfer is unusable. */
+    bool isIncompleteMediaDiagnosticLine(const QString &line) const;
+    /** Checks retained worker diagnostics before allowing a non-zero exit to finalize. */
+    bool hasFatalDownloadDiagnostic() const;
+    /** Checks whether retained diagnostics specifically identify incomplete media. */
+    bool hasIncompleteMediaDiagnostic() const;
     bool retryWithoutBrowserCookiesIfCookieExtractionFailed();
     /** Retries a transient aria2-backed transfer once through yt-dlp's native downloader. */
     bool retryWithoutAria2cIfTransientFailure(const QString &diagnostic);
