@@ -37,10 +37,12 @@ This will update `extractors_yt-dlp.json` and `extractors_gallery-dl.json`. Both
 
 ### Step 2: Update Version Number
 
-Update the version in `CMakeLists.txt` (`project(VERSION x.y.z)`). This is the single source of truth for the release version. The app version is generated from there into `version.h`, used by the Windows resources, and passed into the NSIS installer build by `build_release.ps1`.
+Update the version in `CMakeLists.txt` (`project(VERSION x.y.z)`). This is the single source of truth for the release version. The app version is generated from there into `version.h`, used by the Windows resources, and passed into the NSIS installer build by `build_release.py`.
 
 Also update `vcpkg.json` `version-string` to the same version, keep its `builtin-baseline` pinned to the intended vcpkg commit, and ensure `CHANGELOG.md` has the release notes under the matching dated version heading.
-The matching GitHub release body belongs in `release-notes/vX.Y.Z.md`; the tag-triggered workflow attaches it automatically.
+The matching GitHub release body belongs in `release-notes/vX.Y.Z.md`; create
+that file before tagging because the tag-triggered workflow attaches it
+automatically.
 
 **Release rule:** Do not manually rename the installer `.exe` to fix a version mismatch. If the setup filename version is wrong, fix the release inputs/scripts and rebuild so the installer filename, Windows app version, and uninstall `DisplayVersion` all match the same `CMakeLists.txt` version.
 
@@ -57,6 +59,7 @@ This script:
 - Configures a Release build with CMake
 - Builds `LzyDownloader.exe`
 - On Windows, runs `makensis` against `LzyDownloader.nsi` with `/DAPP_VERSION=<version from CMakeLists.txt>` and `/DRELEASE_BUILD_DIR=build-release\Release`
+- The Windows installer finish page offers a checked-by-default option to launch `LzyDownloader.exe` after installation
 - On Linux, stages a clean `build-release/AppDir`, generates a linuxdeploy desktop file whose `Icon` matches the resized release PNG, and packages `LzyDownloader-<version>-x86_64.AppImage` with `linuxdeploy`
 
 ### Step 3b: Run Headless Tests
@@ -129,11 +132,13 @@ If the workflow is unavailable, navigate to https://github.com/vincentwetzel/lzy
 - [ ] `vcpkg.json` `builtin-baseline` is pinned to the intended vcpkg commit
 - [ ] `CHANGELOG.md` has the release notes under the matching dated version
 - [ ] `release-notes/vX.Y.Z.md` contains the GitHub release description
+- [ ] `release-notes/` exists in the checkout and the file name matches the pushed tag
 - [ ] Active documentation matches the release behavior, including the README, API, architecture, settings, specification, manifest, coding standards, and release guides
 - [ ] Installer was rebuilt from the current `CMakeLists.txt` version (`python build_release.py` or `makensis /DAPP_VERSION=...`), not manually renamed afterward
 - [ ] Release build completed successfully (`python build_release.py`)
 - [ ] Headless Qt tests passed (`python .\run_headless_tests.py --build-dir build --config Release`)
 - [ ] NSIS installer tested (install/uninstall preserves `%LOCALAPPDATA%\LzyDownloader\settings.ini`, `download_archive.db`, `downloads_backup.json`, and log files)
+- [ ] NSIS installer finish-page launch option starts `LzyDownloader.exe` when left checked and does not start it when cleared
 - [ ] Clean Windows install tested for HTTPS update checks (Qt TLS backend loads with `libcrypto-3-x64.dll` and `libssl-3-x64.dll` beside `LzyDownloader.exe`)
 - [ ] Timestamped logging verified (`%LOCALAPPDATA%\LzyDownloader\LzyDownloader_YYYY-MM-dd_HH-mm-ss.log`)
 - [ ] Log retention verified (startup cleanup keeps only the 5 most recent logs)
@@ -166,7 +171,7 @@ On Linux, user configuration, databases, and downloads follow the XDG Base Direc
 
 | File | Location |
 |------|----------|
-| Settings | `~/.config/LzyDownloader/settings.ini` |
+| Settings | `~/.local/share/LzyDownloader/settings.ini` |
 | Archive | `~/.local/share/LzyDownloader/download_archive.db` |
 | Queue Backup | `~/.local/share/LzyDownloader/downloads_backup.json` |
 | Logs | `~/.local/share/LzyDownloader/LzyDownloader_YYYY-MM-dd_HH-mm-ss.log` |

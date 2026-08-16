@@ -34,6 +34,8 @@ This document is a quick file-to-responsibility index for the C++ port. It is in
 - `src/core/DownloadManager.*`: Queue orchestration, download lifecycle, and finalization flow.
 - `src/core/DownloadFinalizer.*`: Background verification, destination moves, and guarded terminal temporary-directory cleanup.
 - `src/core/YtDlpWorker.*`: yt-dlp process handling, output parsing, progress classification, browser-cookie failure retry detection, and bounded aria2c-to-native recovery.
+- `src/core/YtDlpWorkerDiagnostics.cpp`: Shared fatal/incomplete-media diagnostic classification used to reject stale final paths before FFmpeg metadata embedding or finalization.
+- `src/core/YtDlpLiveStatus.h`: Narrow mapping from explicit yt-dlp premiere/upcoming diagnostics to live queue metadata during probe fallback.
 - `src/core/DownloadQueueState.*`: Queue persistence to `downloads_backup.json`.
 - `src/core/DownloadQueueManagerCleanup.cpp`: Asynchronous startup reconciliation of orphaned UUID folders while queue IDs are protected.
 - `src/core/DownloadTempCleanup.*`: Shared temporary-root resolution, guarded deletion, and startup orphan-folder reconciliation.
@@ -54,7 +56,8 @@ This document is a quick file-to-responsibility index for the C++ port. It is in
 - `src/ui/advanced_settings/BinariesPage.*`: External-binary discovery, install/update actions, version status, and staged Windows FFmpeg replacement.
 - `src/ui/InitialBinarySetupDialog.*`: First-launch binary preference and optional-tool selection UI that drives guided provisioning.
 - `src/ui/advanced_settings/DownloadOptionsPage.*`: Download-option controls, including the enabled-by-default playlist-index prefix.
-- `src/ui/widgets/`: Reusable widgets such as custom progress bars and row controls.
+- `src/ui/`: Reusable widgets, tabs, dialogs, and row controls; resource files
+  are kept in `src/ui/assets/` and `src/ui/resources.qrc`.
 - `src/tests/`: Headless Qt tests for argument construction, parsing, persistence, UI state, binary/API behavior, and end-to-end behavior.
 - `extractors_yt-dlp.json` / `extractors_gallery-dl.json`: Bundled extractor-domain data used by URL validation, smart type selection, and Supported Sites UI.
 
@@ -62,3 +65,6 @@ This document is a quick file-to-responsibility index for the C++ port. It is in
 - If you need to change behavior, start in `docs/SPEC.md`.
 - If you need to find code, use this manifest first, then jump to the relevant `src/` entry point.
 - If you add or move major files, update this manifest and `docs/ARCHITECTURE.md` together.
+- Keep the manifest limited to real source paths. Historical or generated
+  paths should be described in `docs/CHANGELOG_ARCHIVE.md`, not listed as
+  current entry points.

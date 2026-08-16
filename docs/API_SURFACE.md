@@ -34,10 +34,12 @@ The API surface adheres to **Qt best practices**:
   remains unaffected.
 
 - `DownloadManager` treats playlist probing as recoverable for ordinary media URLs when the failure is transient; explicit playlist-shaped URLs and missing tools still fail visibly.
+- `PlaylistExpansionWorker` preserves an explicit yt-dlp premiere/upcoming diagnostic as `live_status=is_upcoming` and `is_live=true` on a single-item fallback, ensuring native yt-dlp downloader selection before the worker starts.
 - `DownloadManager` emits the initial queue row before playlist expansion completes. A supplied `thumbnail_url` is carried into that placeholder and playlist entry metadata so the UI can load a preview immediately.
 - `DownloadFinalizer` removes a temporary directory only when its final directory name matches the download ID; stopped downloads retain their temporary data for resume. `DownloadTempCleanup` supplies the configured/completed-downloads/OS-temp fallback chain and refuses shared-root, non-ID, and symlink removal.
 - `DownloadQueueManager::cleanupOrphanedTempDirectories()` runs the protected startup reconciliation asynchronously after queue restoration, deleting only unprotected direct-child UUID folders.
 - `YtDlpWorker` may retry one transient aria2c transport failure (exit codes 2, 5, 6, or 29) with the native downloader, deleting stale metadata sidecars but retaining media partials.
+- `YtDlpWorker` rejects a captured final path when retained output contains missing-fragment, empty-data-block, invalid-header, invalid-container, or critical extractor diagnostics; these failures do not enter metadata embedding or finalization.
 - `YtDlpArgsBuilder` generates synchronization-safe accurate-cut arguments, including audio timestamp normalization and bounded FFmpeg thread settings.
 - `ConfigManager` and `DownloadOptionsPage` use `DownloadOptions/prefix_playlist_indices=true` as the canonical default, so playlist audio filenames are consistently prefixed unless the user opts out.
 - `ProcessUtils::setBackgroundProcessPriority(QProcess&)` lowers supported Windows post-processing processes to below-normal priority.
@@ -127,6 +129,19 @@ Handles remote update lookups and triggers installer downloads asynchronously.
 - `void updateAvailable(const QString &latestVersion, const QString &releaseNotes, const QUrl &downloadUrl)`: Emitted if a newer version is discovered.
 - `void downloadProgress(qint64 bytesReceived, qint64 bytesTotal)`: Emitted during installer acquisition.
 - `void downloadFinished()`: Emitted when the installer file is complete.
+
+### [YtDlpLiveStatus](../src/core/YtDlpLiveStatus.h)
+Small metadata helper used at the playlist-probe boundary. It recognizes only
+explicit yt-dlp premiere/upcoming diagnostics and marks a fallback item with
+`live_status=is_upcoming` and `is_live=true`. It deliberately does not infer
+livestream state from URL text or ambiguous title phrases.
+
+### YtDlpWorker diagnostic boundary
+`YtDlpWorkerDiagnostics.cpp` owns the reusable fatal and incomplete-media
+classification used by output parsing and process completion. A printed final
+path is not sufficient evidence of a valid media file: missing fragments,
+empty data blocks, invalid headers, invalid-input FFmpeg diagnostics, and
+critical extractor failures remain terminal and bypass metadata embedding.
 
 ---
 

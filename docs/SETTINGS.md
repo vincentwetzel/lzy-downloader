@@ -294,9 +294,10 @@ Internal settings for window state and UI layout. These are managed automaticall
 
 Playlist probing and accurate-cut resource limits are runtime policies, not user settings. They apply consistently to GUI, CLI, API, server, headless, and background launches. The cut encoder and custom FFmpeg arguments remain the user-configurable controls; custom arguments are appended after the safe synchronization defaults and may intentionally override them.
 
-The `settings.ini` file is stored in the system's standard user configuration directory:
+The `settings.ini` file is stored in the application-local data directory used
+by `QStandardPaths::AppLocalDataLocation`:
 - **Windows:** `%LOCALAPPDATA%\LzyDownloader\settings.ini`
-- **Linux:** `~/.config/LzyDownloader/settings.ini`
+- **Linux:** `~/.local/share/LzyDownloader/settings.ini`
 - **macOS:** `~/Library/Application Support/LzyDownloader/settings.ini`
 
 This file is the single source of truth for user preferences in both GUI and server/headless mode. Obsolete `Server/settings.ini` files are not used; if the main settings file is missing, the app may copy an old server settings file back to this shared location once.
@@ -305,7 +306,7 @@ This file is the single source of truth for user preferences in both GUI and ser
 
 Active, paused, and stopped downloads are automatically serialized to a JSON file so they can be resumed across application restarts:
 - **Windows:** `%LOCALAPPDATA%\LzyDownloader\downloads_backup.json`
-- **Linux:** `~/.config/LzyDownloader/downloads_backup.json`
+- **Linux:** `~/.local/share/LzyDownloader/downloads_backup.json`
 - **macOS:** `~/Library/Application Support/LzyDownloader/downloads_backup.json`
 
 When launched with `--server`, `--headless`, or `--background`, queue runtime state is isolated under `Server/`, for example `%LOCALAPPDATA%\LzyDownloader\Server\downloads_backup.json` on Windows.
@@ -327,9 +328,9 @@ The server binds only to `127.0.0.1:8765`. Requests must include `Authorization:
 
 ## Log File Location
 
-Application logs are stored in the same user configuration directory:
+Application logs are stored in the same application-local data directory:
 - **Windows:** `%LOCALAPPDATA%\LzyDownloader\LzyDownloader_YYYY-MM-dd_HH-mm-ss.log`
-- **Linux:** `~/.config/LzyDownloader/LzyDownloader_YYYY-MM-dd_HH-mm-ss.log`
+- **Linux:** `~/.local/share/LzyDownloader/LzyDownloader_YYYY-MM-dd_HH-mm-ss.log`
 - **macOS:** `~/Library/Application Support/LzyDownloader/LzyDownloader_YYYY-MM-dd_HH-mm-ss.log`
 
 Server/headless logs are isolated under the `Server/` subfolder.

@@ -59,10 +59,12 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
     const bool hasErrorPrefix = normalizedLine.startsWith(QStringLiteral("ERROR:"), Qt::CaseInsensitive) ||
                                 normalizedLine.startsWith(QStringLiteral("[download] Got error:"), Qt::CaseInsensitive);
 
+    const bool incompleteMediaDiagnostic = isIncompleteMediaDiagnosticLine(normalizedLine);
+
     const bool exitedWithCodeError = normalizedLine.contains(QStringLiteral("exited with code"), Qt::CaseInsensitive) &&
                                      !normalizedLine.contains(QStringLiteral("code 0"));
 
-    if (hasErrorPrefix || exitedWithCodeError || cookiePermissionDiagnostic) {
+    if (hasErrorPrefix || incompleteMediaDiagnostic || exitedWithCodeError || cookiePermissionDiagnostic) {
         // Always capture error lines for diagnostics, even if they don't match a specific known error type.
         // This guarantees the terminal exit popup has context for unknown yt-dlp failures.
         m_errorLines.append(normalizedLine);
@@ -105,8 +107,15 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
             QRegularExpression::CaseInsensitiveOption
         );
 
+        // Check for an incomplete stream before classifying FFmpeg's follow-up
+        // input error. This keeps a partial-media failure from looking like a
+        // missing or misconfigured FFmpeg installation.
+        if (incompleteMediaDiagnostic) {
+            emitError(QStringLiteral("incomplete_media"),
+                      tr("The media transfer was incomplete or invalid. The downloaded stream is missing data or cannot be read."));
+        }
         // Check for cookie permission / access denied error
-        if (cookiePermissionDiagnostic) {
+        else if (cookiePermissionDiagnostic) {
             emitError(QStringLiteral("cookie_permission_denied"),
                 tr("Failed to access browser cookies (the database may be locked by a running browser, or access was denied).\n\n"
                    "The download will automatically retry once without cookies. If it still fails, please close your browser and try again."));

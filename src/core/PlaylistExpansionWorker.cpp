@@ -2,6 +2,7 @@
 
 #include "PlaylistExpansionParser.h"
 #include "YtDlpArgsBuilder.h"
+#include "YtDlpLiveStatus.h"
 #include "core/ProcessUtils.h"
 
 #include <QDebug>
@@ -193,6 +194,10 @@ void PlaylistExpansionWorker::onProcessFinished(int exitCode, QProcess::ExitStat
             item.insert(QStringLiteral("url"), m_url);
             item.insert(QStringLiteral("is_playlist"), false);
             item.insert(QStringLiteral("playlist_index"), -1);
+            if (YtDlpLiveStatus::isExplicitUpcomingDiagnostic(errorMessage)) {
+                YtDlpLiveStatus::markUpcoming(&item);
+                qInfo() << "Playlist expansion marked fallback item as an upcoming livestream; native yt-dlp downloader will be used.";
+            }
             emit expansionFinished(m_url, {item}, QString());
             return;
         }

@@ -1,6 +1,7 @@
 # LzyDownloader C++ Port TODO
 
 ## In Progress
+- [x] Make valid Download History source URLs clickable and open them in the default browser.
 - [x] Keep the Active Downloads scroll content and rows constrained to the viewport so right-side Cancel/Retry and folder actions remain visible at compact widths.
 - [x] Keep Active Downloads rows compact at narrow window widths so long titles do not hide row actions behind horizontal scrolling.
 - [x] Display queued thumbnail URLs immediately, including preserving the thumbnail when a single-item playlist placeholder is updated.
@@ -18,14 +19,18 @@
 - [x] Preserve track-level artist metadata for audio playlists by using item-level yt-dlp artist/creator/channel/uploader fields and excluding playlist-owner fields.
 - [x] Add first-launch external-tool provisioning with a system-first/app-managed-first choice, optional-tool selection, non-modal update guidance, and configurable automatic updates for app-managed tools.
 
-Documentation was synchronized with the current implementation on 2026-08-15, including first-launch binary provisioning and explicit Local API archive overrides.
+- [x] Synchronize all active documentation with the current implementation on 2026-08-15, including first-launch binary provisioning, explicit Local API archive overrides, recovery diagnostics, and the platform data-directory layout. Historical changelog entries remain unchanged.
 - [x] Allow Discord bridge enqueue requests to explicitly override completed archive entries without a GUI confirmation dialog.
+- [x] Add a checked-by-default NSIS finish-page option to launch LzyDownloader after installation.
+- [x] Prevent incomplete yt-dlp media with a printed final path from entering FFmpeg metadata embedding; classify missing fragments, empty data blocks, and invalid media input as transfer failures with accurate diagnostics.
+- [x] Preserve explicit yt-dlp premiere/upcoming metadata during playlist-probe fallback so active livestreams cannot be assigned aria2c.
 
 ## Planned / Future Enhancements
 - [ ] Implement translations for supported interface languages (see `docs/LANGUAGES.md`).
 - [ ] Integrate Qt Linguist (`.ts`/`.qm` compiler steps) into `CMakeLists.txt` build automation.
 
 ## Completed
+- [x] Prepared the v1.2.24 release metadata, changelog entry, and tag-matched GitHub release notes.
 - [x] Enabled zero-padded playlist filename prefixes by default while preserving an explicit user opt-out.
 - [x] Prevented false browser-cookie retries from matching ordinary metadata prose such as `locked in a heated race`; cookie fallback now uses explicit cookie/database/sign-in diagnostics and the normal process-finished path.
 - [x] Prevented ordinary title phrases such as `Starting in` or `Live in` from triggering scheduled-livestream error handling.

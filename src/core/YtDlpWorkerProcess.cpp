@@ -87,27 +87,19 @@ void YtDlpWorker::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatu
     const bool normalExit = (exitStatus == QProcess::NormalExit);
     const bool capturedFinalFileExists = !m_finalFilename.isEmpty() && QFile::exists(m_finalFilename);
 
-    // Check for critical errors that should always result in failure, even if yt-dlp claims to have produced a file or exited with code 1.
-    bool hasCriticalError = false;
-    static const QRegularExpression criticalErrorRegex(
-        QStringLiteral("this video is unavailable|private video|video unavailable|this video has been removed|violating youtube's terms of service"),
-        QRegularExpression::CaseInsensitiveOption
-    );
-    for (const QString& line : std::as_const(m_errorLines)) {
-        if (line.contains(QStringLiteral("video"), Qt::CaseInsensitive) || line.contains(QStringLiteral("violating"), Qt::CaseInsensitive)) {
-            if (criticalErrorRegex.match(line).hasMatch()) {
-                hasCriticalError = true;
-                qWarning() << "[YtDlpWorker] Detected critical error in output, forcing download failure for" << m_id;
-                break;
-            }
-        }
+    // A printed final path is not sufficient evidence of a usable file. yt-dlp
+    // can print that path after producing a partial stream, and FFmpeg may then
+    // report an invalid container while trying to repair it.
+    const bool hasFatalDiagnostic = hasFatalDownloadDiagnostic();
+    if (hasFatalDiagnostic) {
+        qWarning() << "[YtDlpWorker] Detected a fatal download diagnostic; refusing to finalize the observed path for" << m_id;
     }
 
-    const bool recoveredFromPostProcessorFailure = normalExit && exitCode != 0 && capturedFinalFileExists;
-    const bool success = !hasCriticalError && ((normalExit && exitCode == 0 && !m_finalFilename.isEmpty()) || recoveredFromPostProcessorFailure);
+    const bool recoveredFromPostProcessorFailure = normalExit && exitCode != 0 && capturedFinalFileExists && !hasFatalDiagnostic;
+    const bool success = !hasFatalDiagnostic && ((normalExit && exitCode == 0 && !m_finalFilename.isEmpty()) || recoveredFromPostProcessorFailure);
     if (!success) {
         // Existing logging for hard failures
-        qWarning() << "[YtDlpWorker] yt-dlp finished unsuccessfully for" << m_id << " (critical error detected: " << hasCriticalError << ")"
+        qWarning() << "[YtDlpWorker] yt-dlp finished unsuccessfully for" << m_id << " (fatal diagnostic detected: " << hasFatalDiagnostic << ")"
                    << "exitCode:" << exitCode
                    << "exitStatus:" << exitStatus;
         if (!m_errorLines.isEmpty()) {
@@ -233,7 +225,7 @@ void YtDlpWorker::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatu
     if (!m_finalFilename.isEmpty()) {
         qDebug() << "Final filename captured:" << m_finalFilename;
     } else {
-        if (!m_errorEmitted && !hasCriticalError) {
+        if (!m_errorEmitted && !hasFatalDiagnostic) {
             qWarning() << "Could not determine final filename. Download may have failed or produced no output.";
         }
         if (exitCode == 0 && exitStatus == QProcess::NormalExit) {
@@ -346,6 +338,10 @@ void YtDlpWorker::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatu
             if (!m_allOutputLines.isEmpty()) {
                 appendErrorPreview(m_allOutputLines.mid(qMax(qsizetype(0), m_allOutputLines.size() - MAX_FALLBACK_LINES)));
             }
+        }
+
+        if (hasIncompleteMediaDiagnostic()) {
+            appendMessage(tr("The media transfer was incomplete or invalid. FFmpeg could not read the partial output; this was a download/stream failure, not a missing FFmpeg installation."));
         }
 
         if (!m_recoveryDiagnostic.isEmpty()) {

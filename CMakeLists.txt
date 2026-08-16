@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(LzyDownloader VERSION 1.2.23 LANGUAGES CXX)
+project(LzyDownloader VERSION 1.2.26 LANGUAGES CXX)
 enable_testing()
 
 set(_qt_search_prefixes "")
@@ -194,6 +194,7 @@ add_library(LzyAppLib STATIC
     src/core/UrlValidator.cpp
     src/core/YtDlpArgsBuilder.cpp
     src/core/YtDlpWorker.cpp
+    src/core/YtDlpWorkerDiagnostics.cpp
     src/core/YtDlpWorkerOutput.cpp
     src/core/YtDlpWorkerProcess.cpp
     src/core/YtDlpWorkerProgress.cpp

@@ -1,6 +1,7 @@
 #include "DownloadManager.h"
 #include "DownloadQueueManager.h"
 #include "PlaylistExpansionWorker.h"
+#include "YtDlpLiveStatus.h"
 #include <QUuid>
 #include <QDebug>
 #include <QMetaObject>
@@ -254,6 +255,10 @@ void DownloadManager::onPlaylistExpanded(const QString &originalUrl, const QList
             QVariantMap singleItem;
             singleItem.insert(QStringLiteral("url"), originalUrl);
             singleItem.insert(QStringLiteral("playlist_index"), -1);
+            if (YtDlpLiveStatus::isExplicitUpcomingDiagnostic(error)) {
+                YtDlpLiveStatus::markUpcoming(&singleItem);
+                qInfo() << "Playlist error marked fallback item as an upcoming livestream; native yt-dlp downloader will be used.";
+            }
             itemsToProcess.append(singleItem);
         } else if (canFallBackToDirectDownload(originalUrl, error)) {
             // Playlist probing is an optimization for ordinary media URLs. A
