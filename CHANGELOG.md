@@ -23,6 +23,11 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 - Synchronized release metadata and Windows executable version information to `1.2.23` so CMake, vcpkg, the application binary, and installer packaging remain aligned.
 - Refreshed the GitHub release notes workflow to publish the version-matched release description automatically.
 
+## [1.2.23] - 2026-08-15
+
+- Synchronized release metadata and Windows executable version information to `1.2.23` so CMake, vcpkg, the application binary, and installer packaging remain aligned.
+- Refreshed the GitHub release notes workflow to publish the version-matched release description automatically.
+
 ## [1.2.22] - 2026-08-15
 
 - Active Downloads rows now force their scroll content to shrink with the viewport, keeping right-side actions visible when the window is narrow.
