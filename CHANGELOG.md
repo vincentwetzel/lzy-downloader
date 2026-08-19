@@ -20,7 +20,8 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## Unreleased
 
-No unreleased changes.
+- Browser-cookie downloads now retry once without cookies when an uncapped or higher-capped bestvideo request resolves to a combined stream below 480p, covering cookie manifests that omit the adaptive formats needed to prove the downgrade. Direct format choices, caps at the selected resolution, and active livestreams are not changed, and no site-specific extractor client is hardcoded.
+- Added regression coverage for adaptive-format detection, incomplete cookie manifests, explicit resolution caps, and downloads without cookie arguments.
 
 ## [1.2.23] - 2026-08-15
 

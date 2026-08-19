@@ -19,6 +19,8 @@ public:
     void callParseStandardError(const QByteArray &output) { parseStandardError(output); }
     void callHandleOutputLine(const QString &line) { handleOutputLine(line); }
     bool callRetryWithoutAria2c(const QString &diagnostic) { return retryWithoutAria2cIfTransientFailure(diagnostic); }
+    bool callShouldRetryWithoutBrowserCookiesForDegradedFormat() const { return shouldRetryWithoutBrowserCookiesForDegradedFormat(); }
+    void setFullMetadata(const QVariantMap &metadata) { m_fullMetadata = metadata; }
     bool callIsIncompleteMediaDiagnosticLine(const QString &line) const { return isIncompleteMediaDiagnosticLine(line); }
     bool callHasFatalDownloadDiagnostic() const { return hasFatalDownloadDiagnostic(); }
     bool callHasIncompleteMediaDiagnostic() const { return hasIncompleteMediaDiagnostic(); }
@@ -41,6 +43,7 @@ private slots:
     void testAria2ProgressParsing();
     void testAria2AdvancedProgressParsing();
     void testTransientAria2FailureFallsBackToNativeDownloader();
+    void testCookieBackedDegradedFormatRecoveryDetection();
     void testYtDlpProgressStalledParsing();
     void testLifecycleStatusParsing();
     void testLivestreamWaitParsing();
@@ -208,6 +211,65 @@ void TestYtDlpWorker::testTransientAria2FailureFallsBackToNativeDownloader() {
     QVERIFY(!QFile::exists(QDir(uuidDirectory).filePath(QStringLiteral("video.info.json"))));
     QVERIFY(!progressSpy.isEmpty());
     QVERIFY(progressSpy.last().at(1).toMap().value(QStringLiteral("status")).toString().contains(QStringLiteral("native downloader")));
+}
+
+void TestYtDlpWorker::testCookieBackedDegradedFormatRecoveryDetection() {
+    ConfigManager *config = getConfigManager();
+    TestableYtDlpWorker worker(QStringLiteral("cookieQuality"),
+                               {QStringLiteral("--cookies-from-browser"), QStringLiteral("firefox"),
+                                QStringLiteral("-f"), QStringLiteral("bestvideo+bestaudio/best")},
+                               config, nullptr);
+
+    QVariantMap selectedFormat;
+    selectedFormat.insert(QStringLiteral("format_id"), QStringLiteral("18"));
+    selectedFormat.insert(QStringLiteral("height"), 360);
+    selectedFormat.insert(QStringLiteral("vcodec"), QStringLiteral("avc1.42001E"));
+    selectedFormat.insert(QStringLiteral("acodec"), QStringLiteral("mp4a.40.2"));
+
+    QVariantMap betterVideoFormat;
+    betterVideoFormat.insert(QStringLiteral("format_id"), QStringLiteral("299"));
+    betterVideoFormat.insert(QStringLiteral("height"), 1080);
+    betterVideoFormat.insert(QStringLiteral("vcodec"), QStringLiteral("avc1.64002a"));
+    betterVideoFormat.insert(QStringLiteral("acodec"), QStringLiteral("none"));
+
+    QVariantMap audioFormat;
+    audioFormat.insert(QStringLiteral("format_id"), QStringLiteral("140"));
+    audioFormat.insert(QStringLiteral("height"), 0);
+    audioFormat.insert(QStringLiteral("vcodec"), QStringLiteral("none"));
+    audioFormat.insert(QStringLiteral("acodec"), QStringLiteral("mp4a.40.2"));
+
+    QVariantMap metadata;
+    metadata.insert(QStringLiteral("is_live"), false);
+    metadata.insert(QStringLiteral("height"), 360);
+    metadata.insert(QStringLiteral("vcodec"), QStringLiteral("avc1.42001E"));
+    metadata.insert(QStringLiteral("acodec"), QStringLiteral("mp4a.40.2"));
+    metadata.insert(QStringLiteral("formats"), QVariantList{selectedFormat, betterVideoFormat, audioFormat});
+    worker.setFullMetadata(metadata);
+
+    QVERIFY(worker.callShouldRetryWithoutBrowserCookiesForDegradedFormat());
+
+    TestableYtDlpWorker manifestAlreadyDegradedWorker(
+        QStringLiteral("cookieQualityManifestAlreadyDegraded"),
+        {QStringLiteral("--cookies-from-browser"), QStringLiteral("firefox"),
+         QStringLiteral("-f"), QStringLiteral("bestvideo+bestaudio/best")},
+        config, nullptr);
+    QVariantMap degradedOnlyMetadata = metadata;
+    degradedOnlyMetadata.insert(QStringLiteral("formats"), QVariantList{selectedFormat});
+    manifestAlreadyDegradedWorker.setFullMetadata(degradedOnlyMetadata);
+    QVERIFY(manifestAlreadyDegradedWorker.callShouldRetryWithoutBrowserCookiesForDegradedFormat());
+
+    TestableYtDlpWorker cappedWorker(QStringLiteral("cookieQualityCapped"),
+                                     {QStringLiteral("--cookies-from-browser"), QStringLiteral("firefox"),
+                                      QStringLiteral("-f"), QStringLiteral("bestvideo[height<=?360]+bestaudio/best")},
+                                     config, nullptr);
+    cappedWorker.setFullMetadata(metadata);
+    QVERIFY(!cappedWorker.callShouldRetryWithoutBrowserCookiesForDegradedFormat());
+
+    TestableYtDlpWorker noCookieWorker(QStringLiteral("cookieQualityNoCookies"),
+                                        {QStringLiteral("-f"), QStringLiteral("bestvideo+bestaudio/best")},
+                                        config, nullptr);
+    noCookieWorker.setFullMetadata(metadata);
+    QVERIFY(!noCookieWorker.callShouldRetryWithoutBrowserCookiesForDegradedFormat());
 }
 
 void TestYtDlpWorker::testYtDlpProgressStalledParsing() {

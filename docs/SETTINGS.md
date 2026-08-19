@@ -38,7 +38,7 @@ Application-wide settings that control theme, cookie handling, clipboard behavio
 | `output_template_audio` | String | *(empty; inherits `output_template`)* | Optional audio-specific yt-dlp filename template. Validated asynchronously with `yt-dlp` before saving. |
 | `gallery_output_template` | String | `{category}/{id}_{filename}.{extension}` | Filename template for gallery-dl downloads. Uses gallery-dl's own template syntax. |
 | `theme` | String | `System` | Application visual theme. Options: `System`, `Light`, `Dark`. |
-| `cookies_from_browser` | String | `None` | Browser to extract cookies from for video/audio downloads. Options: installed browser names (e.g., `Firefox`, `Chrome`) or `None`. |
+| `cookies_from_browser` | String | `None` | Browser to extract cookies from for video/audio downloads. Options: installed browser names (e.g., `Firefox`, `Chrome`) or `None`. If an uncapped or higher-capped bestvideo request selects a combined stream below 480p, the worker retries once without cookies because the cookie manifest may have hidden adaptive formats; direct format choices, caps at the selected resolution, and active livestreams are excluded. |
 | `gallery_cookies_from_browser` | String | `None` | Browser to extract cookies from for gallery downloads. Options: same as above or `None`. |
 | `sponsorblock` | Boolean | `false` | Enable SponsorBlock integration to skip sponsored segments in downloaded videos. Uses forced keyframes to preserve A/V sync. |
 | `auto_paste_mode` | Integer | `0` | Clipboard auto-paste behavior. See [Auto-Paste Modes](#auto-paste-modes) below. |
@@ -391,7 +391,7 @@ If you see a "database is locked" error when selecting a browser for cookies, cl
 
 ### Browser Cookie Download Failures
 
-If yt-dlp fails during a public video/audio download while browser cookies are enabled, LzyDownloader retries the job once without `--cookies-from-browser`. This covers temporary cookie database permission errors and stale browser-cookie extractor state while still allowing protected media to fail with a clearer diagnostic. Read-only validation and playlist-expansion probes intentionally skip browser cookies so they stay lightweight and cannot stall on browser-profile locks.
+If yt-dlp fails during a public video/audio download while browser cookies are enabled, LzyDownloader retries the job once without `--cookies-from-browser`. This covers temporary cookie database permission errors, stale browser-cookie extractor state, and low-resolution combined results from an uncapped or higher-capped `bestvideo` request when the cookie manifest may have hidden adaptive formats. The regression coverage also verifies that explicit resolution caps and downloads without cookie arguments do not trigger this recovery. Read-only validation and playlist-expansion probes intentionally skip browser cookies so they stay lightweight and cannot stall on browser-profile locks.
 
 ### Missing Binaries
 

@@ -13,6 +13,13 @@ Thumbnail-remux status and error messages remain in the existing translation
 surface; this artwork behavior change does not add a new selectable language or
 change the translation build requirements.
 
+Browser-cookie degraded-format recovery adds a translated worker status message
+but does not add a selectable language or change the translation build
+requirements.
+
+The corresponding regression test validates behavior without depending on a
+particular locale; status text remains a translatable implementation detail.
+
 ## Planned translation targets
 
 - Mandarin

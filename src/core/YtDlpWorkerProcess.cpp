@@ -394,23 +394,7 @@ bool YtDlpWorker::retryWithoutBrowserCookiesIfCookieExtractionFailed() {
 
     m_retriedWithoutBrowserCookies = true;
     
-    // Remove --cookies-from-browser and its argument
-    qsizetype idx = m_args.indexOf(QStringLiteral("--cookies-from-browser"));
-    if (idx != -1) {
-        m_args.removeAt(idx);
-        if (idx < m_args.size()) {
-            m_args.removeAt(idx);
-        }
-    }
-
-    // Remove --cookies and its argument
-    idx = m_args.indexOf(QStringLiteral("--cookies"));
-    if (idx != -1) {
-        m_args.removeAt(idx);
-        if (idx < m_args.size()) {
-            m_args.removeAt(idx);
-        }
-    }
+    removeBrowserCookieArguments();
 
     qWarning() << "[YtDlpWorker] Browser cookies caused yt-dlp failure for" << m_id
                << "; retrying once without cookie options.";
@@ -607,6 +591,10 @@ void YtDlpWorker::readInfoJsonWithRetry() {
     qDebug() << "[YtDlpWorker] requested transfer statuses:" << m_requestedTransferStatuses;
     qDebug() << "[YtDlpWorker] requested transfer format IDs:" << m_requestedTransferFormatIds;
     qDebug() << "[YtDlpWorker] requested transfer sizes:" << m_requestedTransferSizes;
+
+    if (retryWithoutBrowserCookiesForDegradedFormat()) {
+        return;
+    }
 
     if (m_videoTitle.isEmpty()) {
         if (const QJsonValue titleVal = obj.value(QStringLiteral("title")); titleVal.isString()) {

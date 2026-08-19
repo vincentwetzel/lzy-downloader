@@ -1,6 +1,8 @@
 # LzyDownloader C++ Port TODO
 
 ## In Progress
+- [x] Recover once from cookie-backed degraded progressive format selection when an uncapped or higher-capped bestvideo request resolves below 480p, including manifests that omit the better adaptive formats.
+- [x] Add regression coverage for cookie-backed degraded-format detection, including adaptive-format, incomplete-manifest, explicit-cap, and no-cookie exclusions.
 - [x] Make valid Download History source URLs clickable and open them in the default browser.
 - [x] Keep the Active Downloads scroll content and rows constrained to the viewport so right-side Cancel/Retry and folder actions remain visible at compact widths.
 - [x] Keep Active Downloads rows compact at narrow window widths so long titles do not hide row actions behind horizontal scrolling.

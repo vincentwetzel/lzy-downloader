@@ -32,7 +32,7 @@ input are reported as incomplete-transfer failures before metadata embedding.
 - 🧰 **External Binaries Manager** — Detect, version-check, install, and update `yt-dlp`, `gallery-dl`, `ffmpeg`, `ffprobe`, `aria2c`, and `deno` from inside the app, with version-aware local `bin` discovery, package-manager-aware commands, update warnings, SHA-256 checks when available, and cancellable install/update logs. Fresh interactive installs use guided system-first/app-managed-first setup with optional-tool provisioning.
 - 🛡️ **Recovery Diagnostics** — Distinguishes incomplete media and critical extractor failures from recoverable post-processing warnings, even when yt-dlp printed a final path
 - 🖼️ **Thumbnail Embedding** — Automatic thumbnail download, bounded preview loading, and embedding for videos and audio
-- 🌐 **Browser Cookies** — Use saved cookies from Firefox, Chrome, Edge, or other browsers for age-restricted content
+- 🌐 **Browser Cookies** — Use saved cookies from Firefox, Chrome, Edge, or other browsers for age-restricted content; a low-resolution cookie-backed result for an uncapped bestvideo request retries once without cookies when the browser manifest may have hidden adaptive formats
 - 📂 **Smart Sorting** — Automatically organize downloads into subfolders based on uploader, playlist, date, or custom patterns
 
 ## Installation
@@ -83,7 +83,7 @@ Qt test executables are registered through CMake and can be run with CTest. For 
 python run_headless_tests.py --build-dir build --config Release
 ```
 
-Current coverage includes argument construction (including aria2c retry policy), progress parsing, protected temporary-directory cleanup, archive normalization, configuration defaults/reset cleanup, Local API auth/enqueue behavior, process binary-resolution caching, URL validation, sorting sanitization, playlist range selection, UI progress widgets, and a local end-to-end download fixture.
+Current coverage includes argument construction (including aria2c retry policy), progress parsing, browser-cookie degraded-format recovery, protected temporary-directory cleanup, archive normalization, configuration defaults/reset cleanup, Local API auth/enqueue behavior, process binary-resolution caching, URL validation, sorting sanitization, playlist range selection, UI progress widgets, and a local end-to-end download fixture.
 
 ### Release Checklist
 
@@ -118,7 +118,7 @@ All settings are saved to `%LOCALAPPDATA%\LzyDownloader\settings.ini` on Windows
 - **Metadata** — Embed titles, artists, and thumbnails
 - **SponsorBlock** — Automatically skip sponsored segments
 - **Browser Cookies** - Select a browser to use for authentication
-- **Browser Cookie fallback** - Public media can retry once without browser cookies when yt-dlp's cookie extraction or cookie-backed extractor state fails
+- **Browser Cookie fallback** - Public media can retry once without browser cookies when yt-dlp's cookie extraction or cookie-backed extractor state fails, including a low-resolution combined result for an uncapped or higher-capped bestvideo request when the cookie manifest may have hidden adaptive formats
 - **Livestream replays** - Completed livestreams are detected from yt-dlp `live_status` metadata and downloaded as archived media; active/upcoming streams keep native wait and Finish Now behavior
 - **Download History links** - Valid HTTP/HTTPS source URLs are keyboard-accessible links; malformed or incomplete values remain plain text
 - **Queue previews** - Queued rows begin loading supplied remote thumbnails immediately, and long titles wrap within narrow windows so row actions remain reachable
