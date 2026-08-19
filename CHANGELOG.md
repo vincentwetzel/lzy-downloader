@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIVE.md](docs/CHANGELOG_ARCHIVE.md).
 
+## [1.2.26] - 2026-08-18
+
+- Fixed abandoned-thumbnail finalization so the existing FFmpeg metadata rewrite consumes the tracked JPG as an attached-picture stream instead of deleting it without embedding.
+
 ## [1.2.24] - 2026-08-16
 
 - Windows installer now offers to launch LzyDownloader after installation completes.
@@ -16,7 +20,7 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## Unreleased
 
-- Fixed abandoned-thumbnail finalization so the existing FFmpeg metadata rewrite consumes the tracked JPG as an attached-picture stream instead of deleting it without embedding.
+No unreleased changes.
 
 ## [1.2.23] - 2026-08-15
 
