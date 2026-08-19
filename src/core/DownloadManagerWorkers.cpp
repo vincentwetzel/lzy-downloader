@@ -220,7 +220,7 @@ void DownloadManager::onWorkerFinished(const QString &id, bool success, const QS
             onMetadataEmbedded(id, s, e);
         });
         if (hasAbandonedThumb) {
-            embedder->setProperty("thumbnail_path", thumbnailPath);
+            embedder->setThumbnailPath(thumbnailPath);
         }
         QVariantMap extraMetadata;
         if (item.options.value(QStringLiteral("type")).toString() == QStringLiteral("audio") && item.playlistIndex > 0

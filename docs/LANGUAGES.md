@@ -9,6 +9,10 @@ The implementation work remains tracked in `TODO.md`.
 
 - English
 
+Thumbnail-remux status and error messages remain in the existing translation
+surface; this artwork behavior change does not add a new selectable language or
+change the translation build requirements.
+
 ## Planned translation targets
 
 - Mandarin

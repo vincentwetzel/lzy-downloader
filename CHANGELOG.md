@@ -16,7 +16,7 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## Unreleased
 
-No unreleased changes.
+- Fixed abandoned-thumbnail finalization so the existing FFmpeg metadata rewrite consumes the tracked JPG as an attached-picture stream instead of deleting it without embedding.
 
 ## [1.2.23] - 2026-08-15
 

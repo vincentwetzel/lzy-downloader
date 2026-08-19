@@ -24,6 +24,7 @@
 - [x] Add a checked-by-default NSIS finish-page option to launch LzyDownloader after installation.
 - [x] Prevent incomplete yt-dlp media with a printed final path from entering FFmpeg metadata embedding; classify missing fragments, empty data blocks, and invalid media input as transfer failures with accurate diagnostics.
 - [x] Preserve explicit yt-dlp premiere/upcoming metadata during playlist-probe fallback so active livestreams cannot be assigned aria2c.
+- [x] Fix the existing abandoned-thumbnail remux path so tracked thumbnail sidecars are embedded as attached artwork before cleanup.
 
 ## Planned / Future Enhancements
 - [ ] Implement translations for supported interface languages (see `docs/LANGUAGES.md`).

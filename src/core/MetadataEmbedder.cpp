@@ -52,6 +52,10 @@ void MetadataEmbedder::setExtraMetadata(const QVariantMap &metadata) {
     m_extraMetadata = metadata;
 }
 
+void MetadataEmbedder::setThumbnailPath(const QString &thumbnailPath) {
+    m_thumbnailPath = thumbnailPath.trimmed();
+}
+
 void MetadataEmbedder::processFile(const QString &filePath, int trackNumber, bool normalizeContainerTimestamps) {
     m_originalFilePath = filePath;
     QFileInfo fileInfo(filePath);
@@ -111,8 +115,31 @@ void MetadataEmbedder::startRewrite() {
 
     args << QStringLiteral("-nostdin");
     args << QStringLiteral("-i") << m_originalFilePath;
+    const bool hasThumbnail = !m_thumbnailPath.isEmpty() && QFile::exists(m_thumbnailPath);
+    if (hasThumbnail) {
+        args << QStringLiteral("-i") << m_thumbnailPath;
+    }
     args << QStringLiteral("-map") << QStringLiteral("0");
+    if (hasThumbnail) {
+        args << QStringLiteral("-map") << QStringLiteral("1:0");
+    }
     args << QStringLiteral("-c") << QStringLiteral("copy");
+
+    if (hasThumbnail) {
+        const QString extension = QFileInfo(m_originalFilePath).suffix().toLower();
+        const bool audioOnly = extension == QLatin1String("mp3") ||
+                               extension == QLatin1String("m4a") ||
+                               extension == QLatin1String("mka") ||
+                               extension == QLatin1String("wav") ||
+                               extension == QLatin1String("flac") ||
+                               extension == QLatin1String("opus") ||
+                               extension == QLatin1String("ogg") ||
+                               extension == QLatin1String("aac");
+        const int artworkVideoIndex = audioOnly ? 0 : 1;
+        args << QStringLiteral("-disposition:v:%1").arg(artworkVideoIndex) << QStringLiteral("attached_pic");
+        qDebug() << "MetadataEmbedder: attaching abandoned thumbnail" << m_thumbnailPath
+                 << "as video stream" << artworkVideoIndex;
+    }
 
     if (m_normalizeContainerTimestamps) {
         // Regenerate subtitle packets against the clipped container timeline.

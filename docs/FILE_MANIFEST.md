@@ -46,7 +46,7 @@ This document is a quick file-to-responsibility index for the C++ port. It is in
 - `src/core/PlaylistExpansionParser.*`: yt-dlp JSON expansion parsing and playlist item selection.
 - `src/core/YtDlpArgsBuilder.*`: Metadata/option-driven command-line construction for yt-dlp and aria2c, including replay-safe livestream classification.
 - `src/core/download_pipeline/FfmpegMuxer.*`: Asynchronous FFmpeg muxing, progress, and final output handling.
-- `src/core/MetadataEmbedder.*`: Metadata/thumbnail embedding post-processing.
+- `src/core/MetadataEmbedder.*`: Metadata/thumbnail embedding post-processing, including the existing abandoned-thumbnail remux that maps tracked sidecars as `attached_pic` artwork.
 - `src/core/AppUpdater.*`: Application update lookup and artifact handling.
 - `src/core/LocalApiServer.*`: Localhost API server and auth handling.
 - `src/ui/MainWindow.*`: Main application shell, tab wiring, and global UI actions.

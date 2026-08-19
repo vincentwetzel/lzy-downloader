@@ -32,6 +32,12 @@ The API surface adheres to **Qt best practices**:
   audio playlist downloads with metadata embedding enabled. Playlist-level
   ownership fields are intentionally excluded, and metadata-only expansion
   remains unaffected.
+- `MetadataEmbedder::setThumbnailPath(const QString&)` supplies the existing
+  abandoned-thumbnail remux path with a local sidecar. The setter trims the
+  path; the rewrite adds a second FFmpeg input only when that file exists,
+  maps it as an `attached_pic` stream, and leaves the normal metadata rewrite
+  unchanged when no usable sidecar is available. Finalizer cleanup runs after
+  this rewrite stage.
 
 - `DownloadManager` treats playlist probing as recoverable for ordinary media URLs when the failure is transient; explicit playlist-shaped URLs and missing tools still fail visibly.
 - `PlaylistExpansionWorker` preserves an explicit yt-dlp premiere/upcoming diagnostic as `live_status=is_upcoming` and `is_live=true` on a single-item fallback, ensuring native yt-dlp downloader selection before the worker starts.

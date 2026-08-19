@@ -160,7 +160,7 @@ Settings for embedding metadata, thumbnails, and chapter information into downlo
 | `use_aria2c` | Boolean | `false` | Use aria2c as an external downloader for segmented, concurrent non-livestream downloads. The generated aria2c options use bounded retry/backoff and a conservative per-server connection limit. Transient exit codes 2, 5, 6, and 29 may trigger one native yt-dlp fallback while preserving media `.part` files. Livestreams are forced through yt-dlp's native downloader so wait/finish-now behavior remains reliable. |
 | `embed_chapters` | Boolean | `true` | Embed chapter markers into video files when available. |
 | `embed_metadata` | Boolean | `true` | Embed metadata (title, artist, description, etc.) into downloaded files. |
-| `embed_thumbnail` | Boolean | `true` | Embed thumbnail images into downloaded files as cover art. |
+| `embed_thumbnail` | Boolean | `true` | Embed thumbnail images into downloaded files as cover art. If yt-dlp leaves a tracked, existing thumbnail sidecar, the existing FFmpeg rewrite maps it as attached artwork before cleanup; otherwise the normal metadata rewrite continues without that input. |
 | `high_quality_thumbnail` | Boolean | `true` | Use a higher-quality thumbnail source when available. |
 | `convert_thumbnail_to` | String | `jpg` | Convert embedded thumbnails to this format. Options: `None`, `jpg`, `png`. |
 | `crop_artwork_to_square` | Boolean | `true` | Crop audio thumbnails to square aspect ratio. |

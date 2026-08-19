@@ -19,6 +19,9 @@ This document outlines the specifications for the C++ port of the LzyDownloader 
 - Livestream download arguments are selected from yt-dlp metadata (`live_status`/`is_live`) or explicit wait options. URL text, including a `/live/` path segment, is not sufficient evidence because ordinary archived-media routes may use that word.
 - Scheduled-livestream prompts must likewise ignore ambiguous title phrases such as `Live in` and `Starting in`; only explicit premiere/live-event diagnostics may trigger them.
 
+### 1.5 Thumbnail finalization
+- When thumbnail embedding is enabled and yt-dlp leaves a downloaded thumbnail sidecar, the existing metadata post-processing pass must use the existing local file as a second FFmpeg input, map it into the output container as an `attached_pic` stream, and complete that rewrite before temporary-file cleanup. Missing or unusable sidecars must not prevent the normal metadata rewrite.
+
 ## 2. Core Requirements
 
 ### 2.1. Single Instance Enforcement

@@ -8,6 +8,11 @@ maintainer release workflow.
 
 ## Features
 
+Thumbnail sidecars left by yt-dlp are remuxed as attached artwork by the
+existing FFmpeg post-processing path before temporary cleanup. If no usable
+sidecar remains, the normal metadata rewrite continues without an artwork
+input.
+
 The downloader keeps actionable diagnostics through transfer and
 post-processing. A printed yt-dlp final path is not treated as proof of valid
 media: missing fragments, empty data blocks, invalid headers, and invalid

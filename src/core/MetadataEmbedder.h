@@ -12,6 +12,12 @@ class MetadataEmbedder : public QObject {
 
 public:
     explicit MetadataEmbedder(ConfigManager *configManager, QObject *parent = nullptr);
+    /**
+     * @brief Sets the local artwork file for the existing abandoned-thumbnail remux path.
+     *
+     * @param thumbnailPath Absolute path to the downloaded thumbnail image.
+     */
+    void setThumbnailPath(const QString &thumbnailPath);
     void setExtraMetadata(const QVariantMap &metadata);
     void processFile(const QString &filePath, int trackNumber, bool normalizeContainerTimestamps);
 
@@ -41,6 +47,7 @@ private:
     double m_targetDurationSeconds;
     Stage m_stage;
     QString m_processOutputTail;
+    QString m_thumbnailPath;
     QVariantMap m_extraMetadata;
 };
 

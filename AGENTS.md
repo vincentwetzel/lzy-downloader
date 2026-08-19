@@ -40,6 +40,7 @@ Agents MUST preserve and respect the following behaviors from the original Pytho
 - **Download History Links**: Valid HTTP/HTTPS source URLs in the Download History tab MUST be displayed as escaped, keyboard-accessible hyperlinks that open in the default browser; invalid or incomplete values remain plain text.
 - File lifecycle: download into temp dir → verify file stability → move to completed downloads directory. Terminal finalization must also remove the guarded per-download UUID temp folder on failure exits, while stopped downloads retain their partial files for resume. Startup reconciles orphaned UUID folders after queue restoration while preserving stopped/failed IDs; the shared temp root and non-UUID folders are never removed by that sweep.
 - Metadata embedding (title, artist, etc.) and thumbnail embedding.
+- If yt-dlp leaves a downloaded thumbnail sidecar after its native embedding step, the existing `MetadataEmbedder` remux path MUST consume that tracked image as an `attached_pic` stream before terminal cleanup; it MUST NOT merely store the path as an unused QObject property.
 - For audio playlist items, metadata embedding must preserve an explicit track-level `artist`; when it is absent, yt-dlp arguments may derive `artist` only from item-level `artists`, `creator`, `channel`, or `uploader` fields. Never use playlist-level owner fields such as `playlist_uploader` or `playlist_owner` as the track artist.
 - Accurate SponsorBlock/section cuts must normalize audio timestamps rather than copying packets from the pre-cut timeline; FFmpeg cut work must remain resource-bounded and background priority where the platform supports it.
 - Responsive GUI at all times (no blocking I/O on the main thread).
@@ -83,7 +84,7 @@ Agents MUST preserve and respect the following behaviors from the original Pytho
 
 **POLICY:** For a breakdown of the directory structure, file responsibilities, and where to find specific features (Quick-Reference), you MUST read `docs/ARCHITECTURE.md`.
 
-**Quick reference:** `src/core/YtDlpWorkerDiagnostics.cpp` owns reusable fatal/incomplete-media diagnostic classification used by yt-dlp output parsing and process completion. `src/core/YtDlpLiveStatus.h` owns the narrow metadata mapping for explicit yt-dlp upcoming/premiere diagnostics used during playlist-probe fallback.
+**Quick reference:** `src/core/YtDlpWorkerDiagnostics.cpp` owns reusable fatal/incomplete-media diagnostic classification used by yt-dlp output parsing and process completion. `src/core/YtDlpLiveStatus.h` owns the narrow metadata mapping for explicit yt-dlp upcoming/premiere diagnostics used during playlist-probe fallback. `src/core/MetadataEmbedder.cpp` owns the existing FFmpeg rewrite path, including remuxing a tracked abandoned thumbnail as `attached_pic` artwork before cleanup.
 
 ## 4. Dependencies
 
