@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIVE.md](docs/CHANGELOG_ARCHIVE.md).
 
+## [1.2.27] - 2026-08-19
+
+- Browser-cookie downloads now retry once without cookies when an uncapped or higher-capped bestvideo request resolves to a combined stream below 480p, covering cookie manifests that omit the adaptive formats needed to prove the downgrade. Direct format choices, caps at the selected resolution, and active livestreams are not changed, and no site-specific extractor client is hardcoded.
+- Added regression coverage for adaptive-format detection, incomplete cookie manifests, explicit resolution caps, and downloads without cookie arguments.
+
 ## [1.2.26] - 2026-08-18
 
 - Fixed abandoned-thumbnail finalization so the existing FFmpeg metadata rewrite consumes the tracked JPG as an attached-picture stream instead of deleting it without embedding.
@@ -20,8 +25,7 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## Unreleased
 
-- Browser-cookie downloads now retry once without cookies when an uncapped or higher-capped bestvideo request resolves to a combined stream below 480p, covering cookie manifests that omit the adaptive formats needed to prove the downgrade. Direct format choices, caps at the selected resolution, and active livestreams are not changed, and no site-specific extractor client is hardcoded.
-- Added regression coverage for adaptive-format detection, incomplete cookie manifests, explicit resolution caps, and downloads without cookie arguments.
+No unreleased changes.
 
 ## [1.2.23] - 2026-08-15
 

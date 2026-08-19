@@ -33,7 +33,7 @@
 - [ ] Integrate Qt Linguist (`.ts`/`.qm` compiler steps) into `CMakeLists.txt` build automation.
 
 ## Completed
-- [x] Prepared the v1.2.26 release metadata, changelog entry, and tag-matched GitHub release notes.
+- [x] Prepared the v1.2.27 release metadata, changelog entry, and tag-matched GitHub release notes.
 - [x] Enabled zero-padded playlist filename prefixes by default while preserving an explicit user opt-out.
 - [x] Prevented false browser-cookie retries from matching ordinary metadata prose such as `locked in a heated race`; cookie fallback now uses explicit cookie/database/sign-in diagnostics and the normal process-finished path.
 - [x] Prevented ordinary title phrases such as `Starting in` or `Live in` from triggering scheduled-livestream error handling.
