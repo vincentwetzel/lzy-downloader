@@ -84,7 +84,7 @@ LzyDownloader/
 │   │   ├── DownloadManager.h/cpp # Queue & Lifecycle Management
 │   │   ├── LocalApiServer.h/cpp  # localhost API bridge for local integrations
 │   │   ├── YtDlpWorker.h/cpp     # yt-dlp process startup wrapper
-│   │   ├── YtDlpWorkerDiagnostics.cpp # reusable fatal/incomplete-media diagnostic classification
+│   │   ├── YtDlpWorkerDiagnostics.cpp # fatal/incomplete-media and aria2c missing-output recovery classification
 │   │   ├── YtDlpWorkerProcess.cpp # completion, errors, output buffering, info.json parsing
 │   │   ├── YtDlpWorkerOutput.cpp  # output-line orchestration and wait-state metadata
 │   │   ├── YtDlpWorkerProgress.cpp # yt-dlp/aria2 progress parsing
@@ -185,11 +185,11 @@ LzyDownloader/
   - Keeps startup and binary-resolution logic in `YtDlpWorker.cpp`, including bounded browser-cookie recovery, metadata-backed and low-resolution retry for cookie-induced degraded progressive format selection, transient aria2/native-downloader recovery, and the false-offline livestream retry path that can restart the worker once without `--wait-for-video` / `--live-from-start`. Degraded-format recovery uses generic `formats`, codec, height, and selector metadata; it does not pin a site-specific extractor client.
   - Splits process completion, shared stdout/stderr buffering, `info.json` cleanup, and buffered metadata reading into `YtDlpWorkerProcess.cpp`; final partial output is flushed through the same UTF-8 line parser, metadata JSON parsing uses one validated helper, empty UUID directory cleanup uses the shared temporary-directory fallback path on finish and process-error paths, and metadata reads can fall back to scanning the per-download UUID temp directory for `*.info.json`.
   - Splits output-line orchestration and wait-state title/thumbnail fetching into `YtDlpWorkerOutput.cpp`, which routes prefix-specific `[info]`, `[download]`, `FILE:`, and thumbnail converter lines through cheap substring gates before handing remaining output to progress parsers, while keeping bounded diagnostic output without per-line shift overhead. Error classification preserves triggering diagnostics, distinguishes missing FFmpeg/FFprobe and FFmpeg post-processing failures from unavailable-media errors, recognizes only explicit browser-cookie/database/sign-in failures for retry decisions (not standalone prose such as `locked`), and records optional browser-impersonation warnings as completion guidance. Wait-state metadata fetches guard process lifetime with `QPointer`, validate thumbnail fields before download, and remove empty thumbnail files after failed writes.
-  - `YtDlpWorkerProcess.cpp` treats non-zero exits with final media as recoverable completed-with-warning results only when no critical extractor or incomplete-media diagnostics were captured; critical failures force a terminal failure even if a stale final path exists. `YtDlpWorkerDiagnostics.cpp` centralizes the reusable line classification, including missing fragments, empty data blocks, invalid headers, and invalid-input FFmpeg errors.
+  - `YtDlpWorkerProcess.cpp` treats non-zero exits with final media as recoverable completed-with-warning results only when no critical extractor or incomplete-media diagnostics were captured; critical failures force a terminal failure even if a stale final path exists. `YtDlpWorkerDiagnostics.cpp` centralizes the reusable line classification, including missing fragments, empty data blocks, invalid headers, invalid-input FFmpeg errors, and the narrow missing-expected-`.part` condition for aria2c fallback.
   - Splits native yt-dlp and aria2 progress parsing into `YtDlpWorkerProgress.cpp`, including shared progress metadata population, fragment-aware percentage overrides, aggregate primary-stream progress calculation, regex-free size parsing, and prefix/substring gates for high-frequency output lines.
   - Splits transfer target classification and stream-stage inference into `YtDlpWorkerTransfers.cpp`, including suffix-based auxiliary transfer detection for metadata, thumbnails, and subtitles.
   - Bounds retained diagnostic lines so warning/error tails remain useful without growing without limit during long or noisy runs.
-  - When aria2c reports transient exit codes 2, 5, 6, or 29, removes the external-downloader arguments, cleans only stale `.info.json` sidecars, preserves media partials, and restarts once through yt-dlp's native downloader after emitting an indeterminate recovery status. Aria2 arguments include bounded retry/backoff and a conservative per-server connection limit.
+  - When aria2c reports transient exit codes 2, 5, 6, or 29, or yt-dlp reports an `Unable to download video` file-not-found diagnostic for aria2c's expected media `.part` output, removes the external-downloader arguments, cleans only stale `.info.json` sidecars, preserves media partials, and restarts once through yt-dlp's native downloader after emitting an indeterminate recovery status. Aria2 arguments include bounded retry/backoff and a conservative per-server connection limit.
 
 ### 4.4b DownloadQueueState (`src/core/DownloadQueueState.h`)
 - **Responsibilities:**
@@ -244,6 +244,10 @@ LzyDownloader/
   - `PlaylistExpansionParser` maps yt-dlp JSON into queue item metadata, including resolved URLs, playlist indices, titles, live flags, thumbnails, and playlist title carry-through; YouTube entries only become watch URLs when yt-dlp provides a real entry ID.
   - Emits `playlistDetected` when a multi-item playlist is found and the user's playlist logic is set to "Ask".
 
+`DownloadManagerWorkers.cpp` classifies the terminal low-resolution warning from
+the queued download type before inspecting `height`; source video metadata on
+audio-only jobs is therefore not presented as a video-quality problem.
+
 ### 4.5c PlaylistRangeDialog (`src/core/PlaylistRangeDialog.h`)
 - **Responsibilities:**
   - Presents expanded playlist entries in a checkbox list for the `Download Part...` playlist prompt path.
@@ -283,6 +287,11 @@ LzyDownloader/
   - Rewrites common uploader and upload-date template tokens with yt-dlp fallback metadata expressions so playlist/carousel entries can use playlist-level owner/date metadata when item-level fields are absent.
   - Supports a `skip_dir_creation` per-download option for callers such as `PlaylistExpansionWorker` that need command parity without touching the filesystem.
   - Injects a filename-safe section suffix into the output template when `download_sections_label` is present so clipped files identify the chosen time range or chapter in their saved filename.
+
+`YtDlpWorkerTransfers.cpp` treats a combined `video/*` aria2c transport as an
+audio-stage transfer when audio extraction is requested, because the final
+product is audio and the transport container is not the user's selected media
+type.
 
 ### 4.9 OutputTemplatesPage (`src/ui/advanced_settings/OutputTemplatesPage.h`)
 - **Responsibilities:**

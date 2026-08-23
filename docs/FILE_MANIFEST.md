@@ -31,10 +31,10 @@ This document is a quick file-to-responsibility index for the C++ port. It is in
 - `src/tests/`: Test fixtures and Qt test coverage.
 
 ## High-Value Entry Points
-- `src/core/DownloadManager.*`: Queue orchestration, download lifecycle, and finalization flow.
+- `src/core/DownloadManager.*`: Queue orchestration, download lifecycle, finalization flow, and type-aware terminal quality warnings.
 - `src/core/DownloadFinalizer.*`: Background verification, destination moves, and guarded terminal temporary-directory cleanup.
-- `src/core/YtDlpWorker.*`: yt-dlp process handling, output parsing, progress classification, browser-cookie failure and metadata-backed degraded-format recovery, and bounded aria2c-to-native recovery.
-- `src/core/YtDlpWorkerDiagnostics.cpp`: Shared fatal/incomplete-media diagnostic classification used to reject stale final paths before FFmpeg metadata embedding or finalization.
+- `src/core/YtDlpWorker.*`: yt-dlp process handling, output parsing, progress classification including audio-aware combined-source labels, browser-cookie failure and metadata-backed degraded-format recovery, and bounded aria2c-to-native recovery.
+- `src/core/YtDlpWorkerDiagnostics.cpp`: Shared fatal/incomplete-media and bounded aria2c missing-output recovery classification used to reject stale final paths before FFmpeg metadata embedding or finalization.
 - `src/core/YtDlpLiveStatus.h`: Narrow mapping from explicit yt-dlp premiere/upcoming diagnostics to live queue metadata during probe fallback.
 - `src/core/DownloadQueueState.*`: Queue persistence to `downloads_backup.json`.
 - `src/core/DownloadQueueManagerCleanup.cpp`: Asynchronous startup reconciliation of orphaned UUID folders while queue IDs are protected.
@@ -59,7 +59,7 @@ This document is a quick file-to-responsibility index for the C++ port. It is in
 - `src/ui/`: Reusable widgets, tabs, dialogs, and row controls; resource files
   are kept in `src/ui/assets/` and `src/ui/resources.qrc`.
 - `src/tests/`: Headless Qt tests for argument construction, parsing, persistence, UI state, binary/API behavior, and end-to-end behavior.
-- `src/tests/TestYtDlpWorker.cpp`: Regression coverage for native/aria2 progress, diagnostics, transient downloader recovery, and cookie-backed degraded-format recovery exclusions.
+- `src/tests/TestYtDlpWorker.cpp`: Regression coverage for native/aria2 progress, audio-aware combined-source labels, diagnostics, transient downloader recovery, and cookie-backed degraded-format recovery exclusions.
 - `extractors_yt-dlp.json` / `extractors_gallery-dl.json`: Bundled extractor-domain data used by URL validation, smart type selection, and Supported Sites UI.
 
 ## Working Rule of Thumb

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIVE.md](docs/CHANGELOG_ARCHIVE.md).
 
+## Unreleased
+
+- Fixed aria2c downloads that return without their expected temporary media file: the worker now retries once with yt-dlp's native downloader while retaining media partials and removing stale metadata sidecars.
+- Fixed low-quality video warnings appearing for audio-only downloads whose metadata still contained the source video's height.
+- Kept aria2c progress labels audio-oriented when audio extraction downloads a combined `video/*` source before extracting the audio.
+
 ## [1.2.27] - 2026-08-19
 
 - Browser-cookie downloads now retry once without cookies when an uncapped or higher-capped bestvideo request resolves to a combined stream below 480p, covering cookie manifests that omit the adaptive formats needed to prove the downgrade. Direct format choices, caps at the selected resolution, and active livestreams are not changed, and no site-specific extractor client is hardcoded.
@@ -23,9 +29,6 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 - Incomplete yt-dlp media is no longer treated as completed merely because a final path was printed. Missing fragments, empty data blocks, and invalid media input now fail before metadata embedding, with a diagnostic that distinguishes the transfer failure from a missing FFmpeg installation.
 - Active documentation now agrees on recovery diagnostics, explicit upcoming-stream fallback metadata, Qt-native data-file locations, and the release-note file required by tag-based publishing.
 
-## Unreleased
-
-No unreleased changes.
 
 ## [1.2.23] - 2026-08-15
 

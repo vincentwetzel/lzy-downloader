@@ -44,7 +44,7 @@ The API surface adheres to **Qt best practices**:
 - `DownloadManager` emits the initial queue row before playlist expansion completes. A supplied `thumbnail_url` is carried into that placeholder and playlist entry metadata so the UI can load a preview immediately.
 - `DownloadFinalizer` removes a temporary directory only when its final directory name matches the download ID; stopped downloads retain their temporary data for resume. `DownloadTempCleanup` supplies the configured/completed-downloads/OS-temp fallback chain and refuses shared-root, non-ID, and symlink removal.
 - `DownloadQueueManager::cleanupOrphanedTempDirectories()` runs the protected startup reconciliation asynchronously after queue restoration, deleting only unprotected direct-child UUID folders.
-- `YtDlpWorker` may retry one transient aria2c transport failure (exit codes 2, 5, 6, or 29) with the native downloader, deleting stale metadata sidecars but retaining media partials.
+- `YtDlpWorker` may retry one transient aria2c transport failure (exit codes 2, 5, 6, or 29), or a narrowly classified missing expected media `.part` output after aria2c returns, with the native downloader, deleting stale metadata sidecars but retaining media partials.
 - `YtDlpWorker` may retry once without browser-cookie arguments when a cookie-backed uncapped or higher-capped `bestvideo` request selects a combined stream below 480p. This also handles manifests that omit the adaptive pair needed for direct comparison. Explicit/direct selections, caps at the selected resolution, and active livestreams are excluded.
 - `TestYtDlpWorker::testCookieBackedDegradedFormatRecoveryDetection()` covers the adaptive-format and manifest-without-adaptive-pair cases, plus exclusions for explicit caps and missing cookie arguments.
 - `YtDlpWorker` rejects a captured final path when retained output contains missing-fragment, empty-data-block, invalid-header, invalid-container, or critical extractor diagnostics; these failures do not enter metadata embedding or finalization.
@@ -52,6 +52,8 @@ The API surface adheres to **Qt best practices**:
 - `ConfigManager` and `DownloadOptionsPage` use `DownloadOptions/prefix_playlist_indices=true` as the canonical default, so playlist audio filenames are consistently prefixed unless the user opts out.
 - `ProcessUtils::setBackgroundProcessPriority(QProcess&)` lowers supported Windows post-processing processes to below-normal priority.
 - `LocalApiServer::enqueueRequested` carries an explicit `overrideArchive` flag so automation clients can confirm intentional re-downloads without a GUI dialog.
+- `DownloadManager::videoQualityWarning` is emitted only for successful downloads whose queued type is `video` and whose selected video height is below 480p. Audio-only metadata may contain a source video height but must not trigger this signal.
+- `YtDlpWorker` keeps transfer-stage progress audio-oriented when `-x`/`--extract-audio` is active, including when aria2c reports a combined `video/*` transport MIME type.
 
 ### [DownloadManager](../src/core/DownloadManager.h)
 The central manager coordinating download queues, playlist validation, format metadata selection, and the finalization flow.
@@ -145,8 +147,8 @@ explicit yt-dlp premiere/upcoming diagnostics and marks a fallback item with
 livestream state from URL text or ambiguous title phrases.
 
 ### YtDlpWorker diagnostic boundary
-`YtDlpWorkerDiagnostics.cpp` owns the reusable fatal and incomplete-media
-classification used by output parsing and process completion. A printed final
+`YtDlpWorkerDiagnostics.cpp` owns the reusable fatal, incomplete-media, and
+bounded aria2c missing-output recovery classification used by output parsing and process completion. A printed final
 path is not sufficient evidence of a valid media file: missing fragments,
 empty data blocks, invalid headers, invalid-input FFmpeg diagnostics, and
 critical extractor failures remain terminal and bypass metadata embedding.

@@ -9,6 +9,11 @@ This document provides a complete reference for all configuration settings used 
 > `DownloadOptions/prefix_playlist_indices=true`; users can disable it in
 > Advanced Settings → Download Options.
 
+Quality diagnostics are media-type aware: the below-480p warning applies only
+to video downloads. Audio-only downloads do not use retained source-video
+`height` metadata for that warning, and their progress remains audio-labeled
+when extraction temporarily transfers a combined source.
+
 ---
 
 ## Table of Contents
@@ -157,7 +162,7 @@ Settings for embedding metadata, thumbnails, and chapter information into downlo
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `use_aria2c` | Boolean | `false` | Use aria2c as an external downloader for segmented, concurrent non-livestream downloads. The generated aria2c options use bounded retry/backoff and a conservative per-server connection limit. Transient exit codes 2, 5, 6, and 29 may trigger one native yt-dlp fallback while preserving media `.part` files. Livestreams are forced through yt-dlp's native downloader so wait/finish-now behavior remains reliable. |
+| `use_aria2c` | Boolean | `false` | Use aria2c as an external downloader for segmented, concurrent non-livestream downloads. The generated aria2c options use bounded retry/backoff and a conservative per-server connection limit. Transient exit codes 2, 5, 6, and 29, or yt-dlp reporting that aria2c returned without its expected temporary media `.part` output, may trigger one native yt-dlp fallback while preserving media `.part` files. Livestreams are forced through yt-dlp's native downloader so wait/finish-now behavior remains reliable. |
 | `embed_chapters` | Boolean | `true` | Embed chapter markers into video files when available. |
 | `embed_metadata` | Boolean | `true` | Embed metadata (title, artist, description, etc.) into downloaded files. |
 | `embed_thumbnail` | Boolean | `true` | Embed thumbnail images into downloaded files as cover art. If yt-dlp leaves a tracked, existing thumbnail sidecar, the existing FFmpeg rewrite maps it as attached artwork before cleanup; otherwise the normal metadata rewrite continues without that input. |

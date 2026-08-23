@@ -18,8 +18,10 @@
 - [x] Make Windows FFmpeg/FFprobe updates resilient to transient executable locks by staging replacements and retrying bounded moves.
 - [ ] Evaluate whether `YtDlpWorker` should expose a reusable capped diagnostic tail helper so warning/error retention stays consistent across workers.
 - [x] Added bounded aria2 retry/backoff, transient aria2-to-native fallback, and stale metadata-sidecar cleanup while preserving resumable media partials.
+- [x] Recover once with yt-dlp's native downloader when aria2c returns without the expected `.part` media output, while preserving partial downloads.
 - [x] Preserve track-level artist metadata for audio playlists by using item-level yt-dlp artist/creator/channel/uploader fields and excluding playlist-owner fields.
 - [x] Add first-launch external-tool provisioning with a system-first/app-managed-first choice, optional-tool selection, non-modal update guidance, and configurable automatic updates for app-managed tools.
+- [x] Restrict low-quality resolution warnings to video downloads and preserve audio transfer labels when audio extraction uses a combined source.
 
 - [x] Synchronize all active documentation with the current implementation on 2026-08-15, including first-launch binary provisioning, explicit Local API archive overrides, recovery diagnostics, and the platform data-directory layout. Historical changelog entries remain unchanged.
 - [x] Allow Discord bridge enqueue requests to explicitly override completed archive entries without a GUI confirmation dialog.

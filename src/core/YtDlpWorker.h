@@ -65,7 +65,12 @@ protected: // Changed from private for testing
     /** Checks whether retained diagnostics specifically identify incomplete media. */
     bool hasIncompleteMediaDiagnostic() const;
     bool retryWithoutBrowserCookiesIfCookieExtractionFailed();
-    /** Retries a transient aria2-backed transfer once through yt-dlp's native downloader. */
+    /**
+     * Retries a recoverable aria2-backed transfer once through yt-dlp's native downloader.
+     *
+     * This is limited to documented transient aria2 exit codes and the narrow case where
+     * aria2 reports success but yt-dlp cannot find the required media .part output.
+     */
     bool retryWithoutAria2cIfTransientFailure(const QString &diagnostic);
     /** Removes only metadata sidecars that can collide with yt-dlp's atomic JSON write on retry. */
     void cleanupMetadataSidecarsForRetry();
@@ -106,4 +111,6 @@ protected: // Changed from private for testing
     int m_inferredTransferIndex = -1;
     double m_lastPrimaryProgress = -1.0;
     double m_lastPrimaryTotalBytes = 0.0;
+
+    static constexpr int RECOVERY_RETRY_DELAY_MS = 1000;
 };

@@ -158,7 +158,13 @@ void DownloadManager::onWorkerFinished(const QString &id, bool success, const QS
         return;
     }
 
-    if (metadata.contains(QStringLiteral("height")) && metadata.value(QStringLiteral("height")).toInt() < 480) {
+    // Height is video metadata. Audio-only downloads can legitimately retain
+    // the source video's height in info.json, so never route that metadata to
+    // the video-quality warning for an audio job.
+    const QString downloadType = item.options.value(QStringLiteral("type")).toString();
+    if (downloadType == QStringLiteral("video")
+        && metadata.contains(QStringLiteral("height"))
+        && metadata.value(QStringLiteral("height")).toInt() < 480) {
         QString url = item.url;
         QMetaObject::invokeMethod(this, [this, url]() {
             emit videoQualityWarning(url, tr("Downloaded video quality is below 480p."));

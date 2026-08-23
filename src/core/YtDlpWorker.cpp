@@ -13,7 +13,6 @@
 #include <QRegularExpression>
 
 namespace {
-    constexpr int ARIA2_FALLBACK_DELAY_MS = 1000;
     constexpr int COOKIE_DEGRADED_FORMAT_MAX_HEIGHT = 480;
 
     bool isMetadataSidecar(const QFileInfo &fileInfo) {
@@ -57,7 +56,7 @@ YtDlpWorker::YtDlpWorker(const QString &id, const QStringList &args, ConfigManag
             cleanupMetadataSidecarsForRetry();
             m_process->setProperty("accumulated_stderr", QString());
             qWarning() << "[YtDlpWorker] Restarting after cookie-backed degraded format selection for" << m_id;
-            QTimer::singleShot(ARIA2_FALLBACK_DELAY_MS, this, [this]() {
+            QTimer::singleShot(RECOVERY_RETRY_DELAY_MS, this, [this]() {
                 if (!m_finishEmitted) {
                     start();
                 }
@@ -421,62 +420,6 @@ bool YtDlpWorker::retryWithoutBrowserCookiesForDegradedFormat() {
     emit progressUpdated(m_id, progressData);
 
     ProcessUtils::terminateProcessTree(m_process);
-    return true;
-}
-
-bool YtDlpWorker::retryWithoutAria2cIfTransientFailure(const QString &diagnostic) {
-    if (m_retriedWithoutAria2c || !m_args.contains(QStringLiteral("--external-downloader"))) {
-        return false;
-    }
-
-    static const QRegularExpression transientAria2Error(
-        QStringLiteral("aria2c exited with code\\s+(?:2|5|6|29)\\b"),
-        QRegularExpression::CaseInsensitiveOption);
-    if (!transientAria2Error.match(diagnostic).hasMatch()) {
-        return false;
-    }
-
-    m_retriedWithoutAria2c = true;
-    const QRegularExpressionMatch errorMatch = transientAria2Error.match(diagnostic);
-    m_recoveryDiagnostic = tr("aria2c exited with transient error code %1 before native fallback.")
-                               .arg(errorMatch.captured(0).section(QLatin1Char(' '), -1));
-    const qsizetype downloaderIndex = m_args.indexOf(QStringLiteral("--external-downloader"));
-    if (downloaderIndex >= 0) {
-        m_args.removeAt(downloaderIndex);
-        if (downloaderIndex < m_args.size()) {
-            m_args.removeAt(downloaderIndex);
-        }
-    }
-
-    const qsizetype downloaderArgsIndex = m_args.indexOf(QStringLiteral("--external-downloader-args"));
-    if (downloaderArgsIndex >= 0) {
-        m_args.removeAt(downloaderArgsIndex);
-        if (downloaderArgsIndex < m_args.size()) {
-            m_args.removeAt(downloaderArgsIndex);
-        }
-    }
-
-    cleanupMetadataSidecarsForRetry();
-    m_process->setProperty("accumulated_stderr", QString());
-
-    qWarning() << "[YtDlpWorker] Transient aria2c failure detected for" << m_id
-               << "; retrying once with yt-dlp's native downloader.";
-
-    QVariantMap progressData;
-    progressData.insert(QStringLiteral("status"),
-                        tr("aria2c encountered a temporary server or network error; retrying with the native downloader..."));
-    progressData.insert(QStringLiteral("progress"), -1);
-    emit progressUpdated(m_id, progressData);
-
-    QTimer::singleShot(ARIA2_FALLBACK_DELAY_MS, this, [this]() {
-        if (!m_finishEmitted) {
-            // A short second pass handles Windows scanners or child-process
-            // teardown that still held the metadata sidecar during the first
-            // cleanup attempt.
-            cleanupMetadataSidecarsForRetry();
-            start();
-        }
-    });
     return true;
 }
 

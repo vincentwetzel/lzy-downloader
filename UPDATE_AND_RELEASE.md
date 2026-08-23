@@ -22,7 +22,7 @@ This document describes how to build, package, and release the C++ version of Lz
 
 ## Build Process
 
-Before release, review the `[Unreleased]` section of `CHANGELOG.md` and verify that the maintained documentation set (`README.md`, `AGENTS.md`, `TODO.md`, and the active files under `docs/`) matches the current implementation. In particular, ordinary URLs must recover from transient playlist-probe failures, browser-cookie format downgrades must retry once from an uncapped or higher-capped `bestvideo` request when the selected combined stream is below 480p, the worker's degraded-format regression test must remain covered, aria2c transport failures must use the bounded native-downloader fallback while preserving partials, accurate cuts must use timestamp-normalized audio and bounded/background-priority FFmpeg work, playlist audio filename prefixes must agree with the settings default, narrow Active Downloads rows must keep actions visible, tracked thumbnail sidecars must be remuxed as attached artwork before cleanup, and Windows FFmpeg/FFprobe replacement must tolerate transient locks.
+Before release, review the `[Unreleased]` section of `CHANGELOG.md` and verify that the maintained documentation set (`README.md`, `AGENTS.md`, `TODO.md`, and the active files under `docs/`) matches the current implementation. In particular, ordinary URLs must recover from transient playlist-probe failures, browser-cookie format downgrades must retry once from an uncapped or higher-capped `bestvideo` request when the selected combined stream is below 480p, video-only quality warnings must not inspect audio-job height metadata, audio extraction labels must remain audio-oriented when aria2c transfers a combined source, the worker's degraded-format regression test must remain covered, aria2c transport or missing-output failures must use the bounded native-downloader fallback while preserving partials, accurate cuts must use timestamp-normalized audio and bounded/background-priority FFmpeg work, playlist audio filename prefixes must agree with the settings default, narrow Active Downloads rows must keep actions visible, tracked thumbnail sidecars must be remuxed as attached artwork before cleanup, and Windows FFmpeg/FFprobe replacement must tolerate transient locks.
 
 ### Step 1: Update Extractor Lists
 
@@ -143,7 +143,7 @@ If the workflow is unavailable, navigate to https://github.com/vincentwetzel/lzy
 - [ ] Timestamped logging verified (`%LOCALAPPDATA%\LzyDownloader\LzyDownloader_YYYY-MM-dd_HH-mm-ss.log`)
 - [ ] Log retention verified (startup cleanup keeps only the 5 most recent logs)
 - [ ] Temporary-root reconciliation verified (orphan UUID folders are removed asynchronously while stopped/failed IDs, symlinks, non-UUID folders, and the shared root are preserved)
-- [ ] aria2c recovery verified (transient exit codes fall back once to native yt-dlp, stale `.info.json` sidecars are removed, and `.part` files remain)
+- [ ] aria2c recovery verified (transient exit codes or a missing expected temporary media output fall back once to native yt-dlp, stale `.info.json` sidecars are removed, and `.part` files remain)
 - [ ] GitHub release published with installer asset
 - [ ] Tag `vX.X.X` pushed and the `Build and Release` GitHub Actions workflow attached Windows and Linux assets
 

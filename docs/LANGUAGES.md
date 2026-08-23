@@ -17,6 +17,14 @@ Browser-cookie degraded-format recovery adds a translated worker status message
 but does not add a selectable language or change the translation build
 requirements.
 
+Aria2c missing-output recovery uses a translated worker status message and
+does not add a selectable language or change the translation build
+requirements.
+
+Audio-aware transfer status and the video-only quality-warning behavior use the
+existing `tr()` translation surface; they do not add a selectable language or
+change the translation build requirements.
+
 The corresponding regression test validates behavior without depending on a
 particular locale; status text remains a translatable implementation detail.
 

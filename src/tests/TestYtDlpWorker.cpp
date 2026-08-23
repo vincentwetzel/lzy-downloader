@@ -42,7 +42,9 @@ private slots:
     void testYtDlpErrorParsing();
     void testAria2ProgressParsing();
     void testAria2AdvancedProgressParsing();
+    void testAudioExtractionUsesAudioTransferStatusForCombinedSource();
     void testTransientAria2FailureFallsBackToNativeDownloader();
+    void testMissingAria2OutputFallsBackToNativeDownloader();
     void testCookieBackedDegradedFormatRecoveryDetection();
     void testYtDlpProgressStalledParsing();
     void testLifecycleStatusParsing();
@@ -186,6 +188,23 @@ void TestYtDlpWorker::testAria2AdvancedProgressParsing() {
     QCOMPARE(progressData[QStringLiteral("speed")].toString(), QStringLiteral("2.50 MiB/s"));
 }
 
+void TestYtDlpWorker::testAudioExtractionUsesAudioTransferStatusForCombinedSource() {
+    ConfigManager *config = getConfigManager();
+    TestableYtDlpWorker worker(QStringLiteral("audioCombinedSource"),
+                               {QStringLiteral("-x")}, config, nullptr);
+    QSignalSpy progressSpy(&worker, &YtDlpWorker::progressUpdated);
+
+    worker.callHandleOutputLine(QStringLiteral(
+        "[debug] aria2c command line: aria2c --out \"audio.f18.mp4\" "
+        "\"https://media.example.test/?itag=18&mime=video%2Fmp4\""));
+    worker.callHandleOutputLine(QStringLiteral("[#123456 1.0MiB/2.0MiB(50%) DL:1.0MiB/s ETA:00:01]"));
+
+    QVERIFY(!progressSpy.isEmpty());
+    const QVariantMap progressData = progressSpy.last().at(1).toMap();
+    QCOMPARE(progressData.value(QStringLiteral("status")).toString(),
+             QStringLiteral("Downloading audio stream..."));
+}
+
 void TestYtDlpWorker::testTransientAria2FailureFallsBackToNativeDownloader() {
     ConfigManager *config = getConfigManager();
     const QString tempRoot = QDir(getTempDir()).filePath(QStringLiteral("temp_downloads"));
@@ -211,6 +230,27 @@ void TestYtDlpWorker::testTransientAria2FailureFallsBackToNativeDownloader() {
     QVERIFY(!QFile::exists(QDir(uuidDirectory).filePath(QStringLiteral("video.info.json"))));
     QVERIFY(!progressSpy.isEmpty());
     QVERIFY(progressSpy.last().at(1).toMap().value(QStringLiteral("status")).toString().contains(QStringLiteral("native downloader")));
+}
+
+void TestYtDlpWorker::testMissingAria2OutputFallsBackToNativeDownloader() {
+    const QString id = QStringLiteral("55555555-5555-4555-8555-555555555555");
+    ConfigManager *config = getConfigManager();
+    TestableYtDlpWorker worker(id,
+                               {QStringLiteral("--external-downloader"), QStringLiteral("aria2c"),
+                                QStringLiteral("--external-downloader-args"), QStringLiteral("aria2c:--max-tries=6")},
+                               config, nullptr);
+    QSignalSpy progressSpy(&worker, &YtDlpWorker::progressUpdated);
+
+    const QString diagnostic = QStringLiteral(
+        "ERROR: Unable to download video: [WinError 3] The system cannot find the path specified: "
+        "'C:/temp/video.f299.mp4.part'\n"
+        "FileNotFoundError: [WinError 3] The system cannot find the path specified: "
+        "'C:/temp/video.f299.mp4.part'");
+    QVERIFY(worker.callRetryWithoutAria2c(diagnostic));
+    QVERIFY(!worker.arguments().contains(QStringLiteral("--external-downloader")));
+    QVERIFY(!worker.arguments().contains(QStringLiteral("--external-downloader-args")));
+    QVERIFY(!progressSpy.isEmpty());
+    QVERIFY(progressSpy.last().at(1).toMap().value(QStringLiteral("status")).toString().contains(QStringLiteral("expected media output")));
 }
 
 void TestYtDlpWorker::testCookieBackedDegradedFormatRecoveryDetection() {

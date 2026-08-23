@@ -80,7 +80,9 @@ void YtDlpWorker::inferRequestedTransfersFromFormatList(const QString &formatLis
 
         m_requestedTransferFormatIds.append(part);
         if (parts.size() == 1) {
-            m_requestedTransferStatuses.append(tr("Downloading media stream..."));
+            m_requestedTransferStatuses.append(requestedAudioExtraction()
+                ? tr("Downloading audio stream...")
+                : tr("Downloading media stream..."));
         } else if (i == 0) {
             m_requestedTransferStatuses.append(tr("Downloading video stream..."));
         } else {
@@ -116,7 +118,7 @@ bool YtDlpWorker::handleAria2CommandLine(const QString &line) {
         if (itagMatch.hasMatch()) {
             const QString itag = itagMatch.captured(1).trimmed();
             if (!itag.isEmpty()) {
-                if (mimeValue.startsWith(QStringLiteral("audio/"))) {
+                if (mimeValue.startsWith(QStringLiteral("audio/")) || requestedAudioExtraction()) {
                     m_requestedTransferFormatIds.append(itag);
                     m_requestedTransferStatuses.append(tr("Downloading audio stream..."));
                     m_requestedTransferSizes.append(0.0);
@@ -137,7 +139,8 @@ bool YtDlpWorker::handleAria2CommandLine(const QString &line) {
         }
     }
 
-    if (mimeValue.startsWith(QStringLiteral("audio/"))) {
+    if (mimeValue.startsWith(QStringLiteral("audio/"))
+        || (mimeValue.startsWith(QStringLiteral("video/")) && requestedAudioExtraction())) {
         m_currentTransferStatus = tr("Downloading audio stream...");
         if (m_requestedTransferStatuses.size() > 1) {
             m_inferredTransferIndex = qMax(1, m_inferredTransferIndex);
