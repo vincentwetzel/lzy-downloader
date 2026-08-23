@@ -14,6 +14,11 @@ to video downloads. Audio-only downloads do not use retained source-video
 `height` metadata for that warning, and their progress remains audio-labeled
 when extraction temporarily transfers a combined source.
 
+Build-time release validation does not change the settings schema. CI-only
+Linux Qt/XCB packages and prerelease yt-dlp installation are not saved to
+`settings.ini`; runtime executable paths continue to use External Tools and
+the shared resolver.
+
 ---
 
 ## Table of Contents

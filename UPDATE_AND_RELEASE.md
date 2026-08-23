@@ -17,7 +17,15 @@ This document describes how to build, package, and release the C++ version of Lz
    - Required for building the application.
    - The manifest build path uses vcpkg; keep `vcpkg.json` synchronized with the app version before release and keep its `builtin-baseline` pinned for reproducible dependency resolution.
 
-4. **Git & GitHub**
+4. **Linux Qt/XCB Development Packages (Linux release builds)**
+   - When vcpkg builds Qt Base on Ubuntu, install `autoconf`, `automake`, `autoconf-archive`, `bison`, `curl`, `flex`, `libtool`, `tar`, `unzip`, `zip`, `'^libxcb.*-dev'`, `libx11-xcb-dev`, `libxkbcommon-dev`, `libxkbcommon-x11-dev`, `libxi-dev`, `libxrender-dev`, `libegl1-mesa-dev`, `libgl1-mesa-dev`, and `libglu1-mesa-dev`.
+   - The release workflow installs these prerequisites before manifest resolution; runtime-only XCB packages do not provide the headers or pkg-config data Qt's XCB backend requires.
+
+5. **yt-dlp Nightly (release validation)**
+   - Release automation installs the latest yt-dlp prerelease with `python -m pip install --pre --upgrade yt-dlp`; this keeps packaging validation aligned with current extractor/runtime changes.
+   - This is a build-validation dependency only. yt-dlp is not bundled by the release job; runtime executable provisioning remains governed by External Tools settings.
+
+6. **Git & GitHub**
    - Repo: https://github.com/vincentwetzel/lzy-downloader
    - Must have access to create Releases
 

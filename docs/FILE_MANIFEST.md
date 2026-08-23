@@ -13,6 +13,8 @@ This document is a quick file-to-responsibility index for the C++ port. It is in
 - `UPDATE_AND_RELEASE.md`: Release/operator workflow reference.
 - `CMakeLists.txt`: Primary build graph and executable/library registration.
 - `build_release.py`: Release build and packaging orchestration.
+- `.github/workflows/release.yml`: Tag-triggered Windows/Linux release matrix, CI-only Linux vcpkg prerequisites, NSIS setup, prerelease yt-dlp validation, and asset publication.
+- `release-notes/<tag>.md` (when supplied): Version-matched release description consumed by the GitHub Release job; this is not an application runtime resource.
 - `main.cpp`: Application entry point and single-instance/bootstrap wiring.
 
 ## Documentation

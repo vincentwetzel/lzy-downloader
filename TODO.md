@@ -57,6 +57,11 @@
 - [x] Documented cross-platform updater asset selection, bounded worker diagnostics, gallery stderr trimming, and Qt 6.2-safe cleanup/comparison updates.
 - [x] Release packaging: Fixed Linux AppImage icon resolution by using a clean `build-release/AppDir` staging directory and a generated desktop file whose icon entry matches the resized release PNG.
 - [x] CI/CD: Fixed the release workflow Qt setup to avoid unused/non-installable Qt module requests and use the available Qt 6.6 Windows MSVC archive, relying on Qt Base for Core/Widgets/Network/Sql.
+- [x] CI/CD: Install the vcpkg Qt Base XCB development prerequisites on Ubuntu release runners so the forced XCB backend can configure successfully.
+- [x] CI/CD: Install Ubuntu host parser tools required by vcpkg's Qt SQL dependency graph.
+- [x] CI/CD: Install vcpkg archive utilities explicitly on Ubuntu release runners.
+- [x] CI/CD: Use yt-dlp's prerelease/nightly channel during release validation.
+- [x] Documentation: Reconcile every maintained documentation surface with the release workflow's exact Linux dependencies and prerelease yt-dlp validation.
 - [x] CI/CD: Added tag-triggered GitHub Actions release automation that runs the unified release builder and uploads Windows installer plus Linux AppImage assets to GitHub Releases.
 - [x] Performance: Optimized hot-path stdout line parsing in `YtDlpWorkerProgress.cpp` using regex-free string parsing and zero-allocation views.
 - [x] Documented yt-dlp diagnostic classification updates for critical extractor failures, FFmpeg-specific guidance, impersonation recommendations, and SponsorBlock cut argument changes.

@@ -99,6 +99,8 @@ Current expectations:
 - Fresh interactive launches must use the guided binary setup flow: only offer a system-first versus app-managed-first choice when a system tool is actually available, select optional tools by default, and use visible install progress. App-managed tools may update automatically according to the configured cadence; external or package-managed tools must retain an explicit user-confirmed update flow.
 - External binary updates must avoid overwriting package-managed tools directly; prefer package-manager commands or tool-native self-updaters (`yt-dlp -U`, `gallery-dl -U`, `deno upgrade`) surfaced through the External Binaries UI.
 - Windows release CI must install NSIS before invoking `build_release.py`; the release helper should accept `makensis` from `PATH` as well as the standard local install path.
+- Linux release CI must install vcpkg Qt Base's archive utilities (`curl`, `tar`, `unzip`, and `zip`), host build tools (`autoconf`, `automake`, `autoconf-archive`, `bison`, `flex`, and `libtool`), and XCB development packages (`^libxcb.*-dev`, `libx11-xcb-dev`, `libxkbcommon-dev`, `libxkbcommon-x11-dev`, `libxi-dev`, `libxrender-dev`, `libegl1-mesa-dev`, `libgl1-mesa-dev`, and `libglu1-mesa-dev`) before manifest resolution; runtime-only X11/XCB packages do not satisfy the forced XCB backend's header and pkg-config checks.
+- Release validation installs yt-dlp from the prerelease channel with `python -m pip install --pre --upgrade yt-dlp` so current extractor/runtime behavior is exercised.
 - Keep Qt runtime/plugin deployment self-contained, including `qsqlite.dll`.
 
 Agents MUST NOT:

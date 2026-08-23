@@ -36,6 +36,7 @@ void TestEndToEnd::setupTestConfig(ConfigManager *configManager, const QString &
 
 void TestEndToEnd::init() {
     BaseTest::init();
+    m_serverShuttingDown = false;
     
     // 1. Create dummy video file
     const QString videoFilePath = QDir(getTempDir()).filePath(TEST_DUMMY_FILE);
@@ -101,6 +102,9 @@ void TestEndToEnd::init() {
     });
 
     QObject::connect(m_httpServerProcess, &QProcess::errorOccurred, this, [this](QProcess::ProcessError error){
+        if (m_serverShuttingDown) {
+            return;
+        }
         QFAIL(qPrintable(QStringLiteral("HTTP Server process error: %1, %2").arg(error).arg(m_httpServerProcess->errorString())));
     });
     
@@ -132,6 +136,7 @@ void TestEndToEnd::init() {
 void TestEndToEnd::cleanup() {
     if (m_httpServerProcess) {
         if (m_httpServerProcess->state() == QProcess::Running) {
+            m_serverShuttingDown = true;
             ProcessUtils::terminateProcessTree(m_httpServerProcess);
             m_httpServerProcess->waitForFinished(3000); // Ensure process has released file handles
             qDebug() << "Terminated test HTTP server process with PID:" << m_serverProcessId;
@@ -205,4 +210,4 @@ void TestEndToEnd::testSingleVideoDownload() {
     // 8. Cleanup (BaseTest takes care of the temporary directory)
 }
 
-QTEST_MAIN(TestEndToEnd)
+QTEST_GUILESS_MAIN(TestEndToEnd)

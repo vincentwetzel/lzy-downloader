@@ -94,6 +94,9 @@ Before building a release, keep all release metadata in sync:
 - `vcpkg.json` `version-string` must be updated to the same version, and `builtin-baseline` should remain pinned to the intended vcpkg commit.
 - `build_release.py` is the canonical packaging path for local release builds and the GitHub release workflow.
 - Windows GitHub Actions installs NSIS before packaging; local builds may use the standard NSIS location or a `makensis` executable on `PATH`.
+- Linux GitHub Actions installs the vcpkg Qt Base prerequisites, including `bison`, `curl`, `flex`, `tar`, `unzip`, `zip`, `^libxcb.*-dev`, `libx11-xcb-dev`, and `libxkbcommon-x11-dev`, before configuring the release build.
+- Release automation installs yt-dlp from its prerelease/nightly channel (`pip install --pre --upgrade yt-dlp`) so extractor/runtime changes are exercised before packaging.
+- The Linux release prerequisite step also installs `autoconf`, `autoconf-archive`, `automake`, `libtool`, `libegl1-mesa-dev`, `libgl1-mesa-dev`, `libglu1-mesa-dev`, `libxi-dev`, `libxkbcommon-dev`, and `libxrender-dev`; these are development dependencies for vcpkg's Qt/XCB build, not application runtime requirements.
 - `LzyDownloader.nsi` must not contain stale hardcoded version examples or installer metadata; pass the release version with `makensis /DAPP_VERSION=x.y.z /DRELEASE_BUILD_DIR=build-release\Release LzyDownloader.nsi` when building manually.
 - `CHANGELOG.md` must move `[Unreleased]` notes under the dated release version.
 - Pushing a `v*` tag starts `.github/workflows/release.yml`, which builds the Windows installer and Linux AppImage and attaches them to the GitHub Release.

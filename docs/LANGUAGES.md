@@ -5,6 +5,10 @@ below are planned translation targets; they are not selectable UI languages
 until Qt Linguist catalogs and the corresponding CMake build steps are added.
 The implementation work remains tracked in `TODO.md`.
 
+Release and CI documentation is also maintained in English. The Linux
+development packages and prerelease yt-dlp installation used by release CI
+are build-time concerns, not translatable runtime UI or bundled dependencies.
+
 ## Current language
 
 - English

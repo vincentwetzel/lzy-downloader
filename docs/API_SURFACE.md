@@ -10,6 +10,12 @@ The API surface adheres to **Qt best practices**:
 - No blocking operations on the main thread; asynchronous logic via `QProcess` or workers.
 - Proper thread-affinity and memory safety (e.g., using `deleteLater()` on workers).
 
+Release automation is a CI integration contract rather than a runtime API:
+`v*` tags build Windows and Linux artifacts, Linux CI provisions the vcpkg
+Qt/XCB development prerequisites before configuration, and validation installs
+yt-dlp from the prerelease channel. These dependencies are not bundled into
+the application or written to user settings.
+
 ---
 
 ## 1. Core Classes

@@ -35,7 +35,9 @@ jobs:
       - name: Install Python Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install yt-dlp gallery-dl
+          pip install --upgrade gallery-dl
+          # Use yt-dlp's prerelease channel so release builds exercise the current nightly extractor/runtime.
+          pip install --pre --upgrade yt-dlp
 
       - name: Set up MSVC (Windows)
         if: matrix.platform == 'windows'
@@ -66,7 +68,14 @@ jobs:
         if: matrix.platform == 'linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y autoconf autoconf-archive automake libtool libgl1-mesa-dev libxkbcommon-x11-0 libxcb-xinerama0 libxcb-cursor0
+          # vcpkg builds Qt Base from source and forces its XCB backend on.
+          # Install development packages, not only their runtime libraries.
+          sudo apt-get install -y \
+            autoconf autoconf-archive automake bison curl flex libtool tar unzip zip \
+            '^libxcb.*-dev' \
+            libegl1-mesa-dev libgl1-mesa-dev libglu1-mesa-dev \
+            libx11-xcb-dev libxi-dev libxkbcommon-dev \
+            libxkbcommon-x11-dev libxrender-dev
 
       - name: Run Unified Release Builder
         env:

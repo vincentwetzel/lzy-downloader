@@ -22,6 +22,7 @@ private:
 
     qint64 m_serverProcessId = 0; // Stores the PID of the Python HTTP server
     QProcess *m_httpServerProcess = nullptr; // Manages the HTTP server process
+    bool m_serverShuttingDown = false; // Expected termination must not fail the test
 };
 
 #endif // TESTENDTOEND_H

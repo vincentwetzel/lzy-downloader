@@ -10,6 +10,11 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 ## Unreleased
 
 - **CI/CD:** Windows release jobs now install NSIS before running the unified release builder, and local packaging accepts `makensis` from `PATH`.
+- **CI/CD:** Linux release jobs now install the Qt/XCB development packages required when vcpkg builds Qt Base, preventing Ubuntu configuration failures caused by runtime-only X11/XCB libraries.
+- **CI/CD:** Linux release jobs also install the `bison` and `flex` host tools required by vcpkg's PostgreSQL dependency during Qt SQL configuration.
+- **CI/CD:** Linux release jobs explicitly install vcpkg's required archive utilities (`curl`, `tar`, `unzip`, and `zip`) for clean runners.
+- **CI/CD:** Release automation now installs yt-dlp from the prerelease/nightly channel for current extractor/runtime validation.
+- **Documentation:** Reconciled the active documentation set with the release workflow's exact Linux prerequisites, prerelease yt-dlp validation, and packaging responsibilities.
 
 - Fixed aria2c downloads that return without their expected temporary media file: the worker now retries once with yt-dlp's native downloader while retaining media partials and removing stale metadata sidecars.
 - Fixed low-quality video warnings appearing for audio-only downloads whose metadata still contained the source video's height.
