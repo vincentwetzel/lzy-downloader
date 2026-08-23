@@ -9,6 +9,8 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## Unreleased
 
+- **CI/CD:** Windows release jobs now install NSIS before running the unified release builder, and local packaging accepts `makensis` from `PATH`.
+
 - Fixed aria2c downloads that return without their expected temporary media file: the worker now retries once with yt-dlp's native downloader while retaining media partials and removing stale metadata sidecars.
 - Fixed low-quality video warnings appearing for audio-only downloads whose metadata still contained the source video's height.
 - Kept aria2c progress labels audio-oriented when audio extraction downloads a combined `video/*` source before extracting the audio.

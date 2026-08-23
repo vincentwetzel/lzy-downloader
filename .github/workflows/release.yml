@@ -41,6 +41,15 @@ jobs:
         if: matrix.platform == 'windows'
         uses: ilammy/msvc-dev-cmd@v1
 
+      - name: Install NSIS (Windows)
+        if: matrix.platform == 'windows'
+        shell: powershell
+        run: |
+          choco install nsis --no-progress -y
+          if (!(Test-Path 'C:\Program Files (x86)\NSIS\makensis.exe')) {
+            throw 'NSIS installation failed: makensis.exe was not found'
+          }
+
       - name: Install Qt 6
         uses: jurplel/install-qt-action@v3
         with:

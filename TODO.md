@@ -26,6 +26,7 @@
 - [x] Synchronize all active documentation with the current implementation on 2026-08-15, including first-launch binary provisioning, explicit Local API archive overrides, recovery diagnostics, and the platform data-directory layout. Historical changelog entries remain unchanged.
 - [x] Allow Discord bridge enqueue requests to explicitly override completed archive entries without a GUI confirmation dialog.
 - [x] Add a checked-by-default NSIS finish-page option to launch LzyDownloader after installation.
+- [x] Install NSIS explicitly in Windows release CI and resolve `makensis` from `PATH` for package-manager installations.
 - [x] Prevent incomplete yt-dlp media with a printed final path from entering FFmpeg metadata embedding; classify missing fragments, empty data blocks, and invalid media input as transfer failures with accurate diagnostics.
 - [x] Preserve explicit yt-dlp premiere/upcoming metadata during playlist-probe fallback so active livestreams cannot be assigned aria2c.
 - [x] Fix the existing abandoned-thumbnail remux path so tracked thumbnail sidecars are embedded as attached artwork before cleanup.

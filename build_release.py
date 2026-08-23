@@ -101,9 +101,14 @@ def main():
         except Exception as e:
             log(f"Warning: Could not verify built executable version metadata: {e}", YELLOW)
 
-        # Compile NSIS Installer
-        nsis_path = Path("C:/Program Files (x86)/NSIS/makensis.exe")
-        if nsis_path.exists():
+        # Compile NSIS Installer. Prefer PATH so package-manager installs work,
+        # then retain the standard Windows installation path for local builds.
+        nsis_candidates = [
+            Path(shutil.which("makensis") or ""),
+            Path("C:/Program Files (x86)/NSIS/makensis.exe"),
+        ]
+        nsis_path = next((candidate for candidate in nsis_candidates if candidate.is_file()), None)
+        if nsis_path is not None:
             run_command([
                 str(nsis_path),
                 f"/DAPP_VERSION={app_version}",
@@ -112,7 +117,7 @@ def main():
             ])
             log(f"\n=== Windows Build Success: LzyDownloader-Setup-{app_version}.exe ===", GREEN)
         else:
-            log(f"Error: NSIS compiler not found at {nsis_path}. Packaging aborted.", RED)
+            log("Error: NSIS compiler not found on PATH or at C:/Program Files (x86)/NSIS/makensis.exe. Packaging aborted.", RED)
             sys.exit(1)
 
     elif system_platform == "Linux":

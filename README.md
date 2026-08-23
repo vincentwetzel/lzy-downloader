@@ -93,6 +93,7 @@ Before building a release, keep all release metadata in sync:
 - `CMakeLists.txt` `project(VERSION x.y.z)` is the app version source of truth.
 - `vcpkg.json` `version-string` must be updated to the same version, and `builtin-baseline` should remain pinned to the intended vcpkg commit.
 - `build_release.py` is the canonical packaging path for local release builds and the GitHub release workflow.
+- Windows GitHub Actions installs NSIS before packaging; local builds may use the standard NSIS location or a `makensis` executable on `PATH`.
 - `LzyDownloader.nsi` must not contain stale hardcoded version examples or installer metadata; pass the release version with `makensis /DAPP_VERSION=x.y.z /DRELEASE_BUILD_DIR=build-release\Release LzyDownloader.nsi` when building manually.
 - `CHANGELOG.md` must move `[Unreleased]` notes under the dated release version.
 - Pushing a `v*` tag starts `.github/workflows/release.yml`, which builds the Windows installer and Linux AppImage and attaches them to the GitHub Release.

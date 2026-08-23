@@ -8,6 +8,7 @@ This document describes how to build, package, and release the C++ version of Lz
    - Download from: https://nsis.sourceforge.io/Download
    - Install to default location (e.g., `C:\Program Files (x86)\NSIS`)
    - Verify: `makensis /version` in PowerShell
+   - GitHub Actions installs NSIS automatically on the Windows runner before invoking `build_release.py`.
 
 2. **CMake & MSVC**
    - Required to build the C++ application. GitHub Actions uses the hosted Windows MSVC environment; local Windows builds should use an MSVC toolchain compatible with Qt 6.
@@ -58,7 +59,7 @@ This script:
 - Refreshes both extractor JSON files
 - Configures a Release build with CMake
 - Builds `LzyDownloader.exe`
-- On Windows, runs `makensis` against `LzyDownloader.nsi` with `/DAPP_VERSION=<version from CMakeLists.txt>` and `/DRELEASE_BUILD_DIR=build-release\Release`
+- On Windows, runs `makensis` from `PATH` when available, otherwise the standard NSIS installation path, against `LzyDownloader.nsi` with `/DAPP_VERSION=<version from CMakeLists.txt>` and `/DRELEASE_BUILD_DIR=build-release\Release`
 - The Windows installer finish page offers a checked-by-default option to launch `LzyDownloader.exe` after installation
 - On Linux, stages a clean `build-release/AppDir`, generates a linuxdeploy desktop file whose `Icon` matches the resized release PNG, and packages `LzyDownloader-<version>-x86_64.AppImage` with `linuxdeploy`
 
