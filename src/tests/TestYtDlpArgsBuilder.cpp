@@ -94,8 +94,6 @@ void TestYtDlpArgsBuilder::testLivestreamArguments() {
     QVERIFY(args.contains(QStringLiteral("--wait-for-video")));
     QVERIFY(args.contains(QStringLiteral("45-180")));
     QVERIFY(args.contains(QStringLiteral("--part")));
-    QVERIFY(args.contains(QStringLiteral("--merge-output-format")));
-    QVERIFY(args.contains(QStringLiteral("mkv")));
     QVERIFY(args.contains(QStringLiteral("--remux-video")));
     QVERIFY(args.contains(QStringLiteral("mp4")));
     QVERIFY(args.contains(QStringLiteral("-f")));

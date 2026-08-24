@@ -1,6 +1,7 @@
 # LzyDownloader C++ Port TODO
 
 ## In Progress
+- [x] Keep the footer download counters and current-speed indicator on the first row while retaining the exit-after-downloads switch at the right edge.
 - [x] Recover once from cookie-backed degraded progressive format selection when an uncapped or higher-capped bestvideo request resolves below 480p, including manifests that omit the better adaptive formats.
 - [x] Add regression coverage for cookie-backed degraded-format detection, including adaptive-format, incomplete-manifest, explicit-cap, and no-cookie exclusions.
 - [x] Make valid Download History source URLs clickable and open them in the default browser.
@@ -14,7 +15,8 @@
 - [ ] Add an automated manager-level test for transient playlist-probe fallback and explicit playlist failure classification.
 - [ ] Refactor and split large `.cpp` files above or approaching 500 lines (e.g., `DownloadItemWidget.cpp`, `MainWindowConnections.cpp`, and `YtDlpWorkerProcess.cpp`) to preserve optimal AI context limits.
 - [ ] Split `ProcessUtils.cpp` after the external-binary resolver expansion; the file is currently above the 500-line guidance and should move version parsing/probing into a focused helper.
-- [ ] Review `AppUpdater` release-flow UX and diagnostics now that platform-specific updater assets are supported for Windows, Linux, and macOS.
+- [x] Review `AppUpdater` release-flow UX and diagnostics now that platform-specific updater assets are supported for Windows, Linux, and macOS; update handoff now flushes the queue and stops child processes before installer launch.
+- [x] Make silent Windows application updates relaunch the freshly installed executable after NSIS replacement.
 - [x] Make Windows FFmpeg/FFprobe updates resilient to transient executable locks by staging replacements and retrying bounded moves.
 - [ ] Evaluate whether `YtDlpWorker` should expose a reusable capped diagnostic tail helper so warning/error retention stays consistent across workers.
 - [x] Added bounded aria2 retry/backoff, transient aria2-to-native fallback, and stale metadata-sidecar cleanup while preserving resumable media partials.
@@ -22,6 +24,7 @@
 - [x] Preserve track-level artist metadata for audio playlists by using item-level yt-dlp artist/creator/channel/uploader fields and excluding playlist-owner fields.
 - [x] Add first-launch external-tool provisioning with a system-first/app-managed-first choice, optional-tool selection, non-modal update guidance, and configurable automatic updates for app-managed tools.
 - [x] Restrict low-quality resolution warnings to video downloads and preserve audio transfer labels when audio extraction uses a combined source.
+- [x] Add the downloaded title and clickable source link to low-quality video warnings.
 
 - [x] Synchronize all active documentation with the current implementation on 2026-08-15, including first-launch binary provisioning, explicit Local API archive overrides, recovery diagnostics, and the platform data-directory layout. Historical changelog entries remain unchanged.
 - [x] Allow Discord bridge enqueue requests to explicitly override completed archive entries without a GUI confirmation dialog.
@@ -36,7 +39,7 @@
 - [ ] Integrate Qt Linguist (`.ts`/`.qm` compiler steps) into `CMakeLists.txt` build automation.
 
 ## Completed
-- [x] Prepared the v1.2.27 release metadata, changelog entry, and tag-matched GitHub release notes.
+- [x] Prepared the v1.2.29 release metadata, changelog entry, and tag-matched GitHub release notes.
 - [x] Enabled zero-padded playlist filename prefixes by default while preserving an explicit user opt-out.
 - [x] Prevented false browser-cookie retries from matching ordinary metadata prose such as `locked in a heated race`; cookie fallback now uses explicit cookie/database/sign-in diagnostics and the normal process-finished path.
 - [x] Prevented ordinary title phrases such as `Starting in` or `Live in` from triggering scheduled-livestream error handling.
@@ -63,6 +66,9 @@
 - [x] CI/CD: Use yt-dlp's prerelease/nightly channel during release validation.
 - [x] Documentation: Reconcile every maintained documentation surface with the release workflow's exact Linux dependencies and prerelease yt-dlp validation.
 - [x] CI/CD: Added tag-triggered GitHub Actions release automation that runs the unified release builder and uploads Windows installer plus Linux AppImage assets to GitHub Releases.
+- [x] CI/CD: Align Linux linuxdeploy's qmake and Qt module lookup with the vcpkg Qt used by the release executable; add a fallback body for tags without checked-in release notes.
+- [x] CI/CD: Add a manual, non-publishing release-workflow dispatch so AppImage packaging can be validated before creating a new version tag.
+- [x] Build: Isolate the standalone-Qt debug preset from the vcpkg debug binary directory so stale toolchain state cannot trigger unnecessary MinGW dependency installation.
 - [x] Performance: Optimized hot-path stdout line parsing in `YtDlpWorkerProgress.cpp` using regex-free string parsing and zero-allocation views.
 - [x] Documented yt-dlp diagnostic classification updates for critical extractor failures, FFmpeg-specific guidance, impersonation recommendations, and SponsorBlock cut argument changes.
 - [x] Documented v1.1.69 behavior for auto-detected binary path ownership, completed-with-warning downloads, retry-based cleanup, livestream wait metadata safety, and Discord bridge progress refreshes.

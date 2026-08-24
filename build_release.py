@@ -26,6 +26,23 @@ def run_command(cmd, shell=False):
         log(f"Command failed with exit code {result.returncode}", RED)
         sys.exit(result.returncode)
 
+
+def find_vcpkg_qmake(build_dir):
+    """Return the qmake belonging to the Qt used by the release build, if present."""
+    candidates = []
+    for triplet_dir in (build_dir / "vcpkg_installed").glob("*/"):
+        qt_tools = triplet_dir / "tools"
+        # vcpkg currently installs the tools under tools/Qt6 on Linux and
+        # Windows; retain the lowercase form for older/custom triplets.
+        for qt_dir_name in ("Qt*", "qt*"):
+            candidates.extend(qt_tools.glob(f"{qt_dir_name}/bin/qmake"))
+            candidates.extend(qt_tools.glob(f"{qt_dir_name}/bin/qmake6"))
+
+    for candidate in candidates:
+        if candidate.is_file() and os.access(candidate, os.X_OK):
+            return candidate
+    return None
+
 def main():
     log("=== LzyDownloader Unified Release Builder ===", CYAN)
 
@@ -151,14 +168,20 @@ def main():
             urllib.request.urlretrieve("https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-x86_64.AppImage", ld_plugin_path)
             ld_plugin_path.chmod(0o755)
 
-        # Force linuxdeploy-plugin-qt to use the correct Qt6 qmake binary, avoiding qtchooser bugs on Ubuntu
-        qmake_bin = shutil.which("qmake6")
-        if qmake_bin:
-            os.environ["QMAKE"] = qmake_bin
-        elif Path("/usr/lib/qt6/bin/qmake").exists():
-            os.environ["QMAKE"] = "/usr/lib/qt6/bin/qmake"
+        # The executable is linked against vcpkg's Qt.  linuxdeploy-plugin-qt
+        # must query that same Qt installation; using the unrelated Qt SDK
+        # supplied by install-qt-action makes it report no Qt modules.
+        qmake_bin = find_vcpkg_qmake(build_dir)
+        if qmake_bin is not None:
+            os.environ["QMAKE"] = str(qmake_bin.resolve())
         else:
-            os.environ["QT_SELECT"] = "qt6"
+            qmake_bin = shutil.which("qmake6")
+            if qmake_bin:
+                os.environ["QMAKE"] = qmake_bin
+            elif Path("/usr/lib/qt6/bin/qmake").exists():
+                os.environ["QMAKE"] = "/usr/lib/qt6/bin/qmake"
+            else:
+                os.environ["QT_SELECT"] = "qt6"
 
         # Generate a temporary 512x512 icon for linuxdeploy to avoid the 1024px limit
         icon_path = Path("src/resources/icon.png")
@@ -213,7 +236,10 @@ def main():
         desktop_content = re.sub(r"^Icon=.*$", f"Icon={deploy_icon.stem}", desktop_content, flags=re.MULTILINE)
         linux_desktop.write_text(desktop_content, encoding="utf-8")
 
-        os.environ["EXTRA_QT_PLUGINS"] = "sqldrivers/libqsqlite.so"
+        # linuxdeploy-plugin-qt renamed this variable.  The QtSql module is
+        # explicit because its SQLite driver is loaded dynamically at runtime;
+        # the plugin's SQL deployer then includes the matching driver plugin.
+        os.environ["EXTRA_QT_MODULES"] = "sql"
         run_command([
             "./linuxdeploy",
             "--appdir", str(appdir),

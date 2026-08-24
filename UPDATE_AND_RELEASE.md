@@ -1,5 +1,8 @@
 # LzyDownloader C++ Update & Release Guide
 
+The main-window footer keeps status counters and current speed on its first row;
+the exit-after-downloads control remains the rightmost item.
+
 This document describes how to build, package, and release the C++ version of LzyDownloader with auto-update support.
 
 ## Prerequisites
@@ -22,7 +25,7 @@ This document describes how to build, package, and release the C++ version of Lz
    - The release workflow installs these prerequisites before manifest resolution; runtime-only XCB packages do not provide the headers or pkg-config data Qt's XCB backend requires.
 
 5. **yt-dlp Nightly (release validation)**
-   - Release automation installs the latest yt-dlp prerelease with `python -m pip install --pre --upgrade yt-dlp`; this keeps packaging validation aligned with current extractor/runtime changes.
+   - Release automation installs the latest yt-dlp prerelease with `python -m pip install --pre --upgrade yt-dlp`; this keeps packaging validation aligned with current extractor/runtime changes. Verify low-quality warnings show title and source-link context in GUI smoke checks.
    - This is a build-validation dependency only. yt-dlp is not bundled by the release job; runtime executable provisioning remains governed by External Tools settings.
 
 6. **Git & GitHub**
@@ -70,6 +73,7 @@ This script:
 - On Windows, runs `makensis` from `PATH` when available, otherwise the standard NSIS installation path, against `LzyDownloader.nsi` with `/DAPP_VERSION=<version from CMakeLists.txt>` and `/DRELEASE_BUILD_DIR=build-release\Release`
 - The Windows installer finish page offers a checked-by-default option to launch `LzyDownloader.exe` after installation
 - On Linux, stages a clean `build-release/AppDir`, generates a linuxdeploy desktop file whose `Icon` matches the resized release PNG, and packages `LzyDownloader-<version>-x86_64.AppImage` with `linuxdeploy`
+- On Linux, selects qmake from `build-release/vcpkg_installed/*/tools/Qt*/bin` when available so linuxdeploy discovers the same Qt modules used by the executable; the SQLite driver remains included through the explicit QtSql module.
 
 ### Step 3b: Run Headless Tests
 
@@ -96,7 +100,7 @@ Replace `X.X.X` with the exact version from `CMakeLists.txt`.
 
 ## Release to GitHub
 
-GitHub Actions automatically builds release assets when a `v*` tag is pushed. The workflow at `.github/workflows/release.yml` runs `python build_release.py` on `windows-latest` and `ubuntu-22.04`, then uploads `LzyDownloader-Setup-*.exe` and `LzyDownloader-*-x86_64.AppImage` to the GitHub Release for that tag.
+GitHub Actions automatically builds release assets when a `v*` tag is pushed. The workflow at `.github/workflows/release.yml` runs `python build_release.py` on `windows-latest` and `ubuntu-22.04`, then uploads `LzyDownloader-Setup-*.exe` and `LzyDownloader-*-x86_64.AppImage` to the GitHub Release for that tag. If the matching release-notes file is absent, CI creates a minimal fallback body before publication. Use `workflow_dispatch` to run the matrix as a non-publishing validation; uploads are tag-only.
 
 ### Step 1: Commit Release Inputs
 
@@ -149,6 +153,8 @@ If the workflow is unavailable, navigate to https://github.com/vincentwetzel/lzy
 - [ ] NSIS installer tested (install/uninstall preserves `%LOCALAPPDATA%\LzyDownloader\settings.ini`, `download_archive.db`, `downloads_backup.json`, and log files)
 - [ ] NSIS installer finish-page launch option starts `LzyDownloader.exe` when left checked and does not start it when cleared
 - [ ] Clean Windows install tested for HTTPS update checks (Qt TLS backend loads with `libcrypto-3-x64.dll` and `libssl-3-x64.dll` beside `LzyDownloader.exe`)
+- [ ] Application update tested with active and queued downloads; queue state is saved and downloader/helper processes are stopped before installer launch
+- [ ] Silent application update verified to relaunch the freshly installed `LzyDownloader.exe` after NSIS completes
 - [ ] Timestamped logging verified (`%LOCALAPPDATA%\LzyDownloader\LzyDownloader_YYYY-MM-dd_HH-mm-ss.log`)
 - [ ] Log retention verified (startup cleanup keeps only the 5 most recent logs)
 - [ ] Temporary-root reconciliation verified (orphan UUID folders are removed asynchronously while stopped/failed IDs, symlinks, non-UUID folders, and the shared root are preserved)

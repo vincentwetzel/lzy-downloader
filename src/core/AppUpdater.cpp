@@ -215,6 +215,7 @@ void AppUpdater::onDownloadFinished(QNetworkReply *reply) {
     reply->deleteLater();
 
     emit downloadFinished();
+    emit installingUpdate();
 
 #ifdef Q_OS_WIN
     // Run the installer silently

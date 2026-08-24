@@ -30,7 +30,7 @@ def main():
         print(f"Building project: {' '.join(build_cmd)}\n")
         subprocess.run(build_cmd, cwd=build_dir, check=True)
     except subprocess.CalledProcessError as e:
-        print(f"\n❌ Build failed with exit code {e.returncode}. Please fix compilation errors first.")
+        print(f"\nBuild failed with exit code {e.returncode}. Please fix compilation errors first.")
         sys.exit(e.returncode)
 
     # Set environment variables for headless Qt execution
@@ -48,9 +48,9 @@ def main():
     try:
         print(f"Executing: {' '.join(ctest_cmd)}\n")
         subprocess.run(ctest_cmd, cwd=build_dir, env=env, check=True)
-        print("\n✅ All headless tests completed successfully!")
+        print("\nAll headless tests completed successfully!")
     except subprocess.CalledProcessError as e:
-        print(f"\n❌ Tests failed with exit code {e.returncode}.")
+        print(f"\nTests failed with exit code {e.returncode}.")
         sys.exit(e.returncode)
     except FileNotFoundError:
         print("Error: 'ctest' command not found. Ensure CMake is installed and added to your system PATH.")

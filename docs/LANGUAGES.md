@@ -5,9 +5,15 @@ below are planned translation targets; they are not selectable UI languages
 until Qt Linguist catalogs and the corresponding CMake build steps are added.
 The implementation work remains tracked in `TODO.md`.
 
+The footer status indicators and exit-after-downloads control remain on the
+same translated UI surface; their compact first-row layout does not change
+translation coverage.
+
 Release and CI documentation is also maintained in English. The Linux
 development packages and prerelease yt-dlp installation used by release CI
 are build-time concerns, not translatable runtime UI or bundled dependencies.
+The release workflow's fallback GitHub body and manual validation-run metadata
+are also English-only build metadata and do not require a translation catalog.
 
 ## Current language
 
@@ -27,7 +33,8 @@ requirements.
 
 Audio-aware transfer status and the video-only quality-warning behavior use the
 existing `tr()` translation surface; they do not add a selectable language or
-change the translation build requirements.
+change the translation build requirements. The warning title/source-link
+context also uses the existing translation surface.
 
 The corresponding regression test validates behavior without depending on a
 particular locale; status text remains a translatable implementation detail.
@@ -78,3 +85,6 @@ accurate-cut, recovery-diagnostic, and download-history behavior descriptions
 are maintained in English. New user-facing strings must continue to use Qt
 translation calls so they can be extracted when `.ts`/`.qm` build automation
 is enabled.
+# Update handoff terminology
+
+The updater exposes an `installingUpdate` lifecycle signal before installer launch. Any future translations or user-facing update strings should preserve the distinction between a completed download and the final shutdown/install handoff. Silent Windows installs relaunch the installed executable without using translated finish-page text.

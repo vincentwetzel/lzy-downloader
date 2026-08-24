@@ -123,22 +123,19 @@ void MainWindowUiBuilder::build(QMainWindow *mainWindow, QVBoxLayout *mainLayout
     footerTopRow->addSpacing(20);
     footerTopRow->addWidget(discordLink);
     footerTopRow->addStretch();
+    footerTopRow->addWidget(m_queuedDownloadsLabel);
+    footerTopRow->addSpacing(10);
+    footerTopRow->addWidget(m_activeDownloadsLabel);
+    footerTopRow->addSpacing(10);
+    footerTopRow->addWidget(m_completedDownloadsLabel);
+    footerTopRow->addSpacing(10);
+    footerTopRow->addWidget(m_errorDownloadsLabel);
+    footerTopRow->addSpacing(20);
+    footerTopRow->addWidget(m_speedLabel);
+    footerTopRow->addSpacing(20);
     footerTopRow->addWidget(exitAfterLabel);
     footerTopRow->addWidget(m_exitAfterSwitch);
 
-    QHBoxLayout *footerBottomRow = new QHBoxLayout();
-    footerBottomRow->addStretch();
-    footerBottomRow->addWidget(m_queuedDownloadsLabel);
-    footerBottomRow->addSpacing(10);
-    footerBottomRow->addWidget(m_activeDownloadsLabel);
-    footerBottomRow->addSpacing(10);
-    footerBottomRow->addWidget(m_completedDownloadsLabel);
-    footerBottomRow->addSpacing(10);
-    footerBottomRow->addWidget(m_errorDownloadsLabel);
-    footerBottomRow->addSpacing(20);
-    footerBottomRow->addWidget(m_speedLabel);
-
     footerContainer->addLayout(footerTopRow);
-    footerContainer->addLayout(footerBottomRow);
     mainLayout->addLayout(footerContainer);
 }

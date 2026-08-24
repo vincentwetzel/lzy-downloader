@@ -7,6 +7,7 @@
 #include <QVariantList>
 #include <QCheckBox>
 #include <QTableWidget>
+#include <QtGlobal>
 
 FormatSelectionDialog::FormatSelectionDialog(const QVariantMap &infoDict, const QVariantMap &options, QWidget *parent)
     : QDialog(parent) {
@@ -123,7 +124,11 @@ void FormatSelectionDialog::populateTable(const QVariantMap &infoDict, const QSt
             }
         }
 
+#if QT_VERSION >= QT_VERSION_CHECK(6, 7, 0)
+        connect(checkBox, &QCheckBox::checkStateChanged, this, [this]() {
+#else
         connect(checkBox, &QCheckBox::stateChanged, this, [this]() {
+#endif
             onSelectionChanged();
         });
     }

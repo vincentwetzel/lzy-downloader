@@ -63,7 +63,7 @@ signals:
     void playlistExpansionFinished(const QString &url, int count);
     void queueFinished();
     void totalSpeedUpdated(double speed);
-    void videoQualityWarning(const QString &url, const QString &message);
+    void videoQualityWarning(const QString &title, const QString &url, const QString &message);
     void downloadStatsUpdated(int queued, int active, int completed, int errors);
     void formatSelectionRequested(const QString &url, const QVariantMap &options, const QVariantMap &infoDict);
     void formatSelectionFailed(const QString &url, const QString &message);

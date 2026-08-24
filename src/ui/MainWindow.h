@@ -46,7 +46,7 @@ private slots:
     void onValidationFinished(bool isValid, const QString &error);
     void onQueueFinished();
     void onTrayIconActivated(QSystemTrayIcon::ActivationReason reason);
-    void onVideoQualityWarning(const QString &url, const QString &message);
+    void onVideoQualityWarning(const QString &title, const QString &url, const QString &message);
     void applyTheme(const QString &themeName);
     void updateTotalSpeed(double speed);
     void onDownloadStatsUpdated(int queued, int active, int completed, int errors);

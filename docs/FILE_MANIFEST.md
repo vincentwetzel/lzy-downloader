@@ -13,8 +13,8 @@ This document is a quick file-to-responsibility index for the C++ port. It is in
 - `UPDATE_AND_RELEASE.md`: Release/operator workflow reference.
 - `CMakeLists.txt`: Primary build graph and executable/library registration.
 - `build_release.py`: Release build and packaging orchestration.
-- `.github/workflows/release.yml`: Tag-triggered Windows/Linux release matrix, CI-only Linux vcpkg prerequisites, NSIS setup, prerelease yt-dlp validation, and asset publication.
-- `release-notes/<tag>.md` (when supplied): Version-matched release description consumed by the GitHub Release job; this is not an application runtime resource.
+- `.github/workflows/release.yml`: Tag/manual Windows/Linux build matrix, CI-only Linux vcpkg prerequisites, Windows NSIS/Qt setup, prerelease yt-dlp validation, matching-qmake Linux packaging, fallback release notes, and tag-only asset publication.
+- `release-notes/<tag>.md` (when supplied): Version-matched release description consumed by the GitHub Release job; CI creates a minimal fallback in the runner when absent. This is not an application runtime resource.
 - `main.cpp`: Application entry point and single-instance/bootstrap wiring.
 
 ## Documentation
@@ -29,11 +29,12 @@ This document is a quick file-to-responsibility index for the C++ port. It is in
 ## Source Layout
 - `src/core/`: Download pipeline, queueing, archive handling, configuration, binary resolution, and supporting logic.
 - `src/ui/`: Qt Widgets UI, tabs, dialogs, and presentation-layer builders.
+- `src/ui/MainWindowUiBuilder.*`: Main-window tabs, footer status indicators, and exit-after-downloads control layout.
 - `src/utils/`: Shared helpers for logging, discovery, parsing, and platform utilities.
 - `src/tests/`: Test fixtures and Qt test coverage.
 
 ## High-Value Entry Points
-- `src/core/DownloadManager.*`: Queue orchestration, download lifecycle, finalization flow, and type-aware terminal quality warnings.
+- `src/core/DownloadManager.*`: Queue orchestration, download lifecycle, finalization flow, and type-aware terminal quality warnings (including title/source context).
 - `src/core/DownloadFinalizer.*`: Background verification, destination moves, and guarded terminal temporary-directory cleanup.
 - `src/core/YtDlpWorker.*`: yt-dlp process handling, output parsing, progress classification including audio-aware combined-source labels, browser-cookie failure and metadata-backed degraded-format recovery, and bounded aria2c-to-native recovery.
 - `src/core/YtDlpWorkerDiagnostics.cpp`: Shared fatal/incomplete-media and bounded aria2c missing-output recovery classification used to reject stale final paths before FFmpeg metadata embedding or finalization.
@@ -49,7 +50,7 @@ This document is a quick file-to-responsibility index for the C++ port. It is in
 - `src/core/YtDlpArgsBuilder.*`: Metadata/option-driven command-line construction for yt-dlp and aria2c, including replay-safe livestream classification.
 - `src/core/download_pipeline/FfmpegMuxer.*`: Asynchronous FFmpeg muxing, progress, and final output handling.
 - `src/core/MetadataEmbedder.*`: Metadata/thumbnail embedding post-processing, including the existing abandoned-thumbnail remux that maps tracked sidecars as `attached_pic` artwork.
-- `src/core/AppUpdater.*`: Application update lookup and artifact handling.
+- `src/core/AppUpdater.*`: Application update lookup, artifact handling, and pre-launch handoff notification; `MainWindow` owns queue/process shutdown for that handoff. `LzyDownloader.nsi` owns silent-update relaunch after replacement.
 - `src/core/LocalApiServer.*`: Localhost API server and auth handling.
 - `src/ui/MainWindow.*`: Main application shell, tab wiring, and global UI actions.
 - `src/ui/StartTab.*`: Queue entry point and download submission controls.

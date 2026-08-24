@@ -186,6 +186,18 @@ void MainWindow::connectAppUpdaterSignals()
     connect(m_appUpdater, &AppUpdater::downloadFinished, this, [this]() {
         statusBar()->showMessage(tr("Update downloaded. Launching installer..."), 5000);
     });
+
+    connect(m_appUpdater, &AppUpdater::installingUpdate, this, [this]() {
+        // AppUpdater normally quits directly after launching the installer, which
+        // bypasses closeEvent(). Explicitly perform the same synchronous cleanup
+        // first so active yt-dlp/gallery-dl/FFmpeg processes do not keep the EXE
+        // locked while NSIS replaces it. shutdown() also persists resumable queue
+        // state before terminating the worker process trees.
+        qInfo() << "Preparing application update: saving queue and stopping downloads.";
+        if (m_downloadManager) {
+            m_downloadManager->shutdown();
+        }
+    });
 }
 
 void MainWindow::scheduleInitialSetup()

@@ -165,9 +165,16 @@ void DownloadManager::onWorkerFinished(const QString &id, bool success, const QS
     if (downloadType == QStringLiteral("video")
         && metadata.contains(QStringLiteral("height"))
         && metadata.value(QStringLiteral("height")).toInt() < 480) {
+        QString title = metadata.value(QStringLiteral("title")).toString().trimmed();
+        if (title.isEmpty()) {
+            title = item.metadata.value(QStringLiteral("title")).toString().trimmed();
+        }
+        if (title.isEmpty()) {
+            title = item.options.value(QStringLiteral("title")).toString().trimmed();
+        }
         QString url = item.url;
-        QMetaObject::invokeMethod(this, [this, url]() {
-            emit videoQualityWarning(url, tr("Downloaded video quality is below 480p."));
+        QMetaObject::invokeMethod(this, [this, title, url]() {
+            emit videoQualityWarning(title, url, tr("Downloaded video quality is below 480p."));
         }, Qt::QueuedConnection);
     }
     

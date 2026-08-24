@@ -10,6 +10,8 @@ When acting as an AI coding assistant modifying this repository, you must adhere
 - **Zero Backward Compatibility for Obsolete Code:** When replacing legacy components, do not write legacy fallbacks for obsolete settings or data structures unless explicitly requested for migration.
 - **Documentation-Driven Changes:** Feature changes, bug fixes, and architecture changes must be reflected in the maintained documentation set before completion: `AGENTS.md`, `README.md`, `CHANGELOG.md`, `TODO.md`, `UPDATE_AND_RELEASE.md`, and the active files under `docs/` (`API_SURFACE.md`, `ARCHITECTURE.md`, `CODING_STANDARDS.md`, `FILE_MANIFEST.md`, `LANGUAGES.md`, `SETTINGS.md`, and `SPEC.md`). Historical entries in `docs/CHANGELOG_ARCHIVE.md` are reference material and must not be rewritten.
 - **Release Workflow Documentation:** CI-only build prerequisites must be documented separately from runtime dependencies. Keep the exact Linux vcpkg/Qt/XCB packages and the prerelease yt-dlp validation command synchronized across the release workflow, release guide, specification, and manifest; do not imply that CI installs bundle tools into the shipped application.
+- **Release Qt Consistency:** Linux packaging must use qmake from the same vcpkg Qt installation that linked the release executable. Do not let a separate Qt SDK environment cause linuxdeploy to miss the application's Qt modules.
+- **Non-publishing CI Validation:** Release workflows may expose manual build-only dispatches, but artifact publication must remain conditional on a tag ref.
 
 ## 2. C++ & Qt Style and Conventions
 - **Naming:** Follow idiomatic Qt/C++ naming. Use `PascalCase` for classes, `camelCase` for functions and local variables, and `UPPER_SNAKE_CASE` for constants. Prefix class member variables with `m_` (e.g., `m_downloadQueue`).
@@ -36,6 +38,7 @@ When acting as an AI coding assistant modifying this repository, you must adhere
 - **Authentication Diagnostic Precision:** Browser-cookie fallback detection must require explicit cookie/browser-database/sign-in context, except for the separate generic degraded-format check that recognizes a cookie-backed combined stream below 480p selected for an uncapped or higher-capped `bestvideo` request. Never use a standalone word such as `locked` as a retry trigger because yt-dlp metadata and descriptions can contain that text; direct/runtime format choices, caps at the selected resolution, and active livestreams must not be overridden.
 - **External Downloader Recovery Precision:** Aria2c fallback is limited to documented transient exit codes (2, 5, 6, and 29) or a narrowly classified yt-dlp file-not-found diagnostic for aria2c's expected media `.part` output. Remove stale metadata sidecars only; preserve media partials for resume.
 - **Media-Type Diagnostic Precision:** Classify quality warnings from the requested download type before interpreting shared metadata. In particular, `height` is meaningful for video-quality warnings but may remain present on audio extraction metadata; it must not cause an audio job to display a video warning. Transport MIME types must likewise not override an explicit audio-extraction stage.
+- **Warning Presentation Safety:** Escape title, URL, and diagnostic text before placing them in rich-text dialogs. Only complete HTTP/HTTPS URLs may be rendered as external links; retain plain text for incomplete values.
 - **Recovery Test Precision:** Changes to browser-cookie recovery must update `TestYtDlpWorker` coverage for both positive evidence paths (better adaptive formats and incomplete manifests) and the negative exclusions (explicit caps, direct/runtime selectors, active livestreams, and absent cookie arguments).
 - **Media Diagnostic Precision:** Never treat a printed final path as proof that the media is valid. Centralize detection of missing fragments, empty data blocks, invalid headers, and invalid-input FFmpeg diagnostics so terminal transfer failures are reported before metadata embedding.
 - **Artwork Remux Precision:** When post-processing receives a tracked thumbnail sidecar, the FFmpeg argument list must explicitly map it and mark it `attached_pic`; cleanup must occur only after that existing remux stage succeeds.
@@ -44,6 +47,9 @@ When acting as an AI coding assistant modifying this repository, you must adhere
 - **Modern CMake Practices:** Always use modern CMake target-based commands (e.g., `target_include_directories`, `target_link_libraries`, `target_compile_definitions`). Avoid legacy directory-scoped commands (`include_directories`, `link_directories`) to ensure dependencies are properly encapsulated per-target.
 
 ## 3. Concurrency & UI Thread
+
+Main-window footer status indicators should remain compact and share the first
+row with the right-aligned exit-after-downloads control.
 - Playlist validation is a non-blocking optimization; transient probe failures must be handed back to the asynchronous download worker for ordinary media URLs rather than synchronously cancelling the queue item.
 - **Never Block the Main Thread:** All network requests, file system scanning, long database operations, and external process executions (`yt-dlp`, `gallery-dl`, `ffmpeg`) MUST occur asynchronously or off the main GUI thread.
 - **Strict GUI Thread Affinity:** NEVER create, modify, or delete `QWidget` subclasses or UI elements from a background thread. All UI updates must strictly reside on the main GUI thread.
@@ -111,4 +117,6 @@ When acting as an AI coding assistant modifying this repository, you must adhere
 - **Accessibility (a11y):** Ensure all custom interactive widgets provide appropriate `AccessibleName` and `AccessibleDescription` properties to support screen readers and OS-level accessibility tools.
 
 - **Windows binary replacement:** Never assume an external executable can be overwritten immediately. Stage replacement files in the destination directory and use bounded retries for transient sharing violations; retain actionable diagnostics when the lock persists.
+- **Application update handoff:** Before launching an application installer, emit a handoff signal and synchronously flush resumable queue state and terminate child downloader/post-processing processes. Do not rely on `QCoreApplication::quit()` to invoke `closeEvent()`.
+- **Application update restart:** Silent Windows update installs must explicitly launch the freshly installed executable because silent mode suppresses the NSIS finish page.
 - **Responsive binary-management UI:** External-binary status paths and install/update dialogs must wrap long paths and command output, remain usable at narrow widths, and keep interactive controls visible in both light and dark themes.

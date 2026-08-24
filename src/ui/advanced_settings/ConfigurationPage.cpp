@@ -11,6 +11,7 @@
 #include <QComboBox>
 #include <QCheckBox>
 #include <QSignalBlocker>
+#include <QtGlobal>
 
 ConfigurationPage::ConfigurationPage(ConfigManager *configManager, QWidget *parent)
     : QWidget(parent), m_configManager(configManager) {
@@ -62,7 +63,13 @@ ConfigurationPage::ConfigurationPage(ConfigManager *configManager, QWidget *pare
     connect(m_browseCompletedBtn, &QPushButton::clicked, this, &ConfigurationPage::selectCompletedDir);
     connect(m_browseTempBtn, &QPushButton::clicked, this, &ConfigurationPage::selectTempDir);
     connect(m_themeCombo, &QComboBox::currentTextChanged, this, &ConfigurationPage::onThemeChanged);
+#if QT_VERSION >= QT_VERSION_CHECK(6, 7, 0)
+    connect(m_enableApiServerCheck, &QCheckBox::checkStateChanged, this, [this](Qt::CheckState state) {
+        onEnableApiServerToggled(static_cast<int>(state));
+    });
+#else
     connect(m_enableApiServerCheck, &QCheckBox::stateChanged, this, &ConfigurationPage::onEnableApiServerToggled);
+#endif
     connect(m_configManager, &ConfigManager::settingChanged, this, &ConfigurationPage::handleConfigSettingChanged);
 }
 

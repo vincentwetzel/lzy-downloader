@@ -25,13 +25,15 @@ input are reported as incomplete-transfer failures before metadata embedding.
 - 🖼️ **Gallery Support** — Download image galleries from supported sites (e.g., Instagram, Twitter) via `gallery-dl`
 - 🎨 **Advanced Settings** — Quality selection, format filtering, SponsorBlock integration, metadata embedding
 - 🎛️ **Runtime Format Selection** — Optionally prompt for specific video/audio qualities on every download, supporting multiple simultaneous format selections for the same media
-- 🔄 **App Updates** — Checks validated GitHub Releases for newer installers and prompts before downloading
+- 🔄 **App Updates** — Checks validated GitHub Releases for newer installers, saves unfinished downloads, stops downloader processes, and automatically restarts the app after installation
 - 🔌 **Local API** — Optional localhost API for trusted local integrations such as Discord bots
 - 📊 **Concurrent Downloads** — Queue and manage multiple downloads simultaneously
+- 📌 **Compact Footer Status** — Download counters and current speed share the footer's first row, with the exit-after-downloads switch at the far right
 - ⏸️ **Pause & Resume** — Safely stop downloads, preserve partial `.part` files, and resume validated queue backups across application restarts
 - 🧰 **External Binaries Manager** — Detect, version-check, install, and update `yt-dlp`, `gallery-dl`, `ffmpeg`, `ffprobe`, `aria2c`, and `deno` from inside the app, with version-aware local `bin` discovery, package-manager-aware commands, update warnings, SHA-256 checks when available, and cancellable install/update logs. Fresh interactive installs use guided system-first/app-managed-first setup with optional-tool provisioning.
 - 🛡️ **Recovery Diagnostics** — Distinguishes incomplete media and critical extractor failures from recoverable post-processing warnings, even when yt-dlp printed a final path
 - 🎚️ **Media-Aware Quality Warnings** — Video-resolution warnings apply only to video downloads; audio extraction remains audio-labeled even when yt-dlp transfers a combined video/audio source
+- 🔗 **Useful Quality Warnings** — Low-quality video warnings include the media title and a clickable source link when the URL is complete
 - 🖼️ **Thumbnail Embedding** — Automatic thumbnail download, bounded preview loading, and embedding for videos and audio
 - 🌐 **Browser Cookies** — Use saved cookies from Firefox, Chrome, Edge, or other browsers for age-restricted content; a low-resolution cookie-backed result for an uncapped bestvideo request retries once without cookies when the browser manifest may have hidden adaptive formats
 - 📂 **Smart Sorting** — Automatically organize downloads into subfolders based on uploader, playlist, date, or custom patterns
@@ -69,7 +71,7 @@ cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=E:/vcpkg/script
 cmake --build build --config Release
 ```
 
-For local Windows debugging with a standalone Qt/MinGW install, use the `debug-local-qt` preset. It writes to the normal `build-debug` folder, skips vcpkg manifest install, and copies the minimal Qt runtime/plugin set needed to launch from the build tree:
+For local Windows debugging with a standalone Qt/MinGW install, use the `debug-local-qt` preset. It writes to the separate `build-debug-local-qt` folder so it cannot inherit vcpkg toolchain state from the manifest-based `debug` preset, skips vcpkg manifest install, and copies the minimal Qt runtime/plugin set needed to launch from the build tree:
 
 ```bash
 cmake --preset debug-local-qt
@@ -96,6 +98,9 @@ Before building a release, keep all release metadata in sync:
 - Windows GitHub Actions installs NSIS before packaging; local builds may use the standard NSIS location or a `makensis` executable on `PATH`.
 - Linux GitHub Actions installs the vcpkg Qt Base prerequisites, including `bison`, `curl`, `flex`, `tar`, `unzip`, `zip`, `^libxcb.*-dev`, `libx11-xcb-dev`, and `libxkbcommon-x11-dev`, before configuring the release build.
 - Release automation installs yt-dlp from its prerelease/nightly channel (`pip install --pre --upgrade yt-dlp`) so extractor/runtime changes are exercised before packaging.
+- Linux AppImage packaging uses the same vcpkg Qt installation that built the executable when invoking linuxdeploy, including QtSql's SQLite plugin discovery; the Windows-only Qt SDK setup is not used for Linux packaging.
+- If a tag-matched `release-notes/<tag>.md` file is absent, CI creates a minimal fallback release body so GitHub Release publication does not emit a missing-file warning.
+- The workflow also supports `workflow_dispatch` validation runs; release assets are uploaded only when the workflow was started by a `v*` tag.
 - The Linux release prerequisite step also installs `autoconf`, `autoconf-archive`, `automake`, `libtool`, `libegl1-mesa-dev`, `libgl1-mesa-dev`, `libglu1-mesa-dev`, `libxi-dev`, `libxkbcommon-dev`, and `libxrender-dev`; these are development dependencies for vcpkg's Qt/XCB build, not application runtime requirements.
 - `LzyDownloader.nsi` must not contain stale hardcoded version examples or installer metadata; pass the release version with `makensis /DAPP_VERSION=x.y.z /DRELEASE_BUILD_DIR=build-release\Release LzyDownloader.nsi` when building manually.
 - `CHANGELOG.md` must move `[Unreleased]` notes under the dated release version.

@@ -9,11 +9,22 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## Unreleased
 
+- Moved the download counters and current-speed indicator into the footer's first row, with the exit-after-downloads switch remaining rightmost.
+- Low-quality video warnings now show the downloaded title and provide a clickable HTTP/HTTPS source link when available.
+- Fixed application updates with unfinished downloads by flushing resumable queue state and stopping downloader/helper process trees before launching the installer.
+- Silent application updates now relaunch the freshly installed `LzyDownloader.exe` automatically.
+- **CI/CD:** Linux AppImage packaging now selects qmake from the vcpkg Qt installation used to build the executable, prevents the linuxdeploy Qt-module mismatch, and supplies a fallback release body when tag-matched notes are absent.
+- **CI/CD:** The release workflow now supports manual build-only dispatches; GitHub Release assets remain tag-only.
+- **Build:** The `debug-local-qt` preset now uses an isolated build directory and cannot inherit stale vcpkg manifest/toolchain state.
+
+## [1.2.29] - 2026-08-24
+
 - **CI/CD:** Windows release jobs now install NSIS before running the unified release builder, and local packaging accepts `makensis` from `PATH`.
 - **CI/CD:** Linux release jobs now install the Qt/XCB development packages required when vcpkg builds Qt Base, preventing Ubuntu configuration failures caused by runtime-only X11/XCB libraries.
 - **CI/CD:** Linux release jobs also install the `bison` and `flex` host tools required by vcpkg's PostgreSQL dependency during Qt SQL configuration.
 - **CI/CD:** Linux release jobs explicitly install vcpkg's required archive utilities (`curl`, `tar`, `unzip`, and `zip`) for clean runners.
 - **CI/CD:** Release automation now installs yt-dlp from the prerelease/nightly channel for current extractor/runtime validation.
+- **CI/CD:** Headless test failures now use console-safe diagnostics on Windows instead of crashing while printing Unicode status symbols.
 - **Documentation:** Reconciled the active documentation set with the release workflow's exact Linux prerequisites, prerelease yt-dlp validation, and packaging responsibilities.
 
 - Fixed aria2c downloads that return without their expected temporary media file: the worker now retries once with yt-dlp's native downloader while retaining media partials and removing stale metadata sidecars.

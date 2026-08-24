@@ -14,7 +14,10 @@ Release automation is a CI integration contract rather than a runtime API:
 `v*` tags build Windows and Linux artifacts, Linux CI provisions the vcpkg
 Qt/XCB development prerequisites before configuration, and validation installs
 yt-dlp from the prerelease channel. These dependencies are not bundled into
-the application or written to user settings.
+the application or written to user settings. Linux packaging also binds
+linuxdeploy to the vcpkg Qt installation that built the executable and
+generates a minimal release body when a tag has no checked-in notes file.
+Manual workflow dispatches build the matrix without publishing release assets.
 
 ---
 
@@ -22,6 +25,7 @@ the application or written to user settings.
 
 ### Current behavioral contracts
 
+- `MainWindowUiBuilder` places footer download counters and current speed on the first row and keeps the exit-after-downloads control as its rightmost item.
 - `ActiveDownloadsTab` and `DownloadItemWidget` keep their scroll content and
   flexible text columns shrinkable to the viewport. Horizontal scrolling is
   disabled, so Cancel/Retry/folder actions remain reachable at narrow widths.
@@ -59,6 +63,7 @@ the application or written to user settings.
 - `ProcessUtils::setBackgroundProcessPriority(QProcess&)` lowers supported Windows post-processing processes to below-normal priority.
 - `LocalApiServer::enqueueRequested` carries an explicit `overrideArchive` flag so automation clients can confirm intentional re-downloads without a GUI dialog.
 - `DownloadManager::videoQualityWarning` is emitted only for successful downloads whose queued type is `video` and whose selected video height is below 480p. Audio-only metadata may contain a source video height but must not trigger this signal.
+- `DownloadManager::videoQualityWarning(title, url, message)` includes the best available completed-item title. The main window renders valid HTTP/HTTPS URLs as escaped links and leaves incomplete values as plain text.
 - `YtDlpWorker` keeps transfer-stage progress audio-oriented when `-x`/`--extract-audio` is active, including when aria2c reports a combined `video/*` transport MIME type.
 
 ### [DownloadManager](../src/core/DownloadManager.h)
@@ -145,6 +150,9 @@ Handles remote update lookups and triggers installer downloads asynchronously.
 - `void updateAvailable(const QString &latestVersion, const QString &releaseNotes, const QUrl &downloadUrl)`: Emitted if a newer version is discovered.
 - `void downloadProgress(qint64 bytesReceived, qint64 bytesTotal)`: Emitted during installer acquisition.
 - `void downloadFinished()`: Emitted when the installer file is complete.
+- `void installingUpdate()`: Emitted after the installer is saved and before launch so the owning window can synchronously persist the queue and stop downloader child processes.
+
+The Windows installer is invoked with `/S` by `AppUpdater`; NSIS relaunches the newly installed executable after the silent install completes.
 
 ### [YtDlpLiveStatus](../src/core/YtDlpLiveStatus.h)
 Small metadata helper used at the playlist-probe boundary. It recognizes only

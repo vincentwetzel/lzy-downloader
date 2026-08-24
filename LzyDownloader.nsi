@@ -74,6 +74,11 @@ Section "Install"
     WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\LzyDownloader" "DisplayIcon" "$INSTDIR\LzyDownloader.exe"
     WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\LzyDownloader" "DisplayVersion" "${APP_VERSION}"
     WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\LzyDownloader" "Publisher" "Vincent Wetzel"
+
+    ; The application updater uses /S, which suppresses the finish page. Relaunch
+    ; the freshly installed application explicitly for that silent update path.
+    IfSilent 0 +2
+    Exec '"$INSTDIR\LzyDownloader.exe"'
 SectionEnd
 
 ;--------------------------------

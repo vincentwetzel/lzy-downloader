@@ -76,6 +76,14 @@ signals:
      */
     void downloadFinished();
 
+    /**
+     * @brief Emitted after the installer is saved and immediately before it is launched.
+     *
+     * The application must stop active child processes before the installer attempts
+     * to replace the running executable.
+     */
+    void installingUpdate();
+
 private slots:
     void onCheckFinished(QNetworkReply *reply);
     void onDownloadFinished(QNetworkReply *reply);

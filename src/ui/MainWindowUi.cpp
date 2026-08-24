@@ -33,6 +33,7 @@
 #include <QProcess>
 #include <QStyleFactory>
 #include <QStyleHints>
+#include <QUrl>
 #include <QSystemTrayIcon>
 #include <QTabWidget>
 #include <QTimer>
@@ -341,15 +342,31 @@ void MainWindow::showInitialBinarySetup(const QStringList &missingBinaries)
     }
 }
 
-void MainWindow::onVideoQualityWarning(const QString &url, const QString &message)
+void MainWindow::onVideoQualityWarning(const QString &title, const QString &url, const QString &message)
 {
     if (m_nonInteractiveLaunch) {
         qWarning() << "Low quality video warning for non-interactive launch:" << url << message;
         return;
     }
 
-    QMessageBox::warning(this, tr("Low Quality Video"),
-                         tr("The following video was downloaded at a low quality:\n%1\n\n%2").arg(url, message));
+    const QString displayTitle = title.trimmed().isEmpty() ? tr("Unknown title") : title.trimmed();
+    const QUrl sourceUrl(url);
+    const bool clickableSource = (sourceUrl.scheme().compare(QStringLiteral("http"), Qt::CaseInsensitive) == 0
+                                  || sourceUrl.scheme().compare(QStringLiteral("https"), Qt::CaseInsensitive) == 0)
+                                 && !sourceUrl.host().isEmpty() && sourceUrl.isValid();
+    const QString sourceText = clickableSource
+        ? QStringLiteral("<a href=\"%1\">%2</a>").arg(url.toHtmlEscaped(), url.toHtmlEscaped())
+        : url.toHtmlEscaped();
+    const QString text = tr("<b>%1</b><br><br>Source video: %2<br><br>%3")
+                             .arg(displayTitle.toHtmlEscaped(), sourceText, message.toHtmlEscaped());
+
+    QMessageBox box(QMessageBox::Warning, tr("Low Quality Video"), text, QMessageBox::Ok, this);
+    box.setTextFormat(Qt::RichText);
+    if (auto *label = box.findChild<QLabel *>(QStringLiteral("qt_msgbox_label"))) {
+        label->setTextInteractionFlags(Qt::TextBrowserInteraction);
+        label->setOpenExternalLinks(true);
+    }
+    box.exec();
 }
 
 void MainWindow::applyTheme(const QString &themeName)
