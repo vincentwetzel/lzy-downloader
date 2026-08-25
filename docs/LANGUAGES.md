@@ -20,6 +20,9 @@ are also English-only build metadata and do not require a translation catalog.
 The test runner's timestamps, summaries, and suspects-cache diagnostics are
 developer-facing English output and are not part of the translated UI.
 
+Power-inhibition diagnostics are likewise developer-facing platform logs; the
+feature has no user-visible setting or untranslated UI text.
+
 ## Current language
 
 - English
@@ -94,3 +97,5 @@ is enabled.
 
 The updater exposes an `installingUpdate` lifecycle signal before installer launch. Any future translations or user-facing update strings should preserve the distinction between a completed download and the final shutdown/install handoff. Silent Windows installs relaunch the installed executable without using translated finish-page text.
 Release-tooling diagnostics, including Linux AppImage deployment checks and the `build-release/tooling/` cache, remain English-only CI output and are not runtime translation entries.
+
+The Discord bridge's `/downloads` and `/cancel` command names and local API JSON keys are integration contracts, not selectable Qt UI languages; cancellation status text remains within the existing English bridge/webhook surface.

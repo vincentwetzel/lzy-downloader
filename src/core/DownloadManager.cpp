@@ -7,6 +7,7 @@
 #include "GalleryDlWorker.h"
 #include "core/ProcessUtils.h"
 #include "YtDlpWorker.h"
+#include "PowerInhibitor.h"
 #include <QDebug>
 #include <QMetaObject>
 #include <QProcess>
@@ -65,6 +66,7 @@ void DownloadManager::shutdown() {
         return;
     }
     m_isShuttingDown = true;
+    m_powerInhibitor.release();
 
     qInfo() << "[DownloadManager] Shutdown requested. Terminating active downloads and helper processes.";
 
@@ -105,6 +107,27 @@ void DownloadManager::shutdown() {
     m_pendingSponsorBlockPreflights.clear();
 
     m_workerSpeeds.clear();
+}
+
+void DownloadManager::adjustActiveDownloadCount(int delta)
+{
+    m_activeDownloadsCount = qMax(0, m_activeDownloadsCount + delta);
+
+    if (m_activeDownloadsCount > 0) {
+        if (!m_powerInhibitor.isActive()) {
+            if (m_powerInhibitor.acquire()) {
+                qInfo() << "System idle-sleep inhibition enabled for active downloads.";
+            } else {
+                qWarning() << "Download activity is not protected from system sleep on this platform.";
+            }
+        }
+    } else {
+        const bool wasActive = m_powerInhibitor.isActive();
+        m_powerInhibitor.release();
+        if (wasActive) {
+            qInfo() << "System idle-sleep inhibition released after download activity ended.";
+        }
+    }
 }
 
 void DownloadManager::onQueueCountsChanged(int queued, int paused) {

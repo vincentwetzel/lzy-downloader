@@ -7,6 +7,7 @@
 #include <QJsonArray>
 #include "ConfigManager.h"
 #include "DownloadItem.h"
+#include "PowerInhibitor.h"
 
 class SortingManager;
 class ArchiveManager;
@@ -104,6 +105,7 @@ private:
     void startSponsorBlockPreflight(const DownloadItem &item);
     QString effectivePlaylistTitle(const DownloadItem &item) const;
     void applyAudioPlaylistAlbumMetadata(DownloadItem &item) const;
+    void adjustActiveDownloadCount(int delta);
 
     ConfigManager *m_configManager;
     SortingManager *m_sortingManager;
@@ -127,6 +129,7 @@ private:
     QMap<QString, double> m_workerSpeeds;
     bool m_isShuttingDown;
     qint64 m_lastDownloadFinishTime = 0;
+    PowerInhibitor m_powerInhibitor;
 
     DownloadQueueState *m_queueState;
     DownloadQueueManager *m_queueManager;

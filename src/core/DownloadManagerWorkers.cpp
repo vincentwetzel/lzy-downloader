@@ -147,7 +147,7 @@ void DownloadManager::onWorkerFinished(const QString &id, bool success, const QS
         item.options.insert(QStringLiteral("is_failed"), true);
         m_queueManager->m_pausedItems.insert(id, item);
         
-        m_activeDownloadsCount--;
+        adjustActiveDownloadCount(-1);
         m_errorDownloadsCount++;
         emit downloadFinished(id, false, message); // This will trigger emitDownloadStats()
         emitDownloadStats();
@@ -271,7 +271,7 @@ void DownloadManager::onGalleryDlWorkerFinished(const QString &id, bool success,
         item.options.insert(QStringLiteral("is_failed"), true);
         m_queueManager->m_pausedItems.insert(id, item);
         
-        m_activeDownloadsCount--;
+        adjustActiveDownloadCount(-1);
         m_errorDownloadsCount++;
         emit downloadFinished(id, false, message); // This will trigger emitDownloadStats()
         emitDownloadStats();
@@ -325,7 +325,7 @@ void DownloadManager::onMetadataEmbedded(const QString &id, bool success, const 
         item.options.insert(QStringLiteral("is_failed"), true);
         m_queueManager->m_pausedItems.insert(id, item);
         
-        m_activeDownloadsCount--;
+        adjustActiveDownloadCount(-1);
         m_errorDownloadsCount++;
         emit downloadFinished(id, false, tr("Metadata embedding failed: %1").arg(error)); // This will trigger emitDownloadStats()
         emitDownloadStats();
@@ -351,7 +351,7 @@ void DownloadManager::onFinalizationComplete(const QString &id, bool success, co
         m_errorDownloadsCount++;
     }
     
-    m_activeDownloadsCount--;
+    adjustActiveDownloadCount(-1);
     emit downloadFinished(id, success, finalMessage);
     m_activeItems.remove(id);
 

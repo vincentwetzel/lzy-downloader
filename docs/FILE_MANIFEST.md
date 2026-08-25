@@ -37,6 +37,7 @@ This document is a quick file-to-responsibility index for the C++ port. It is in
 
 ## High-Value Entry Points
 - `src/core/DownloadManager.*`: Queue orchestration, download lifecycle, finalization flow, and type-aware terminal quality warnings (including title/source context).
+- `src/core/PowerInhibitor.*`: Platform-native system idle-sleep inhibition for active GUI and headless/server downloads.
 - `src/core/DownloadFinalizer.*`: Background verification, destination moves, and guarded terminal temporary-directory cleanup.
 - `src/core/YtDlpWorker.*`: yt-dlp process handling, output parsing, progress classification including audio-aware combined-source labels, browser-cookie failure and metadata-backed degraded-format recovery, and bounded aria2c-to-native recovery.
 - `src/core/YtDlpWorkerDiagnostics.cpp`: Shared fatal/incomplete-media and bounded aria2c missing-output recovery classification used to reject stale final paths before FFmpeg metadata embedding or finalization.
@@ -53,7 +54,7 @@ This document is a quick file-to-responsibility index for the C++ port. It is in
 - `src/core/download_pipeline/FfmpegMuxer.*`: Asynchronous FFmpeg muxing, progress, and final output handling.
 - `src/core/MetadataEmbedder.*`: Metadata/thumbnail embedding post-processing, including the existing abandoned-thumbnail remux that maps tracked sidecars as `attached_pic` artwork.
 - `src/core/AppUpdater.*`: Application update lookup, platform/CPU-matched artifact handling, and pre-launch handoff notification; macOS DMGs are opened through Finder. `MainWindow` owns queue/process shutdown for that handoff. `LzyDownloader.nsi` owns silent-update relaunch after replacement.
-- `src/core/LocalApiServer.*`: Localhost API server and auth handling.
+- `src/core/LocalApiServer.*`: Localhost API server/auth handling, enqueue routing, tracked-job cancellation, and status snapshots.
 - `src/ui/MainWindow.*`: Main application shell, tab wiring, and global UI actions.
 - `src/ui/StartTab.*`: Queue entry point and download submission controls.
 - `src/ui/ActiveDownloadsTab.*` / `src/ui/DownloadItemWidget.*`: Responsive active-download rows, queued thumbnail previews, progress display, and row actions.
@@ -70,6 +71,7 @@ This document is a quick file-to-responsibility index for the C++ port. It is in
 - `tests/TestYtDlpWorker.cpp`: Regression coverage for native/aria2 progress, audio-aware combined-source labels, diagnostics, transient downloader recovery, and cookie-backed degraded-format recovery exclusions.
 - `tests/TestDownloadQueueState.cpp`: Queue-backup serialization, resume-status mapping, malformed-entry filtering, and empty-queue cleanup coverage.
 - `tests/TestDownloadTempCleanup.cpp`: Temporary-root fallback, owned-directory cleanup, and orphan-sweep preservation coverage.
+- `tests/TestPowerInhibitor.cpp`: Idempotent acquire/release coverage for the platform sleep-inhibition helper; unsupported desktop services remain a valid best-effort outcome.
 - `extractors_yt-dlp.json` / `extractors_gallery-dl.json`: Bundled extractor-domain data used by URL validation, smart type selection, and Supported Sites UI.
 
 ## Working Rule of Thumb

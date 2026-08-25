@@ -120,6 +120,15 @@ void LocalApiServer::onDownloadFinished(const QString &id, bool success, const Q
     }
 }
 
+void LocalApiServer::onDownloadCancelled(const QString &id)
+{
+    auto jobIt = m_activeJobs.find(id);
+    if (jobIt != m_activeJobs.end()) {
+        jobIt.value().insert(QStringLiteral("status"), QStringLiteral("Cancelled"));
+        jobIt.value().insert(QStringLiteral("progress"), -1);
+    }
+}
+
 void LocalApiServer::onDownloadRemoved(const QString &id)
 {
     m_activeJobs.remove(id);
@@ -298,6 +307,41 @@ void LocalApiServer::handleRequest(QTcpSocket *socket, const QByteArray &request
         }
         QByteArray errBytes = QJsonDocument(errObj).toJson(QJsonDocument::Compact);
         sendHttpResponse(socket, 400, QStringLiteral("Bad Request"), errBytes);
+    } else if (method == QStringLiteral("POST") && path == QStringLiteral("/cancel")) {
+        QJsonParseError parseError;
+        const QJsonDocument doc = QJsonDocument::fromJson(bodyData, &parseError);
+        const QJsonObject jsonObj = doc.isObject() ? doc.object() : QJsonObject();
+        const QString jobId = (jsonObj.value(QStringLiteral("job_id")).toString().isEmpty()
+                                   ? jsonObj.value(QStringLiteral("id")).toString()
+                                   : jsonObj.value(QStringLiteral("job_id")).toString()).trimmed();
+
+        if (doc.isNull() || !doc.isObject() || jobId.isEmpty()) {
+            QJsonObject errObj;
+            errObj[QStringLiteral("error")] = QStringLiteral("Missing or invalid 'job_id' in JSON body.");
+            if (doc.isNull()) {
+                errObj[QStringLiteral("parse_error")] = parseError.errorString();
+            }
+            sendHttpResponse(socket, 400, QStringLiteral("Bad Request"),
+                             QJsonDocument(errObj).toJson(QJsonDocument::Compact));
+            return;
+        }
+
+        if (!m_activeJobs.contains(jobId)) {
+            QJsonObject errObj;
+            errObj[QStringLiteral("error")] = QStringLiteral("Unknown job_id.");
+            errObj[QStringLiteral("job_id")] = jobId;
+            sendHttpResponse(socket, 404, QStringLiteral("Not Found"),
+                             QJsonDocument(errObj).toJson(QJsonDocument::Compact));
+            return;
+        }
+
+        emit cancelRequested(jobId);
+        QJsonObject responseObj;
+        responseObj[QStringLiteral("status")] = QStringLiteral("success");
+        responseObj[QStringLiteral("message")] = QStringLiteral("Cancellation requested.");
+        responseObj[QStringLiteral("job_id")] = jobId;
+        sendHttpResponse(socket, 200, QStringLiteral("OK"),
+                         QJsonDocument(responseObj).toJson(QJsonDocument::Compact));
     } else if (method == QStringLiteral("GET") && path == QStringLiteral("/status")) {
         QJsonArray jobsArray;
         for (auto it = m_activeJobs.cbegin(); it != m_activeJobs.cend(); ++it) {

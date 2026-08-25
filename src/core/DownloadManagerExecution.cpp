@@ -95,7 +95,7 @@ void DownloadManager::proceedWithDownload() {
     }
 
     DownloadItem item = m_queueManager->takeNextQueuedDownload();
-    m_activeDownloadsCount++;
+    adjustActiveDownloadCount(1);
 
     if (shouldPreflightSponsorBlock(item)) {
         startSponsorBlockPreflight(item);
@@ -108,7 +108,7 @@ void DownloadManager::proceedWithDownload() {
 
 void DownloadManager::startDownloadItem(DownloadItem item, bool alreadyCountedActive) {
     if (!alreadyCountedActive) {
-        m_activeDownloadsCount++;
+        adjustActiveDownloadCount(1);
     }
 
     const QString downloadType = item.options.value(QStringLiteral("type"), QStringLiteral("video")).toString();

@@ -41,6 +41,7 @@ Qt and SQLite runtime plugins.
 ### Current behavioral contracts
 
 - `MainWindowUiBuilder` places footer download counters and current speed on the first row and keeps the exit-after-downloads control as its rightmost item.
+- `MainWindow::nonInteractiveRequestFailed(jobId, url, error)` reports non-interactive validation, runtime-extraction, and missing-binary failures to the Discord webhook bridge before the rejected request is discarded.
 - `ActiveDownloadsTab` and `DownloadItemWidget` keep their scroll content and
   flexible text columns shrinkable to the viewport. Horizontal scrolling is
   disabled, so Cancel/Retry/folder actions remain reachable at narrow widths.
@@ -76,14 +77,21 @@ Qt and SQLite runtime plugins.
 - `YtDlpArgsBuilder` generates synchronization-safe accurate-cut arguments, including audio timestamp normalization and bounded FFmpeg thread settings.
 - `ConfigManager` and `DownloadOptionsPage` use `DownloadOptions/prefix_playlist_indices=true` as the canonical default, so playlist audio filenames are consistently prefixed unless the user opts out.
 - `ProcessUtils::setBackgroundProcessPriority(QProcess&)` lowers supported Windows post-processing processes to below-normal priority.
-- `LocalApiServer::enqueueRequested` carries an explicit `overrideArchive` flag so automation clients can confirm intentional re-downloads without a GUI dialog.
+- `LocalApiServer::enqueueRequested` carries an explicit `overrideArchive` flag so automation clients can confirm intentional re-downloads without a GUI dialog. Its authenticated `POST /cancel` route emits `cancelRequested(jobId)` for a tracked job and mirrors `DownloadManager::downloadCancelled` into `/status` as `Cancelled`.
 - `DownloadManager::videoQualityWarning` is emitted only for successful downloads whose queued type is `video` and whose selected video height is below 480p. Audio-only metadata may contain a source video height but must not trigger this signal.
 - `DownloadManager::videoQualityWarning(title, url, message)` includes the best available completed-item title. The main window renders valid HTTP/HTTPS URLs as escaped links and leaves incomplete values as plain text.
+- `DownloadManager` acquires `PowerInhibitor` when its active-download count becomes non-zero and releases it at zero or during shutdown. This applies equally to GUI and headless/server workers; acquisition is best-effort when the host exposes no usable power service.
 - `YtDlpWorker` keeps transfer-stage progress audio-oriented when `-x`/`--extract-audio` is active, including when aria2c reports a combined `video/*` transport MIME type.
 - `DownloadQueueState` serializes active items as queued, preserves paused versus stopped/failed resume states, filters non-object backup entries on load, and removes the backup when the terminal queue is empty. `DownloadTempCleanup` resolves configured/completed-downloads/OS-temp roots and refuses shared-root or mismatched-directory removal.
 
 ### [DownloadManager](../src/core/DownloadManager.h)
 The central manager coordinating download queues, playlist validation, format metadata selection, and the finalization flow.
+
+### [PowerInhibitor](../src/core/PowerInhibitor.h)
+Platform integration helper used by `DownloadManager`. `acquire()` and
+`release()` are idempotent; the helper prevents system idle sleep without
+requesting that the display remain on. Unsupported or unavailable platform
+services return a best-effort failure while downloads continue.
 
 #### Public Methods
 - `explicit DownloadManager(ConfigManager *configManager, QObject *parent = nullptr)`: Constructor.
@@ -152,6 +160,13 @@ A localhost-bound HTTP daemon (`127.0.0.1:8765`) providing local API automation 
 
 #### Signals
 - `void enqueueRequested(const QString &url, const QString &type, const QString &jobId, bool overrideArchive)`: Emitted when an external API call passes bearer authentication and submits a valid payload. The final flag is true only when the caller explicitly confirms an intentional archive re-download.
+- `void cancelRequested(const QString &jobId)`: Emitted for an authenticated `POST /cancel` request whose `job_id` is currently tracked by the server. The request is forwarded to `DownloadManager::cancelDownload`; it does not terminate a process directly.
+
+#### Slots
+- `void onDownloadCancelled(const QString &id)`: Retains the tracked job as `Cancelled` with indeterminate progress until the normal removal notification, allowing `/status` and webhook consumers to observe the terminal state.
+
+#### HTTP contract
+- `POST /cancel` accepts `{"job_id":"..."}` (the compatibility key `id` is also accepted), returns `200` when cancellation is queued, `400` for malformed or missing IDs, and `404` for IDs that are not currently tracked. Authentication, localhost binding, and request bounds are the same as for `/enqueue` and `/status`.
 
 ---
 

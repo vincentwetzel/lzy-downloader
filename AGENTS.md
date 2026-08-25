@@ -70,6 +70,7 @@ Agents MUST preserve and respect the following behaviors from the original Pytho
 - **Queued Thumbnails**: When queue metadata contains a thumbnail URL, the Active Downloads row MUST begin its bounded asynchronous thumbnail request while the item is queued. Playlist expansion must preserve the thumbnail URL when replacing a single-item placeholder, and the UI must not wait for the main download worker to emit a converted thumbnail.
 - **Compact Active Downloads Layout**: The Active Downloads scroll content and each download row MUST be allowed to shrink to the viewport width. Long title text MUST wrap/yield space so right-side Cancel, Retry, and folder actions remain visible; horizontal scrolling MUST remain disabled for the list.
 - **Headless State Persistence**: The application MUST guarantee that final terminal states (such as a fully cleared queue upon completion) are successfully serialized to `downloads_backup.json` before `QCoreApplication::quit()` is called, especially during `--server --exit-after` execution flows that bypass `closeEvent()`.
+- **Power Management**: While one or more downloads are active, `PowerInhibitor` MUST prevent system idle sleep without forcing the display to remain on. The same lifecycle MUST cover GUI and `--server`/`--headless` Discord-bot operation, and release the inhibitor on terminal completion, cancellation, or shutdown.
 - **Livestream Replay Handling**: The app MUST preserve yt-dlp `live_status` from playlist expansion, runtime metadata, and `info.json`. `post_live` and `was_live` items are completed replays and must download as archived media, while active/upcoming livestreams keep wait/finalization behavior. Livestream mode must not be inferred from URL words such as a path segment named `live`; use extractor metadata or an explicit livestream/wait option, and never add hostname-specific livestream or replay overrides.
 - **Browser Cookie Fallback**: When a download using `--cookies-from-browser` fails because browser-cookie extraction or browser-cookie extractor state breaks an otherwise public download, `YtDlpWorker` may retry once without browser cookies and must keep clear diagnostics for the terminal failure path. It may also retry once when cookie-backed selection produces a low-resolution combined progressive stream for an uncapped or higher-capped `bestvideo` request; this covers manifests that omit the adaptive formats needed to prove the downgrade. Direct/runtime format choices, explicit caps at the selected resolution, and active livestreams are excluded. Detection must require explicit cookie/browser-database/sign-in evidence or the generic metadata-backed degraded selection; ordinary media text containing words such as `locked` must never terminate the worker or enter a retry state.
 - **Livestream Wait Retry**: When yt-dlp's pre-wait livestream probe reports a stream as offline or unavailable while `--wait-for-video` or `--live-from-start` is active, `YtDlpWorker` may retry once without those wait flags. This recovery must stay generic and may not introduce hostname-specific livestream behavior.
@@ -89,6 +90,8 @@ Agents MUST preserve and respect the following behaviors from the original Pytho
 **Quick reference:** `src/core/YtDlpWorkerDiagnostics.cpp` owns reusable fatal/incomplete-media and bounded aria2c missing-output recovery classification used by yt-dlp output parsing and process completion. `src/core/YtDlpWorker.cpp` owns bounded browser-cookie recovery, including metadata-backed degraded-format recovery without hostname-specific client overrides. `src/core/YtDlpWorkerTransfers.cpp` owns stream-stage inference, including audio extraction from combined sources. `src/core/DownloadManagerWorkers.cpp` owns terminal quality-warning classification and must keep video-only checks separate from audio metadata. `src/core/YtDlpLiveStatus.h` owns the narrow metadata mapping for explicit yt-dlp upcoming/premiere diagnostics used during playlist-probe fallback. `src/core/AppUpdater.cpp` owns platform/CPU-matched release asset selection and Finder-based macOS DMG handoff. `src/core/MetadataEmbedder.cpp` owns the existing FFmpeg rewrite path, including remuxing a tracked abandoned thumbnail as `attached_pic` artwork before cleanup. `src/ui/MainWindowUiBuilder.cpp` owns the compact footer row layout, including keeping the exit-after-downloads control rightmost. The top-level `tests/` directory owns Qt regression tests, shared fixtures, workflow templates, and test-only helper scripts; `tests/run_headless_tests.py` owns timestamped build/test orchestration, fail-fast compilation, final summaries, and the build-local `--suspects` cache; `TestDownloadQueueState.cpp` covers queue-backup serialization/restoration and malformed-entry filtering, `TestDownloadTempCleanup.cpp` covers root fallback and ownership guards, and `TestYtDlpWorker.cpp` covers positive and negative aria2c recovery paths.
 
 The worker regression coverage for degraded cookie-backed format selection is in `tests/TestYtDlpWorker.cpp`; keep it aligned with the recovery exclusions when changing selector or metadata logic.
+
+`src/core/PowerInhibitor.cpp` is the platform-specific sleep-inhibition implementation; `DownloadManager` owns its active-download lifecycle for both GUI and headless/server execution.
 
 ## 4. Dependencies
 
@@ -117,7 +120,7 @@ Agents MUST NOT:
 ## 5. Development Stack
 
 - **Language**: C++20
-- **Framework**: Qt 6 (Widgets, Core, Network, Sql)
+- **Framework**: Qt 6 (Widgets, Core, Network, Sql; DBus on Linux for power inhibition)
 - **Build System**: CMake
 - **Database**: SQLite (via `QtSql` module)
 
@@ -158,6 +161,10 @@ Agents MUST use `TODO.md` to track pending tasks, planned features, and known is
 Windows FFmpeg/FFprobe installs stage extracted executables beside the destination and retry replacement for a bounded period, because active downloader/post-processing processes may temporarily hold the existing binaries open.
 
 Local API automation clients may send `override_archive: true` (top-level or under `options`) on intentional re-download requests; the server forwards this explicit confirmation into the normal non-interactive queue path.
+
+The authenticated Local API also accepts `POST /cancel` with `{"job_id":"..."}`. It routes through `DownloadManager::cancelDownload`, preserves the existing process-tree and queue-state behavior, and reports the resulting `Cancelled` state to the Discord webhook bridge.
+
+Non-interactive enqueue validation failures emit a terminal Discord webhook using the caller-provided job ID and include the validation diagnostic, allowing bridge clients to report and clean up rejected URLs immediately.
 
 Application updates emit a pre-install handoff after the payload is saved. The main window must synchronously persist resumable queue state and terminate downloader/helper process trees before the installer is launched, because the updater's direct quit path bypasses `closeEvent()`. The Windows NSIS installer must relaunch the freshly installed `LzyDownloader.exe` in silent `/S` mode because that mode suppresses the finish page.
 

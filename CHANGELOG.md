@@ -9,6 +9,8 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## [Unreleased]
 
+- **Power management:** Added cross-platform system idle-sleep inhibition for active downloads and post-processing, including the headless/server lifecycle used by the Discord bot. The display remains eligible for normal power-off, and the inhibitor is released on completion, cancellation, and shutdown.
+- **Build:** Added the platform-specific power-management implementation and the Linux Qt D-Bus component.
 - **Tests:** Fixed the new queue-state and temporary-cleanup tests by including the QtTest macros they use, allowing those targets to compile past source parsing and into AutoMOC.
 - **Tests:** Windows test deployment now includes Qt's `qoffscreen.dll`, and the headless summary recognizes CTest exit-code failures as failed tests.
 - **Tests:** Fixed YouTube short-link archive normalization and updated livestream MPEG-TS coverage for the remux-based argument path.
@@ -17,6 +19,8 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 - **Tests:** Registered download-manager playlist fallback, gallery-dl argument, and playlist-expansion parser coverage through the shared top-level test harness with an offscreen Qt environment.
 - **Tests:** Added queue-backup persistence coverage for resume statuses, field round-tripping, invalid-entry filtering, and empty-queue cleanup, plus direct temporary-root ownership/fallback tests and negative aria2c recovery-boundary coverage.
 - **Build:** Moved extractor maintenance scripts into `tools/`; Linux release tooling now caches linuxdeploy under `build-release/tooling/` and writes AppImages directly under `build-release/`.
+- **Discord bridge:** Caller-supplied non-interactive job IDs are registered before enqueue validation, so validation, runtime-extraction, and missing-binary failures can emit terminal diagnostics for bridge cleanup.
+- **Local API:** Added authenticated `POST /cancel` for tracked jobs; cancellation follows the normal manager process-tree and queue-state path and remains visible as `Cancelled` to webhook/status consumers.
 
 ## [1.2.30] - 2026-08-24
 
@@ -394,5 +398,3 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 - **Discord Webhook Reliability**: Fixed an issue where Discord webhook POST requests would silently fail or leak memory because `QNetworkAccessManager` was being instantiated without a dedicated event loop. Webhook emissions are now strictly routed through the main GUI thread.
 - **Discord Webhook Throttling**: Fixed payload bombardment by ensuring webhook POSTs bypass the 1.5-second throttle only when the download status string actually changes.
 - **Discord Webhook Playlist Tracking**: Added `parent_id` mapping to webhook payloads so remote clients (like the Discord bot) can successfully associate dynamically generated playlist child jobs with their original parent `/enqueue` request.
-
-Older historical changelogs (pre-v1.1.25) can be found in docs/CHANGELOG_ARCHIVE.md.

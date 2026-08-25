@@ -50,7 +50,7 @@ void DownloadManager::cancelDownload(const QString &id) {
         m_activeItems.remove(id);
         item.options[QStringLiteral("is_stopped")] = true;
         m_queueManager->m_pausedItems[id] = item;
-        m_activeDownloadsCount = qMax(0, m_activeDownloadsCount - 1);
+        adjustActiveDownloadCount(-1);
         if (!cancelled) {
             emit downloadCancelled(id);
             cancelled = true;
@@ -90,7 +90,7 @@ void DownloadManager::cancelDownload(const QString &id) {
         }
 
         worker->deleteLater();
-        m_activeDownloadsCount--;
+        adjustActiveDownloadCount(-1);
         
         item.options[QStringLiteral("is_stopped")] = true;
         m_queueManager->m_pausedItems[id] = item;
@@ -122,7 +122,7 @@ void DownloadManager::cancelDownload(const QString &id) {
         item.options[QStringLiteral("is_stopped")] = true;
         m_queueManager->m_pausedItems[id] = item;
         
-        m_activeDownloadsCount--;
+        adjustActiveDownloadCount(-1);
         if (!cancelled) {
             emit downloadCancelled(id);
             cancelled = true;
@@ -244,7 +244,7 @@ void DownloadManager::pauseDownload(const QString &id) {
         }
 
         worker->deleteLater();
-        m_activeDownloadsCount--;
+        adjustActiveDownloadCount(-1);
         qDebug() << "Paused active download:" << id;
         emit downloadPaused(id);
         paused = true; // Corrected: paused = true
@@ -252,7 +252,7 @@ void DownloadManager::pauseDownload(const QString &id) {
         DownloadItem item = m_pendingSponsorBlockPreflights.take(id);
         m_activeItems.remove(id);
         m_queueManager->m_pausedItems[id] = item;
-        m_activeDownloadsCount = qMax(0, m_activeDownloadsCount - 1);
+        adjustActiveDownloadCount(-1);
         qDebug() << "Paused SponsorBlock preflight download:" << id;
         emit downloadPaused(id);
         paused = true;

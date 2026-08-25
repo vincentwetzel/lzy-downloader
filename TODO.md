@@ -1,6 +1,8 @@
 # LzyDownloader C++ Port TODO
 
 ## In Progress
+- [x] Prevent system idle sleep during active downloads in GUI and headless/server modes with platform-native power inhibitors.
+- [x] Add authenticated Local API and Discord bridge cancellation for tracked downloads.
 - [x] Upgrade the headless test runner with fail-fast builds, timestamped output, summaries, and a previous-failure suspects mode.
 - [ ] Verify direct-download fallback behavior with a slow playlist probe and an explicit playlist URL.
 - [x] Add an automated manager-level test for transient playlist-probe fallback and explicit playlist failure classification.

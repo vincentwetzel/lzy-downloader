@@ -3,6 +3,18 @@
 The main-window footer keeps status counters and current speed on its first row;
 the exit-after-downloads control remains the rightmost item.
 
+The Discord bridge cancellation route is a runtime Local API feature and does not change release packaging or installer requirements.
+
+Active downloads use native OS sleep inhibition in the GUI and headless/server
+builds. Linux builds link Qt D-Bus (provided by the Qt installation) for the
+logind/freedesktop inhibition services; this is a runtime platform integration,
+not a newly bundled downloader dependency.
+
+The Local API cancellation endpoint and terminal webhook diagnostics are
+runtime contracts only. They require no additional installer payloads, ports,
+or release-time configuration beyond the existing localhost API/webhook
+integration.
+
 This document describes how to build, package, and release the C++ version of LzyDownloader with auto-update support.
 
 ## Prerequisites

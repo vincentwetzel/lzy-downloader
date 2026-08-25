@@ -44,6 +44,9 @@ void MainWindow::connectDiscordWebhookSignals()
         }
         
         json[QStringLiteral("status")] = currentStatus;
+        if (state.contains(QStringLiteral("error"))) {
+            json[QStringLiteral("error")] = state.value(QStringLiteral("error")).toString();
+        }
         json[QStringLiteral("progress")] = state.value(QStringLiteral("progress")).toDouble();
         json[QStringLiteral("speed")] = state.value(QStringLiteral("speed")).toString();
         json[QStringLiteral("eta")] = state.value(QStringLiteral("eta")).toString();
@@ -74,6 +77,19 @@ void MainWindow::connectDiscordWebhookSignals()
             }
         });
     };
+
+    connect(this, &MainWindow::nonInteractiveRequestFailed, this,
+            [sendDiscordWebhook](const QString &jobId, const QString &url, const QString &error) {
+                if (jobId.isEmpty()) {
+                    return;
+                }
+                QVariantMap state;
+                state.insert(QStringLiteral("url"), url);
+                state.insert(QStringLiteral("status"), QStringLiteral("failed"));
+                state.insert(QStringLiteral("error"), error);
+                state.insert(QStringLiteral("progress"), 0.0);
+                sendDiscordWebhook(jobId, state);
+            });
 
     QSharedPointer<QMap<QString, QVariantMap>> webhookStates = QSharedPointer<QMap<QString, QVariantMap>>::create();
     QSharedPointer<QMap<QString, qint64>> webhookTimestamps = QSharedPointer<QMap<QString, qint64>>::create();
@@ -226,12 +242,14 @@ void MainWindow::connectDiscordWebhookSignals()
         }
     });
 
-    connect(m_downloadManager, &DownloadManager::downloadFinished, this, [sendDiscordWebhook, webhookStates, queuedJobs, updateQueuePositions](const QString &id, bool success, const QString &/*message*/) {
+    connect(m_downloadManager, &DownloadManager::downloadFinished, this, [sendDiscordWebhook, webhookStates, queuedJobs, updateQueuePositions](const QString &id, bool success, const QString &message) {
         if (!webhookStates->contains(id)) return;
         QVariantMap state = (*webhookStates)[id];
         state[QStringLiteral("status")] = success ? QStringLiteral("Completed") : QStringLiteral("Failed");
         if (success) {
             state[QStringLiteral("progress")] = 100.0;
+        } else if (!message.isEmpty()) {
+            state[QStringLiteral("error")] = message;
         }
         state[QStringLiteral("queue_position")] = 0;
         sendDiscordWebhook(id, state);

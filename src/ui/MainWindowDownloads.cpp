@@ -39,6 +39,12 @@ void MainWindow::onLocalApiEnqueueRequested(const QString &url, const QString &t
     onDownloadRequested(url, options);
 }
 
+void MainWindow::onLocalApiCancelRequested(const QString &jobId)
+{
+    qInfo() << "[LocalApi] Cancellation requested for job:" << jobId;
+    m_downloadManager->cancelDownload(jobId);
+}
+
 void MainWindow::onDownloadRequested(const QString &url, const QVariantMap &options)
 {
     const bool nonInteractive = MainWindowHelpers::isNonInteractiveRequest(options);
@@ -90,6 +96,10 @@ void MainWindow::onDownloadRequested(const QString &url, const QVariantMap &opti
 
     if (!missingBinaries.isEmpty()) {
         if (nonInteractive) {
+            emit nonInteractiveRequestFailed(
+                options.value(QStringLiteral("id")).toString(),
+                url,
+                tr("Required binaries are missing: %1").arg(missingBinaries.join(QStringLiteral(", "))));
             qWarning() << "Cannot queue non-interactive download because required binaries are missing:"
                        << missingBinaries.join(", ") << "URL:" << url;
             return;
@@ -183,6 +193,10 @@ void MainWindow::onRuntimeInfoError(const QString &error)
 {
     statusBar()->clearMessage();
     if (MainWindowHelpers::isNonInteractiveRequest(m_pendingOptions)) {
+        emit nonInteractiveRequestFailed(
+            m_pendingOptions.value(QStringLiteral("id")).toString(),
+            m_pendingUrl,
+            error);
         qWarning() << "Runtime metadata extraction failed for non-interactive request:" << error;
     } else {
         QMessageBox::warning(this, tr("Extraction Error"), tr("Failed to fetch media info for runtime selection:\n%1").arg(error));
@@ -228,6 +242,10 @@ void MainWindow::onValidationFinished(bool isValid, const QString &error)
         m_uiBuilder->tabWidget()->setCurrentWidget(m_activeDownloadsTab);
     } else {
         if (MainWindowHelpers::isNonInteractiveRequest(m_pendingOptions)) {
+            emit nonInteractiveRequestFailed(
+                m_pendingOptions.value(QStringLiteral("id")).toString(),
+                m_pendingUrl,
+                error);
             qWarning() << "Non-interactive URL validation failed for" << m_pendingUrl << ":" << error;
         } else {
             QMessageBox::warning(this, tr("Invalid URL"), tr("The URL could not be validated:\n%1").arg(error));

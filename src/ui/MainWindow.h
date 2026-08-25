@@ -37,6 +37,9 @@ public:
 
     QString appVersion() const;
 
+signals:
+    void nonInteractiveRequestFailed(const QString &jobId, const QString &url, const QString &error);
+
 protected:
     void closeEvent(QCloseEvent *event) override;
     bool event(QEvent *event) override;
@@ -52,6 +55,7 @@ private slots:
     void onDownloadStatsUpdated(int queued, int active, int completed, int errors);
     void setYtDlpVersion(const QString &version);
     void onLocalApiEnqueueRequested(const QString &url, const QString &type, const QString &jobId, bool overrideArchive);
+    void onLocalApiCancelRequested(const QString &jobId);
     void onClipboardChanged(); // New slot for clipboard changes
     void onRuntimeInfoReady(const QVariantMap &info);
     void onRuntimeInfoError(const QString &error);

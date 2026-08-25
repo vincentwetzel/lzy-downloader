@@ -21,11 +21,13 @@ public:
 
 signals:
     void enqueueRequested(const QString &url, const QString &type, const QString &jobId, bool overrideArchive);
+    void cancelRequested(const QString &jobId);
 
 public slots:
     void onDownloadAdded(const QVariantMap &itemData);
     void onDownloadProgress(const QString &id, const QVariantMap &progressData);
     void onDownloadFinished(const QString &id, bool success, const QString &message);
+    void onDownloadCancelled(const QString &id);
     void onDownloadRemoved(const QString &id);
 
 private slots:

@@ -2,6 +2,10 @@
 
 This document provides a complete reference for all configuration settings used by LzyDownloader (C++ Port). Settings are stored in `settings.ini` using Qt's native `QSettings` INI format.
 
+System idle-sleep inhibition is automatic while downloads are active and is
+not a user setting. It applies to GUI and headless/server modes and does not
+prevent the display from turning off.
+
 > **Portability Note:** The C++ port uses a pure Qt-native INI format. Backwards compatibility with the Python application's `configparser` quirks is no longer required, and invalid/legacy keys are pruned or reset to defaults as needed.
 
 > **Current behavior note:** Playlist audio filenames use zero-padded index
@@ -345,7 +349,7 @@ When `General/enable_local_api` is enabled in GUI mode, or when `--server`, `--h
 
 Server/headless mode isolates this runtime token under `Server/`, for example `%LOCALAPPDATA%\LzyDownloader\Server\api_token.txt` on Windows.
 
-The server binds only to `127.0.0.1:8765`. Requests must include `Authorization: Bearer <token>`. Supported endpoints are `POST /enqueue` with a JSON `url` field plus optional `type` (`video`, `audio`, or `gallery`), optional caller-provided `id`, and optional boolean `override_archive` (also accepted under `options`) for intentional re-downloads, plus `GET /status`. If `id` is omitted, LzyDownloader generates a UUID.
+The server binds only to `127.0.0.1:8765`. Requests must include `Authorization: Bearer <token>`. Supported endpoints are `POST /enqueue` with a JSON `url` field plus optional `type` (`video`, `audio`, or `gallery`), optional caller-provided `id`, and optional boolean `override_archive` (also accepted under `options`) for intentional re-downloads; authenticated `POST /cancel` with `job_id` for tracked jobs; and `GET /status`. If `id` is omitted, LzyDownloader generates a UUID.
 
 ## Log File Location
 

@@ -79,6 +79,7 @@ void MainWindow::setupLocalApiServer()
 {
     m_localApiServer = new LocalApiServer(m_configManager, this);
     connect(m_localApiServer, &LocalApiServer::enqueueRequested, this, &MainWindow::onLocalApiEnqueueRequested);
+    connect(m_localApiServer, &LocalApiServer::cancelRequested, this, &MainWindow::onLocalApiCancelRequested);
     const bool serverMode = MainWindowHelpers::hasServerLaunchArgument();
     if (serverMode || m_configManager->get(QStringLiteral("General"), QStringLiteral("enable_local_api"), false).toBool()) {
         qInfo() << "[LocalApi] Attempting to start Local API Server on startup..."
@@ -423,6 +424,7 @@ void MainWindow::connectDownloadManagerSignals()
     connect(m_downloadManager, &DownloadManager::downloadAddedToQueue, m_localApiServer, &LocalApiServer::onDownloadAdded);
     connect(m_downloadManager, &DownloadManager::downloadProgress, m_localApiServer, &LocalApiServer::onDownloadProgress);
     connect(m_downloadManager, &DownloadManager::downloadFinished, m_localApiServer, &LocalApiServer::onDownloadFinished);
+    connect(m_downloadManager, &DownloadManager::downloadCancelled, m_localApiServer, &LocalApiServer::onDownloadCancelled);
     connect(m_downloadManager, &DownloadManager::downloadRemovedFromQueue, m_localApiServer, &LocalApiServer::onDownloadRemoved);
 
     connectDiscordWebhookSignals();

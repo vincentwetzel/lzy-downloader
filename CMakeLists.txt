@@ -46,6 +46,10 @@ endif()
 
 find_package(Qt6 COMPONENTS Core Gui Widgets Network Sql Test Concurrent REQUIRED)
 
+if(UNIX AND NOT APPLE)
+    find_package(Qt6 COMPONENTS DBus REQUIRED)
+endif()
+
 option(LZY_SKIP_QT_DEPLOY "Skip Qt runtime deployment post-build steps for local developer builds." OFF)
 
 if(WIN32)
@@ -221,6 +225,7 @@ add_library(LzyAppLib STATIC
     src/core/PlaylistExpansionWorker.cpp
     src/core/PlaylistRangeDialog.cpp
     src/core/ProcessUtils.cpp
+    src/core/PowerInhibitor.cpp
     src/core/SortingManager.cpp
     src/core/StartupWorker.cpp
     src/core/UrlValidator.cpp
@@ -291,6 +296,13 @@ target_link_libraries(LzyAppLib PRIVATE
     Qt6::Sql
     Qt6::Concurrent
 )
+
+if(UNIX AND NOT APPLE)
+    target_link_libraries(LzyAppLib PRIVATE Qt6::DBus)
+elseif(APPLE)
+    find_library(LZY_IOKIT_FRAMEWORK IOKit REQUIRED)
+    target_link_libraries(LzyAppLib PRIVATE "${LZY_IOKIT_FRAMEWORK}")
+endif()
 
 # Main application executable
 add_executable(LzyDownloader
@@ -377,3 +389,4 @@ lzy_add_test(TestGalleryDlArgsBuilder tests/TestGalleryDlArgsBuilder.cpp)
 lzy_add_test(TestPlaylistExpansionParser tests/TestPlaylistExpansionParser.cpp)
 lzy_add_test(TestDownloadQueueState tests/TestDownloadQueueState.cpp)
 lzy_add_test(TestDownloadTempCleanup tests/TestDownloadTempCleanup.cpp)
+lzy_add_test(TestPowerInhibitor tests/TestPowerInhibitor.cpp)

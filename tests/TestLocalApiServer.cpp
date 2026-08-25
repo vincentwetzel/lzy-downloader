@@ -107,4 +107,39 @@ void TestLocalApiServer::testValidEnqueueRequest() {
     QVERIFY(args.at(3).toBool());
 }
 
+void TestLocalApiServer::testValidCancelRequest() {
+    const QString jobId = QStringLiteral("cancel-test-job");
+    QVariantMap itemData;
+    itemData.insert(QStringLiteral("id"), jobId);
+    itemData.insert(QStringLiteral("url"), QStringLiteral("https://example.com/media"));
+    itemData.insert(QStringLiteral("status"), QStringLiteral("Queued"));
+    m_apiServer->onDownloadAdded(itemData);
+    QSignalSpy spy(m_apiServer, &LocalApiServer::cancelRequested);
+
+    QNetworkAccessManager manager;
+    QNetworkRequest request(QUrl(QStringLiteral("http://127.0.0.1:8765/cancel")));
+    request.setRawHeader(QByteArrayLiteral("Authorization"), QStringLiteral("Bearer %1").arg(m_apiServer->getApiKey()).toUtf8());
+    request.setHeader(QNetworkRequest::ContentTypeHeader, QStringLiteral("application/json"));
+
+    QJsonObject json;
+    json[QStringLiteral("job_id")] = jobId;
+    QNetworkReply *reply = manager.post(request, QJsonDocument(json).toJson(QJsonDocument::Compact));
+    auto replyGuard = qScopeGuard([reply]() {
+        if (reply->isRunning()) {
+            reply->abort();
+        }
+        reply->deleteLater();
+    });
+
+    QEventLoop loop;
+    connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+    QTimer::singleShot(3000, &loop, &QEventLoop::quit);
+    loop.exec();
+
+    QVERIFY2(!reply->isRunning(), "Network request timed out before finishing");
+    QCOMPARE(reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt(), 200);
+    QCOMPARE(spy.count(), 1);
+    QCOMPARE(spy.takeFirst().at(0).toString(), jobId);
+}
+
 QTEST_GUILESS_MAIN(TestLocalApiServer)
