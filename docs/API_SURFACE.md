@@ -42,6 +42,7 @@ Qt and SQLite runtime plugins.
 
 - `MainWindowUiBuilder` places footer download counters and current speed on the first row and keeps the exit-after-downloads control as its rightmost item.
 - `MainWindow::nonInteractiveRequestFailed(jobId, url, error)` reports non-interactive validation, runtime-extraction, and missing-binary failures to the Discord webhook bridge before the rejected request is discarded.
+- `DownloadManager::nonInteractiveRequestFailed(jobId, url, error)` forwards duplicate rejection diagnostics from the non-interactive enqueue path to `MainWindow` and the Discord webhook bridge.
 - `ActiveDownloadsTab` and `DownloadItemWidget` keep their scroll content and
   flexible text columns shrinkable to the viewport. Horizontal scrolling is
   disabled, so Cancel/Retry/folder actions remain reachable at narrow widths.
@@ -74,6 +75,7 @@ Qt and SQLite runtime plugins.
 - `YtDlpWorker` may retry once without browser-cookie arguments when a cookie-backed uncapped or higher-capped `bestvideo` request selects a combined stream below 480p. This also handles manifests that omit the adaptive pair needed for direct comparison. Explicit/direct selections, caps at the selected resolution, and active livestreams are excluded.
 - `TestYtDlpWorker::testCookieBackedDegradedFormatRecoveryDetection()` covers the adaptive-format and manifest-without-adaptive-pair cases, plus exclusions for explicit caps and missing cookie arguments.
 - `YtDlpWorker` rejects a captured final path when retained output contains missing-fragment, empty-data-block, invalid-header, invalid-container, or critical extractor diagnostics; these failures do not enter metadata embedding or finalization.
+- `YtDlpWorker` backfills missing `requested_downloads` sizes from matching `formats` metadata and emits bounded temporary-file progress when a native downloader is transferring data without a fresh progress line.
 - `YtDlpArgsBuilder` generates synchronization-safe accurate-cut arguments, including audio timestamp normalization and bounded FFmpeg thread settings.
 - `ConfigManager` and `DownloadOptionsPage` use `DownloadOptions/prefix_playlist_indices=true` as the canonical default, so playlist audio filenames are consistently prefixed unless the user opts out.
 - `ProcessUtils::setBackgroundProcessPriority(QProcess&)` lowers supported Windows post-processing processes to below-normal priority.
@@ -81,8 +83,13 @@ Qt and SQLite runtime plugins.
 - `DownloadManager::videoQualityWarning` is emitted only for successful downloads whose queued type is `video` and whose selected video height is below 480p. Audio-only metadata may contain a source video height but must not trigger this signal.
 - `DownloadManager::videoQualityWarning(title, url, message)` includes the best available completed-item title. The main window renders valid HTTP/HTTPS URLs as escaped links and leaves incomplete values as plain text.
 - `DownloadManager` acquires `PowerInhibitor` when its active-download count becomes non-zero and releases it at zero or during shutdown. This applies equally to GUI and headless/server workers; acquisition is best-effort when the host exposes no usable power service.
+- `ArchiveManager::sameMediaIdentity()` supplies the shared normalized identity used by queue and archive duplicate checks. `DownloadQueueManager` applies it across queued, active, paused, retried, and archived items, including equivalent source URLs with different tracking/share parameters.
+- `YtDlpWorker` treats disk-full diagnostics (`No space left on device`, errno/ENOSPC 28, and FFmpeg `-28`) as fatal even when yt-dlp printed a final media path. `FileReplacement::moveReplacing()` preserves an existing destination until replacement succeeds.
 - `YtDlpWorker` keeps transfer-stage progress audio-oriented when `-x`/`--extract-audio` is active, including when aria2c reports a combined `video/*` transport MIME type.
 - `DownloadQueueState` serializes active items as queued, preserves paused versus stopped/failed resume states, filters non-object backup entries on load, and removes the backup when the terminal queue is empty. `DownloadTempCleanup` resolves configured/completed-downloads/OS-temp roots and refuses shared-root or mismatched-directory removal.
+- `DownloadQueueManager::removeTerminalPausedDuplicate(candidate, removedId)` removes only a matching restored item marked stopped/failed for an explicit re-download; ordinary paused entries remain duplicate-protected.
+- Queue retry/resume receives the current active-item snapshot so an equivalent active job cannot be re-enqueued during a concurrent state change.
+- `FileReplacement::moveReplacing()` is the finalizer's replacement boundary: it reserves an existing destination under a unique backup name, moves or copies the verified source into place, and restores the backup if the replacement fails. Callers must pass a verified temporary output and must not delete the existing destination themselves.
 
 ### [DownloadManager](../src/core/DownloadManager.h)
 The central manager coordinating download queues, playlist validation, format metadata selection, and the finalization flow.
@@ -100,8 +107,8 @@ services return a best-effort failure while downloads continue.
 - `void pauseDownload(const QString &id)`: Pauses a download.
 - `void unpauseDownload(const QString &id)`: Resumes a paused download.
 - `void restartDownloadWithOptions(const QVariantMap &itemData)`: Restarts a download with fresh parameters.
-- `void retryDownload(const QVariantMap &itemData)`: Retries a failed download.
-- `void resumeDownload(const QVariantMap &itemData)`: Restarts an interrupted download.
+- `void retryDownload(const QVariantMap &itemData)`: Retries a failed download after checking normalized media identity against active, queued, paused, and archived items.
+- `void resumeDownload(const QVariantMap &itemData)`: Restarts an interrupted download through the same duplicate-protected path.
 - `void finishDownload(const QString &id)`: Triggers post-processing and final file moves.
 - `void moveDownloadUp(const QString &id)` / `void moveDownloadDown(const QString &id)`: Reorders item positions in the queue.
 - `void processPlaylistSelection(const QString &url, const QString &action, const QVariantMap &options, const QList<QVariantMap> &expandedItems)`: Submits chosen tracks from a playlist.
@@ -145,8 +152,16 @@ Manages the SQLite-based download history database (`download_archive.db`) to en
 #### Public Methods
 - `explicit ArchiveManager(ConfigManager *configManager, QObject *parent = nullptr)`: Constructor.
 - `[[nodiscard]] bool isInArchive(const QString &url)`: Normalizes the input URL and queries the database for matches by URL or metadata ID (e.g., YouTube Video ID).
+- `[[nodiscard]] bool sameMediaIdentity(const QString &leftUrl, const QString &rightUrl) const`: Compares two source URLs using the same provider-identity or generic normalized-URL rules used by duplicate prevention.
 - `void addToArchive(const QString &url)`: Commits a successfully downloaded media item to history.
 - `void closeDatabase()`: Safely closes the database connection allocated to the current calling thread.
+
+### [FileReplacement](../src/core/FileReplacement.h)
+Small, Qt-only helper used by terminal finalization when an intentional
+re-download targets an existing destination.
+
+#### Public Functions
+- `[[nodiscard]] bool moveReplacing(const QString &sourcePath, const QString &destinationPath)`: Moves or copies an existing verified source into the destination while preserving the previous destination until the new output succeeds. On a failed replacement, the helper removes only the new partial output and restores the previous file when possible. Empty paths, missing sources, and identical source/destination paths are handled without deleting unrelated files.
 
 ---
 

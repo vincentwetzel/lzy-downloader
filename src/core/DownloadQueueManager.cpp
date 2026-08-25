@@ -146,29 +146,42 @@ DownloadQueueManager::~DownloadQueueManager() {
 }
 
 DownloadQueueManager::DuplicateStatus DownloadQueueManager::getDuplicateStatus(const QString &url, const QMap<QString, DownloadItem> &activeItems) const {
+    DownloadItem candidate;
+    candidate.url = url;
+    return getDuplicateStatus(candidate, activeItems);
+}
+
+DownloadQueueManager::DuplicateStatus DownloadQueueManager::getDuplicateStatus(const DownloadItem &candidate, const QMap<QString, DownloadItem> &activeItems) const {
+    const auto sameMedia = [this, &candidate](const DownloadItem &item) {
+        if (!m_archiveManager) {
+            return item.url == candidate.url;
+        }
+        return m_archiveManager->sameMediaIdentity(item.url, candidate.url);
+    };
+
     // Check in the pending queue
     for (const DownloadItem &item : std::as_const(m_downloadQueue)) {
-        if (item.url == url) {
+        if (sameMedia(item)) {
             return DuplicateInQueue;
         }
     }
 
     // Check in active downloads (provided by DownloadManager)
     for (const DownloadItem &item : activeItems) {
-        if (item.url == url) {
+        if (sameMedia(item)) {
             return DuplicateActive;
         }
     }
 
     // Check in paused items
     for (const DownloadItem &item : std::as_const(m_pausedItems)) {
-        if (item.url == url) {
+        if (sameMedia(item)) {
             return DuplicatePaused;
         }
     }
 
     // Check in archive (completed downloads)
-    if (m_archiveManager && m_archiveManager->isInArchive(url)) {
+    if (m_archiveManager && m_archiveManager->isInArchive(candidate.url)) {
         return DuplicateCompleted;
     }
 
@@ -370,7 +383,7 @@ void DownloadQueueManager::moveDownloadDown(const QString &id) {
     }
 }
 
-void DownloadQueueManager::retryDownload(const QVariantMap &itemData) {
+void DownloadQueueManager::retryDownload(const QVariantMap &itemData, const QMap<QString, DownloadItem> &activeItems) {
     DownloadItem item;
     item.id = itemData.value(QStringLiteral("id")).toString();
     item.url = itemData.value(QStringLiteral("url")).toString();
@@ -381,11 +394,24 @@ void DownloadQueueManager::retryDownload(const QVariantMap &itemData) {
     item.options.remove(QStringLiteral("is_stopped"));
     item.options.remove(QStringLiteral("is_failed"));
 
+    if (activeItems.contains(item.id)) {
+        qWarning() << "Ignoring retry request for already-active download:" << item.id;
+        return;
+    }
+
+    const DuplicateStatus status = getDuplicateStatus(item, activeItems);
+    if (status != NotDuplicate && status != DuplicateCompleted) {
+        qWarning() << "Ignoring retry request because an equivalent download is already present:" << item.url
+                   << "status:" << status;
+        emit duplicateDownloadDetected(item.url, tr("An equivalent download is already queued or active."));
+        return;
+    }
+
     enqueueDownload(item, false); // false prevents spawning a new UI progress bar
 }
 
-void DownloadQueueManager::resumeDownload(const QVariantMap &itemData) {
-    retryDownload(itemData);
+void DownloadQueueManager::resumeDownload(const QVariantMap &itemData, const QMap<QString, DownloadItem> &activeItems) {
+    retryDownload(itemData, activeItems);
 }
 
 void DownloadQueueManager::saveQueueState(const QMap<QString, DownloadItem> &activeItems) {

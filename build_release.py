@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import os
 import sys
+import argparse
 import platform
 import plistlib
 import subprocess
@@ -89,8 +90,49 @@ def create_macos_icon(source_icon, destination_icon):
         ])
     run_command(["iconutil", "-c", "icns", str(iconset_dir), "-o", str(destination_icon)])
 
+
+def parse_arguments():
+    """Parse release-builder options without changing the default host build."""
+    parser = argparse.ArgumentParser(
+        description="Build and package LzyDownloader for the current host OS."
+    )
+    parser.add_argument(
+        "--target",
+        choices=("auto", "windows", "linux", "macos"),
+        default="auto",
+        help="Target packaging path (default: auto-detect the host OS).",
+    )
+    return parser.parse_args()
+
+
+def resolve_target_platform(target_name):
+    """Resolve and validate the requested native release platform."""
+    host_platform = platform.system()
+    platform_names = {
+        "Windows": "windows",
+        "Linux": "linux",
+        "Darwin": "macos",
+    }
+    host_name = platform_names.get(host_platform)
+    if host_name is None:
+        log(f"Error: Unsupported host release platform: {host_platform}", RED)
+        sys.exit(1)
+
+    resolved_name = host_name if target_name == "auto" else target_name
+    if resolved_name != host_name:
+        log(
+            f"Error: --target {resolved_name} requires a native {resolved_name} host; "
+            f"this machine is {host_name}. Cross-platform release builds are not supported.",
+            RED,
+        )
+        sys.exit(1)
+    return resolved_name
+
 def main():
     log("=== LzyDownloader Unified Release Builder ===", CYAN)
+    args = parse_arguments()
+    target_platform = resolve_target_platform(args.target)
+    log(f"Release target: {target_platform}", GREEN)
 
     # 1. Parse Version from CMakeLists.txt
     cmake_path = Path("CMakeLists.txt")
@@ -123,8 +165,7 @@ def main():
     log("\n[2/4] Configuring CMake (Release)...", YELLOW)
     cmake_args = ["cmake", "-B", str(build_dir), "-DCMAKE_BUILD_TYPE=Release"]
 
-    system_platform = platform.system()
-    if system_platform in ("Windows", "Linux"):
+    if target_platform in ("windows", "linux"):
         vcpkg_root = os.environ.get("VCPKG_ROOT", "E:/vcpkg")
         toolchain = Path(vcpkg_root) / "scripts/buildsystems/vcpkg.cmake"
         if toolchain.exists():
@@ -135,14 +176,14 @@ def main():
     # 5. Build C++ Application
     log("\n[3/4] Compiling Application...", YELLOW)
     build_args = ["cmake", "--build", str(build_dir), "--config", "Release"]
-    if system_platform != "Windows":
+    if target_platform != "windows":
         import multiprocessing
         build_args.extend(["--parallel", str(multiprocessing.cpu_count())])
     run_command(build_args)
 
     # 6. Packaging & Verification
     log("\n[4/4] Verifying and Packaging Release...", YELLOW)
-    if system_platform == "Windows":
+    if target_platform == "windows":
         built_exe = build_dir / "Release" / "LzyDownloader.exe"
         if not built_exe.exists():
             log(f"Error: Executable not found at {built_exe}", RED)
@@ -178,7 +219,7 @@ def main():
             log("Error: NSIS compiler not found on PATH or at C:/Program Files (x86)/NSIS/makensis.exe. Packaging aborted.", RED)
             sys.exit(1)
 
-    elif system_platform == "Linux":
+    elif target_platform == "linux":
         appdir = build_dir / "AppDir"
         if appdir.exists():
             shutil.rmtree(appdir)
@@ -320,7 +361,7 @@ def main():
             shutil.move(str(generated_appimage), str(target_appimage))
             log(f"\n=== Linux Build Success: {target_appimage} ===", GREEN)
 
-    elif system_platform == "Darwin":
+    elif target_platform == "macos":
         app_candidates = [
             app for app in build_dir.glob("**/LzyDownloader.app")
             if app.is_dir()
@@ -369,7 +410,7 @@ def main():
         log(f"\n=== macOS Build Success: {target_dmg} ===", GREEN)
 
     else:
-        log(f"Error: Unsupported release platform: {system_platform}", RED)
+        log(f"Error: Unsupported release target: {target_platform}", RED)
         sys.exit(1)
 
 if __name__ == "__main__":

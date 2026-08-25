@@ -66,6 +66,10 @@ void YtDlpWorker::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatu
         return;
     }
 
+    if (m_progressPollTimer) {
+        m_progressPollTimer->stop();
+    }
+
     if (m_process) {
         // Process any remaining output. This is crucial for capturing the final file path.
         parseStandardOutput(m_process->readAllStandardOutput());
@@ -585,6 +589,11 @@ void YtDlpWorker::readInfoJsonWithRetry() {
         }
     }
     if (requestedDownloads.isEmpty()) {
+        for (qsizetype i = 0; i < m_requestedTransferFormatIds.size() && i < m_requestedTransferSizes.size(); ++i) {
+            if (m_requestedTransferSizes.at(i) <= 0.0) {
+                m_requestedTransferSizes[i] = inferPrimaryStreamSizeFromMetadata(m_requestedTransferFormatIds.at(i));
+            }
+        }
         qDebug() << "[YtDlpWorker] info.json did not provide requested_downloads; preserving previously inferred transfer order:"
                  << m_requestedTransferFormatIds << m_requestedTransferStatuses;
     }

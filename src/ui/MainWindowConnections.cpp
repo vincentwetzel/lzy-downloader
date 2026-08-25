@@ -430,6 +430,8 @@ void MainWindow::connectDownloadManagerSignals()
     connectDiscordWebhookSignals();
 
     connect(m_downloadManager, &DownloadManager::duplicateDownloadDetected, m_startTab, &StartTab::onDuplicateDownloadDetected);
+    connect(m_downloadManager, &DownloadManager::nonInteractiveRequestFailed,
+            this, &MainWindow::nonInteractiveRequestFailed);
     connect(m_downloadManager, &DownloadManager::ytDlpErrorPopupRequested, this, &MainWindow::onYtDlpErrorPopup);
     connect(m_downloadManager, &DownloadManager::downloadSectionsRequested, this, &MainWindow::onDownloadSectionsRequested);
 

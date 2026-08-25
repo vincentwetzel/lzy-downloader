@@ -10,10 +10,10 @@ builds. Linux builds link Qt D-Bus (provided by the Qt installation) for the
 logind/freedesktop inhibition services; this is a runtime platform integration,
 not a newly bundled downloader dependency.
 
-The Local API cancellation endpoint and terminal webhook diagnostics are
-runtime contracts only. They require no additional installer payloads, ports,
-or release-time configuration beyond the existing localhost API/webhook
-integration.
+The Local API cancellation endpoint, terminal webhook diagnostics, and
+stopped/failed duplicate recovery are runtime contracts only. They require no
+additional installer payloads, ports, or release-time configuration beyond the
+existing localhost API/webhook integration.
 
 This document describes how to build, package, and release the C++ version of LzyDownloader with auto-update support.
 
@@ -37,8 +37,9 @@ This document describes how to build, package, and release the C++ version of Lz
    - The release workflow installs these prerequisites before manifest resolution; runtime-only XCB packages do not provide the headers or pkg-config data Qt's XCB backend requires.
 
 5. **macOS Qt deployment (macOS release builds)**
-   - GitHub Actions uses Qt 6's `clang_64` package on `macos-13` for Intel and `clang_arm64` on `macos-14` for Apple Silicon.
+   - GitHub Actions uses Qt 6's universal `clang_64` desktop package on both macOS runners. The archive contains x86_64 and arm64 support; each native runner produces its architecture-specific build and DMG.
    - `build_release.py` creates a native `.app` bundle, runs `macdeployqt`, embeds an ICNS icon, and packages a separate architecture-labelled DMG. These are unsigned unless a future signing/notarization workflow is configured.
+   - The helper is native-only. Use `python build_release.py --target macos` inside the macOS VM to select the macOS path explicitly; `--target auto` remains the default and cross-OS targets are rejected.
 
 6. **yt-dlp Nightly (release validation)**
    - Release automation installs the latest yt-dlp prerelease with `python -m pip install --pre --upgrade yt-dlp`; this keeps packaging validation aligned with current extractor/runtime changes. Verify low-quality warnings show title and source-link context in GUI smoke checks.
@@ -50,7 +51,9 @@ This document describes how to build, package, and release the C++ version of Lz
 
 ## Build Process
 
-Before release, review the `[Unreleased]` section of `CHANGELOG.md` and verify that the maintained documentation set (`README.md`, `AGENTS.md`, `TODO.md`, and the active files under `docs/`) matches the current implementation. In particular, ordinary URLs must recover from transient playlist-probe failures, browser-cookie format downgrades must retry once from an uncapped or higher-capped `bestvideo` request when the selected combined stream is below 480p, video-only quality warnings must not inspect audio-job height metadata, audio extraction labels must remain audio-oriented when aria2c transfers a combined source, the worker's degraded-format regression test must remain covered, aria2c transport or missing-output failures must use the bounded native-downloader fallback while preserving partials, accurate cuts must use timestamp-normalized audio and bounded/background-priority FFmpeg work, playlist audio filename prefixes must agree with the settings default, narrow Active Downloads rows must keep actions visible, tracked thumbnail sidecars must be remuxed as attached artwork before cleanup, and Windows FFmpeg/FFprobe replacement must tolerate transient locks.
+Before release, review the `[Unreleased]` section of `CHANGELOG.md` and verify that the maintained documentation set (`README.md`, `AGENTS.md`, `TODO.md`, and the active files under `docs/`) matches the current implementation. In particular, ordinary URLs must recover from transient playlist-probe failures, browser-cookie format downgrades must retry once from an uncapped or higher-capped `bestvideo` request when the selected combined stream is below 480p, video-only quality warnings must not inspect audio-job height metadata, audio extraction labels must remain audio-oriented when aria2c transfers a combined source, the worker's degraded-format regression test must remain covered, aria2c transport or missing-output failures must use the bounded native-downloader fallback while preserving partials, accurate cuts must use timestamp-normalized audio and bounded/background-priority FFmpeg work, playlist audio filename prefixes must agree with the settings default, narrow Active Downloads rows must keep actions visible, tracked thumbnail sidecars must be remuxed as attached artwork before cleanup, and Windows FFmpeg/FFprobe replacement must tolerate transient locks. Also verify normalized duplicate identity across queue/retry/archive paths, active-snapshot retry protection, explicit re-download recovery for restored stopped/failed jobs, duplicate recovery-entry suppression in the Discord bridge, terminal non-interactive duplicate diagnostics, terminal disk-full diagnostics, and recoverable existing-destination replacement.
+
+Release smoke checks should also confirm that a native transfer whose `info.json` omits `requested_downloads` still reports matching format sizes and continues updating from its owned `.part` file while yt-dlp output is temporarily quiet.
 
 ### Step 1: Update Extractor Lists
 

@@ -71,6 +71,7 @@ signals:
     void downloadSectionsRequested(const QString &url, const QVariantMap &options, const QVariantMap &infoJson);
     void ytDlpErrorPopupRequested(const QString &id, const QString &errorType, const QString &userMessage, const QString &rawError, const QVariantMap &itemData);
     void duplicateDownloadDetected(const QString &url, const QString &reason);
+    void nonInteractiveRequestFailed(const QString &jobId, const QString &url, const QString &error);
     void downloadFinished(const QString &id, bool success, const QString &message);
     void downloadRemovedFromQueue(const QString &id);
 

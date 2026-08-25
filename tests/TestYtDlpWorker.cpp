@@ -20,6 +20,7 @@ public:
     void callHandleOutputLine(const QString &line) { handleOutputLine(line); }
     bool callRetryWithoutAria2c(const QString &diagnostic) { return retryWithoutAria2cIfTransientFailure(diagnostic); }
     bool callShouldRetryWithoutBrowserCookiesForDegradedFormat() const { return shouldRetryWithoutBrowserCookiesForDegradedFormat(); }
+    double callInferPrimaryStreamSizeFromMetadata(const QString &formatId) const { return inferPrimaryStreamSizeFromMetadata(formatId); }
     void setFullMetadata(const QVariantMap &metadata) { m_fullMetadata = metadata; }
     bool callIsIncompleteMediaDiagnosticLine(const QString &line) const { return isIncompleteMediaDiagnosticLine(line); }
     bool callHasFatalDownloadDiagnostic() const { return hasFatalDownloadDiagnostic(); }
@@ -47,10 +48,12 @@ private slots:
     void testMissingAria2OutputFallsBackToNativeDownloader();
     void testAria2RecoveryRejectsUnrelatedFailuresAndRetriesOnce();
     void testCookieBackedDegradedFormatRecoveryDetection();
+    void testMetadataFormatSizeFallback();
     void testYtDlpProgressStalledParsing();
     void testLifecycleStatusParsing();
     void testLivestreamWaitParsing();
     void testIncompleteMediaDiagnosticClassification();
+    void testDiskSpaceFailureClassification();
 };
 
 void TestYtDlpWorker::init() {
@@ -133,6 +136,23 @@ void TestYtDlpWorker::testYtDlpErrorParsing() {
     for (const QList<QVariant> &arguments : cookieProgressSpy) {
         QVERIFY(!arguments.at(1).toMap().value(QStringLiteral("status")).toString().contains(QStringLiteral("Browser cookies")));
     }
+}
+
+void TestYtDlpWorker::testMetadataFormatSizeFallback() {
+    ConfigManager *config = getConfigManager();
+    TestableYtDlpWorker worker(QStringLiteral("metadataSizeFallback"), {}, config, nullptr);
+    worker.setFullMetadata({
+        {QStringLiteral("formats"), QVariantList{
+            QVariantMap{{QStringLiteral("format_id"), QStringLiteral("299")},
+                        {QStringLiteral("filesize"), 6546721601.0}},
+            QVariantMap{{QStringLiteral("format_id"), QStringLiteral("140")},
+                        {QStringLiteral("filesize"), 258401410.0}}
+        }}
+    });
+
+    QCOMPARE(worker.callInferPrimaryStreamSizeFromMetadata(QStringLiteral("299")), 6546721601.0);
+    QCOMPARE(worker.callInferPrimaryStreamSizeFromMetadata(QStringLiteral("140")), 258401410.0);
+    QCOMPARE(worker.callInferPrimaryStreamSizeFromMetadata(QStringLiteral("missing")), 0.0);
 }
 
 void TestYtDlpWorker::testAria2ProgressParsing() {
@@ -385,6 +405,16 @@ void TestYtDlpWorker::testIncompleteMediaDiagnosticClassification() {
     const QVariantList errorArgs = errorSpy.first();
     QCOMPARE(errorArgs.at(1).toString(), QStringLiteral("incomplete_media"));
     QVERIFY(errorArgs.at(2).toString().contains(QStringLiteral("incomplete"), Qt::CaseInsensitive));
+}
+
+void TestYtDlpWorker::testDiskSpaceFailureClassification() {
+    ConfigManager *config = getConfigManager();
+    TestableYtDlpWorker worker(QStringLiteral("diskSpaceFailure"), {}, config, nullptr);
+
+    worker.callHandleOutputLine(QStringLiteral("WARNING: unable to embed using mutagen; [Errno 28] No space left on device"));
+    worker.callHandleOutputLine(QStringLiteral("[out#0/mp4] Task finished with error code: -28 (No space left on device)"));
+
+    QVERIFY(worker.callHasFatalDownloadDiagnostic());
 }
 
 // Generates the main() function for the test executable

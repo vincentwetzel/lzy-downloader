@@ -207,6 +207,7 @@ add_library(LzyAppLib STATIC
     src/core/BaseBinaryUpdater.cpp
     src/core/ConfigManager.cpp
     src/core/DownloadFinalizer.cpp
+    src/core/FileReplacement.cpp
     src/core/DownloadManager.cpp
     src/core/DownloadManagerControls.cpp
     src/core/DownloadManagerEnqueue.cpp
@@ -215,6 +216,7 @@ add_library(LzyAppLib STATIC
     src/core/DownloadManagerWorkers.cpp
     src/core/DownloadQueueManager.cpp
     src/core/DownloadQueueManagerCleanup.cpp
+    src/core/DownloadQueueManagerRecovery.cpp
     src/core/DownloadQueueState.cpp
     src/core/DownloadTempCleanup.cpp
     src/core/GalleryDlArgsBuilder.cpp
@@ -388,5 +390,7 @@ lzy_add_test(TestDownloadManager tests/TestDownloadManager.cpp)
 lzy_add_test(TestGalleryDlArgsBuilder tests/TestGalleryDlArgsBuilder.cpp)
 lzy_add_test(TestPlaylistExpansionParser tests/TestPlaylistExpansionParser.cpp)
 lzy_add_test(TestDownloadQueueState tests/TestDownloadQueueState.cpp)
+lzy_add_test(TestDownloadQueueManager tests/TestDownloadQueueManager.cpp)
+lzy_add_test(TestFileReplacement tests/TestFileReplacement.cpp)
 lzy_add_test(TestDownloadTempCleanup tests/TestDownloadTempCleanup.cpp)
 lzy_add_test(TestPowerInhibitor tests/TestPowerInhibitor.cpp)

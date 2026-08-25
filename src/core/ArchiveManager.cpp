@@ -218,6 +218,25 @@ bool ArchiveManager::isInArchive(const QString &url) {
     return false;
 }
 
+bool ArchiveManager::sameMediaIdentity(const QString &leftUrl, const QString &rightUrl) const {
+    if (leftUrl.trimmed().isEmpty() || rightUrl.trimmed().isEmpty()) {
+        return leftUrl == rightUrl;
+    }
+
+    const UrlIdentity left = buildIdentity(leftUrl);
+    const UrlIdentity right = buildIdentity(rightUrl);
+    if (left.normalizedUrl.isEmpty() || right.normalizedUrl.isEmpty()) {
+        return leftUrl == rightUrl;
+    }
+
+    if (!left.provider.isEmpty() && left.provider == right.provider
+        && !left.mediaId.isEmpty() && left.mediaId == right.mediaId) {
+        return true;
+    }
+
+    return left.normalizedUrl == right.normalizedUrl;
+}
+
 ArchiveManager::UrlIdentity ArchiveManager::buildIdentity(const QString &urlStr) const {
     UrlIdentity identity;
     identity.mediaId = extractVideoId(urlStr);

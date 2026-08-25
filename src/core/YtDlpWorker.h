@@ -4,8 +4,10 @@
 #include <QVariantMap>
 #include <QStringList>
 #include <QProcess>
+#include <QElapsedTimer>
 
 class ConfigManager;
+class QTimer;
 
 class YtDlpWorker : public QObject {
     Q_OBJECT
@@ -29,6 +31,7 @@ private slots:
     void onReadyReadStandardOutput();
     void onReadyReadStandardError();
     void readInfoJsonWithRetry(); // New slot for retry mechanism
+    void pollTransferProgress();
 
 protected: // Changed from private for testing
     void parseProcessBuffer(QByteArray &buffer, const QByteArray &newData);
@@ -78,6 +81,7 @@ protected: // Changed from private for testing
     QString inferPrimaryStreamStatusFromMetadata(int index) const;
     void updateInferredTransferStage(double percentage, double downloadedBytes, double totalBytes);
     double inferPrimaryStreamSizeBytes(const QVariantMap &requestMap) const;
+    double inferPrimaryStreamSizeFromMetadata(const QString &formatId) const;
     void applyOverallPrimaryProgress(QVariantMap &progressData, double percentage, double downloadedBytes, double totalBytes);
 
     QString m_id;
@@ -111,6 +115,10 @@ protected: // Changed from private for testing
     int m_inferredTransferIndex = -1;
     double m_lastPrimaryProgress = -1.0;
     double m_lastPrimaryTotalBytes = 0.0;
+    QTimer *m_progressPollTimer = nullptr;
+    qint64 m_lastPolledTransferBytes = -1;
+    double m_lastPolledProgress = -1.0;
+    QElapsedTimer m_fileProgressClock;
 
     static constexpr int RECOVERY_RETRY_DELAY_MS = 1000;
 };

@@ -2,6 +2,7 @@
 
 #include <QDebug>
 #include <QDir>
+#include <QFileInfo>
 #include <QHash>
 #include <QRegularExpression>
 #include <cmath>
@@ -29,6 +30,88 @@ namespace {
             progressData.insert(QStringLiteral("current_file"), currentFile);
         }
     }
+
+    QString formatPolledEta(double remainingBytes, double speedBytes) {
+        if (remainingBytes <= 0.0 || speedBytes <= 0.0) {
+            return QObject::tr("Unknown");
+        }
+
+        const qint64 totalSeconds = qMax<qint64>(0, qRound64(remainingBytes / speedBytes));
+        const qint64 hours = totalSeconds / 3600;
+        const qint64 minutes = (totalSeconds % 3600) / 60;
+        const qint64 seconds = totalSeconds % 60;
+        if (hours > 0) {
+            return QStringLiteral("%1:%2:%3").arg(hours).arg(minutes, 2, 10, QLatin1Char('0')).arg(seconds, 2, 10, QLatin1Char('0'));
+        }
+        return QStringLiteral("%1:%2").arg(minutes).arg(seconds, 2, 10, QLatin1Char('0'));
+    }
+}
+
+void YtDlpWorker::pollTransferProgress() {
+    if (!m_process || m_process->state() == QProcess::NotRunning
+        || m_currentTransferTarget.isEmpty() || m_currentTransferIsAuxiliary
+        || m_inferredTransferIndex < 0 || m_inferredTransferIndex >= m_requestedTransferSizes.size()) {
+        return;
+    }
+
+    const QString liveStatus = m_fullMetadata.value(QStringLiteral("live_status")).toString();
+    if (m_fullMetadata.value(QStringLiteral("is_live")).toBool()
+        || liveStatus == QStringLiteral("is_live")
+        || liveStatus == QStringLiteral("is_upcoming")) {
+        return;
+    }
+
+    const QFileInfo targetInfo(m_currentTransferTarget);
+    const QFileInfo partialInfo(m_currentTransferTarget + QStringLiteral(".part"));
+    const QFileInfo fileInfo = partialInfo.exists() ? partialInfo : targetInfo;
+    if (!fileInfo.exists() || fileInfo.size() <= 0) {
+        return;
+    }
+
+    const double totalBytes = m_requestedTransferSizes.at(m_inferredTransferIndex);
+    if (totalBytes <= 0.0) {
+        return;
+    }
+
+    const qint64 downloadedBytes = fileInfo.size();
+    if (downloadedBytes <= m_lastPolledTransferBytes) {
+        return;
+    }
+
+    const double percentage = qBound(0.0, (static_cast<double>(downloadedBytes) / totalBytes) * 100.0, 100.0);
+    if (percentage <= m_lastPolledProgress + 0.1
+        || percentage + 0.25 < m_lastPrimaryProgress) {
+        m_lastPolledTransferBytes = downloadedBytes;
+        m_lastPolledProgress = qMax(m_lastPolledProgress, percentage);
+        return;
+    }
+
+    double speedBytes = 0.0;
+    if (m_fileProgressClock.isValid()) {
+        const qint64 elapsedMs = m_fileProgressClock.elapsed();
+        if (elapsedMs > 0 && m_lastPolledTransferBytes >= 0) {
+            speedBytes = (downloadedBytes - m_lastPolledTransferBytes) * 1000.0 / elapsedMs;
+        }
+    }
+    m_fileProgressClock.restart();
+    m_lastPolledTransferBytes = downloadedBytes;
+    m_lastPolledProgress = percentage;
+    updateInferredTransferStage(percentage, downloadedBytes, totalBytes);
+
+    QVariantMap progressData;
+    progressData.insert(QStringLiteral("progress"), percentage);
+    progressData.insert(QStringLiteral("status"), statusForCurrentTransfer());
+    progressData.insert(QStringLiteral("downloaded_size"), formatBytes(downloadedBytes));
+    progressData.insert(QStringLiteral("total_size"), formatBytes(totalBytes));
+    applyOverallPrimaryProgress(progressData, percentage, downloadedBytes, totalBytes);
+    progressData.insert(QStringLiteral("speed"), speedBytes > 0.0 ? tr("%1/s").arg(formatBytes(speedBytes)) : tr("Unknown"));
+    progressData.insert(QStringLiteral("speed_bytes"), speedBytes);
+    progressData.insert(QStringLiteral("eta"), formatPolledEta(totalBytes - downloadedBytes, speedBytes));
+    populateCommonData(progressData, m_videoTitle, m_thumbnailPath, m_originalDownloadedFilename,
+                       m_currentTransferTarget, m_currentTransferIsAuxiliary, m_infoJsonPath);
+    qDebug() << "[YtDlpWorker] Recovered transfer progress from temporary file:" << downloadedBytes
+             << "/" << totalBytes << "(" << percentage << "%)";
+    emit progressUpdated(m_id, progressData);
 }
 
 double YtDlpWorker::parseSizeStringToBytes(const QString &sizeString) {

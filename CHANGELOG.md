@@ -9,6 +9,18 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## [Unreleased]
 
+- **Release tooling:** Added an explicit native-only `--target auto|windows|linux|macos` option to `build_release.py`, allowing macOS VM builds to select the macOS packaging path while rejecting unsupported cross-OS builds.
+
+- **macOS CI:** Use Qt's published universal `clang_64` desktop archive on both native macOS runners, restoring Apple-Silicon release builds that failed when requesting the unavailable `clang_arm64` package.
+
+- **Download progress recovery:** Native yt-dlp transfers now recover missing stream sizes from `formats` metadata and use bounded temporary-file polling when output goes quiet, preventing long downloads from appearing frozen.
+
+- **Local API recovery:** Explicit non-interactive re-downloads now replace matching restored stopped/failed jobs instead of being rejected as paused; genuinely paused jobs remain protected, and rejected non-interactive duplicates emit terminal bridge diagnostics.
+- **Duplicate prevention:** Queue, retry, active, paused, and archive checks now share normalized media identity comparison instead of relying on raw URL-string equality. The Discord bridge also collapses equivalent recovery entries using extractor-independent URL normalization.
+- **Failure handling:** Disk-full diagnostics (`No space left on device`, errno/ENOSPC 28, and FFmpeg `-28`) now force terminal failure before metadata embedding or finalization.
+- **Destination safety:** Existing completed files are preserved until a verified replacement has been moved or copied successfully; failed replacements restore the original destination.
+- **Retry safety:** Retry/resume now checks the current active-item snapshot with normalized media identity, preventing equivalent active jobs from being re-enqueued.
+- **Regression coverage:** Added focused queue-manager tests for equivalent-URL deduplication and terminal restored-item recovery, plus file-replacement tests that verify the previous destination survives missing or unsuccessful replacement output.
 - **Power management:** Added cross-platform system idle-sleep inhibition for active downloads and post-processing, including the headless/server lifecycle used by the Discord bot. The display remains eligible for normal power-off, and the inhibitor is released on completion, cancellation, and shutdown.
 - **Build:** Added the platform-specific power-management implementation and the Linux Qt D-Bus component.
 - **Tests:** Fixed the new queue-state and temporary-cleanup tests by including the QtTest macros they use, allowing those targets to compile past source parsing and into AutoMOC.

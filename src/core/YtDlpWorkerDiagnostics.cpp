@@ -28,7 +28,12 @@ const QRegularExpression &fatalDownloadRegex()
                        "fragment not found|"
                        "error reading header|"
                        "invalid data found when processing input|"
-                       "error opening input files"),
+                       "error opening input files|"
+                       "no space left on device|"
+                       "not enough space|"
+                       "disk full|"
+                       "error code:\\s*-28|"
+                       "errno\\s*28"),
         QRegularExpression::CaseInsensitiveOption);
     return regex;
 }

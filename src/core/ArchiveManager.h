@@ -52,6 +52,16 @@ public:
     [[nodiscard]] bool isInArchive(const QString &url);
 
     /**
+     * @brief Compares two source URLs using the same normalized media identity
+     *        used by the download archive.
+     *
+     * This is intentionally provider-agnostic at the call site. Providers that
+     * expose a stable media identity use it; all other URLs fall back to the
+     * normalized URL representation.
+     */
+    [[nodiscard]] bool sameMediaIdentity(const QString &leftUrl, const QString &rightUrl) const;
+
+    /**
      * @brief Adds a URL to the download archive.
      * @param url The URL to add.
      */

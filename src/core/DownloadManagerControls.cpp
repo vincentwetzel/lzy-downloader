@@ -139,7 +139,7 @@ void DownloadManager::cancelDownload(const QString &id) {
 }
 
 void DownloadManager::retryDownload(const QVariantMap &itemData) {
-    m_queueManager->retryDownload(itemData);
+    m_queueManager->retryDownload(itemData, m_activeItems);
 }
 
 void DownloadManager::restartDownloadWithOptions(const QVariantMap &itemData) {
@@ -196,7 +196,7 @@ void DownloadManager::restartDownloadWithOptions(const QVariantMap &itemData) {
 }
 
 void DownloadManager::resumeDownload(const QVariantMap &itemData) {
-    retryDownload(itemData);
+    m_queueManager->resumeDownload(itemData, m_activeItems);
 }
 
 void DownloadManager::pauseDownload(const QString &id) {

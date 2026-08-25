@@ -25,7 +25,10 @@ public:
     Q_ENUM(DuplicateStatus)
 
     DuplicateStatus getDuplicateStatus(const QString &url, const QMap<QString, DownloadItem> &activeItems) const;
+    DuplicateStatus getDuplicateStatus(const DownloadItem &candidate, const QMap<QString, DownloadItem> &activeItems) const;
     bool isUrlInQueue(const QString &url, const QMap<QString, DownloadItem> &activeItems) const;
+    /** Removes one matching restored stopped/failed item for an explicit re-download. */
+    bool removeTerminalPausedDuplicate(const DownloadItem &candidate, QString *removedId = nullptr);
 
     void enqueueDownload(const DownloadItem &item, bool isNew = true);
     bool removePendingExpansionPlaceholder(const QString &id);
@@ -34,8 +37,8 @@ public:
     bool unpauseDownload(const QString &id);
     void moveDownloadUp(const QString &id);
     void moveDownloadDown(const QString &id);
-    void retryDownload(const QVariantMap &itemData);
-    void resumeDownload(const QVariantMap &itemData);
+    void retryDownload(const QVariantMap &itemData, const QMap<QString, DownloadItem> &activeItems = {});
+    void resumeDownload(const QVariantMap &itemData, const QMap<QString, DownloadItem> &activeItems = {});
     void processResumeDownloadsSelection(const QJsonArray &arr);
 
     void saveQueueState(const QMap<QString, DownloadItem> &activeItems);

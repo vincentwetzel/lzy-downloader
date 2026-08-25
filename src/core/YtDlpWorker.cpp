@@ -27,6 +27,9 @@ YtDlpWorker::YtDlpWorker(const QString &id, const QStringList &args, ConfigManag
       m_thumbnailPath(QString()), m_infoJsonPath(QString()), m_infoJsonRetryCount(0) {
 
     m_process = new QProcess(this);
+    m_progressPollTimer = new QTimer(this);
+    m_progressPollTimer->setInterval(1000);
+    connect(m_progressPollTimer, &QTimer::timeout, this, &YtDlpWorker::pollTransferProgress);
 
     connect(m_process, &QProcess::started, this, [this]() {
         // yt-dlp launches FFmpeg for merging and post-processing. Lowering the
@@ -180,6 +183,9 @@ void YtDlpWorker::start() {
     m_inferredTransferIndex = -1;
     m_lastPrimaryProgress = -1.0;
     m_lastPrimaryTotalBytes = 0.0;
+    m_lastPolledTransferBytes = -1;
+    m_lastPolledProgress = -1.0;
+    m_fileProgressClock.invalidate();
 
     const ProcessUtils::FoundBinary ytDlpBinary = ProcessUtils::findBinary(QStringLiteral("yt-dlp"), m_configManager);
     if (ytDlpBinary.source == QStringLiteral("Not Found") || ytDlpBinary.path.isEmpty()) {
@@ -246,6 +252,7 @@ void YtDlpWorker::start() {
     
     qDebug() << "[YtDlpWorker] Calling m_process->start()...";
     m_process->start(ytDlpPath, m_args);
+    m_progressPollTimer->start();
     qDebug() << "[YtDlpWorker] start() returned. Process state:" << m_process->state() << "Process ID:" << m_process->processId();
     
     // Check if process started successfully
@@ -260,6 +267,9 @@ void YtDlpWorker::start() {
 }
 
 void YtDlpWorker::killProcess() {
+    if (m_progressPollTimer) {
+        m_progressPollTimer->stop();
+    }
     if (m_process && m_process->state() != QProcess::NotRunning) {
         disconnect(m_process, &QProcess::readyReadStandardOutput, this, &YtDlpWorker::onReadyReadStandardOutput);
         disconnect(m_process, &QProcess::readyReadStandardError, this, &YtDlpWorker::onReadyReadStandardError);

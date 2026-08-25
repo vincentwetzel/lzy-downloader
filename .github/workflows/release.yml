@@ -28,7 +28,9 @@ jobs:
           - os: macos-14
             platform: macos
             architecture: arm64
-            qt_arch: clang_arm64
+            # Qt's macOS desktop archives are published as clang_64 universal
+            # packages (x86_64/arm64), including for Apple-Silicon runners.
+            qt_arch: clang_64
 
     steps:
       - name: Checkout Code

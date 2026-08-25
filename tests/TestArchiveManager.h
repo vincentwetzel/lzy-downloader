@@ -12,6 +12,7 @@ private slots:
     void cleanup();
 
     void testUrlNormalization();
+    void testMediaIdentityComparison();
     void testConcurrentAccess();
 
 private:

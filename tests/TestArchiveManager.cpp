@@ -35,6 +35,18 @@ void TestArchiveManager::testUrlNormalization() {
     QVERIFY(m_archiveManager->isInArchive(QStringLiteral("https://vimeo.com/123456")));
 }
 
+void TestArchiveManager::testMediaIdentityComparison() {
+    QVERIFY(m_archiveManager->sameMediaIdentity(
+        QStringLiteral("https://youtu.be/dQw4w9WgXcQ?is=first"),
+        QStringLiteral("https://youtu.be/dQw4w9WgXcQ?is=second")));
+    QVERIFY(m_archiveManager->sameMediaIdentity(
+        QStringLiteral("https://media.example/video/123?utm_source=one"),
+        QStringLiteral("https://media.example/video/123?utm_source=two")));
+    QVERIFY(!m_archiveManager->sameMediaIdentity(
+        QStringLiteral("https://media.example/video/123"),
+        QStringLiteral("https://media.example/video/456")));
+}
+
 void TestArchiveManager::testConcurrentAccess() {
     // Test that multiple threads can safely interact with the database
     const int numThreads = 10;

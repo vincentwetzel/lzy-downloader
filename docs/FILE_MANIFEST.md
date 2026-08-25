@@ -12,9 +12,9 @@ This document is a quick file-to-responsibility index for the C++ port. It is in
 - `TODO.md`: Active maintenance items, planned work, and known gaps.
 - `UPDATE_AND_RELEASE.md`: Release/operator workflow reference.
 - `CMakeLists.txt`: Primary build graph and executable/library registration.
-- `build_release.py`: Release build and packaging orchestration, including static/dynamic Qt detection and Linux AppImage linuxdeploy handling.
+- `build_release.py`: Native-only release build and packaging orchestration, including the explicit `--target` selector, static/dynamic Qt detection, and Linux AppImage linuxdeploy handling.
 - `tools/`: Extractor-list maintenance scripts and their shared domain-parsing utility; generated extractor JSON remains at the root as bundled runtime data.
-- `.github/workflows/release.yml`: Tag/manual Windows, Linux, Intel macOS, and Apple Silicon macOS build matrix, CI-only Linux vcpkg prerequisites, Windows NSIS/Qt setup, hosted-Qt macOS DMG setup, prerelease yt-dlp validation, matching-qmake Linux packaging, fallback release notes, and tag-only asset publication.
+- `.github/workflows/release.yml`: Tag/manual Windows, Linux, Intel macOS, and Apple Silicon macOS build matrix, CI-only Linux vcpkg prerequisites, Windows NSIS/Qt setup, universal-Qt macOS DMG setup, prerelease yt-dlp validation, matching-qmake Linux packaging, fallback release notes, and tag-only asset publication.
 - `release-notes/<tag>.md` (when supplied): Version-matched release description consumed by the GitHub Release job; CI creates a minimal fallback in the runner when absent. This is not an application runtime resource.
 - `main.cpp`: Application entry point and single-instance/bootstrap wiring.
 
@@ -39,7 +39,11 @@ This document is a quick file-to-responsibility index for the C++ port. It is in
 - `src/core/DownloadManager.*`: Queue orchestration, download lifecycle, finalization flow, and type-aware terminal quality warnings (including title/source context).
 - `src/core/PowerInhibitor.*`: Platform-native system idle-sleep inhibition for active GUI and headless/server downloads.
 - `src/core/DownloadFinalizer.*`: Background verification, destination moves, and guarded terminal temporary-directory cleanup.
-- `src/core/YtDlpWorker.*`: yt-dlp process handling, output parsing, progress classification including audio-aware combined-source labels, browser-cookie failure and metadata-backed degraded-format recovery, and bounded aria2c-to-native recovery.
+- `src/core/FileReplacement.*`: Recoverable replacement of an existing destination after verified download output is ready.
+- `src/core/ArchiveManager.*`: SQLite archive persistence and normalized media identity comparison shared by duplicate checks.
+- `src/core/DownloadQueueManager.*`: Queue, active, paused, retry, and archive duplicate-state checks using shared media identity.
+- `src/core/DownloadQueueManagerRecovery.cpp`: Explicit re-download recovery for matching restored stopped/failed queue entries.
+- `src/core/YtDlpWorker.*`: yt-dlp process handling, output parsing, progress classification including audio-aware combined-source labels, metadata-size and bounded temporary-file progress recovery, browser-cookie failure and metadata-backed degraded-format recovery, and bounded aria2c-to-native recovery.
 - `src/core/YtDlpWorkerDiagnostics.cpp`: Shared fatal/incomplete-media and bounded aria2c missing-output recovery classification used to reject stale final paths before FFmpeg metadata embedding or finalization.
 - `src/core/YtDlpLiveStatus.h`: Narrow mapping from explicit yt-dlp premiere/upcoming diagnostics to live queue metadata during probe fallback.
 - `src/core/DownloadQueueState.*`: Queue persistence to `downloads_backup.json`.
@@ -68,8 +72,10 @@ This document is a quick file-to-responsibility index for the C++ port. It is in
 - `tests/TestDownloadManager.cpp`: Manager-level regression coverage for transient playlist-probe fallback and explicit playlist failure classification.
 - `tests/TestGalleryDlArgsBuilder.cpp`: Gallery-dl argument and rate-limit construction coverage.
 - `tests/TestPlaylistExpansionParser.cpp`: Metadata-to-queue mapping, playlist selection, thumbnail, and live-status parsing coverage.
-- `tests/TestYtDlpWorker.cpp`: Regression coverage for native/aria2 progress, audio-aware combined-source labels, diagnostics, transient downloader recovery, and cookie-backed degraded-format recovery exclusions.
+- `tests/TestYtDlpWorker.cpp`: Regression coverage for native/aria2 progress, metadata-size fallback, audio-aware combined-source labels, diagnostics, transient downloader recovery, and cookie-backed degraded-format recovery exclusions.
 - `tests/TestDownloadQueueState.cpp`: Queue-backup serialization, resume-status mapping, malformed-entry filtering, and empty-queue cleanup coverage.
+- `tests/TestDownloadQueueManager.cpp`: Equivalent-URL deduplication across active/retry state and explicit stopped/failed re-download recovery coverage.
+- `tests/TestFileReplacement.cpp`: Existing-destination preservation when replacement succeeds or the verified source is missing.
 - `tests/TestDownloadTempCleanup.cpp`: Temporary-root fallback, owned-directory cleanup, and orphan-sweep preservation coverage.
 - `tests/TestPowerInhibitor.cpp`: Idempotent acquire/release coverage for the platform sleep-inhibition helper; unsupported desktop services remain a valid best-effort outcome.
 - `extractors_yt-dlp.json` / `extractors_gallery-dl.json`: Bundled extractor-domain data used by URL validation, smart type selection, and Supported Sites UI.

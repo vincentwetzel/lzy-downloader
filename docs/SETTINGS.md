@@ -6,6 +6,15 @@ System idle-sleep inhibition is automatic while downloads are active and is
 not a user setting. It applies to GUI and headless/server modes and does not
 prevent the display from turning off.
 
+Duplicate identity, disk-space failure classification, and existing-destination
+replacement are runtime policies rather than persisted settings. Explicit
+re-downloads preserve the previous destination until the new verified output
+has been moved or copied successfully.
+
+Retry/resume duplicate protection and stopped/failed re-download recovery are
+also runtime policies. The queue manager supplies its active item snapshot at
+request time; no additional `settings.ini` keys are required.
+
 > **Portability Note:** The C++ port uses a pure Qt-native INI format. Backwards compatibility with the Python application's `configparser` quirks is no longer required, and invalid/legacy keys are pruned or reset to defaults as needed.
 
 > **Current behavior note:** Playlist audio filenames use zero-padded index
@@ -72,7 +81,7 @@ Application-wide settings that control theme, cookie handling, clipboard behavio
 | `max_threads` | String | `4` | Maximum number of concurrent downloads to start automatically. Users may raise this during a session, but startup clamps persisted values back to `4` to avoid aggressive resume storms. |
 | `playlist_logic` | String | `Ask` | Default playlist handling mode. Options: `Ask`, `Download All (no prompt)`, `Download Single (ignore playlist)`. In `Ask` mode, detected multi-item playlists can be queued entirely, narrowed through the partial range/checkbox selector, reduced to the first item, or cancelled. |
 | `rate_limit` | String | `Unlimited` | Global yt-dlp rate limit preset shown on the Start tab. |
-| `override_archive` | Boolean | `false` | Allow downloads that would otherwise be blocked by archive/duplicate detection. |
+| `override_archive` | Boolean | `false` | Allow intentional re-downloads that would otherwise be blocked by archive/duplicate detection. A matching restored stopped/failed entry may be replaced; genuinely paused entries remain protected. |
 | `exit_after` | Boolean | `false` | Exit the app automatically after the queue fully finishes. Always resets to `false` on application startup. The delayed shutdown re-checks queued and active counts before quitting. |
 | `language` | String | `🇺🇸 English` | UI language selector value stored by the main window. |
 | `enable_local_api` | Boolean | `false` | Enable the localhost API server on `127.0.0.1:8765` for trusted local integrations like Discord bots. |
@@ -243,6 +252,8 @@ Manual path overrides for external executables. If not set, the application auto
 > **Binary Resolution Order:** Explicit external paths always win. Otherwise the selected preference chooses app-managed `bin` copies before system candidates, or system candidates before app-managed copies. The resolver then probes candidates in that preferred group with a short timeout and prefers the newest usable candidate.
 
 The External Tools page can also run install/update commands through detected package managers or safe tool-native updaters. WinGet updates use exact package IDs where available (`yt-dlp.yt-dlp`, `mikf.gallery-dl`, `Gyan.FFmpeg`, `aria2.aria2`, `DenoLand.Deno`), Deno standalone updates use `deno upgrade`, and cancellable progress dialogs preserve command output for troubleshooting. Version checks are bounded by short watchdogs, install/update helpers close stdin so package aliases cannot hang waiting for input, and successful updates clear update-warning flags before refreshing binary status.
+
+Transfer progress recovery is automatic and is not a persisted setting: when yt-dlp omits `requested_downloads`, the worker uses matching format sizes and a bounded poll of the active temporary `.part` file.
 
 ---
 

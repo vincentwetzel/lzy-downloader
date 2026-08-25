@@ -1,6 +1,7 @@
 #include "DownloadFinalizer.h"
 #include "ConfigManager.h"
 #include "DownloadTempCleanup.h"
+#include "FileReplacement.h"
 #include "SortingManager.h"
 #include "ArchiveManager.h"
 
@@ -92,7 +93,6 @@ void cleanupTempFiles(const DownloadItem &item, const QDir &tempDir, const QStri
     if (item.options.value(QStringLiteral("type")).toString() == QStringLiteral("gallery")) {
         return;
     }
-
     // 1. Clean up the info.json that matches the media file name.
     if (QFile::exists(mediaInfoJsonPath)) {
         if (safeRemoveWithRetry(mediaInfoJsonPath)) {
@@ -101,7 +101,6 @@ void cleanupTempFiles(const DownloadItem &item, const QDir &tempDir, const QStri
             qWarning() << "Failed to clean up media info.json:" << mediaInfoJsonPath;
         }
     }
-
     // 2. Clean up any explicitly tracked temporary files (like _wait_thumbnail.jpg)
     const QStringList candidates = item.options.value(QStringLiteral("cleanup_candidates")).toStringList();
     for (const QString &candidate : candidates) {
@@ -114,7 +113,6 @@ void cleanupTempFiles(const DownloadItem &item, const QDir &tempDir, const QStri
             }
         }
     }
-
     // 3. Clean up leftover auxiliary files (like un-embedded .jpg thumbnails) matching the video basename.
     // Avoid QDir wildcard filters here: raw titles can contain '[' and ']', which are special in
     // Qt's wildcard-to-regex conversion and can produce invalid QRegularExpression warnings.
@@ -140,7 +138,6 @@ void cleanupTempFiles(const DownloadItem &item, const QDir &tempDir, const QStri
             }
         }
     }
-
     // 4. If it was a playlist download, find and remove the playlist's info.json file.
     QString playlistId;
 
@@ -187,13 +184,11 @@ bool removeUuidTempDirectory(const QString &id, const DownloadItem &item, const 
     if (id.isEmpty() || item.tempFilePath.isEmpty()) {
         return false;
     }
-
     const QString candidatePath = downloadType == QStringLiteral("gallery")
         ? QDir::fromNativeSeparators(item.tempFilePath)
         : QFileInfo(item.tempFilePath).absoluteDir().absolutePath();
     return DownloadTempCleanup::removeOwnedDirectory(id, candidatePath);
-}
-
+    }
 bool copyDirectoryRecursivelyInternal(const QString &sourceDir, const QString &destDir) {
     const QDir source(sourceDir);
     if (!source.exists()) {
@@ -229,25 +224,19 @@ bool copyDirectoryRecursivelyInternal(const QString &sourceDir, const QString &d
         }
     }
     return success;
-}
-
+    }
 } // namespace
-
 DownloadFinalizer::DownloadFinalizer(ConfigManager *configManager, SortingManager *sortingManager, ArchiveManager *archiveManager, QObject *parent)
     : QObject(parent), m_configManager(configManager), m_sortingManager(sortingManager), m_archiveManager(archiveManager) {
 }
-
 bool DownloadFinalizer::copyDirectoryRecursively(const QString &sourceDir, const QString &destDir) {
     return copyDirectoryRecursivelyInternal(sourceDir, destDir);
 }
-
 void DownloadFinalizer::finalize(const QString &id, DownloadItem item) {
     qDebug() << "Starting finalize for id:" << id;
-
     QPointer<DownloadFinalizer> self(this);
     QPointer<SortingManager> sortingManager(m_sortingManager);
     QPointer<ArchiveManager> archiveManager(m_archiveManager);
-
     // Resolve config values on the main thread safely to prevent cross-thread QSettings data races
     const QString downloadType = item.options.value(QStringLiteral("type")).toString();
     const bool isAudio = (downloadType == QStringLiteral("audio"));
@@ -255,13 +244,11 @@ void DownloadFinalizer::finalize(const QString &id, DownloadItem item) {
     if (m_configManager) {
         prefixPlaylistIndices = m_configManager->get(QStringLiteral("DownloadOptions"), QStringLiteral("prefix_playlist_indices"), isAudio).toBool();
     }
-
     QThread *thread = QThread::create([self, id, item, sortingManager, archiveManager, prefixPlaylistIndices, downloadType]() mutable {
 
         const auto cleanupTerminalTempDirectory = [&]() {
             removeUuidTempDirectory(id, item, downloadType);
         };
-
         if (downloadType != QStringLiteral("gallery") && !item.metadata.contains(QStringLiteral("id"))) {
             qWarning() << "Metadata is missing core fields in finalize for id:" << id << ", attempting to read from disk.";
             const QFileInfo fi(item.tempFilePath);
@@ -285,8 +272,7 @@ void DownloadFinalizer::finalize(const QString &id, DownloadItem item) {
                 }
             } else {
                 qWarning() << "Could not open info.json for fallback:" << jsonPath;
-            }
-
+    }
             if (item.metadata.isEmpty()) {
                 qWarning() << "Continuing finalization without metadata for id:" << id
                            << "- sorting rules may fall back to the default directory.";
@@ -310,7 +296,6 @@ void DownloadFinalizer::finalize(const QString &id, DownloadItem item) {
                 }
             }
         }
-
         const QFileInfo fileInfo(item.tempFilePath);
         if (!fileInfo.exists()) {
             cleanupTerminalTempDirectory();
@@ -329,7 +314,6 @@ void DownloadFinalizer::finalize(const QString &id, DownloadItem item) {
                 if (self) emit self->progressUpdated(id, {{QStringLiteral("status"), statusMsg}});
             }, Qt::QueuedConnection);
         };
-
         sendProgress(DownloadFinalizer::tr("Verifying download completeness..."));
         sendProgress(DownloadFinalizer::tr("Applying sorting rules..."));
 
@@ -463,8 +447,8 @@ void DownloadFinalizer::finalize(const QString &id, DownloadItem item) {
         } else {
             sendProgress(DownloadFinalizer::tr("Moving to final destination..."));
 
-            if (QFile::exists(destPath) && !safeRemoveWithRetry(destPath)) {
-                message = DownloadFinalizer::tr("Download completed, but failed to replace existing file.");
+            if (!FileReplacement::moveReplacing(item.tempFilePath, destPath)) {
+                message = DownloadFinalizer::tr("Download completed, but failed to move or replace the destination file.");
                 cleanupTerminalTempDirectory();
                 QMetaObject::invokeMethod(QCoreApplication::instance(), [self, id, message]() {
                     if (self) emit self->finalizationComplete(id, false, message);
@@ -472,27 +456,13 @@ void DownloadFinalizer::finalize(const QString &id, DownloadItem item) {
                 return;
             }
 
-            bool moved = QFile::rename(item.tempFilePath, destPath);
-            if (!moved) {
-                sendProgress(DownloadFinalizer::tr("Copying file to destination..."));
-                if ((moved = QFile::copy(item.tempFilePath, destPath))) {
-                    if (!safeRemoveWithRetry(item.tempFilePath)) {
-                        qWarning() << "Failed to remove temp file after copy:" << item.tempFilePath;
-                    }
+            success = true;
+            finalPath = destPath;
+            message = DownloadFinalizer::tr("Download completed → %1").arg(QDir::toNativeSeparators(finalDir));
+            if (!item.originalDownloadedFilePath.isEmpty() && item.originalDownloadedFilePath != item.tempFilePath) {
+                if (!safeRemoveWithRetry(item.originalDownloadedFilePath)) {
+                    qWarning() << "Failed to remove original downloaded file:" << item.originalDownloadedFilePath;
                 }
-            }
-
-            if (moved) {
-                success = true;
-                finalPath = destPath;
-                message = DownloadFinalizer::tr("Download completed → %1").arg(QDir::toNativeSeparators(finalDir));
-                if (!item.originalDownloadedFilePath.isEmpty() && item.originalDownloadedFilePath != item.tempFilePath) {
-                    if (!safeRemoveWithRetry(item.originalDownloadedFilePath)) {
-                        qWarning() << "Failed to remove original downloaded file:" << item.originalDownloadedFilePath;
-                    }
-                }
-            } else {
-                message = DownloadFinalizer::tr("Download completed, but failed to move file.");
             }
         }
 

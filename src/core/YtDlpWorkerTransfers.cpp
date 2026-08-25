@@ -11,8 +11,14 @@
 #include <algorithm>
 
 void YtDlpWorker::updateTransferTarget(const QString &path) {
+    const QString previousTarget = m_currentTransferTarget;
     m_currentTransferTarget = QDir::toNativeSeparators(path);
     m_currentTransferIsAuxiliary = isAuxiliaryTransferTarget(m_currentTransferTarget);
+    if (m_currentTransferTarget != previousTarget) {
+        m_lastPolledTransferBytes = -1;
+        m_lastPolledProgress = -1.0;
+        m_fileProgressClock.invalidate();
+    }
 
     if (m_currentTransferIsAuxiliary) {
         const QString suffix = QFileInfo(m_currentTransferTarget).suffix().toLower();
@@ -58,6 +64,22 @@ double YtDlpWorker::inferPrimaryStreamSizeBytes(const QVariantMap &requestMap) c
     const double approxSize = requestMap.value(QStringLiteral("filesize_approx")).toDouble();
     if (approxSize > 0.0) {
         return approxSize;
+    }
+    return 0.0;
+}
+
+double YtDlpWorker::inferPrimaryStreamSizeFromMetadata(const QString &formatId) const {
+    const QString normalizedFormatId = formatId.trimmed();
+    if (normalizedFormatId.isEmpty()) {
+        return 0.0;
+    }
+
+    const QVariantList formats = m_fullMetadata.value(QStringLiteral("formats")).toList();
+    for (const QVariant &formatValue : formats) {
+        const QVariantMap format = formatValue.toMap();
+        if (format.value(QStringLiteral("format_id")).toString().trimmed() == normalizedFormatId) {
+            return inferPrimaryStreamSizeBytes(format);
+        }
     }
     return 0.0;
 }

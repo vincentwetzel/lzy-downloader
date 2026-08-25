@@ -38,6 +38,10 @@ input are reported as incomplete-transfer failures before metadata embedding.
 - 🖼️ **Thumbnail Embedding** — Automatic thumbnail download, bounded preview loading, and embedding for videos and audio
 - 🌐 **Browser Cookies** — Use saved cookies from Firefox, Chrome, Edge, or other browsers for age-restricted content; a low-resolution cookie-backed result for an uncapped bestvideo request retries once without cookies when the browser manifest may have hidden adaptive formats
 - 📂 **Smart Sorting** — Automatically organize downloads into subfolders based on uploader, playlist, date, or custom patterns
+- 🛡️ **Duplicate-safe retries** — Equivalent source URLs share a normalized media identity, preventing duplicate queue/retry jobs without adding site-specific downloader behavior
+- 🔁 **Terminal retry recovery** — Explicit API re-downloads can replace matching restored stopped/failed jobs, while genuinely paused downloads remain protected
+- 📈 **Transfer progress recovery** — Native downloads recover stream sizes from yt-dlp format metadata and bounded `.part`-file polling keeps progress moving when yt-dlp temporarily emits no progress line
+- 🧱 **Safe destination replacement** — Intentional re-downloads preserve the existing completed file until the verified replacement is in place; failed replacements leave the old file recoverable
 
 ## Installation
 
@@ -98,9 +102,10 @@ Before building a release, keep all release metadata in sync:
 - `CMakeLists.txt` `project(VERSION x.y.z)` is the app version source of truth.
 - `vcpkg.json` `version-string` must be updated to the same version, and `builtin-baseline` should remain pinned to the intended vcpkg commit.
 - `build_release.py` is the canonical packaging path for local release builds and the GitHub release workflow.
+- `python build_release.py --target macos` explicitly selects the macOS packaging path when run inside the macOS VM. The builder remains native-only: `--target auto` is the default, and cross-OS installers cannot be produced from Windows or Linux.
 - Windows GitHub Actions installs NSIS before packaging; local builds may use the standard NSIS location or a `makensis` executable on `PATH`.
 - Linux GitHub Actions installs the vcpkg Qt Base prerequisites, including `bison`, `curl`, `flex`, `tar`, `unzip`, `zip`, `^libxcb.*-dev`, `libx11-xcb-dev`, and `libxkbcommon-x11-dev`, before configuring the release build.
-- macOS CI builds separate Intel (`macos-13`) and Apple Silicon (`macos-14`) app bundles with the hosted Qt SDK, deploys Qt with `macdeployqt`, and packages `LzyDownloader-X.Y.Z-macos-x86_64.dmg` plus `LzyDownloader-X.Y.Z-macos-arm64.dmg`.
+- macOS CI builds separate Intel (`macos-13`) and Apple Silicon (`macos-14`) app bundles from Qt's universal `clang_64` archive, deploys Qt with `macdeployqt`, and packages `LzyDownloader-X.Y.Z-macos-x86_64.dmg` plus `LzyDownloader-X.Y.Z-macos-arm64.dmg`.
 - Release automation installs yt-dlp from its prerelease/nightly channel (`pip install --pre --upgrade yt-dlp`) so extractor/runtime changes are exercised before packaging.
 - Linux AppImage packaging uses the same vcpkg Qt installation that built the executable when invoking linuxdeploy, including QtSql's SQLite plugin discovery; the Windows-only Qt SDK setup is not used for Linux packaging.
 - If a tag-matched `release-notes/<tag>.md` file is absent, CI creates a minimal fallback release body so GitHub Release publication does not emit a missing-file warning.
@@ -143,6 +148,8 @@ All settings are saved to `%LOCALAPPDATA%\LzyDownloader\settings.ini` on Windows
 ### Local API
 
 When enabled in the GUI, or when launched with `--server`, `--headless`, or `--background`, LzyDownloader listens only on `127.0.0.1:8765`. The API token is stored in the app-local data directory as `api_token.txt`; server/headless/background mode keeps its runtime token under `Server/api_token.txt`. Requests must send the token as a Bearer token.
+
+Equivalent URLs are deduplicated using normalized media identity across queued, active, paused, retried, and archived states. Disk-full diagnostics are terminal failures, and explicit replacement of an existing destination preserves the old file until the new verified output is in place.
 
 - `POST /enqueue` with JSON body `{"url":"https://...","type":"video","id":"optional-stable-job-id","override_archive":true}` queues a download using non-interactive defaults. `type` is optional and may be `video`, `audio`, or `gallery`; omitted requests default to `video`. `id` is optional; when omitted, the app generates a UUID. `override_archive` is optional and may also be supplied under `options`; it must be explicitly true for an intentional re-download.
 - `POST /cancel` with JSON body `{"job_id":"..."}` requests cancellation of a tracked queued or active job. The endpoint uses the same bearer token and returns `404` for an unknown job ID.

@@ -26,9 +26,25 @@ void DownloadManager::enqueueDownload(const QString &url, const QVariantMap &opt
         effectiveOptions.insert(QStringLiteral("download_sections_set"), true);
     }
 
-    // Check if URL is already in any state (prevents duplicate enqueuing)
+    // Check if URL is already in any state (prevents duplicate enqueuing).
+    // An explicit re-download may replace a terminal stopped/failed restore,
+    // but must not silently resume a genuinely paused item.
     const bool overrideArchive = effectiveOptions.value(QStringLiteral("override_archive"), false).toBool();
-    const DownloadQueueManager::DuplicateStatus status = m_queueManager->getDuplicateStatus(url, m_activeItems);
+    DownloadItem duplicateCandidate;
+    duplicateCandidate.id = effectiveOptions.value(QStringLiteral("id")).toString();
+    duplicateCandidate.url = url;
+    DownloadQueueManager::DuplicateStatus status = m_queueManager->getDuplicateStatus(duplicateCandidate, m_activeItems);
+
+    if (status == DownloadQueueManager::DuplicatePaused && overrideArchive) {
+        QString removedId;
+        if (m_queueManager->removeTerminalPausedDuplicate(duplicateCandidate, &removedId)) {
+            qInfo() << "DownloadManager: Replacing terminal restored download for explicit re-download:" << url;
+            if (!removedId.isEmpty()) {
+                emit downloadRemovedFromQueue(removedId);
+            }
+            status = m_queueManager->getDuplicateStatus(duplicateCandidate, m_activeItems);
+        }
+    }
 
     if (status != DownloadQueueManager::NotDuplicate) {
         // If it's only in completed and override is enabled, allow it
@@ -55,6 +71,10 @@ void DownloadManager::enqueueDownload(const QString &url, const QVariantMap &opt
             }
             qDebug() << "DownloadManager: Skipping duplicate URL:" << url << "- Reason:" << reason;
             emit duplicateDownloadDetected(url, reason);
+            if (isNonInteractiveRequest(effectiveOptions)) {
+                emit nonInteractiveRequestFailed(
+                    effectiveOptions.value(QStringLiteral("id")).toString(), url, reason);
+            }
             return;
         }
     }

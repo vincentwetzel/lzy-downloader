@@ -23,11 +23,23 @@ developer-facing English output and are not part of the translated UI.
 Power-inhibition diagnostics are likewise developer-facing platform logs; the
 feature has no user-visible setting or untranslated UI text.
 
+Duplicate-identity and disk-space diagnostics use existing translated worker
+and queue messages; this implementation adds no selectable language or new
+translation catalog requirement.
+
+Terminal stopped/failed re-download recovery and non-interactive duplicate
+diagnostics also use the existing translated queue/request-failure surface;
+they add no selectable language or translation catalog requirement.
+
+Retry/resume duplicate rejection and destination-replacement failures likewise
+reuse existing translated queue/finalizer messages and introduce no new
+language selection or catalog build step.
+
 ## Current language
 
 - English
 
-Thumbnail-remux status and error messages remain in the existing translation
+Thumbnail-remux, quiet-transfer progress-recovery, status, and error messages remain in the existing translation
 surface; this artwork behavior change does not add a new selectable language or
 change the translation build requirements.
 
