@@ -239,9 +239,10 @@ This document outlines the specifications for the C++ port of the LzyDownloader 
 
 ## 4. Test Requirements
 - CMake must register new single-source Qt test executables through `lzy_add_test(...)`.
-- The test suite must remain runnable through `ctest -C <config> --output-on-failure`.
+- Test sources and test-only fixtures must live under the top-level `tests/` directory; production sources remain under `src/`.
+- The test suite must remain runnable through `ctest -C <config> --output-on-failure`; CMake applies `QT_QPA_PLATFORM=offscreen` to each registered test so GUI-adjacent tests do not require a desktop session.
 - `run_headless_tests.py` is the canonical helper for non-interactive Windows test runs; it builds the requested configuration, sets `QT_QPA_PLATFORM=offscreen`, and runs CTest with parallel jobs based on the host CPU count.
-- Current required coverage includes yt-dlp argument generation/progress parsing, browser-cookie degraded-format recovery detection, archive normalization, configuration defaults/reset and legacy cleanup, Local API token/auth/enqueue behavior, process binary-resolution cache behavior, URL validation, sorting sanitization, playlist range selection, UI progress widgets, and the local end-to-end download fixture.
+- Current required coverage includes yt-dlp and gallery-dl argument generation, yt-dlp progress and browser-cookie/aria2 recovery diagnostics, playlist expansion parsing and transient-probe fallback, archive normalization, configuration defaults/reset and legacy cleanup, Local API token/auth/enqueue behavior, process binary-resolution cache behavior, URL validation, sorting sanitization, playlist range selection, download-manager behavior, UI progress widgets, and the local end-to-end download fixture.
 
 Automation clients using `POST /enqueue` may set boolean `override_archive` (top-level or inside `options`) to confirm an intentional re-download. The server forwards this confirmation through the non-interactive queue path; requests without it retain duplicate protection.
 Linux release packaging must produce an AppImage without scanning non-deployable host libraries through linuxdeploy; this is a build-time constraint and is not exposed as a user setting.

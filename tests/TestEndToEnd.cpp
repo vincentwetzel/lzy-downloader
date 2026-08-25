@@ -52,8 +52,8 @@ void TestEndToEnd::init() {
     // 2. Start Python HTTP server
     QString sourcePythonScriptPath;
     const QStringList searchPaths = {
-        QStringLiteral("../../src/tests/%1").arg(TEST_SERVER_SCRIPT), // MSBuild (build/Release/)
-        QStringLiteral("../src/tests/%1").arg(TEST_SERVER_SCRIPT)     // Ninja/Makefiles (build/)
+        QStringLiteral("../../tests/%1").arg(TEST_SERVER_SCRIPT), // MSBuild (build/Release/)
+        QStringLiteral("../tests/%1").arg(TEST_SERVER_SCRIPT)     // Ninja/Makefiles (build/)
     };
     for (const QString &relPath : searchPaths) {
         QString absPath = QDir(QCoreApplication::applicationDirPath()).absoluteFilePath(relPath);

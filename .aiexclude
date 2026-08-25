@@ -1,9 +1,8 @@
 # Build outputs
 /build/
-/build-release/
-/build-debug/
-/cmake-build-debug/
+/build-*/
 /out/
+/out-*/
 CMakeFiles/
 CMakeCache.txt
 cmake_install.cmake
@@ -19,6 +18,9 @@ cmake_install.cmake
 *.AppImage
 *.dmg
 *.msi
+linuxdeploy
+linuxdeploy-plugin-qt
+AppDir/
 
 # IDE-specific files
 /.idea/
@@ -31,6 +33,10 @@ cmake_install.cmake
 CMakeSettings.json
 
 # Dependencies and External Tools
+/vcpkg/
+/vcpkg_installed/
+/.vcpkg/
+/.vcpkg-scratch/
 /bin/
 venv/
 .venv/
@@ -49,6 +55,7 @@ downloads_backup.json
 api_token.txt
 /Server/
 /temp_downloads/
+/.tmp/
 
 # OS-specific metadata
 .DS_Store

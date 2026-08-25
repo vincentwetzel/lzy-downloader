@@ -12,6 +12,10 @@ When acting as an AI coding assistant modifying this repository, you must adhere
 - **Release Workflow Documentation:** CI-only build prerequisites must be documented separately from runtime dependencies. Keep the exact Linux vcpkg/Qt/XCB packages and the prerelease yt-dlp validation command synchronized across the release workflow, release guide, specification, and manifest; do not imply that CI installs bundle tools into the shipped application.
 - **Release Qt Consistency:** Linux packaging must use qmake from the same vcpkg Qt installation that linked the release executable. Do not let a separate Qt SDK environment cause linuxdeploy to miss the application's Qt modules.
 - **Non-publishing CI Validation:** Release workflows may expose manual build-only dispatches, but artifact publication must remain conditional on a tag ref.
+- **Test Placement:** Production code remains under `src/`; Qt tests, fixtures,
+  workflow templates, and test-only helpers belong under the top-level `tests/`
+  directory. Register each test through `lzy_add_test(...)` so it receives the
+  shared base fixture, production-library linkage, and offscreen test platform.
 
 ## 2. C++ & Qt Style and Conventions
 - **Naming:** Follow idiomatic Qt/C++ naming. Use `PascalCase` for classes, `camelCase` for functions and local variables, and `UPPER_SNAKE_CASE` for constants. Prefix class member variables with `m_` (e.g., `m_downloadQueue`).
@@ -103,6 +107,7 @@ row with the right-aligned exit-after-downloads control.
 - Accurate-cut tests must assert audio re-encoding/timestamp-normalization arguments and reject packet-copy arguments that can preserve pre-cut offsets.
 - External post-processing processes must have bounded resource usage where practical and should run at background priority on Windows; synchronization-sensitive media cuts must not rely on copying timestamps from removed ranges.
 - **Test-Driven Modifications:** When changing core logic, command arguments building (`YtDlpArgsBuilder`), progress parsing, or file sorting, write or update corresponding Qt tests (`QTest`).
+- **Test Location:** Keep Qt test sources, shared fixtures, workflow templates, and test-only helper scripts in the top-level `tests/` directory. Register test executables through the shared CMake helper rather than adding test sources to the production library.
 - **Isolated Testing:** Tests must never write to the user's actual `settings.ini` or `download_archive.db`. Always use isolated temporary paths and mock configurations (e.g., via `BaseTest` fixtures).
 - **Testability by Design:** Do not force tests to parse UI presentation layers (e.g., extracting colors from stylesheets). Expose internal state cleanly via `Q_PROPERTY` or explicit public getter methods so UI tests can verify semantic states rather than visual representations.
 - **Static Analysis:** Augment compiler warnings by integrating static analysis tools (e.g., Clang-Tidy, and Clazy for Qt-specific checks) to catch memory leaks, dangling string views, and performance anti-patterns before runtime.

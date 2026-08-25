@@ -31,7 +31,7 @@ This document is a quick file-to-responsibility index for the C++ port. It is in
 - `src/ui/`: Qt Widgets UI, tabs, dialogs, and presentation-layer builders.
 - `src/ui/MainWindowUiBuilder.*`: Main-window tabs, footer status indicators, and exit-after-downloads control layout.
 - `src/utils/`: Shared helpers for logging, discovery, parsing, and platform utilities.
-- `src/tests/`: Test fixtures and Qt test coverage.
+- `tests/`: Test fixtures and Qt test coverage, kept in a top-level test directory.
 
 ## High-Value Entry Points
 - `src/core/DownloadManager.*`: Queue orchestration, download lifecycle, finalization flow, and type-aware terminal quality warnings (including title/source context).
@@ -61,8 +61,11 @@ This document is a quick file-to-responsibility index for the C++ port. It is in
 - `src/ui/advanced_settings/DownloadOptionsPage.*`: Download-option controls, including the enabled-by-default playlist-index prefix.
 - `src/ui/`: Reusable widgets, tabs, dialogs, and row controls; resource files
   are kept in `src/ui/assets/` and `src/ui/resources.qrc`.
-- `src/tests/`: Headless Qt tests for argument construction, parsing, persistence, UI state, binary/API behavior, and end-to-end behavior.
-- `src/tests/TestYtDlpWorker.cpp`: Regression coverage for native/aria2 progress, audio-aware combined-source labels, diagnostics, transient downloader recovery, and cookie-backed degraded-format recovery exclusions.
+- `tests/`: Headless Qt tests for argument construction, parsing, persistence, UI state, binary/API behavior, and end-to-end behavior.
+- `tests/TestDownloadManager.cpp`: Manager-level regression coverage for transient playlist-probe fallback and explicit playlist failure classification.
+- `tests/TestGalleryDlArgsBuilder.cpp`: Gallery-dl argument and rate-limit construction coverage.
+- `tests/TestPlaylistExpansionParser.cpp`: Metadata-to-queue mapping, playlist selection, thumbnail, and live-status parsing coverage.
+- `tests/TestYtDlpWorker.cpp`: Regression coverage for native/aria2 progress, audio-aware combined-source labels, diagnostics, transient downloader recovery, and cookie-backed degraded-format recovery exclusions.
 - `extractors_yt-dlp.json` / `extractors_gallery-dl.json`: Bundled extractor-domain data used by URL validation, smart type selection, and Supported Sites UI.
 
 ## Working Rule of Thumb

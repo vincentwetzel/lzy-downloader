@@ -279,6 +279,7 @@ void DownloadManager::onPlaylistExpanded(const QString &originalUrl, const QList
                 m_queueManager->m_pendingExpansions.remove(queueId);
                 m_queueManager->cancelQueuedOrPausedDownload(queueId); // Remove placeholder from queue
             }
+            emit playlistExpansionFinished(originalUrl, 0);
             return;
         }
     }

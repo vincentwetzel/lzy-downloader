@@ -21,14 +21,14 @@ protected:
     // Test case cleanup (runs after each test function)
     void cleanup();
 
-    // Setup that runs once before all tests in the test class
-    void initTestCase();
-    // Cleanup that runs once after all tests in the test class
-    void cleanupTestCase();
-
     QString getTempDir() const;
     ConfigManager* getConfigManager();
     ArchiveManager* getArchiveManager();
+
+private slots:
+    // QTest discovers lifecycle hooks through the meta-object system.
+    void initTestCase();
+    void cleanupTestCase();
 
 private:
     QTemporaryDir m_temporaryDir; // Direct member variable

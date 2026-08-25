@@ -305,17 +305,17 @@ add_custom_command(TARGET LzyDownloader POST_BUILD
 )
 
 function(lzy_add_test target_name source_file)
-    add_executable(${target_name} src/tests/BaseTest.cpp ${source_file})
+    add_executable(${target_name} tests/BaseTest.cpp ${source_file})
     
     target_include_directories(${target_name} PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/tests
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests
         ${CMAKE_CURRENT_SOURCE_DIR}/src/core
     )
     
     target_link_libraries(${target_name} PRIVATE
         LzyAppLib
-        Qt6::Test Qt6::Core Qt6::Network Qt6::Sql Qt6::Widgets
+        Qt6::Test Qt6::Core Qt6::Network Qt6::Sql Qt6::Widgets Qt6::Concurrent
     )
     
     if(MSVC)
@@ -324,16 +324,22 @@ function(lzy_add_test target_name source_file)
     
     lzy_add_qt_windows_deploy(${target_name})
     add_test(NAME ${target_name} COMMAND ${target_name})
+    set_tests_properties(${target_name} PROPERTIES
+        ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+    )
 endfunction()
 
-lzy_add_test(TestYtDlpArgsBuilder src/tests/TestYtDlpArgsBuilder.cpp)
-lzy_add_test(TestYtDlpWorker src/tests/TestYtDlpWorker.cpp)
-lzy_add_test(TestEndToEnd src/tests/TestEndToEnd.cpp)
-lzy_add_test(TestArchiveManager src/tests/TestArchiveManager.cpp)
-lzy_add_test(TestConfigManager src/tests/TestConfigManager.cpp)
-lzy_add_test(TestLocalApiServer src/tests/TestLocalApiServer.cpp)
-lzy_add_test(TestUrlValidator src/tests/TestUrlValidator.cpp)
-lzy_add_test(TestSortingManager src/tests/TestSortingManager.cpp)
-lzy_add_test(TestUIWidgets src/tests/TestUIWidgets.cpp)
-lzy_add_test(TestProcessUtils src/tests/TestProcessUtils.cpp)
-lzy_add_test(TestPlaylistRangeDialog src/tests/TestPlaylistRangeDialog.cpp)
+lzy_add_test(TestYtDlpArgsBuilder tests/TestYtDlpArgsBuilder.cpp)
+lzy_add_test(TestYtDlpWorker tests/TestYtDlpWorker.cpp)
+lzy_add_test(TestEndToEnd tests/TestEndToEnd.cpp)
+lzy_add_test(TestArchiveManager tests/TestArchiveManager.cpp)
+lzy_add_test(TestConfigManager tests/TestConfigManager.cpp)
+lzy_add_test(TestLocalApiServer tests/TestLocalApiServer.cpp)
+lzy_add_test(TestUrlValidator tests/TestUrlValidator.cpp)
+lzy_add_test(TestSortingManager tests/TestSortingManager.cpp)
+lzy_add_test(TestUIWidgets tests/TestUIWidgets.cpp)
+lzy_add_test(TestProcessUtils tests/TestProcessUtils.cpp)
+lzy_add_test(TestPlaylistRangeDialog tests/TestPlaylistRangeDialog.cpp)
+lzy_add_test(TestDownloadManager tests/TestDownloadManager.cpp)
+lzy_add_test(TestGalleryDlArgsBuilder tests/TestGalleryDlArgsBuilder.cpp)
+lzy_add_test(TestPlaylistExpansionParser tests/TestPlaylistExpansionParser.cpp)

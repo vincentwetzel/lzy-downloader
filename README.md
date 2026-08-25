@@ -80,7 +80,7 @@ cmake --build --preset debug-local-qt
 
 ### Testing
 
-Qt test executables are registered through CMake and can be run with CTest. For headless Windows/CI runs, the helper script builds the configured tree, sets `QT_QPA_PLATFORM=offscreen`, and runs CTest in parallel using the host CPU count:
+Qt test sources and fixtures live in the top-level `tests/` directory. Test executables are registered through CMake and can be run with CTest. The current suite includes argument builders, playlist parsing and fallback, download-manager behavior, worker progress/recovery, persistence, API, sorting, UI, URL, and end-to-end coverage. For headless Windows/CI runs, the helper script builds the configured tree, sets `QT_QPA_PLATFORM=offscreen`, and runs CTest in parallel using the host CPU count:
 
 ```bash
 python run_headless_tests.py --build-dir build --config Release
@@ -183,6 +183,7 @@ For a quick map of where things live, start with [`docs/FILE_MANIFEST.md`](docs/
 LzyDownloader/
 ├── CMakeLists.txt              # Build System Configuration
 ├── main.cpp                    # Application Entry Point
+├── tests/                      # Qt tests, fixtures, and test-only helpers
 ├── src/
 │   ├── core/                   # Core Business Logic
 │   │   ├── ConfigManager.h/cpp   # Settings persistence (INI)

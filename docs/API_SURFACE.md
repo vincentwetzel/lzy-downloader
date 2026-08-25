@@ -10,6 +10,12 @@ The API surface adheres to **Qt best practices**:
 - No blocking operations on the main thread; asynchronous logic via `QProcess` or workers.
 - Proper thread-affinity and memory safety (e.g., using `deleteLater()` on workers).
 
+Qt test authorship is kept separate from the production API: test sources and
+fixtures live in the top-level `tests/` directory and link against the
+`LzyAppLib` target through CMake. `lzy_add_test(...)` is the single registration
+path; it adds the shared `BaseTest.cpp`, enables the offscreen Qt platform, and
+links the Qt Concurrent module needed by asynchronous test coverage.
+
 Release automation is a CI integration contract rather than a runtime API:
 `v*` tags build Windows, Linux, and separate Intel/Apple-Silicon macOS artifacts, Linux CI provisions the vcpkg
 Qt/XCB development prerequisites before configuration, and validation installs

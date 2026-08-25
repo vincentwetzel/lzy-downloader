@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIVE.md](docs/CHANGELOG_ARCHIVE.md).
 
+## [Unreleased]
+
+- **Build:** Moved Qt test sources, fixtures, workflow templates, and the end-to-end server fixture from `src/tests/` to the top-level `tests/` directory.
+- **Tests:** Registered download-manager playlist fallback, gallery-dl argument, and playlist-expansion parser coverage through the shared top-level test harness with an offscreen Qt environment.
+
 ## [1.2.30] - 2026-08-24
 
 - Moved the download counters and current-speed indicator into the footer's first row, with the exit-after-downloads switch remaining rightmost.
