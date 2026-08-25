@@ -90,4 +90,4 @@ is enabled.
 # Update handoff terminology
 
 The updater exposes an `installingUpdate` lifecycle signal before installer launch. Any future translations or user-facing update strings should preserve the distinction between a completed download and the final shutdown/install handoff. Silent Windows installs relaunch the installed executable without using translated finish-page text.
-Release-tooling diagnostics, including Linux AppImage deployment checks, remain English-only CI output and are not runtime translation entries.
+Release-tooling diagnostics, including Linux AppImage deployment checks and the `build-release/tooling/` cache, remain English-only CI output and are not runtime translation entries.

@@ -34,4 +34,4 @@ jobs:
       run: cmake -B build -DCMAKE_BUILD_TYPE=Release
 
     - name: Run Headless Tests
-      run: python run_headless_tests.py --build-dir build --config Release --verbose
+      run: python tests/run_headless_tests.py --build-dir build --config Release --verbose

@@ -111,7 +111,7 @@ jobs:
         with:
           files: |
             LzyDownloader-Setup-*.exe
-            LzyDownloader-*-x86_64.AppImage
+            build-release/LzyDownloader-*-x86_64.AppImage
             LzyDownloader-*-macos-x86_64.dmg
             LzyDownloader-*-macos-arm64.dmg
           body_path: release-notes/${{ github.ref_name }}.md

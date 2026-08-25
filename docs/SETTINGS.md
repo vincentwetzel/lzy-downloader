@@ -422,4 +422,4 @@ If a required binary (`yt-dlp`, `ffmpeg`, `ffprobe`, `deno`) is not found, LzyDo
 
 Application updates preserve unfinished queue entries by saving the normal queue backup before the installer is launched.
 On Windows, silent updater installs automatically restart the newly installed executable; this behavior is not controlled by a user setting.
-Linux AppImage deployment details, including host-library exclusions used by linuxdeploy, are packaging behavior and do not add settings to `settings.ini`.
+Linux AppImage deployment details, including host-library exclusions used by linuxdeploy, the `build-release/tooling/` helper cache, and `build-release/` output location, are packaging behavior and do not add settings to `settings.ini`.

@@ -11,6 +11,7 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 - **Build:** Moved Qt test sources, fixtures, workflow templates, and the end-to-end server fixture from `src/tests/` to the top-level `tests/` directory.
 - **Tests:** Registered download-manager playlist fallback, gallery-dl argument, and playlist-expansion parser coverage through the shared top-level test harness with an offscreen Qt environment.
+- **Build:** Moved extractor maintenance scripts into `tools/`; Linux release tooling now caches linuxdeploy under `build-release/tooling/` and writes AppImages directly under `build-release/`.
 
 ## [1.2.30] - 2026-08-24
 

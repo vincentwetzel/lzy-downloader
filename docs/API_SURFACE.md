@@ -205,3 +205,5 @@ Applies custom naming rules and tags to structure download targets automatically
 - `QString getSortedDirectory(const QVariantMap &videoMetadata, const QVariantMap &downloadOptions)`: Evaluates uploader, title, dates, and token variables to construct output paths.
 Linux AppImage release tooling excludes non-deployable host libraries from
 linuxdeploy's ELF scan; this packaging workaround is not part of the runtime API.
+The release helper keeps linuxdeploy binaries under `build-release/tooling/` and
+writes the resulting AppImage under `build-release/`.

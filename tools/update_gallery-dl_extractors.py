@@ -13,7 +13,11 @@ No values are hardcoded.
 
 import gallery_dl.extractor as extractor_pkg
 import json
+from pathlib import Path
 from extractor_utils import extract_domains_from_pattern, extract_domain_from_url
+
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 
 # ── gallery-dl extractor sources ──────────────────────────────────────────────
@@ -120,12 +124,12 @@ def main():
     print('Scanning gallery-dl extractors…')
     result = get_extractors()
 
-    out_path = 'extractors_gallery-dl.json'
-    with open(out_path, 'w', encoding='utf-8') as f:
+    out_path = PROJECT_ROOT / 'extractors_gallery-dl.json'
+    with out_path.open('w', encoding='utf-8') as f:
         json.dump(result, f, indent=4, ensure_ascii=False)
 
     total_domains = sum(len(v['domains']) for v in result.values())
-    print(f'Done! {out_path} — {len(result)} extractors, {total_domains} domains.')
+    print(f'Done! {out_path.name} — {len(result)} extractors, {total_domains} domains.')
 
 
 if __name__ == '__main__':

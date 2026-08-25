@@ -20,9 +20,9 @@ def log(msg, color=RESET):
     use_color = sys.stdout.isatty() and os.environ.get("TERM", "") != "dumb"
     print(f"{color}{msg}{RESET}" if use_color else msg)
 
-def run_command(cmd, shell=False):
+def run_command(cmd, shell=False, cwd=None):
     log(f"Executing: {' '.join(cmd) if isinstance(cmd, list) else cmd}", YELLOW)
-    result = subprocess.run(cmd, shell=shell)
+    result = subprocess.run(cmd, shell=shell, cwd=cwd)
     if result.returncode != 0:
         log(f"Command failed with exit code {result.returncode}", RED)
         sys.exit(result.returncode)
@@ -107,7 +107,7 @@ def main():
     app_version = match.group(1)
     log(f"Detected Application Version: {app_version}", GREEN)
 
-    build_dir = Path("build-release")
+    build_dir = Path("build-release").resolve()
 
     # 2. Clean old release build cache
     log("\n[0/4] Cleaning old build cache...", YELLOW)
@@ -116,8 +116,8 @@ def main():
 
     # 3. Update Extractor Lists
     log("\n[1/4] Refreshing Extractor Lists...", YELLOW)
-    run_command([sys.executable, "./update_yt-dlp_extractors.py"])
-    run_command([sys.executable, "./update_gallery-dl_extractors.py"])
+    run_command([sys.executable, "tools/update_yt-dlp_extractors.py"])
+    run_command([sys.executable, "tools/update_gallery-dl_extractors.py"])
 
     # 4. Configure CMake
     log("\n[2/4] Configuring CMake (Release)...", YELLOW)
@@ -200,8 +200,10 @@ def main():
                 sys.exit(1)
 
         # Grab AppImage dependencies
-        ld_path = Path("linuxdeploy")
-        ld_plugin_path = Path("linuxdeploy-plugin-qt")
+        tooling_dir = build_dir / "tooling"
+        tooling_dir.mkdir(parents=True, exist_ok=True)
+        ld_path = tooling_dir / "linuxdeploy"
+        ld_plugin_path = tooling_dir / "linuxdeploy-plugin-qt"
         if not ld_path.exists():
             urllib.request.urlretrieve("https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage", ld_path)
             ld_path.chmod(0o755)
@@ -291,7 +293,7 @@ def main():
         )
         dynamic_qt = "libQt6" in ldd_result.stdout
         linuxdeploy_args = [
-            "./linuxdeploy",
+            str(ld_path.resolve()),
             "--appdir", str(appdir),
             "-e", str(built_exe),
             "-d", str(linux_desktop),
@@ -309,12 +311,13 @@ def main():
             os.environ.pop("EXTRA_QT_MODULES", None)
             log("Detected statically linked Qt; skipping linuxdeploy-plugin-qt.", GREEN)
         linuxdeploy_args.extend(["--output", "appimage"])
-        run_command(linuxdeploy_args)
+        os.environ["PATH"] = str(tooling_dir.resolve()) + os.pathsep + os.environ.get("PATH", "")
+        run_command(linuxdeploy_args, cwd=build_dir)
 
-        generated_appimage = Path("LzyDownloader-x86_64.AppImage")
+        generated_appimage = build_dir / "LzyDownloader-x86_64.AppImage"
         if generated_appimage.exists():
-            target_appimage = f"LzyDownloader-{app_version}-x86_64.AppImage"
-            shutil.move(generated_appimage, target_appimage)
+            target_appimage = build_dir / f"LzyDownloader-{app_version}-x86_64.AppImage"
+            shutil.move(str(generated_appimage), str(target_appimage))
             log(f"\n=== Linux Build Success: {target_appimage} ===", GREEN)
 
     elif system_platform == "Darwin":

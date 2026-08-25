@@ -13,7 +13,8 @@ def main():
     args = parser.parse_args()
 
     # Resolve the absolute path to the build directory
-    project_root = os.path.dirname(os.path.abspath(__file__))
+    # This helper lives with the rest of the test-only tooling.
+    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     build_dir = os.path.join(project_root, args.build_dir)
 
     if not os.path.isdir(build_dir):
