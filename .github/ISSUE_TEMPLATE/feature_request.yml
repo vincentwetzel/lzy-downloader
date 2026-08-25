@@ -1,0 +1,27 @@
+name: Feature request
+description: Suggest an improvement to the LzyDownloader desktop downloader
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or use case
+      description: What would this help you accomplish?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Describe the behavior you would like to see.
+    validations:
+      required: true
+  - type: checkboxes
+    id: generic-support
+    attributes:
+      label: Generic implementation
+      options:
+        - label: This request does not require hardcoded behavior for one specific website.
+          required: true

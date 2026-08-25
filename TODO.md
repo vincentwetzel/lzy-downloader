@@ -19,5 +19,9 @@
 - [ ] Evaluate whether `YtDlpWorker` should expose a reusable capped diagnostic tail helper so warning/error retention stays consistent across workers.
 
 ## Planned / Future Enhancements
+- [x] License project-authored source and assets under GPL-3.0-or-later; retain separate licensing notices for third-party dependencies.
+- [ ] Apply the GitHub repository description and recommended topics after the repository account is re-authenticated.
+- [ ] Submit verified releases to appropriate package directories such as WinGet or Scoop after licensing and installer metadata are finalized.
+- [ ] Upload `docs/assets/social-preview.png` through GitHub repository Settings -> Social preview; `lzydownloader-interface.png` remains the detailed README screenshot.
 - [ ] Implement translations for supported interface languages (see `docs/LANGUAGES.md`).
 - [ ] Integrate Qt Linguist (`.ts`/`.qm` compiler steps) into `CMakeLists.txt` build automation.

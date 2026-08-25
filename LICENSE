@@ -1,0 +1,23 @@
+GNU GENERAL PUBLIC LICENSE
+Version 3, 29 June 2007
+
+Copyright (C) 2026 Vincent Wetzel
+
+LzyDownloader is free software: you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation, either version 3 of the License, or (at your option) any later
+version.
+
+LzyDownloader is distributed in the hope that it will be useful, but WITHOUT
+ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+
+The complete GNU General Public License v3.0 text is available at
+<https://www.gnu.org/licenses/gpl-3.0.html>.
+
+SPDX-License-Identifier: GPL-3.0-or-later
+
+This license applies to LzyDownloader source code and project-authored assets
+unless a file or accompanying notice states otherwise. Third-party components,
+including Qt, yt-dlp, gallery-dl, FFmpeg, and other external tools, remain
+under their respective licenses and notices.

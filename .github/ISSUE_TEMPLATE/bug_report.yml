@@ -1,0 +1,43 @@
+name: Bug report
+description: Report a reproducible problem with LzyDownloader
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please search existing issues first. Do not include browser cookies,
+        API tokens, credentials, or private media URLs.
+  - type: input
+    id: version
+    attributes:
+      label: LzyDownloader version
+      description: Which release or source revision is affected?
+      placeholder: "1.2.30"
+    validations:
+      required: true
+  - type: dropdown
+    id: operating-system
+    attributes:
+      label: Operating system
+      options:
+        - Windows
+        - Linux
+        - macOS
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: What happened?
+      description: Describe the expected behavior and the actual behavior.
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Sanitized diagnostics
+      description: Include relevant error output after removing secrets and private URLs.
+      render: text

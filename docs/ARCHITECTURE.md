@@ -23,6 +23,13 @@ and the final Linux AppImage is written under `build-release/` rather than the
 repository root. Extractor maintenance scripts live under `tools/`; their
 generated JSON remains at the root because CMake copies it beside the executable.
 
+Project identity is declared consistently in `CMakeLists.txt` and `vcpkg.json`:
+the package description and canonical repository URL identify the application,
+and the package metadata records GPL-3.0-or-later for project-authored code and
+assets. The release workflow invokes `tools/generate_release_checksums.py` after
+packaging; its SHA-256 manifest is uploaded beside each platform artifact and
+does not participate in application startup or runtime configuration.
+
 ## 2. System Design
 
 ### 2.1 Single Instance Enforcement

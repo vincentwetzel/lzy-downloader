@@ -43,6 +43,10 @@ Linux Qt/XCB packages and prerelease yt-dlp installation are not saved to
 `settings.ini`; runtime executable paths continue to use External Tools and
 the shared resolver.
 
+Release checksums, repository description/homepage metadata, license notices,
+and public contribution/security files are distribution or repository assets;
+they do not add settings keys or alter the Qt-native configuration format.
+
 ---
 
 ## Table of Contents

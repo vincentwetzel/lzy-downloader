@@ -1,10 +1,57 @@
-# LzyDownloader
+# LzyDownloader — Free Video Downloader and yt-dlp GUI
 
-A lightweight, high-performance desktop application for downloading media (video and audio) from online platforms using **yt-dlp**.
+[![Build and Release](https://github.com/vincentwetzel/lzy-downloader/actions/workflows/release.yml/badge.svg)](https://github.com/vincentwetzel/lzy-downloader/actions/workflows/release.yml)
+[![Latest Release](https://img.shields.io/github/v/release/vincentwetzel/lzy-downloader?display_name=tag)](https://github.com/vincentwetzel/lzy-downloader/releases/latest)
+
+LzyDownloader is a free desktop **video downloader, audio downloader, playlist
+downloader, and gallery downloader** powered by [yt-dlp](https://github.com/yt-dlp/yt-dlp),
+[gallery-dl](https://github.com/mikf/gallery-dl), and FFmpeg. It provides a native
+Qt 6 GUI for downloading supported online media URLs, extracting audio, saving
+playlists, embedding metadata and thumbnails, and managing concurrent downloads.
+
+The primary target is Windows, with native Linux and macOS release packaging
+also available. LzyDownloader is built in C++20 and is designed as a practical
+yt-dlp GUI for people who want queue management, resumable downloads, quality
+controls, and clear progress diagnostics without working at a command prompt.
+
+**[Download the latest LzyDownloader release](https://github.com/vincentwetzel/lzy-downloader/releases/latest)** ·
+[View the source code](https://github.com/vincentwetzel/lzy-downloader) ·
+[Report a bug](https://github.com/vincentwetzel/lzy-downloader/issues/new/choose)
 
 The current C++ release line is 1.2.x. See [CHANGELOG.md](CHANGELOG.md) for
 unreleased changes and [UPDATE_AND_RELEASE.md](UPDATE_AND_RELEASE.md) for the
 maintainer release workflow.
+
+## What is LzyDownloader?
+
+LzyDownloader is a native desktop alternative to command-line yt-dlp workflows.
+Paste a supported media URL, choose video or audio options, and let the queue
+handle extraction, downloading, FFmpeg post-processing, verification, and final
+file organization. Because site support comes from yt-dlp and gallery-dl, the
+application can work with the broad range of extractors maintained by those
+projects instead of hardcoding behavior for individual websites.
+
+Common uses include:
+
+- Downloading online videos for offline viewing
+- Extracting audio as MP3, M4A, Opus, or another configured format
+- Downloading a complete playlist or a selected range of playlist items
+- Saving supported image galleries through gallery-dl
+- Organizing downloaded media into folders and embedding titles, artists, and artwork
+- Running downloads through the optional localhost API or Discord bridge
+
+For remote Discord control, see the companion [LzyDownloader Discord
+Bridge](https://github.com/vincentwetzel/lzy-downloader-discord-bot), a Python
+bot that connects to the desktop app's authenticated local API.
+
+![LzyDownloader social preview showing the cross-platform yt-dlp GUI](docs/assets/social-preview.png)
+
+*LzyDownloader is a cross-platform video and audio downloader GUI for yt-dlp.*
+
+![LzyDownloader Windows interface showing video downloads and sorting rules](docs/assets/screenshots/lzydownloader-interface.png)
+
+*LzyDownloader's native Qt interface for starting downloads, configuring
+playlist behavior, and organizing downloaded media.*
 
 ## Features
 
@@ -52,6 +99,13 @@ Download the latest installer from [Releases](https://github.com/vincentwetzel/l
 1. Download `LzyDownloader-Setup-X.X.X.exe`
 2. Run the installer
 3. On the final installer page, leave “Launch LzyDownloader” checked to start the app immediately, or launch it later from the Start Menu or desktop shortcut
+
+Release assets include a platform-specific `SHA256SUMS-*.txt` file. Verify the
+checksum for the installer or package before running it. On Windows, use
+`Get-FileHash .\LzyDownloader-Setup-X.X.X.exe -Algorithm SHA256`; on Linux use
+`sha256sum LzyDownloader-X.X.X-x86_64.AppImage`; and on macOS use
+`shasum -a 256 LzyDownloader-X.X.X-macos-*.dmg`. Compare the result with the
+matching release manifest.
 
 ### From Source
 
@@ -110,6 +164,7 @@ Before building a release, keep all release metadata in sync:
 - Linux AppImage packaging uses the same vcpkg Qt installation that built the executable when invoking linuxdeploy, including QtSql's SQLite plugin discovery; the Windows-only Qt SDK setup is not used for Linux packaging.
 - If a tag-matched `release-notes/<tag>.md` file is absent, CI creates a minimal fallback release body so GitHub Release publication does not emit a missing-file warning.
 - The workflow also supports `workflow_dispatch` validation runs; release assets are uploaded only when the workflow was started by a `v*` tag.
+- Each tag release includes a platform-specific `SHA256SUMS-*.txt` manifest beside the packaged installer, AppImage, or DMG.
 - The Linux release prerequisite step also installs `autoconf`, `autoconf-archive`, `automake`, `libtool`, `libegl1-mesa-dev`, `libgl1-mesa-dev`, `libglu1-mesa-dev`, `libxi-dev`, `libxkbcommon-dev`, and `libxrender-dev`; these are development dependencies for vcpkg's Qt/XCB build, not application runtime requirements.
 - `LzyDownloader.nsi` must not contain stale hardcoded version examples or installer metadata; pass the release version with `makensis /DAPP_VERSION=x.y.z /DRELEASE_BUILD_DIR=build-release\Release LzyDownloader.nsi` when building manually.
 - `CHANGELOG.md` must move `[Unreleased]` notes under the dated release version.
@@ -164,6 +219,41 @@ Extractor-list refresh scripts are non-interactive and live under `tools/`, so r
 Temporary downloads are isolated in per-download UUID folders under the shared temporary-root resolver: the configured temporary directory, `<completed_downloads_directory>/temp_downloads`, or the operating-system temp directory under `LzyDownloader` when neither setting is available. Terminal finalization removes the guarded UUID folder on terminal output or final-destination failures, while stopped and failed downloads retain their partial data for resume or manual cleanup. After queue restoration, an asynchronous startup sweep removes only unprotected direct-child UUID folders; restored stopped/failed IDs, non-UUID folders, symlinks, and the shared root are preserved. Playlist expansion checks reuse the full yt-dlp command configuration without creating transfer-only UUID folders.
 
 When aria2c is enabled for an ordinary non-livestream download, the app uses bounded retries and a conservative per-server connection limit. A transient aria2c exit code (2, 5, 6, or 29), or an `Unable to download video` file-not-found diagnostic for aria2c's expected temporary media `.part` file, triggers at most one delayed retry through yt-dlp's native downloader. The recovery removes stale `.info.json` sidecars but preserves media `.part` files, and reports the recovery stage and retained diagnostics in the queue row.
+
+## Frequently Asked Questions
+
+### Is LzyDownloader a YouTube downloader?
+
+LzyDownloader is a general-purpose yt-dlp GUI. It accepts URLs supported by
+yt-dlp rather than implementing a separate downloader for one website. YouTube
+and many other extractors are supported according to the capabilities and
+current compatibility of the installed yt-dlp version.
+
+### Can LzyDownloader download audio?
+
+Yes. Audio downloads can extract MP3, M4A, Opus, or another configured format.
+The application can embed title, artist, album, and thumbnail metadata after
+FFmpeg finishes processing the download.
+
+### Can it download playlists?
+
+Yes. Playlist downloads can include every item, the first item, or a selected
+range. Audio playlist filenames can include zero-padded playlist indices so the
+result remains ordered in music players and file browsers.
+
+### Is LzyDownloader available for Windows, Linux, and macOS?
+
+Windows is the primary desktop target and has an installer. Native Linux
+AppImage and macOS DMG packages are produced by the release workflow when those
+platform builds are published. Building from source requires CMake, Qt 6, and
+a C++20 compiler.
+
+### Does it require yt-dlp and FFmpeg?
+
+Yes. The application uses external `yt-dlp`, `gallery-dl`, `ffmpeg`, and
+`ffprobe` executables. Optional `aria2c` and `deno` integrations are supported.
+The External Binaries page can discover, configure, install, and update these
+tools without bundling them into the repository.
 
 ## Architecture
 
@@ -227,14 +317,11 @@ LzyDownloader/
 
 ## Contributing
 
-Contributions are welcome! Please:
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/your-feature`)
-3. Commit your changes (`git commit -am 'Add feature'`)
-4. Push to the branch (`git push origin feature/your-feature`)
-5. Open a Pull Request
+Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for build,
+testing, documentation, and pull-request guidance.
 
 ## License
 
-License information is not currently specified in this repository.
+LzyDownloader is licensed under the [GNU General Public License v3.0 or
+later](LICENSE). Third-party components, including Qt, yt-dlp, gallery-dl, and
+FFmpeg, remain under their respective licenses.

@@ -1,5 +1,10 @@
 cmake_minimum_required(VERSION 3.16)
-project(LzyDownloader VERSION 1.2.30 LANGUAGES CXX)
+project(LzyDownloader
+    VERSION 1.2.30
+    DESCRIPTION "Qt desktop video, audio, playlist, and gallery downloader powered by yt-dlp and gallery-dl"
+    HOMEPAGE_URL "https://github.com/vincentwetzel/lzy-downloader"
+    LANGUAGES CXX
+)
 enable_testing()
 
 set(_qt_search_prefixes "")

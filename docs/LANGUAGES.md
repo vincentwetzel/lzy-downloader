@@ -17,6 +17,10 @@ English-only build metadata and do not require a translation catalog.
 The release workflow's fallback GitHub body and manual validation-run metadata
 are also English-only build metadata and do not require a translation catalog.
 
+Repository metadata, contributor/security guidance, license text, release asset
+names, and SHA-256 manifests are likewise English-only distribution material;
+they are not runtime strings and must not be added to Qt translation catalogs.
+
 The test runner's timestamps, summaries, and suspects-cache diagnostics are
 developer-facing English output and are not part of the translated UI.
 

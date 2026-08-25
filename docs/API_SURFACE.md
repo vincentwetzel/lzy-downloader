@@ -34,6 +34,12 @@ publishing release assets. Linux packaging detects static versus dynamic Qt:
 static Qt builds skip the Qt linuxdeploy plugin, while dynamic builds deploy the
 Qt and SQLite runtime plugins.
 
+Published release jobs also generate a platform-specific `SHA256SUMS-*.txt`
+manifest for the packaged installer, AppImage, or DMG. This is a distribution
+artifact and is not consumed by the runtime API. Project-authored source and
+assets are licensed under GPL-3.0-or-later; external tools retain their own
+licenses.
+
 ---
 
 ## 1. Core Classes

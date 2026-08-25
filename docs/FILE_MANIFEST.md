@@ -7,6 +7,9 @@ This document is a quick file-to-responsibility index for the C++ port. It is in
 
 ## Root Files
 - `README.md`: Project overview, build, usage, configuration, and release checklist.
+- `LICENSE`: GPL-3.0-or-later notice for project-authored source and assets, with third-party licensing guidance.
+- `CONTRIBUTING.md`: Contributor setup, testing, issue quality, and pull-request guidance.
+- `SECURITY.md`: Private vulnerability-reporting guidance and handling rules for sensitive diagnostics.
 - `AGENTS.md`: Canonical operating instructions for AI contributors.
 - `CHANGELOG.md`: User-facing release history and notable completed changes.
 - `TODO.md`: Active maintenance items, planned work, and known gaps.
@@ -14,7 +17,12 @@ This document is a quick file-to-responsibility index for the C++ port. It is in
 - `CMakeLists.txt`: Primary build graph and executable/library registration.
 - `build_release.py`: Native-only release build and packaging orchestration, including the explicit `--target` selector, static/dynamic Qt detection, and Linux AppImage linuxdeploy handling.
 - `tools/`: Extractor-list maintenance scripts and their shared domain-parsing utility; generated extractor JSON remains at the root as bundled runtime data.
+- `tools/generate_release_checksums.py`: Standard-library release helper that writes platform-specific SHA-256 manifests for packaged assets.
+- `docs/assets/screenshots/lzydownloader-interface.png`: Approved public product screenshot showing the native download interface and sorting rules.
+- `docs/assets/social-preview.png`: Approved wide branded project preview for README sharing and GitHub social-preview upload.
 - `.github/workflows/release.yml`: Tag/manual Windows, Linux, Intel macOS, and Apple Silicon macOS build matrix, CI-only Linux vcpkg prerequisites, Windows NSIS/Qt setup, universal-Qt macOS DMG setup, prerelease yt-dlp validation, matching-qmake Linux packaging, fallback release notes, and tag-only asset publication.
+- `.github/ISSUE_TEMPLATE/`: Structured bug-report and feature-request forms that keep public support requests actionable.
+- `.github/pull_request_template.md`: Pull-request checklist for tests, documentation, and sensitive-data handling.
 - `release-notes/<tag>.md` (when supplied): Version-matched release description consumed by the GitHub Release job; CI creates a minimal fallback in the runner when absent. This is not an application runtime resource.
 - `main.cpp`: Application entry point and single-instance/bootstrap wiring.
 

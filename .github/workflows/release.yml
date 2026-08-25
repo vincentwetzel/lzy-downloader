@@ -107,6 +107,12 @@ jobs:
             printf '# LzyDownloader %s\n\nAutomated release build for %s.\n' "$GITHUB_REF_NAME" "$GITHUB_REF_NAME" > "$notes_path"
           fi
 
+      - name: Generate Release Checksums
+        shell: bash
+        run: |
+          python tools/generate_release_checksums.py \
+            --output "SHA256SUMS-${{ matrix.platform }}-${{ matrix.architecture || 'x86_64' }}.txt"
+
       - name: Upload Release Assets
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
@@ -116,6 +122,7 @@ jobs:
             build-release/LzyDownloader-*-x86_64.AppImage
             LzyDownloader-*-macos-x86_64.dmg
             LzyDownloader-*-macos-arm64.dmg
+            SHA256SUMS-*.txt
           body_path: release-notes/${{ github.ref_name }}.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

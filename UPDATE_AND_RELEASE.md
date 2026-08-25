@@ -17,6 +17,31 @@ existing localhost API/webhook integration.
 
 This document describes how to build, package, and release the C++ version of LzyDownloader with auto-update support.
 
+## Public repository discoverability
+
+The repository README is the primary public landing page. Keep its first
+paragraph, release link, feature descriptions, platform support, and FAQ
+accurate because they explain the project to both prospective users and search
+engines. Repository settings should also use the following concise description:
+
+> Free desktop video, audio, playlist, and gallery downloader powered by yt-dlp and gallery-dl.
+
+Recommended GitHub topics are `video-downloader`, `audio-downloader`,
+`playlist-downloader`, `gallery-downloader`, `yt-dlp`, `yt-dlp-gui`, `ffmpeg`,
+`qt`, `cpp`, `windows`, `linux`, and `macos`. Apply these in the repository's
+GitHub Settings; topics are repository metadata and cannot be set by a commit
+in this checkout. Avoid keyword stuffing or claiming support that the current
+yt-dlp/gallery-dl extractors do not provide.
+
+Release titles and notes should state the user-visible value of each build and
+link to the latest installer. Keep the Windows, Linux, and macOS asset names
+descriptive and architecture-specific so search visitors can identify the
+correct download quickly.
+
+The approved branded preview is stored at `docs/assets/social-preview.png`.
+Upload it manually in GitHub repository Settings -> Social preview; GitHub does
+not automatically use an image merely because it exists in the repository.
+
 ## Prerequisites
 
 1. **NSIS (Nullsoft Scriptable Install System)**
@@ -146,6 +171,7 @@ Pushing the tag starts the `Build and Release` workflow. Watch the Actions run u
 - `LzyDownloader-X.X.X-x86_64.AppImage`
 - `LzyDownloader-X.X.X-macos-x86_64.dmg`
 - `LzyDownloader-X.X.X-macos-arm64.dmg`
+- `SHA256SUMS-<platform>-<architecture>.txt`
 
 ### Step 3: Manual GitHub Release Fallback
 
@@ -157,6 +183,7 @@ If the workflow is unavailable, navigate to https://github.com/vincentwetzel/lzy
 4. **Description:** Add release notes.
 5. **Attach Assets:** Upload `LzyDownloader-Setup-X.X.X.exe`
    - Also attach `LzyDownloader-X.X.X-x86_64.AppImage` for Linux systems.
+   - Attach the generated platform-specific `SHA256SUMS-*.txt` manifest and keep it alongside the matching release assets.
    - Also attach both architecture-labelled macOS DMGs.
 6. Click "Publish release"
 
@@ -169,6 +196,7 @@ If the workflow is unavailable, navigate to https://github.com/vincentwetzel/lzy
 - [ ] `vcpkg.json` `builtin-baseline` is pinned to the intended vcpkg commit
 - [ ] `CHANGELOG.md` has the release notes under the matching dated version
 - [ ] `release-notes/vX.Y.Z.md` contains the GitHub release description
+- [ ] SHA-256 manifest is attached for each release build job
 - [ ] `release-notes/` exists in the checkout and the file name matches the pushed tag
 - [ ] Active documentation matches the release behavior, including the README, API, architecture, settings, specification, manifest, coding standards, and release guides
 - [ ] Installer was rebuilt from the current `CMakeLists.txt` version (`python build_release.py` or `makensis /DAPP_VERSION=...`), not manually renamed afterward

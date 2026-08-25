@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Latest LzyDownloader release
+    url: https://github.com/vincentwetzel/lzy-downloader/releases/latest
+    about: Download the latest Windows, Linux, or macOS build before reporting an already-fixed issue.
+  - name: Documentation and setup
+    url: https://github.com/vincentwetzel/lzy-downloader#readme
+    about: Check installation, external-tool, and configuration guidance first.

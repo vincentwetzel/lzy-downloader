@@ -9,6 +9,20 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## [Unreleased]
 
+- **Discoverability:** Reworked the public README around clear video-downloader,
+  audio-downloader, playlist-downloader, gallery-downloader, yt-dlp GUI, and
+  platform search terms; added prominent release/source links, project badges,
+  use cases, and an FAQ. Added contributor, security, issue-template, and
+  pull-request guidance so visitors have a clear path from discovery to safe
+  adoption or contribution.
+- **Project metadata:** Added descriptive CMake and vcpkg package metadata for
+  the Qt desktop downloader and linked it to the canonical GitHub repository.
+- **Licensing:** Project-authored source and assets are now released under
+  GPL-3.0-or-later; external dependencies retain their own licenses.
+- **Release distribution:** Release jobs now publish platform-specific SHA-256
+  manifests beside packaged installers, AppImages, and DMGs, and the README
+  links the companion Discord bridge for easier discovery.
+
 - **Release tooling:** Added an explicit native-only `--target auto|windows|linux|macos` option to `build_release.py`, allowing macOS VM builds to select the macOS packaging path while rejecting unsupported cross-OS builds.
 
 - **macOS CI:** Use Qt's published universal `clang_64` desktop archive on both native macOS runners, restoring Apple-Silicon release builds that failed when requesting the unavailable `clang_arm64` package.
