@@ -42,7 +42,7 @@ input are reported as incomplete-transfer failures before metadata embedding.
 
 ### Windows (Recommended)
 
-Download the latest installer from [Releases](https://github.com/vincentwetzel/LzyDownloader/releases):
+Download the latest installer from [Releases](https://github.com/vincentwetzel/lzy-downloader/releases):
 
 1. Download `LzyDownloader-Setup-X.X.X.exe`
 2. Run the installer
