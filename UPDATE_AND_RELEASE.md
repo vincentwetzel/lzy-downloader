@@ -89,7 +89,7 @@ Before packaging or publishing, run the Qt test suite through the headless helpe
 python .\tests\run_headless_tests.py --build-dir build --config Release
 ```
 
-The helper builds the selected configuration and runs `ctest` with `QT_QPA_PLATFORM=offscreen` and parallel jobs based on the host CPU count. Test sources and fixtures are kept in the top-level `tests/` directory. Coverage includes yt-dlp/gallery-dl argument building, playlist parsing and transient-probe fallback, download-manager behavior, worker progress and recovery diagnostics, archive/config/API/process utilities, URL validation, sorting, playlist-range selection, UI progress widgets, and the local end-to-end fixture.
+The helper builds the selected configuration and stops before testing if compilation fails, then runs `ctest` with timestamped output, `QT_QPA_PLATFORM=offscreen`, and parallel jobs based on the host CPU count. It prints a final summary and records failed tests in `build/.lzy-test-suspects.json`; use `--suspects` to rerun only that cache. Test sources and fixtures are kept in the top-level `tests/` directory. Coverage includes yt-dlp/gallery-dl argument building, playlist parsing and transient-probe fallback, download-manager behavior, worker progress and recovery diagnostics (including negative aria2c recovery boundaries), queue-backup persistence and malformed-entry filtering, temporary-root ownership cleanup, archive/config/API/process utilities, URL validation, sorting, playlist-range selection, UI progress widgets, and the local end-to-end fixture.
 
 ### Step 4: Manual Build Steps
 

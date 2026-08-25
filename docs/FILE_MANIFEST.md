@@ -23,6 +23,7 @@ This document is a quick file-to-responsibility index for the C++ port. It is in
 - `docs/SPEC.md`: Functional requirements, behavior guarantees, and product rules.
 - `docs/SETTINGS.md`: Settings schema, keys, groups, and validation rules.
 - `docs/API_SURFACE.md`: Public class methods, signals, and cross-component behavioral contracts.
+- `tests/run_headless_tests.py`: Timestamped build/CTest orchestration, fail-fast compilation, summaries, and the previous-failure suspects cache.
 - `docs/CODING_STANDARDS.md`: Contribution and implementation standards.
 - `docs/LANGUAGES.md`: Planned translation coverage.
 - `docs/CHANGELOG_ARCHIVE.md`: Historical changelog entries preserved for reference.
@@ -67,6 +68,8 @@ This document is a quick file-to-responsibility index for the C++ port. It is in
 - `tests/TestGalleryDlArgsBuilder.cpp`: Gallery-dl argument and rate-limit construction coverage.
 - `tests/TestPlaylistExpansionParser.cpp`: Metadata-to-queue mapping, playlist selection, thumbnail, and live-status parsing coverage.
 - `tests/TestYtDlpWorker.cpp`: Regression coverage for native/aria2 progress, audio-aware combined-source labels, diagnostics, transient downloader recovery, and cookie-backed degraded-format recovery exclusions.
+- `tests/TestDownloadQueueState.cpp`: Queue-backup serialization, resume-status mapping, malformed-entry filtering, and empty-queue cleanup coverage.
+- `tests/TestDownloadTempCleanup.cpp`: Temporary-root fallback, owned-directory cleanup, and orphan-sweep preservation coverage.
 - `extractors_yt-dlp.json` / `extractors_gallery-dl.json`: Bundled extractor-domain data used by URL validation, smart type selection, and Supported Sites UI.
 
 ## Working Rule of Thumb

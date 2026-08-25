@@ -87,6 +87,19 @@ if(WIN32)
                         )
                     endif()
                 endforeach()
+
+                set(_qt_offscreen_plugin "${_qt_prefix}/plugins/platforms/qoffscreen.dll")
+                if(EXISTS "${_qt_offscreen_plugin}")
+                    add_custom_command(TARGET ${target_name} POST_BUILD
+                        COMMAND "${CMAKE_COMMAND}" -E make_directory
+                            "$<TARGET_FILE_DIR:${target_name}>/platforms"
+                        COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+                            "${_qt_offscreen_plugin}"
+                            "$<TARGET_FILE_DIR:${target_name}>/platforms/qoffscreen.dll"
+                        COMMENT "Deploying Qt offscreen platform for ${target_name}"
+                        VERBATIM
+                    )
+                endif()
             endif()
             return()
         endif()
@@ -116,6 +129,25 @@ if(WIN32)
             )
         elseif(NOT DEFINED VCPKG_INSTALLED_DIR)
             message(WARNING "windeployqt was not found; ${target_name} may fail to start without Qt plugins in the output directory.")
+        endif()
+
+        # The headless test suite uses Qt's offscreen platform. windeployqt
+        # normally deploys only qwindows.dll, so copy this test/runtime plugin
+        # explicitly when the selected Qt installation provides it.
+        if(DEFINED Qt6_DIR)
+            get_filename_component(_qt_prefix "${Qt6_DIR}/../../.." ABSOLUTE)
+            set(_qt_offscreen_plugin "${_qt_prefix}/plugins/platforms/qoffscreen.dll")
+            if(EXISTS "${_qt_offscreen_plugin}")
+                add_custom_command(TARGET ${target_name} POST_BUILD
+                    COMMAND "${CMAKE_COMMAND}" -E make_directory
+                        "$<TARGET_FILE_DIR:${target_name}>/platforms"
+                    COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+                        "${_qt_offscreen_plugin}"
+                        "$<TARGET_FILE_DIR:${target_name}>/platforms/qoffscreen.dll"
+                    COMMENT "Deploying Qt offscreen platform for ${target_name}"
+                    VERBATIM
+                )
+            endif()
         endif()
 
         set(_openssl_runtime_dir "")
@@ -343,3 +375,5 @@ lzy_add_test(TestPlaylistRangeDialog tests/TestPlaylistRangeDialog.cpp)
 lzy_add_test(TestDownloadManager tests/TestDownloadManager.cpp)
 lzy_add_test(TestGalleryDlArgsBuilder tests/TestGalleryDlArgsBuilder.cpp)
 lzy_add_test(TestPlaylistExpansionParser tests/TestPlaylistExpansionParser.cpp)
+lzy_add_test(TestDownloadQueueState tests/TestDownloadQueueState.cpp)
+lzy_add_test(TestDownloadTempCleanup tests/TestDownloadTempCleanup.cpp)

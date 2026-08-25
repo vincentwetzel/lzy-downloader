@@ -254,14 +254,9 @@ QString ArchiveManager::extractVideoId(const QString &urlStr) const {
         const QRegularExpressionMatch m1 = p1.match(urlStr);
         if (m1.hasMatch()) return m1.captured(1);
     } else if (host.contains(QStringLiteral("youtu.be"))) {
-        const QStringView pathView(url.path());
-        const QStringView normalizedPath = pathView.startsWith(QLatin1Char('/')) ? pathView.mid(1) : pathView;
-        const auto parts = normalizedPath.split(QLatin1Char('/'), Qt::SkipEmptyParts);
-        if (!parts.isEmpty()) {
-            const QString segStr = parts.first().toString();
-            // Ensure backwards compatibility with Qt 6.2 by passing a QString to match()
-            if (idRe.match(segStr).hasMatch()) return segStr;
-        }
+        const QString path = url.path();
+        const QString firstSegment = path.section(QLatin1Char('/'), 1, 1);
+        if (idRe.match(firstSegment).hasMatch()) return firstSegment;
     }
 
     return QString();

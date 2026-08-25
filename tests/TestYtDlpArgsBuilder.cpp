@@ -115,10 +115,13 @@ void TestYtDlpArgsBuilder::testLivestreamArguments() {
     ProcessUtils::clearCache();
 
     // Test with MPEG-TS
+    mockConfig->set(QStringLiteral("Livestream"), QStringLiteral("convert_to"), QStringLiteral("None"));
     mockConfig->set(QStringLiteral("Livestream"), QStringLiteral("download_as"), QStringLiteral("MPEG-TS"));
     args = builder.build(mockConfig, QUrl(TEST_URL).toString(), options);
-    QVERIFY(args.contains(QStringLiteral("--hls-use-mpegts")));
-    QVERIFY(!args.contains(QStringLiteral("--merge-output-format")));
+    const int remuxIndex = args.indexOf(QStringLiteral("--remux-video"));
+    QVERIFY(remuxIndex >= 0);
+    QCOMPARE(args.value(remuxIndex + 1), QStringLiteral("ts"));
+    QVERIFY(!args.contains(QStringLiteral("--hls-use-mpegts")));
 }
 
 void TestYtDlpArgsBuilder::testPostLiveReplayUsesVideoArguments() {

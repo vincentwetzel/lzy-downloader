@@ -20,7 +20,9 @@ complete HTTP/HTTPS source URL as a clickable link.
 The footer's download counters and current-speed indicator share its first row
 with the exit-after-downloads setting, which remains the rightmost control.
 
-Build-time release validation does not change the settings schema. CI-only
+Build-time release validation does not change the settings schema. The test
+runner's suspects cache is kept under the selected build directory and is not
+an application setting. CI-only
 Qt/qmake selection, fallback GitHub release notes, and manual non-publishing
 CI runs and macOS architecture-specific DMG packaging are packaging behavior,
 not persisted application settings.

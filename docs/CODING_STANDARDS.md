@@ -16,6 +16,10 @@ When acting as an AI coding assistant modifying this repository, you must adhere
   workflow templates, and test-only helpers belong under the top-level `tests/`
   directory. Register each test through `lzy_add_test(...)` so it receives the
   shared base fixture, production-library linkage, and offscreen test platform.
+- **Test Runner Diagnostics:** `tests/run_headless_tests.py` must build before
+  testing and stop immediately on build failure. Runner output is timestamped,
+  the final summary includes pass/fail/not-run counts, and failed test names are
+  persisted in the selected build directory for `--suspects` reruns.
 
 ## 2. C++ & Qt Style and Conventions
 - **Naming:** Follow idiomatic Qt/C++ naming. Use `PascalCase` for classes, `camelCase` for functions and local variables, and `UPPER_SNAKE_CASE` for constants. Prefix class member variables with `m_` (e.g., `m_downloadQueue`).
@@ -109,6 +113,7 @@ row with the right-aligned exit-after-downloads control.
 - **Test-Driven Modifications:** When changing core logic, command arguments building (`YtDlpArgsBuilder`), progress parsing, or file sorting, write or update corresponding Qt tests (`QTest`).
 - **Test Location:** Keep Qt test sources, shared fixtures, workflow templates, and test-only helper scripts in the top-level `tests/` directory. Register test executables through the shared CMake helper rather than adding test sources to the production library.
 - **Isolated Testing:** Tests must never write to the user's actual `settings.ini` or `download_archive.db`. Always use isolated temporary paths and mock configurations (e.g., via `BaseTest` fixtures).
+- **Persistence Test Isolation:** Queue-backup tests must enable Qt test-mode standard paths and clear `downloads_backup.json` after exercising save/load behavior. Temporary-directory tests must create only UUID and non-UUID fixtures beneath `BaseTest`'s temporary directory.
 - **Testability by Design:** Do not force tests to parse UI presentation layers (e.g., extracting colors from stylesheets). Expose internal state cleanly via `Q_PROPERTY` or explicit public getter methods so UI tests can verify semantic states rather than visual representations.
 - **Static Analysis:** Augment compiler warnings by integrating static analysis tools (e.g., Clang-Tidy, and Clazy for Qt-specific checks) to catch memory leaks, dangling string views, and performance anti-patterns before runtime.
 

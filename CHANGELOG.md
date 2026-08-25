@@ -9,8 +9,13 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## [Unreleased]
 
+- **Tests:** Fixed the new queue-state and temporary-cleanup tests by including the QtTest macros they use, allowing those targets to compile past source parsing and into AutoMOC.
+- **Tests:** Windows test deployment now includes Qt's `qoffscreen.dll`, and the headless summary recognizes CTest exit-code failures as failed tests.
+- **Tests:** Fixed YouTube short-link archive normalization and updated livestream MPEG-TS coverage for the remux-based argument path.
+- **Tests:** Upgraded the headless runner with timestamped streaming output, build-before-test fail-fast behavior, end-of-run summaries, and a build-local suspects cache usable with `--suspects`.
 - **Build:** Moved Qt test sources, fixtures, workflow templates, and the end-to-end server fixture from `src/tests/` to the top-level `tests/` directory.
 - **Tests:** Registered download-manager playlist fallback, gallery-dl argument, and playlist-expansion parser coverage through the shared top-level test harness with an offscreen Qt environment.
+- **Tests:** Added queue-backup persistence coverage for resume statuses, field round-tripping, invalid-entry filtering, and empty-queue cleanup, plus direct temporary-root ownership/fallback tests and negative aria2c recovery-boundary coverage.
 - **Build:** Moved extractor maintenance scripts into `tools/`; Linux release tooling now caches linuxdeploy under `build-release/tooling/` and writes AppImages directly under `build-release/`.
 
 ## [1.2.30] - 2026-08-24

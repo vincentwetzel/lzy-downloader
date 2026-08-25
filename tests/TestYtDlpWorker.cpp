@@ -45,6 +45,7 @@ private slots:
     void testAudioExtractionUsesAudioTransferStatusForCombinedSource();
     void testTransientAria2FailureFallsBackToNativeDownloader();
     void testMissingAria2OutputFallsBackToNativeDownloader();
+    void testAria2RecoveryRejectsUnrelatedFailuresAndRetriesOnce();
     void testCookieBackedDegradedFormatRecoveryDetection();
     void testYtDlpProgressStalledParsing();
     void testLifecycleStatusParsing();
@@ -251,6 +252,20 @@ void TestYtDlpWorker::testMissingAria2OutputFallsBackToNativeDownloader() {
     QVERIFY(!worker.arguments().contains(QStringLiteral("--external-downloader-args")));
     QVERIFY(!progressSpy.isEmpty());
     QVERIFY(progressSpy.last().at(1).toMap().value(QStringLiteral("status")).toString().contains(QStringLiteral("expected media output")));
+}
+
+void TestYtDlpWorker::testAria2RecoveryRejectsUnrelatedFailuresAndRetriesOnce() {
+    ConfigManager *config = getConfigManager();
+    TestableYtDlpWorker worker(QStringLiteral("aria2RecoveryBoundaries"),
+                               {QStringLiteral("--external-downloader"), QStringLiteral("aria2c"),
+                                QStringLiteral("--external-downloader-args"), QStringLiteral("aria2c:--max-tries=6")},
+                               config, nullptr);
+
+    QVERIFY(!worker.callRetryWithoutAria2c(QStringLiteral("ERROR: aria2c exited with code 1")));
+    QVERIFY(!worker.callRetryWithoutAria2c(QStringLiteral("ERROR: network connection failed")));
+    QVERIFY(worker.callRetryWithoutAria2c(QStringLiteral("ERROR: aria2c exited with code 6")));
+    QVERIFY(!worker.arguments().contains(QStringLiteral("--external-downloader")));
+    QVERIFY(!worker.callRetryWithoutAria2c(QStringLiteral("ERROR: aria2c exited with code 29")));
 }
 
 void TestYtDlpWorker::testCookieBackedDegradedFormatRecoveryDetection() {

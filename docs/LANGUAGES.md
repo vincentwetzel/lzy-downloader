@@ -17,6 +17,9 @@ English-only build metadata and do not require a translation catalog.
 The release workflow's fallback GitHub body and manual validation-run metadata
 are also English-only build metadata and do not require a translation catalog.
 
+The test runner's timestamps, summaries, and suspects-cache diagnostics are
+developer-facing English output and are not part of the translated UI.
+
 ## Current language
 
 - English

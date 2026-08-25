@@ -16,6 +16,10 @@ fixtures live in the top-level `tests/` directory and link against the
 path; it adds the shared `BaseTest.cpp`, enables the offscreen Qt platform, and
 links the Qt Concurrent module needed by asynchronous test coverage.
 
+The canonical headless runner builds before invoking CTest, timestamps live
+output, reports final totals, and persists failed test names for `--suspects`
+reruns in the selected build directory.
+
 Release automation is a CI integration contract rather than a runtime API:
 `v*` tags build Windows, Linux, and separate Intel/Apple-Silicon macOS artifacts, Linux CI provisions the vcpkg
 Qt/XCB development prerequisites before configuration, and validation installs
@@ -76,6 +80,7 @@ Qt and SQLite runtime plugins.
 - `DownloadManager::videoQualityWarning` is emitted only for successful downloads whose queued type is `video` and whose selected video height is below 480p. Audio-only metadata may contain a source video height but must not trigger this signal.
 - `DownloadManager::videoQualityWarning(title, url, message)` includes the best available completed-item title. The main window renders valid HTTP/HTTPS URLs as escaped links and leaves incomplete values as plain text.
 - `YtDlpWorker` keeps transfer-stage progress audio-oriented when `-x`/`--extract-audio` is active, including when aria2c reports a combined `video/*` transport MIME type.
+- `DownloadQueueState` serializes active items as queued, preserves paused versus stopped/failed resume states, filters non-object backup entries on load, and removes the backup when the terminal queue is empty. `DownloadTempCleanup` resolves configured/completed-downloads/OS-temp roots and refuses shared-root or mismatched-directory removal.
 
 ### [DownloadManager](../src/core/DownloadManager.h)
 The central manager coordinating download queues, playlist validation, format metadata selection, and the finalization flow.
