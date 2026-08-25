@@ -22,7 +22,8 @@ with the exit-after-downloads setting, which remains the rightmost control.
 
 Build-time release validation does not change the settings schema. CI-only
 Qt/qmake selection, fallback GitHub release notes, and manual non-publishing
-CI runs are packaging behavior, not persisted application settings.
+CI runs and macOS architecture-specific DMG packaging are packaging behavior,
+not persisted application settings.
 Linux Qt/XCB packages and prerelease yt-dlp installation are not saved to
 `settings.ini`; runtime executable paths continue to use External Tools and
 the shared resolver.
@@ -421,3 +422,4 @@ If a required binary (`yt-dlp`, `ffmpeg`, `ffprobe`, `deno`) is not found, LzyDo
 
 Application updates preserve unfinished queue entries by saving the normal queue backup before the installer is launched.
 On Windows, silent updater installs automatically restart the newly installed executable; this behavior is not controlled by a user setting.
+Linux AppImage deployment details, including host-library exclusions used by linuxdeploy, are packaging behavior and do not add settings to `settings.ini`.

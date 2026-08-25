@@ -13,7 +13,7 @@
 - [x] Audit temporary-folder creation and cleanup paths; centralize root resolution, remove pre-start failure leftovers, and reconcile orphaned UUID folders after queue restoration.
 - [ ] Verify direct-download fallback behavior with a slow playlist probe and an explicit playlist URL.
 - [ ] Add an automated manager-level test for transient playlist-probe fallback and explicit playlist failure classification.
-- [ ] Refactor and split large `.cpp` files above or approaching 500 lines (e.g., `DownloadItemWidget.cpp`, `MainWindowConnections.cpp`, and `YtDlpWorkerProcess.cpp`) to preserve optimal AI context limits.
+- [ ] Refactor and split large `.cpp` files above or approaching 500 lines (e.g., `BinariesPage.cpp`, `DownloadItemWidget.cpp`, `MainWindowConnections.cpp`, and `YtDlpWorkerProcess.cpp`) to preserve optimal AI context limits.
 - [ ] Split `ProcessUtils.cpp` after the external-binary resolver expansion; the file is currently above the 500-line guidance and should move version parsing/probing into a focused helper.
 - [x] Review `AppUpdater` release-flow UX and diagnostics now that platform-specific updater assets are supported for Windows, Linux, and macOS; update handoff now flushes the queue and stops child processes before installer launch.
 - [x] Make silent Windows application updates relaunch the freshly installed executable after NSIS replacement.
@@ -25,8 +25,10 @@
 - [x] Add first-launch external-tool provisioning with a system-first/app-managed-first choice, optional-tool selection, non-modal update guidance, and configurable automatic updates for app-managed tools.
 - [x] Restrict low-quality resolution warnings to video downloads and preserve audio transfer labels when audio extraction uses a combined source.
 - [x] Add the downloaded title and clickable source link to low-quality video warnings.
+- [x] Build and publish separate Intel and Apple Silicon macOS DMGs, with architecture-aware updater asset selection and Finder-based DMG handoff.
+- [x] Detect static Qt during Linux AppImage packaging so linuxdeploy-plugin-qt does not parse vcpkg `.a`/`.prl` SQL driver files.
 
-- [x] Synchronize all active documentation with the current implementation on 2026-08-15, including first-launch binary provisioning, explicit Local API archive overrides, recovery diagnostics, and the platform data-directory layout. Historical changelog entries remain unchanged.
+- [x] Synchronize all active documentation with the current implementation on 2026-08-24, including first-launch binary provisioning, explicit Local API archive overrides, recovery diagnostics, cross-platform updater packaging, and the platform data-directory layout. Historical changelog entries remain unchanged.
 - [x] Allow Discord bridge enqueue requests to explicitly override completed archive entries without a GUI confirmation dialog.
 - [x] Add a checked-by-default NSIS finish-page option to launch LzyDownloader after installation.
 - [x] Install NSIS explicitly in Windows release CI and resolve `makensis` from `PATH` for package-manager installations.
@@ -39,7 +41,7 @@
 - [ ] Integrate Qt Linguist (`.ts`/`.qm` compiler steps) into `CMakeLists.txt` build automation.
 
 ## Completed
-- [x] Prepared the v1.2.29 release metadata, changelog entry, and tag-matched GitHub release notes.
+- [x] Prepared the v1.2.30 release metadata, changelog entry, and tag-matched GitHub release notes.
 - [x] Enabled zero-padded playlist filename prefixes by default while preserving an explicit user opt-out.
 - [x] Prevented false browser-cookie retries from matching ordinary metadata prose such as `locked in a heated race`; cookie fallback now uses explicit cookie/database/sign-in diagnostics and the normal process-finished path.
 - [x] Prevented ordinary title phrases such as `Starting in` or `Live in` from triggering scheduled-livestream error handling.

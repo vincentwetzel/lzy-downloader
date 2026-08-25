@@ -57,9 +57,9 @@ void StartTabCommandPreviewUpdater::updateCommandPreview()
 
     QString downloadType = m_uiBuilder->downloadTypeCombo()->currentData().toString();
     if (downloadType == QStringLiteral("gallery")) {
-        QString galleryDlPath = resolveExecutablePath(QStringLiteral("gallery-dl.exe"));
+        QString galleryDlPath = resolveExecutablePath(QStringLiteral("gallery-dl"));
         if (galleryDlPath.isEmpty()) {
-            galleryDlPath = QStringLiteral("gallery-dl.exe");
+            galleryDlPath = QStringLiteral("gallery-dl");
         }
         if (!m_galleryDlArgsBuilder) {
             qCritical() << "CRITICAL ERROR: m_galleryDlArgsBuilder is null in updateCommandPreview!";
@@ -79,9 +79,9 @@ void StartTabCommandPreviewUpdater::updateCommandPreview()
         return;
     }
     QStringList args = m_ytDlpArgsBuilder->build(m_configManager, url, options);
-    QString ytDlpPath = resolveExecutablePath(QStringLiteral("yt-dlp.exe"));
+    QString ytDlpPath = resolveExecutablePath(QStringLiteral("yt-dlp"));
     if (ytDlpPath.isEmpty()) {
-        ytDlpPath = QStringLiteral("yt-dlp.exe");
+        ytDlpPath = QStringLiteral("yt-dlp");
     }
     if (!m_configManager) {
         qCritical() << "CRITICAL ERROR: m_configManager is null in updateCommandPreview!";

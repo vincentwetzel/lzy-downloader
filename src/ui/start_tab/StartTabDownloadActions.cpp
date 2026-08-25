@@ -163,7 +163,7 @@ void StartTabDownloadActions::checkFormats(const QString &url) {
         args << "--cookies-from-browser" << cookiesBrowser;
     }
 
-    const QString ytDlpPath = resolveExecutablePath("yt-dlp.exe");
+    const QString ytDlpPath = resolveExecutablePath(QStringLiteral("yt-dlp"));
     if (ytDlpPath.isEmpty()) {
         if (m_uiBuilder->downloadButton()) {
             m_uiBuilder->downloadButton()->setEnabled(true);

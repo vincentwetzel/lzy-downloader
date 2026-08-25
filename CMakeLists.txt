@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(LzyDownloader VERSION 1.2.29 LANGUAGES CXX)
+project(LzyDownloader VERSION 1.2.30 LANGUAGES CXX)
 enable_testing()
 
 set(_qt_search_prefixes "")
@@ -269,6 +269,16 @@ add_executable(LzyDownloader
 
 if(WIN32)
     target_sources(LzyDownloader PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/LzyDownloader.rc)
+endif()
+
+if(APPLE)
+    set_target_properties(LzyDownloader PROPERTIES
+        MACOSX_BUNDLE TRUE
+        MACOSX_BUNDLE_BUNDLE_NAME "LzyDownloader"
+        MACOSX_BUNDLE_GUI_IDENTIFIER "com.lzydownloader.app"
+        MACOSX_BUNDLE_BUNDLE_VERSION "${PROJECT_VERSION}"
+        MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION}"
+    )
 endif()
 
 target_link_libraries(LzyDownloader PRIVATE

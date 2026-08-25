@@ -12,8 +12,8 @@ This document is a quick file-to-responsibility index for the C++ port. It is in
 - `TODO.md`: Active maintenance items, planned work, and known gaps.
 - `UPDATE_AND_RELEASE.md`: Release/operator workflow reference.
 - `CMakeLists.txt`: Primary build graph and executable/library registration.
-- `build_release.py`: Release build and packaging orchestration.
-- `.github/workflows/release.yml`: Tag/manual Windows/Linux build matrix, CI-only Linux vcpkg prerequisites, Windows NSIS/Qt setup, prerelease yt-dlp validation, matching-qmake Linux packaging, fallback release notes, and tag-only asset publication.
+- `build_release.py`: Release build and packaging orchestration, including static/dynamic Qt detection and Linux AppImage linuxdeploy handling.
+- `.github/workflows/release.yml`: Tag/manual Windows, Linux, Intel macOS, and Apple Silicon macOS build matrix, CI-only Linux vcpkg prerequisites, Windows NSIS/Qt setup, hosted-Qt macOS DMG setup, prerelease yt-dlp validation, matching-qmake Linux packaging, fallback release notes, and tag-only asset publication.
 - `release-notes/<tag>.md` (when supplied): Version-matched release description consumed by the GitHub Release job; CI creates a minimal fallback in the runner when absent. This is not an application runtime resource.
 - `main.cpp`: Application entry point and single-instance/bootstrap wiring.
 
@@ -50,7 +50,7 @@ This document is a quick file-to-responsibility index for the C++ port. It is in
 - `src/core/YtDlpArgsBuilder.*`: Metadata/option-driven command-line construction for yt-dlp and aria2c, including replay-safe livestream classification.
 - `src/core/download_pipeline/FfmpegMuxer.*`: Asynchronous FFmpeg muxing, progress, and final output handling.
 - `src/core/MetadataEmbedder.*`: Metadata/thumbnail embedding post-processing, including the existing abandoned-thumbnail remux that maps tracked sidecars as `attached_pic` artwork.
-- `src/core/AppUpdater.*`: Application update lookup, artifact handling, and pre-launch handoff notification; `MainWindow` owns queue/process shutdown for that handoff. `LzyDownloader.nsi` owns silent-update relaunch after replacement.
+- `src/core/AppUpdater.*`: Application update lookup, platform/CPU-matched artifact handling, and pre-launch handoff notification; macOS DMGs are opened through Finder. `MainWindow` owns queue/process shutdown for that handoff. `LzyDownloader.nsi` owns silent-update relaunch after replacement.
 - `src/core/LocalApiServer.*`: Localhost API server and auth handling.
 - `src/ui/MainWindow.*`: Main application shell, tab wiring, and global UI actions.
 - `src/ui/StartTab.*`: Queue entry point and download submission controls.

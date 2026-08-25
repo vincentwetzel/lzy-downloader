@@ -12,6 +12,8 @@ translation coverage.
 Release and CI documentation is also maintained in English. The Linux
 development packages and prerelease yt-dlp installation used by release CI
 are build-time concerns, not translatable runtime UI or bundled dependencies.
+The Intel and Apple-Silicon macOS DMG packaging instructions are likewise
+English-only build metadata and do not require a translation catalog.
 The release workflow's fallback GitHub body and manual validation-run metadata
 are also English-only build metadata and do not require a translation catalog.
 
@@ -88,3 +90,4 @@ is enabled.
 # Update handoff terminology
 
 The updater exposes an `installingUpdate` lifecycle signal before installer launch. Any future translations or user-facing update strings should preserve the distinction between a completed download and the final shutdown/install handoff. Silent Windows installs relaunch the installed executable without using translated finish-page text.
+Release-tooling diagnostics, including Linux AppImage deployment checks, remain English-only CI output and are not runtime translation entries.

@@ -7,15 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIVE.md](docs/CHANGELOG_ARCHIVE.md).
 
-## Unreleased
+## [1.2.30] - 2026-08-24
 
 - Moved the download counters and current-speed indicator into the footer's first row, with the exit-after-downloads switch remaining rightmost.
 - Low-quality video warnings now show the downloaded title and provide a clickable HTTP/HTTPS source link when available.
 - Fixed application updates with unfinished downloads by flushing resumable queue state and stopping downloader/helper process trees before launching the installer.
 - Silent application updates now relaunch the freshly installed `LzyDownloader.exe` automatically.
 - **CI/CD:** Linux AppImage packaging now selects qmake from the vcpkg Qt installation used to build the executable, prevents the linuxdeploy Qt-module mismatch, and supplies a fallback release body when tag-matched notes are absent.
+- **CI/CD:** Linux AppImage packaging detects vcpkg's statically linked Qt build and skips linuxdeploy-plugin-qt, preventing `.a`/`.prl` SQL driver files from causing the Ubuntu `Invalid magic bytes in file header` crash; dynamic Qt builds still receive Qt/SQL deployment.
 - **CI/CD:** The release workflow now supports manual build-only dispatches; GitHub Release assets remain tag-only.
 - **Build:** The `debug-local-qt` preset now uses an isolated build directory and cannot inherit stale vcpkg manifest/toolchain state.
+- **CI/CD:** Tag releases now build separate Intel and Apple Silicon macOS app bundles, deploy Qt with `macdeployqt`, and publish architecture-labelled DMGs alongside the Windows and Linux assets.
+- **Updater:** macOS update selection now requires a CPU-matching DMG and opens the downloaded disk image through Finder instead of treating it as an executable.
+- **Portability:** Start-tab command previews and format probing now resolve generic binary names rather than Windows `.exe` names.
+- **Documentation:** Reconciled the active documentation set with the cross-platform release workflow, static/dynamic Qt packaging rules, and platform-neutral executable resolution; historical changelog entries remain unchanged.
 
 ## [1.2.29] - 2026-08-24
 
@@ -47,11 +52,6 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 - Incomplete yt-dlp media is no longer treated as completed merely because a final path was printed. Missing fragments, empty data blocks, and invalid media input now fail before metadata embedding, with a diagnostic that distinguishes the transfer failure from a missing FFmpeg installation.
 - Active documentation now agrees on recovery diagnostics, explicit upcoming-stream fallback metadata, Qt-native data-file locations, and the release-note file required by tag-based publishing.
 
-
-## [1.2.23] - 2026-08-15
-
-- Synchronized release metadata and Windows executable version information to `1.2.23` so CMake, vcpkg, the application binary, and installer packaging remain aligned.
-- Refreshed the GitHub release notes workflow to publish the version-matched release description automatically.
 
 ## [1.2.23] - 2026-08-15
 

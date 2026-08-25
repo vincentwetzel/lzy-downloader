@@ -909,7 +909,9 @@ void BinariesPage::runProcessWithLog(const ProcessRunOptions &opts) {
                 
                 if (opts.binaryName == QStringLiteral("ffmpeg") || opts.binaryName == QStringLiteral("ffprobe")) {
                     QFileInfo binInfo(opts.setCustomPath);
-                    QString siblingName = (opts.binaryName == QStringLiteral("ffmpeg")) ? QStringLiteral("ffprobe.exe") : QStringLiteral("ffmpeg.exe");
+                    const QString siblingName = (opts.binaryName == QStringLiteral("ffmpeg"))
+                        ? QStringLiteral("ffprobe")
+                        : QStringLiteral("ffmpeg");
                     QString siblingPath = binInfo.dir().filePath(siblingName);
                     QString siblingKey = (opts.binaryName == QStringLiteral("ffmpeg")) ? QStringLiteral("ffprobe") : QStringLiteral("ffmpeg");
                     this->saveBinaryOverride(siblingKey, siblingPath);

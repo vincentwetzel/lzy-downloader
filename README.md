@@ -97,6 +97,7 @@ Before building a release, keep all release metadata in sync:
 - `build_release.py` is the canonical packaging path for local release builds and the GitHub release workflow.
 - Windows GitHub Actions installs NSIS before packaging; local builds may use the standard NSIS location or a `makensis` executable on `PATH`.
 - Linux GitHub Actions installs the vcpkg Qt Base prerequisites, including `bison`, `curl`, `flex`, `tar`, `unzip`, `zip`, `^libxcb.*-dev`, `libx11-xcb-dev`, and `libxkbcommon-x11-dev`, before configuring the release build.
+- macOS CI builds separate Intel (`macos-13`) and Apple Silicon (`macos-14`) app bundles with the hosted Qt SDK, deploys Qt with `macdeployqt`, and packages `LzyDownloader-X.Y.Z-macos-x86_64.dmg` plus `LzyDownloader-X.Y.Z-macos-arm64.dmg`.
 - Release automation installs yt-dlp from its prerelease/nightly channel (`pip install --pre --upgrade yt-dlp`) so extractor/runtime changes are exercised before packaging.
 - Linux AppImage packaging uses the same vcpkg Qt installation that built the executable when invoking linuxdeploy, including QtSql's SQLite plugin discovery; the Windows-only Qt SDK setup is not used for Linux packaging.
 - If a tag-matched `release-notes/<tag>.md` file is absent, CI creates a minimal fallback release body so GitHub Release publication does not emit a missing-file warning.
@@ -104,7 +105,7 @@ Before building a release, keep all release metadata in sync:
 - The Linux release prerequisite step also installs `autoconf`, `autoconf-archive`, `automake`, `libtool`, `libegl1-mesa-dev`, `libgl1-mesa-dev`, `libglu1-mesa-dev`, `libxi-dev`, `libxkbcommon-dev`, and `libxrender-dev`; these are development dependencies for vcpkg's Qt/XCB build, not application runtime requirements.
 - `LzyDownloader.nsi` must not contain stale hardcoded version examples or installer metadata; pass the release version with `makensis /DAPP_VERSION=x.y.z /DRELEASE_BUILD_DIR=build-release\Release LzyDownloader.nsi` when building manually.
 - `CHANGELOG.md` must move `[Unreleased]` notes under the dated release version.
-- Pushing a `v*` tag starts `.github/workflows/release.yml`, which builds the Windows installer and Linux AppImage and attaches them to the GitHub Release.
+- Pushing a `v*` tag starts `.github/workflows/release.yml`, which builds the Windows installer, Linux AppImage, and Intel/Apple-Silicon macOS DMGs and attaches them to the GitHub Release.
 
 ## Usage
 
@@ -224,4 +225,4 @@ Contributions are welcome! Please:
 
 ## License
 
-This project is
+License information is not currently specified in this repository.

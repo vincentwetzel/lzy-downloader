@@ -16,12 +16,34 @@
 #include <QRegularExpression>
 #include <QSaveFile>
 #include <QStandardPaths>
+#include <QSysInfo>
 #include <QVersionNumber>
 
 namespace {
+#ifdef Q_OS_MACOS
+QString macReleaseArchitecture()
+{
+    const QString architecture = QSysInfo::currentCpuArchitecture().toLower();
+    if (architecture == QStringLiteral("arm64") || architecture == QStringLiteral("aarch64")) {
+        return QStringLiteral("arm64");
+    }
+    if (architecture == QStringLiteral("x86_64") || architecture == QStringLiteral("amd64") ||
+        architecture == QStringLiteral("x64")) {
+        return QStringLiteral("x86_64");
+    }
+    return QString();
+}
+#endif
+
 QUrl selectInstallerAsset(const QJsonArray &assets)
 {
+#ifndef Q_OS_MACOS
     QUrl fallbackExeUrl;
+#endif
+#ifdef Q_OS_MACOS
+    QUrl genericDmgUrl;
+    const QString expectedArchitecture = macReleaseArchitecture();
+#endif
 
     for (const QJsonValue &value : assets) {
         if (!value.isObject()) {
@@ -43,16 +65,33 @@ QUrl selectInstallerAsset(const QJsonArray &assets)
             continue;
         }
 
+#ifdef Q_OS_MACOS
+        const QString architectureMarker = QStringLiteral("-macos-%1.dmg").arg(expectedArchitecture);
+        if (!expectedArchitecture.isEmpty() && assetName.endsWith(architectureMarker, Qt::CaseInsensitive)) {
+            return downloadUrl;
+        }
+        if (assetName.startsWith(QStringLiteral("LzyDownloader-"), Qt::CaseInsensitive) &&
+            !assetName.contains(QStringLiteral("-macos-"), Qt::CaseInsensitive)) {
+            genericDmgUrl = downloadUrl;
+        }
+#else
         if (assetName.startsWith(QStringLiteral("LzyDownloader-"), Qt::CaseInsensitive)) {
             return downloadUrl;
         }
+#endif
 
+#ifndef Q_OS_MACOS
         if (!fallbackExeUrl.isValid()) {
             fallbackExeUrl = downloadUrl;
         }
+#endif
     }
 
+#ifdef Q_OS_MACOS
+    return genericDmgUrl;
+#else
     return fallbackExeUrl;
+#endif
 }
 
 } // namespace
@@ -195,6 +234,8 @@ void AppUpdater::onDownloadFinished(QNetworkReply *reply) {
     const QString installerPath = QDir(tempPath).filePath(QStringLiteral("LzyDownloader-Setup.exe"));
 #elif defined(Q_OS_LINUX)
     const QString installerPath = QDir(tempPath).filePath(QStringLiteral("LzyDownloader-Update.AppImage"));
+#elif defined(Q_OS_MACOS)
+    const QString installerPath = QDir(tempPath).filePath(QStringLiteral("LzyDownloader-Update.dmg"));
 #else
     const QString installerPath = QDir(tempPath).filePath(QStringLiteral("LzyDownloader-Update"));
 #endif
@@ -224,6 +265,10 @@ void AppUpdater::onDownloadFinished(QNetworkReply *reply) {
     args << QStringLiteral("/D=%1").arg(QDir::toNativeSeparators(QCoreApplication::applicationDirPath()));
 
     QProcess::startDetached(installerPath, args);
+#elif defined(Q_OS_MACOS)
+    // DMGs are disk images, not executables. Open Finder so the user can move
+    // the signed application bundle into Applications without mutating a live app.
+    QProcess::startDetached(QStringLiteral("/usr/bin/open"), {installerPath});
 #else
     // Make the downloaded AppImage/binary executable and launch it
     QFile::setPermissions(installerPath, QFile::permissions(installerPath) | QFileDevice::ExeUser);

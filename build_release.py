@@ -2,6 +2,7 @@
 import os
 import sys
 import platform
+import plistlib
 import subprocess
 import re
 import shutil
@@ -43,6 +44,51 @@ def find_vcpkg_qmake(build_dir):
             return candidate
     return None
 
+
+def find_qt_tool(tool_name):
+    """Locate a Qt deployment tool from PATH or the configured Qt installation."""
+    path_candidate = shutil.which(tool_name)
+    if path_candidate:
+        return Path(path_candidate)
+
+    qt_dir = os.environ.get("Qt6_DIR") or os.environ.get("QTDIR") or os.environ.get("QT_DIR")
+    if not qt_dir:
+        return None
+
+    qt_dir_path = Path(qt_dir)
+    candidates = [qt_dir_path / "bin" / tool_name]
+    if qt_dir_path.name == "Qt6" and qt_dir_path.parent.name == "cmake":
+        candidates.append(qt_dir_path.parents[2] / "bin" / tool_name)
+
+    return next((candidate for candidate in candidates if candidate.is_file()), None)
+
+
+def create_macos_icon(source_icon, destination_icon):
+    """Convert the release PNG into an ICNS file required by a macOS app bundle."""
+    iconset_dir = destination_icon.with_suffix(".iconset")
+    if iconset_dir.exists():
+        shutil.rmtree(iconset_dir)
+    iconset_dir.mkdir(parents=True)
+
+    icon_sizes = {
+        "icon_16x16.png": 16,
+        "icon_16x16@2x.png": 32,
+        "icon_32x32.png": 32,
+        "icon_32x32@2x.png": 64,
+        "icon_128x128.png": 128,
+        "icon_128x128@2x.png": 256,
+        "icon_256x256.png": 256,
+        "icon_256x256@2x.png": 512,
+        "icon_512x512.png": 512,
+        "icon_512x512@2x.png": 1024,
+    }
+    for file_name, size in icon_sizes.items():
+        run_command([
+            "sips", "-z", str(size), str(size), str(source_icon),
+            "--out", str(iconset_dir / file_name),
+        ])
+    run_command(["iconutil", "-c", "icns", str(iconset_dir), "-o", str(destination_icon)])
+
 def main():
     log("=== LzyDownloader Unified Release Builder ===", CYAN)
 
@@ -78,13 +124,8 @@ def main():
     cmake_args = ["cmake", "-B", str(build_dir), "-DCMAKE_BUILD_TYPE=Release"]
 
     system_platform = platform.system()
-    if system_platform == "Windows":
+    if system_platform in ("Windows", "Linux"):
         vcpkg_root = os.environ.get("VCPKG_ROOT", "E:/vcpkg")
-        toolchain = Path(vcpkg_root) / "scripts/buildsystems/vcpkg.cmake"
-        if toolchain.exists():
-            cmake_args.append(f"-DCMAKE_TOOLCHAIN_FILE={toolchain.as_posix()}")
-    else:
-        vcpkg_root = os.environ.get("VCPKG_ROOT", "/usr/local/share/vcpkg")
         toolchain = Path(vcpkg_root) / "scripts/buildsystems/vcpkg.cmake"
         if toolchain.exists():
             cmake_args.append(f"-DCMAKE_TOOLCHAIN_FILE={toolchain.as_posix()}")
@@ -236,25 +277,97 @@ def main():
         desktop_content = re.sub(r"^Icon=.*$", f"Icon={deploy_icon.stem}", desktop_content, flags=re.MULTILINE)
         linux_desktop.write_text(desktop_content, encoding="utf-8")
 
-        # linuxdeploy-plugin-qt renamed this variable.  The QtSql module is
-        # explicit because its SQLite driver is loaded dynamically at runtime;
-        # the plugin's SQL deployer then includes the matching driver plugin.
-        os.environ["EXTRA_QT_MODULES"] = "sql"
-        run_command([
+        # vcpkg's Linux Qt build is static, including the SQLite driver. In
+        # that configuration the Qt plugin directory contains .a/.prl files,
+        # not deployable shared plugins. The linuxdeploy Qt plugin attempts to
+        # parse those files when EXTRA_QT_MODULES=sql is set and aborts with
+        # "Invalid magic bytes in file header". Dynamic Qt builds still use
+        # the plugin so their Qt and SQL runtime files are deployed.
+        ldd_result = subprocess.run(
+            ["ldd", str(built_exe)],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        dynamic_qt = "libQt6" in ldd_result.stdout
+        linuxdeploy_args = [
             "./linuxdeploy",
             "--appdir", str(appdir),
             "-e", str(built_exe),
             "-d", str(linux_desktop),
             "-i", str(deploy_icon),
-            "--plugin", "qt",
-            "--output", "appimage"
-        ])
+            # Keep vcpkg dbus out of linuxdeploy's ELF scan. It is not
+            # needed by the statically linked GUI and can trigger the same
+            # parser failure on affected Ubuntu runners.
+            "--exclude-library", "libdbus-1.so.3",
+        ]
+        if dynamic_qt:
+            os.environ["EXTRA_QT_MODULES"] = "sql"
+            linuxdeploy_args.extend(["--plugin", "qt"])
+            log("Detected dynamic Qt; enabling linuxdeploy-plugin-qt.", GREEN)
+        else:
+            os.environ.pop("EXTRA_QT_MODULES", None)
+            log("Detected statically linked Qt; skipping linuxdeploy-plugin-qt.", GREEN)
+        linuxdeploy_args.extend(["--output", "appimage"])
+        run_command(linuxdeploy_args)
 
         generated_appimage = Path("LzyDownloader-x86_64.AppImage")
         if generated_appimage.exists():
             target_appimage = f"LzyDownloader-{app_version}-x86_64.AppImage"
             shutil.move(generated_appimage, target_appimage)
             log(f"\n=== Linux Build Success: {target_appimage} ===", GREEN)
+
+    elif system_platform == "Darwin":
+        app_candidates = [
+            app for app in build_dir.glob("**/LzyDownloader.app")
+            if app.is_dir()
+        ]
+        if not app_candidates:
+            log("Error: Could not locate the compiled LzyDownloader.app bundle", RED)
+            sys.exit(1)
+        app_bundle = app_candidates[0]
+
+        macdeployqt = find_qt_tool("macdeployqt")
+        if macdeployqt is None:
+            log("Error: macdeployqt was not found in PATH or the configured Qt installation.", RED)
+            sys.exit(1)
+        run_command([str(macdeployqt), str(app_bundle), "-always-overwrite"])
+
+        resources_dir = app_bundle / "Contents" / "Resources"
+        resources_dir.mkdir(parents=True, exist_ok=True)
+        bundle_icon = resources_dir / "LzyDownloader.icns"
+        create_macos_icon(Path("src/resources/icon.png"), bundle_icon)
+
+        info_plist_path = app_bundle / "Contents" / "Info.plist"
+        try:
+            with info_plist_path.open("rb") as plist_file:
+                info_plist = plistlib.load(plist_file)
+            info_plist["CFBundleIconFile"] = bundle_icon.name
+            with info_plist_path.open("wb") as plist_file:
+                plistlib.dump(info_plist, plist_file)
+        except (OSError, plistlib.InvalidFileException) as error:
+            log(f"Error: Failed to set the macOS bundle icon: {error}", RED)
+            sys.exit(1)
+
+        release_arch = os.environ.get("LZY_RELEASE_ARCH", platform.machine()).lower()
+        architecture_aliases = {"amd64": "x86_64", "x64": "x86_64", "aarch64": "arm64"}
+        release_arch = architecture_aliases.get(release_arch, release_arch)
+        if release_arch not in ("x86_64", "arm64"):
+            log(f"Error: Unsupported macOS release architecture: {release_arch}", RED)
+            sys.exit(1)
+
+        target_dmg = Path(f"LzyDownloader-{app_version}-macos-{release_arch}.dmg")
+        if target_dmg.exists():
+            target_dmg.unlink()
+        run_command([
+            "hdiutil", "create", "-volname", "LzyDownloader",
+            "-srcfolder", str(app_bundle), "-ov", "-format", "UDZO", str(target_dmg),
+        ])
+        log(f"\n=== macOS Build Success: {target_dmg} ===", GREEN)
+
+    else:
+        log(f"Error: Unsupported release platform: {system_platform}", RED)
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()

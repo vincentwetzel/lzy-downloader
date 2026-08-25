@@ -24,11 +24,15 @@ This document describes how to build, package, and release the C++ version of Lz
    - When vcpkg builds Qt Base on Ubuntu, install `autoconf`, `automake`, `autoconf-archive`, `bison`, `curl`, `flex`, `libtool`, `tar`, `unzip`, `zip`, `'^libxcb.*-dev'`, `libx11-xcb-dev`, `libxkbcommon-dev`, `libxkbcommon-x11-dev`, `libxi-dev`, `libxrender-dev`, `libegl1-mesa-dev`, `libgl1-mesa-dev`, and `libglu1-mesa-dev`.
    - The release workflow installs these prerequisites before manifest resolution; runtime-only XCB packages do not provide the headers or pkg-config data Qt's XCB backend requires.
 
-5. **yt-dlp Nightly (release validation)**
+5. **macOS Qt deployment (macOS release builds)**
+   - GitHub Actions uses Qt 6's `clang_64` package on `macos-13` for Intel and `clang_arm64` on `macos-14` for Apple Silicon.
+   - `build_release.py` creates a native `.app` bundle, runs `macdeployqt`, embeds an ICNS icon, and packages a separate architecture-labelled DMG. These are unsigned unless a future signing/notarization workflow is configured.
+
+6. **yt-dlp Nightly (release validation)**
    - Release automation installs the latest yt-dlp prerelease with `python -m pip install --pre --upgrade yt-dlp`; this keeps packaging validation aligned with current extractor/runtime changes. Verify low-quality warnings show title and source-link context in GUI smoke checks.
    - This is a build-validation dependency only. yt-dlp is not bundled by the release job; runtime executable provisioning remains governed by External Tools settings.
 
-6. **Git & GitHub**
+7. **Git & GitHub**
    - Repo: https://github.com/vincentwetzel/lzy-downloader
    - Must have access to create Releases
 
@@ -69,11 +73,13 @@ This script:
 - Deletes the existing `build-release/` directory to avoid stale DLL mismatches
 - Refreshes both extractor JSON files
 - Configures a Release build with CMake
-- Builds `LzyDownloader.exe`
+- Builds the platform-native `LzyDownloader` executable (and `LzyDownloader.app` on macOS)
 - On Windows, runs `makensis` from `PATH` when available, otherwise the standard NSIS installation path, against `LzyDownloader.nsi` with `/DAPP_VERSION=<version from CMakeLists.txt>` and `/DRELEASE_BUILD_DIR=build-release\Release`
 - The Windows installer finish page offers a checked-by-default option to launch `LzyDownloader.exe` after installation
 - On Linux, stages a clean `build-release/AppDir`, generates a linuxdeploy desktop file whose `Icon` matches the resized release PNG, and packages `LzyDownloader-<version>-x86_64.AppImage` with `linuxdeploy`
 - On Linux, selects qmake from `build-release/vcpkg_installed/*/tools/Qt*/bin` when available so linuxdeploy discovers the same Qt modules used by the executable; the SQLite driver remains included through the explicit QtSql module.
+- On Linux, detects whether the vcpkg-built executable uses static Qt. Static-Qt builds skip linuxdeploy-plugin-qt because vcpkg's `.a`/`.prl` SQL driver files are not deployable ELF plugins; dynamic-Qt builds retain the Qt/SQLite plugin deployment. vcpkg's dbus runtime is excluded from linuxdeploy's ELF scan.
+- On macOS, runs `macdeployqt`, converts the release PNG into the bundle's ICNS icon, and emits `LzyDownloader-<version>-macos-x86_64.dmg` or `LzyDownloader-<version>-macos-arm64.dmg` according to the runner architecture.
 
 ### Step 3b: Run Headless Tests
 
@@ -100,7 +106,7 @@ Replace `X.X.X` with the exact version from `CMakeLists.txt`.
 
 ## Release to GitHub
 
-GitHub Actions automatically builds release assets when a `v*` tag is pushed. The workflow at `.github/workflows/release.yml` runs `python build_release.py` on `windows-latest` and `ubuntu-22.04`, then uploads `LzyDownloader-Setup-*.exe` and `LzyDownloader-*-x86_64.AppImage` to the GitHub Release for that tag. If the matching release-notes file is absent, CI creates a minimal fallback body before publication. Use `workflow_dispatch` to run the matrix as a non-publishing validation; uploads are tag-only.
+GitHub Actions automatically builds release assets when a `v*` tag is pushed. The workflow at `.github/workflows/release.yml` runs `python build_release.py` on `windows-latest`, `ubuntu-22.04`, `macos-13` (Intel), and `macos-14` (Apple Silicon), then uploads the Windows installer, Linux AppImage, and both architecture-labelled macOS DMGs to the GitHub Release for that tag. If the matching release-notes file is absent, CI creates a minimal fallback body before publication. Use `workflow_dispatch` to run the matrix as a non-publishing validation; uploads are tag-only.
 
 ### Step 1: Commit Release Inputs
 
@@ -123,6 +129,8 @@ Pushing the tag starts the `Build and Release` workflow. Watch the Actions run u
 
 - `LzyDownloader-Setup-X.X.X.exe`
 - `LzyDownloader-X.X.X-x86_64.AppImage`
+- `LzyDownloader-X.X.X-macos-x86_64.dmg`
+- `LzyDownloader-X.X.X-macos-arm64.dmg`
 
 ### Step 3: Manual GitHub Release Fallback
 
@@ -134,6 +142,7 @@ If the workflow is unavailable, navigate to https://github.com/vincentwetzel/lzy
 4. **Description:** Add release notes.
 5. **Attach Assets:** Upload `LzyDownloader-Setup-X.X.X.exe`
    - Also attach `LzyDownloader-X.X.X-x86_64.AppImage` for Linux systems.
+   - Also attach both architecture-labelled macOS DMGs.
 6. Click "Publish release"
 
 ## Release Checklist
@@ -155,12 +164,14 @@ If the workflow is unavailable, navigate to https://github.com/vincentwetzel/lzy
 - [ ] Clean Windows install tested for HTTPS update checks (Qt TLS backend loads with `libcrypto-3-x64.dll` and `libssl-3-x64.dll` beside `LzyDownloader.exe`)
 - [ ] Application update tested with active and queued downloads; queue state is saved and downloader/helper processes are stopped before installer launch
 - [ ] Silent application update verified to relaunch the freshly installed `LzyDownloader.exe` after NSIS completes
+- [ ] Intel and Apple Silicon DMGs mount and launch with deployed Qt plugins and the SQLite driver
+- [ ] macOS updater selects only the matching architecture DMG and opens it in Finder for installation
 - [ ] Timestamped logging verified (`%LOCALAPPDATA%\LzyDownloader\LzyDownloader_YYYY-MM-dd_HH-mm-ss.log`)
 - [ ] Log retention verified (startup cleanup keeps only the 5 most recent logs)
 - [ ] Temporary-root reconciliation verified (orphan UUID folders are removed asynchronously while stopped/failed IDs, symlinks, non-UUID folders, and the shared root are preserved)
 - [ ] aria2c recovery verified (transient exit codes or a missing expected temporary media output fall back once to native yt-dlp, stale `.info.json` sidecars are removed, and `.part` files remain)
 - [ ] GitHub release published with installer asset
-- [ ] Tag `vX.X.X` pushed and the `Build and Release` GitHub Actions workflow attached Windows and Linux assets
+- [ ] Tag `vX.X.X` pushed and the `Build and Release` GitHub Actions workflow attached Windows, Linux, Intel macOS, and Apple Silicon macOS assets
 
 ## Application Data Locations (Windows)
 

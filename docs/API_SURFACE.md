@@ -11,13 +11,18 @@ The API surface adheres to **Qt best practices**:
 - Proper thread-affinity and memory safety (e.g., using `deleteLater()` on workers).
 
 Release automation is a CI integration contract rather than a runtime API:
-`v*` tags build Windows and Linux artifacts, Linux CI provisions the vcpkg
+`v*` tags build Windows, Linux, and separate Intel/Apple-Silicon macOS artifacts, Linux CI provisions the vcpkg
 Qt/XCB development prerequisites before configuration, and validation installs
 yt-dlp from the prerelease channel. These dependencies are not bundled into
 the application or written to user settings. Linux packaging also binds
 linuxdeploy to the vcpkg Qt installation that built the executable and
 generates a minimal release body when a tag has no checked-in notes file.
-Manual workflow dispatches build the matrix without publishing release assets.
+macOS CI uses its hosted Qt SDK and `macdeployqt` to create architecture-labelled
+DMGs; the updater only accepts the DMG matching the current CPU architecture and
+opens it through Finder. Manual workflow dispatches build the matrix without
+publishing release assets. Linux packaging detects static versus dynamic Qt:
+static Qt builds skip the Qt linuxdeploy plugin, while dynamic builds deploy the
+Qt and SQLite runtime plugins.
 
 ---
 
@@ -192,3 +197,5 @@ Applies custom naming rules and tags to structure download targets automatically
 
 #### Key Functions
 - `QString getSortedDirectory(const QVariantMap &videoMetadata, const QVariantMap &downloadOptions)`: Evaluates uploader, title, dates, and token variables to construct output paths.
+Linux AppImage release tooling excludes non-deployable host libraries from
+linuxdeploy's ELF scan; this packaging workaround is not part of the runtime API.
