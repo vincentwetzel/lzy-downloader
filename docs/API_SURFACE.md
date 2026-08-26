@@ -21,7 +21,7 @@ output, reports final totals, and persists failed test names for `--suspects`
 reruns in the selected build directory.
 
 Release automation is a CI integration contract rather than a runtime API:
-`v*` tags build Windows, Linux, and separate Intel/Apple-Silicon macOS artifacts, Linux CI provisions the vcpkg
+`v*` tags build Windows, Linux, and separate Intel/Apple-Silicon macOS artifacts, require the tag to match the CMake release version, and Linux CI provisions the vcpkg
 Qt/XCB development prerequisites before configuration, and validation installs
 yt-dlp from the prerelease channel. These dependencies are not bundled into
 the application or written to user settings. Linux packaging also binds

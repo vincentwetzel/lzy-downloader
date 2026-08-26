@@ -9,6 +9,10 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## [Unreleased]
 
+No unreleased changes.
+
+## [1.2.30] - 2026-08-25
+
 - **Discoverability:** Reworked the public README around clear video-downloader,
   audio-downloader, playlist-downloader, gallery-downloader, yt-dlp GUI, and
   platform search terms; added prominent release/source links, project badges,
@@ -24,6 +28,8 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
   links the companion Discord bridge for easier discovery.
 
 - **Release tooling:** Added an explicit native-only `--target auto|windows|linux|macos` option to `build_release.py`, allowing macOS VM builds to select the macOS packaging path while rejecting unsupported cross-OS builds.
+- **Release tooling:** Fixed version detection for the repository's multiline CMake `project()` declaration so the canonical release builder can package the declared application version.
+- **Release tooling:** Added release-version monotonicity and tag/version consistency checks to prevent accidentally rebuilding an existing release number.
 
 - **macOS CI:** Use Qt's published universal `clang_64` desktop archive on both native macOS runners, restoring Apple-Silicon release builds that failed when requesting the unavailable `clang_arm64` package.
 
@@ -47,8 +53,6 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 - **Build:** Moved extractor maintenance scripts into `tools/`; Linux release tooling now caches linuxdeploy under `build-release/tooling/` and writes AppImages directly under `build-release/`.
 - **Discord bridge:** Caller-supplied non-interactive job IDs are registered before enqueue validation, so validation, runtime-extraction, and missing-binary failures can emit terminal diagnostics for bridge cleanup.
 - **Local API:** Added authenticated `POST /cancel` for tracked jobs; cancellation follows the normal manager process-tree and queue-state path and remains visible as `Cancelled` to webhook/status consumers.
-
-## [1.2.30] - 2026-08-24
 
 - Moved the download counters and current-speed indicator into the footer's first row, with the exit-after-downloads switch remaining rightmost.
 - Low-quality video warnings now show the downloaded title and provide a clickable HTTP/HTTPS source link when available.

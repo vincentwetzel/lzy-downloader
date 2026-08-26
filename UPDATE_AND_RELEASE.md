@@ -93,12 +93,18 @@ This will update `extractors_yt-dlp.json` and `extractors_gallery-dl.json`. Both
 
 ### Step 2: Update Version Number
 
-Update the version in `CMakeLists.txt` (`project(VERSION x.y.z)`). This is the single source of truth for the release version. The app version is generated from there into `version.h`, used by the Windows resources, and passed into the NSIS installer build by `build_release.py`.
+Update the version in `CMakeLists.txt` (`project(VERSION x.y.z)`) to a value newer than the latest `vX.Y.Z` Git tag. This is the single source of truth for the release version. The app version is generated from there into `version.h`, used by the Windows resources, and passed into the NSIS installer build by `build_release.py`.
 
 Also update `vcpkg.json` `version-string` to the same version, keep its `builtin-baseline` pinned to the intended vcpkg commit, and ensure `CHANGELOG.md` has the release notes under the matching dated version heading.
 The matching GitHub release body belongs in `release-notes/vX.Y.Z.md`; create
 that file before tagging because the tag-triggered workflow attaches it
 automatically.
+
+`build_release.py` rejects a local release version that is not newer than the
+newest semantic `v*` tag and rejects tag builds whose tag does not exactly
+match CMake. Manual `workflow_dispatch` validation skips the monotonicity
+check. To intentionally rebuild an existing release, set
+`LZY_ALLOW_VERSION_REBUILD=1` and document why the rebuild is needed.
 
 **Release rule:** Do not manually rename the installer `.exe` to fix a version mismatch. If the setup filename version is wrong, fix the release inputs/scripts and rebuild so the installer filename, Windows app version, and uninstall `DisplayVersion` all match the same `CMakeLists.txt` version.
 

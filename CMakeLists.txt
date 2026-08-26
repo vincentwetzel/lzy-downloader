@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 project(LzyDownloader
-    VERSION 1.2.30
+    VERSION 1.2.31
     DESCRIPTION "Qt desktop video, audio, playlist, and gallery downloader powered by yt-dlp and gallery-dl"
     HOMEPAGE_URL "https://github.com/vincentwetzel/lzy-downloader"
     LANGUAGES CXX

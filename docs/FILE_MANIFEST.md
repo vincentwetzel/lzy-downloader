@@ -15,7 +15,7 @@ This document is a quick file-to-responsibility index for the C++ port. It is in
 - `TODO.md`: Active maintenance items, planned work, and known gaps.
 - `UPDATE_AND_RELEASE.md`: Release/operator workflow reference.
 - `CMakeLists.txt`: Primary build graph and executable/library registration.
-- `build_release.py`: Native-only release build and packaging orchestration, including the explicit `--target` selector, static/dynamic Qt detection, and Linux AppImage linuxdeploy handling.
+- `build_release.py`: Native-only release build and packaging orchestration, including the explicit `--target` selector, release-version/tag consistency checks, static/dynamic Qt detection, and Linux AppImage linuxdeploy handling.
 - `tools/`: Extractor-list maintenance scripts and their shared domain-parsing utility; generated extractor JSON remains at the root as bundled runtime data.
 - `tools/generate_release_checksums.py`: Standard-library release helper that writes platform-specific SHA-256 manifests for packaged assets.
 - `docs/assets/screenshots/lzydownloader-interface.png`: Approved public product screenshot showing the native download interface and sorting rules.

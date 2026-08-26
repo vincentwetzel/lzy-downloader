@@ -154,6 +154,7 @@ Current coverage includes argument construction (including aria2c retry policy),
 Before building a release, keep all release metadata in sync:
 
 - `CMakeLists.txt` `project(VERSION x.y.z)` is the app version source of truth.
+- The release builder compares that version with fetched `vX.Y.Z` tags and stops when it is not newer; tag-triggered CI also requires an exact tag/version match. Set `LZY_ALLOW_VERSION_REBUILD=1` only for an intentional rebuild of an existing release.
 - `vcpkg.json` `version-string` must be updated to the same version, and `builtin-baseline` should remain pinned to the intended vcpkg commit.
 - `build_release.py` is the canonical packaging path for local release builds and the GitHub release workflow.
 - `python build_release.py --target macos` explicitly selects the macOS packaging path when run inside the macOS VM. The builder remains native-only: `--target auto` is the default, and cross-OS installers cannot be produced from Windows or Linux.

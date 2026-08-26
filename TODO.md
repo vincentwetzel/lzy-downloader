@@ -4,7 +4,7 @@
 - [x] Prevent system idle sleep during active downloads in GUI and headless/server modes with platform-native power inhibitors.
 - [x] Add authenticated Local API and Discord bridge cancellation for tracked downloads.
 - [x] Upgrade the headless test runner with fail-fast builds, timestamped output, summaries, and a previous-failure suspects mode.
-- [ ] Verify direct-download fallback behavior with a slow playlist probe and an explicit playlist URL.
+- [ ] Verify direct-download fallback behavior with a slow playlist probe and an explicit playlist URL (release smoke test still pending).
 - [x] Add an automated manager-level test for transient playlist-probe fallback and explicit playlist failure classification.
 - [x] Expand Qt coverage for queue-backup persistence, temporary-directory ownership rules, and aria2c recovery boundaries.
 - [x] Deduplicate equivalent source URLs across queue, retry, active, paused, and archive states using shared normalized media identity.

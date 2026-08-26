@@ -128,6 +128,61 @@ def resolve_target_platform(target_name):
         sys.exit(1)
     return resolved_name
 
+
+def parse_semantic_version(version):
+    """Return a comparable release-version tuple for a strict X.Y.Z value."""
+    return tuple(int(part) for part in version.split("."))
+
+
+def validate_release_version(app_version):
+    """Reject accidental rebuilds of an already-tagged release."""
+    if os.environ.get("LZY_ALLOW_VERSION_REBUILD") == "1":
+        log("Version monotonicity check explicitly bypassed.", YELLOW)
+        return
+
+    tag_ref = os.environ.get("GITHUB_REF", "")
+    if tag_ref.startswith("refs/tags/"):
+        expected_ref = f"refs/tags/v{app_version}"
+        if tag_ref != expected_ref:
+            log(
+                f"Error: CI tag {tag_ref.removeprefix('refs/tags/')} does not "
+                f"match CMake version {app_version}.",
+                RED,
+            )
+            sys.exit(1)
+    elif os.environ.get("GITHUB_EVENT_NAME") == "workflow_dispatch":
+        log("Manual workflow validation: skipping tag monotonicity check.", YELLOW)
+        return
+
+    git_result = subprocess.run(
+        ["git", "tag", "--list", "v[0-9]*"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if git_result.returncode != 0:
+        log("Warning: Could not inspect Git tags; continuing without monotonicity validation.", YELLOW)
+        return
+
+    tag_versions = []
+    for tag in git_result.stdout.splitlines():
+        match = re.fullmatch(r"v([0-9]+\.[0-9]+\.[0-9]+)", tag.strip())
+        if match:
+            tag_versions.append((parse_semantic_version(match.group(1)), tag.strip()))
+
+    if not tag_versions:
+        return
+
+    newest_version, newest_tag = max(tag_versions)
+    if parse_semantic_version(app_version) <= newest_version:
+        log(
+            f"Error: CMake version {app_version} is not newer than the latest "
+            f"release tag {newest_tag}. Bump the release version first, or set "
+            "LZY_ALLOW_VERSION_REBUILD=1 for an intentional rebuild.",
+            RED,
+        )
+        sys.exit(1)
+
 def main():
     log("=== LzyDownloader Unified Release Builder ===", CYAN)
     args = parse_arguments()
@@ -141,13 +196,18 @@ def main():
         sys.exit(1)
 
     content = cmake_path.read_text(encoding="utf-8")
-    match = re.search(r'project\(LzyDownloader VERSION ([0-9]+\.[0-9]+\.[0-9]+)', content)
+    match = re.search(
+        r'project\s*\(\s*LzyDownloader\s+VERSION\s+([0-9]+\.[0-9]+\.[0-9]+)',
+        content,
+        flags=re.IGNORECASE,
+    )
     if not match:
         log("Error: Could not parse version from CMakeLists.txt", RED)
         sys.exit(1)
 
     app_version = match.group(1)
     log(f"Detected Application Version: {app_version}", GREEN)
+    validate_release_version(app_version)
 
     build_dir = Path("build-release").resolve()
 
