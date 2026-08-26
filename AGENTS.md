@@ -157,6 +157,7 @@ Agents MUST NOT:
 - **Adhere to Coding Standards**: You MUST read and strictly follow the rules defined in `docs/CODING_STANDARDS.md` to ensure code quality, maintainability, and security.
 - **Update Documentation on Functional Changes**: When you make changes to how the app works (e.g., progress parsing, download pipeline, UI behavior, configuration, external binary handling), you MUST update the maintained documentation set (`AGENTS.md`, `README.md`, `CHANGELOG.md`, `TODO.md`, `UPDATE_AND_RELEASE.md`, and the active files under `docs/`: `API_SURFACE.md`, `ARCHITECTURE.md`, `CODING_STANDARDS.md`, `FILE_MANIFEST.md`, `LANGUAGES.md`, `SETTINGS.md`, and `SPEC.md`) to reflect the new behavior. Historical entries in `docs/CHANGELOG_ARCHIVE.md` are reference material and must not be rewritten.
 - **Use Q_INVOKABLE for Deferred Calls**: Methods called via `QMetaObject::invokeMethod` with `Qt::QueuedConnection` MUST be declared as `Q_INVOKABLE` in the header file, even if they are in the `private` or `private slots` sections. Without this, the invocation will fail silently at runtime with a warning like `No such method DownloadManager::saveQueueState()`.
+- **Git Push Assistance:** When release or publishing work is ready, coding agents MUST provide the exact `git push` commands for the user to review and run. Coding agents MUST NOT execute `git push` themselves.
 ### You MUST NOT:
 - Change the schema of `download_archive.db` without a migration plan.
 - Introduce new external runtime dependencies without explicit instruction.
