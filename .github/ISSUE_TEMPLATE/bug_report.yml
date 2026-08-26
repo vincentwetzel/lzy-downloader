@@ -14,7 +14,7 @@ body:
     attributes:
       label: LzyDownloader version
       description: Which release or source revision is affected?
-      placeholder: "1.2.30"
+      placeholder: "1.2.31"
     validations:
       required: true
   - type: dropdown

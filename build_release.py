@@ -150,6 +150,27 @@ def validate_release_version(app_version):
                 RED,
             )
             sys.exit(1)
+        # The tagged release is expected to equal the newest tag. The
+        # monotonicity rule applies to untagged local builds only.
+        return
+    local_tag_result = subprocess.run(
+        ["git", "describe", "--tags", "--exact-match"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    local_tag = local_tag_result.stdout.strip()
+    if local_tag:
+        expected_tag = f"v{app_version}"
+        if local_tag != expected_tag:
+            log(
+                f"Error: checked-out tag {local_tag} does not match CMake "
+                f"version {app_version}.",
+                RED,
+            )
+            sys.exit(1)
+        log(f"Exact local release tag {local_tag} matches CMake version.", GREEN)
+        return
     elif os.environ.get("GITHUB_EVENT_NAME") == "workflow_dispatch":
         log("Manual workflow validation: skipping tag monotonicity check.", YELLOW)
         return

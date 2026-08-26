@@ -28,3 +28,5 @@ void TestPowerInhibitor::acquireAndReleaseAreIdempotent()
 }
 
 QTEST_GUILESS_MAIN(TestPowerInhibitor)
+
+#include "TestPowerInhibitor.moc"
