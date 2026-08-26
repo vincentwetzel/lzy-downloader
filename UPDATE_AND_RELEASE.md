@@ -150,6 +150,15 @@ Replace `X.X.X` with the exact version from `CMakeLists.txt`.
 
 `CMakeLists.txt` already runs `windeployqt`, re-copies the resolved Qt runtime DLLs from the configured Qt installation, and deploys the OpenSSL runtime DLLs (`libcrypto-3-x64.dll`, `libssl-3-x64.dll`) when available. Keep the deployed compression/runtime dependencies that Qt ships with, including `zlib1.dll`, because `Qt6Network.dll` depends on them on Windows.
 
+For Windows development builds, the checked-in `release`, `debug`, and
+`debug-local-qt` presets explicitly select the repository's expected Qt MinGW
+and Ninja locations. Update those preset paths when using another Qt
+installation. Qt plugin copying is performed by
+`cmake/deploy_openssl_runtime.cmake` under a per-runtime-directory lock so
+parallel builds do not partially overwrite the deployed plugin tree. The
+vcpkg manifest enables the specific Qt modules required by the application and
+tests rather than Qt's default feature bundle.
+
 ## Release to GitHub
 
 GitHub Actions automatically builds release assets when a `v*` tag is pushed. The workflow at `.github/workflows/release.yml` runs `python build_release.py` on `windows-latest`, `ubuntu-22.04`, `macos-13` (Intel), and `macos-14` (Apple Silicon), then uploads the Windows installer, Linux AppImage, and both architecture-labelled macOS DMGs to the GitHub Release for that tag. If the matching release-notes file is absent, CI creates a minimal fallback body before publication. Use `workflow_dispatch` to run the matrix as a non-publishing validation; uploads are tag-only.

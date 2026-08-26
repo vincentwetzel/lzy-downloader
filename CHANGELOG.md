@@ -9,7 +9,15 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## [Unreleased]
 
-No unreleased changes.
+- **Windows build reliability:** The checked-in CMake presets now select the
+  Qt MinGW compiler and Ninja explicitly, while CMake disables the optional
+  compiler-predefines probe that can fail under Windows/libuv launches.
+- **Qt deployment:** Windows post-build deployment now copies Qt plugins
+  through a guarded CMake helper, preventing concurrent configure/build jobs
+  from colliding while keeping runtime plugin deployment intact.
+- **Qt dependencies:** The vcpkg manifest now opts into the exact Qt modules
+  used by the application and tests instead of enabling Qt's full default
+  feature set.
 
 ## [1.2.30] - 2026-08-25
 

@@ -1,5 +1,16 @@
+if(DEFINED QT_PLUGINS_SOURCE AND NOT QT_PLUGINS_SOURCE STREQUAL "")
+    if(EXISTS "${QT_PLUGINS_SOURCE}")
+        if(NOT DEFINED QT_PLUGINS_DEST OR QT_PLUGINS_DEST STREQUAL "")
+            message(FATAL_ERROR "QT_PLUGINS_DEST was not provided for Qt plugin deployment.")
+        endif()
+        file(LOCK "${QT_PLUGINS_DEST}/.lzy-qt-plugins.lock" GUARD PROCESS TIMEOUT 300)
+        file(COPY "${QT_PLUGINS_SOURCE}/" DESTINATION "${QT_PLUGINS_DEST}")
+    else()
+        message(WARNING "Qt plugin directory was not found: ${QT_PLUGINS_SOURCE}")
+    endif()
+endif()
+
 if(NOT DEFINED OPENSSL_RUNTIME_DIR OR OPENSSL_RUNTIME_DIR STREQUAL "")
-    message(WARNING "OPENSSL_RUNTIME_DIR was not provided; skipping OpenSSL runtime deployment.")
     return()
 endif()
 

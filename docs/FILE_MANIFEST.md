@@ -15,6 +15,10 @@ This document is a quick file-to-responsibility index for the C++ port. It is in
 - `TODO.md`: Active maintenance items, planned work, and known gaps.
 - `UPDATE_AND_RELEASE.md`: Release/operator workflow reference.
 - `CMakeLists.txt`: Primary build graph and executable/library registration.
+- `CMakePresets.json`: Reproducible Windows release/debug and standalone-Qt
+  configure/build presets, including the expected Qt MinGW and Ninja tools.
+- `cmake/deploy_openssl_runtime.cmake`: Windows post-build helper that guards
+  Qt plugin copying and deploys configured OpenSSL runtime DLLs.
 - `build_release.py`: Native-only release build and packaging orchestration, including the explicit `--target` selector, release-version/tag consistency checks, static/dynamic Qt detection, and Linux AppImage linuxdeploy handling.
 - `tools/`: Extractor-list maintenance scripts and their shared domain-parsing utility; generated extractor JSON remains at the root as bundled runtime data.
 - `tools/generate_release_checksums.py`: Standard-library release helper that writes platform-specific SHA-256 manifests for packaged assets.

@@ -116,10 +116,13 @@ if(WIN32)
         if(DEFINED VCPKG_INSTALLED_DIR AND DEFINED VCPKG_TARGET_TRIPLET)
             set(qt_plugins_dir "$<$<CONFIG:Debug>:${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/debug/Qt6/plugins>$<$<NOT:$<CONFIG:Debug>>:${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/Qt6/plugins>")
             add_custom_command(TARGET ${target_name} POST_BUILD
-                COMMAND "${CMAKE_COMMAND}" -E copy_directory
-                    "${qt_plugins_dir}"
-                    "$<TARGET_FILE_DIR:${target_name}>"
+                COMMAND "${CMAKE_COMMAND}"
+                    -DQT_PLUGINS_SOURCE=${qt_plugins_dir}
+                    -DQT_PLUGINS_DEST=$<TARGET_FILE_DIR:${target_name}>
+                    -DTARGET_RUNTIME_DIR=$<TARGET_FILE_DIR:${target_name}>
+                    -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/deploy_openssl_runtime.cmake"
                 COMMENT "Copying Qt runtime plugins for ${target_name}"
+                USES_TERMINAL
                 VERBATIM
             )
         else()
@@ -189,6 +192,11 @@ endif()
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTORCC ON)
+# CMake's optional compiler-predefines probe can fail with EPERM on Windows
+# when the MinGW compiler is launched through libuv. Qt's moc receives the
+# target compile definitions directly, so the generated predefines header is
+# not required for this project.
+set(CMAKE_AUTOMOC_COMPILER_PREDEFINES OFF)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

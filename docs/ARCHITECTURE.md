@@ -30,6 +30,16 @@ assets. The release workflow invokes `tools/generate_release_checksums.py` after
 packaging; its SHA-256 manifest is uploaded beside each platform artifact and
 does not participate in application startup or runtime configuration.
 
+The Windows CMake presets define the expected Qt MinGW compiler and Ninja
+locations so local builds use the same toolchain consistently. `vcpkg.json`
+uses an explicit Qt feature list for the modules required by the application
+and tests. During Windows post-build deployment, `CMakeLists.txt` invokes
+`cmake/deploy_openssl_runtime.cmake`; the helper copies Qt plugins under a
+runtime-directory lock and also deploys OpenSSL DLLs when configured. CMake's
+optional compiler-predefines probe is disabled because Qt's generated moc
+inputs do not require it and the probe can fail for MinGW processes launched
+through libuv.
+
 ## 2. System Design
 
 ### 2.1 Single Instance Enforcement

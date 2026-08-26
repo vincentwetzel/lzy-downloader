@@ -8,9 +8,14 @@
   "dependencies": [
     {
       "name": "qtbase",
-      "default-features": true,
+      "default-features": false,
       "features": [
-        "sql-sqlite"
+        "concurrent",
+        "gui",
+        "network",
+        "sql-sqlite",
+        "testlib",
+        "widgets"
       ]
     }
   ]

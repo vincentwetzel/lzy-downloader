@@ -111,7 +111,7 @@ matching release manifest.
 
 Requires CMake, a C++20 compatible compiler (MSVC recommended on Windows), and Qt 6.
 
-The repository includes a `vcpkg.json` manifest for source builds with a pinned `builtin-baseline` for reproducible dependency resolution. On Windows, the checked-in `CMakePresets.json` expects the vcpkg toolchain at `E:/vcpkg/scripts/buildsystems/vcpkg.cmake`. If your local vcpkg checkout lives somewhere else, either adjust the preset or pass your own `-DCMAKE_TOOLCHAIN_FILE=...` path when configuring.
+The repository includes a `vcpkg.json` manifest for source builds with a pinned `builtin-baseline` for reproducible dependency resolution. The manifest enables only the Qt modules used by the application and tests (`concurrent`, `gui`, `network`, `sql-sqlite`, `testlib`, and `widgets`). On Windows, the checked-in `CMakePresets.json` expects vcpkg at `E:/vcpkg/scripts/buildsystems/vcpkg.cmake`, Qt's MinGW toolchain under `C:/Qt/Tools/mingw1310_64/bin`, and Ninja under `C:/Qt/Tools/Ninja`. If these paths differ on your machine, adjust the preset or pass equivalent compiler, generator, and toolchain settings when configuring.
 
 ```bash
 # Clone the repo
@@ -136,6 +136,12 @@ For local Windows debugging with a standalone Qt/MinGW install, use the `debug-l
 cmake --preset debug-local-qt
 cmake --build --preset debug-local-qt
 ```
+
+Windows builds copy Qt runtime plugins through a guarded post-build CMake
+helper. This keeps plugin deployment safe when multiple build processes target
+the same runtime directory. Qt's optional compiler-predefines probe is disabled
+because it is not needed by this project and can fail when MinGW is launched
+through libuv-based tooling.
 
 ### Testing
 

@@ -100,6 +100,12 @@ The worker regression coverage for degraded cookie-backed format selection is in
 `tools/generate_release_checksums.py` owns the standard-library SHA-256 manifests
 published alongside packaged release assets.
 
+`cmake/deploy_openssl_runtime.cmake` owns guarded Windows Qt-plugin copying and
+OpenSSL runtime deployment invoked by the CMake post-build step. The checked-in
+`CMakePresets.json` owns the supported local Qt MinGW/Ninja configure paths;
+developers may adapt those paths for another installation without changing the
+runtime architecture.
+
 `src/core/PowerInhibitor.cpp` is the platform-specific sleep-inhibition implementation; `DownloadManager` owns its active-download lifecycle for both GUI and headless/server execution.
 
 ## 4. Dependencies
