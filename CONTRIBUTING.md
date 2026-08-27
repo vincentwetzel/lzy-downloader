@@ -32,6 +32,12 @@ change. The full headless test workflow is:
 python tests/run_headless_tests.py --build-dir build --config Release
 ```
 
+The helper builds before starting CTest and stops on compilation failure. For
+Visual Studio builds it derives vcpkg manifest/MSBuild properties from the
+CMake cache, so direct-Qt and vcpkg-toolchain configurations use their
+corresponding integration mode. Use `--suspects` to rerun only the tests
+recorded as failed by the preceding run.
+
 Keep the GUI responsive, preserve the temporary-download-to-final-file
 lifecycle, and update the maintained documentation when behavior changes.
 Production code belongs under `src/`; tests and fixtures belong under `tests/`.
@@ -41,7 +47,7 @@ Production code belongs under `src/`; tests and fixtures belong under `tests/`.
 1. Create a focused branch from the default branch.
 2. Make the smallest complete change that solves the problem.
 3. Add or update regression coverage when behavior changes.
-4. Update `README.md`, `CHANGELOG.md`, and the relevant active documentation.
+4. Update user-facing docs/changelog and the relevant active documentation.
 5. Describe the user-visible behavior and validation performed in the pull
    request.
 

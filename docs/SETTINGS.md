@@ -1,51 +1,14 @@
 # Settings Reference Guide
 
-This document provides a complete reference for all configuration settings used by LzyDownloader (C++ Port). Settings are stored in `settings.ini` using Qt's native `QSettings` INI format.
+This is the key/type reference for the Qt-native `QSettings` INI file
+`settings.ini`. Invalid or legacy values are discarded and replaced with
+documented defaults; Python `configparser` compatibility is not required.
 
-System idle-sleep inhibition is automatic while downloads are active and is
-not a user setting. It applies to GUI and headless/server modes and does not
-prevent the display from turning off.
-
-Duplicate identity, disk-space failure classification, and existing-destination
-replacement are runtime policies rather than persisted settings. Explicit
-re-downloads preserve the previous destination until the new verified output
-has been moved or copied successfully.
-
-Retry/resume duplicate protection and stopped/failed re-download recovery are
-also runtime policies. The queue manager supplies its active item snapshot at
-request time; no additional `settings.ini` keys are required.
-
-> **Portability Note:** The C++ port uses a pure Qt-native INI format. Backwards compatibility with the Python application's `configparser` quirks is no longer required, and invalid/legacy keys are pruned or reset to defaults as needed.
-
-> **Current behavior note:** Playlist audio filenames use zero-padded index
-> prefixes by default. The canonical default is
-> `DownloadOptions/prefix_playlist_indices=true`; users can disable it in
-> Advanced Settings → Download Options.
-
-Quality diagnostics are media-type aware: the below-480p warning applies only
-to video downloads. Audio-only downloads do not use retained source-video
-`height` metadata for that warning, and their progress remains audio-labeled
-when extraction temporarily transfers a combined source.
-
-When shown for a video, the warning also includes the media title and exposes a
-complete HTTP/HTTPS source URL as a clickable link.
-
-The footer's download counters and current-speed indicator share its first row
-with the exit-after-downloads setting, which remains the rightmost control.
-
-Build-time release validation does not change the settings schema. The test
-runner's suspects cache is kept under the selected build directory and is not
-an application setting. CI-only
-Qt/qmake selection, fallback GitHub release notes, and manual non-publishing
-CI runs and macOS architecture-specific DMG packaging are packaging behavior,
-not persisted application settings.
-Linux Qt/XCB packages and prerelease yt-dlp installation are not saved to
-`settings.ini`; runtime executable paths continue to use External Tools and
-the shared resolver.
-
-Release checksums, repository description/homepage metadata, license notices,
-and public contribution/security files are distribution or repository assets;
-they do not add settings keys or alter the Qt-native configuration format.
+Download identity, retry/recovery, disk-full handling, destination replacement,
+power inhibition, progress classification, and footer layout are runtime/UI
+policies, not settings. They are specified in `docs/SPEC.md`. The relevant
+user-visible defaults here are `DownloadOptions/prefix_playlist_indices=true`
+(zero-padded playlist audio filenames) and the settings tables below.
 
 ---
 
@@ -321,7 +284,8 @@ count=2
 
 ## MainWindow / UI / Geometry
 
-Internal settings for window state and UI layout. These are managed automatically by Qt and should not be edited manually.
+Internal settings for window state and UI layout. Qt manages these values;
+avoid editing them manually.
 
 | Key Group | Description |
 |-----------|-------------|
@@ -442,8 +406,4 @@ If a required binary (`yt-dlp`, `ffmpeg`, `ffprobe`, `deno`) is not found, LzyDo
 
 ---
 
-*Last updated: August 24, 2026 - LzyDownloader C++ Port*
-
-Application updates preserve unfinished queue entries by saving the normal queue backup before the installer is launched.
-On Windows, silent updater installs automatically restart the newly installed executable; this behavior is not controlled by a user setting.
-Linux AppImage deployment details, including host-library exclusions used by linuxdeploy, the `build-release/tooling/` helper cache, and `build-release/` output location, are packaging behavior and do not add settings to `settings.ini`.
+*Last updated: August 26, 2026 - LzyDownloader C++ Port*

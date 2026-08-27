@@ -9,6 +9,18 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## [Unreleased]
 
+- **Documentation efficiency:** Agent guidance now routes tasks to the smallest
+  relevant reference; repeated API, architecture, and coding-policy prose was
+  removed while the detailed behavior and settings references remain intact.
+
+- **Headless build integration:** The Windows headless test runner now forwards
+  the correct vcpkg setting to Visual Studio builds, removing the misleading
+  manifest-disabled diagnostic without changing direct-Qt builds.
+
+- **Regression tests:** Added coverage for retained auto-detected binary paths,
+  Windows WinGet package discovery, the single-bar Active Downloads row, and
+  the naturally sized External Binaries scroll document.
+
 - **Debug configure recovery:** The VS Code debug configure task now detects
   incomplete CMake compiler metadata and automatically retries with `--fresh`
   in the standard `build-debug` directory.

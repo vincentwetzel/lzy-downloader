@@ -12,6 +12,7 @@ private slots:
     void testProgressLabelBarFilling();
     void testDownloadItemWidgetFinishedState();
     void testDownloadItemWidgetKeepsActionsVisibleWhenNarrow();
+    void testBinariesPageUsesNaturalScrollDocument();
 
 private slots:
     void init() {

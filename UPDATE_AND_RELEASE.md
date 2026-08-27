@@ -28,6 +28,9 @@ existing localhost API/webhook integration.
 
 This document describes how to build, package, and release the C++ version of LzyDownloader with auto-update support.
 
+For coding-task documentation routing, start with `AGENTS.md`; load the
+release details here only when changing build or packaging behavior.
+
 Release smoke tests should also verify that a stale manually managed yt-dlp
 executable produces an exact installed/latest update prompt.
 
@@ -90,9 +93,13 @@ not automatically use an image merely because it exists in the repository.
 
 ## Build Process
 
-Before release, review the `[Unreleased]` section of `CHANGELOG.md` and verify that the maintained documentation set (`README.md`, `AGENTS.md`, `TODO.md`, and the active files under `docs/`) matches the current implementation. In particular, ordinary URLs must recover from transient playlist-probe failures, browser-cookie extraction failures must use the bounded fallback while preserving authentication diagnostics, video-only quality warnings must not inspect audio-job height metadata, audio extraction labels must remain audio-oriented when aria2c transfers a combined source, aria2c transport or missing-output failures must use the bounded native-downloader fallback while preserving partials, accurate cuts must use timestamp-normalized audio and bounded/background-priority FFmpeg work, playlist audio filename prefixes must agree with the settings default, narrow Active Downloads rows must keep actions visible, tracked thumbnail sidecars must be remuxed as attached artwork before cleanup, and Windows FFmpeg/FFprobe replacement must tolerate transient locks. Also verify normalized duplicate identity across queue/retry/archive paths, active-snapshot retry protection, explicit re-download recovery for restored stopped/failed jobs, duplicate recovery-entry suppression in the Discord bridge, terminal non-interactive duplicate diagnostics, terminal disk-full diagnostics, and recoverable existing-destination replacement.
-
-Release smoke checks should also confirm that a native transfer whose `info.json` omits `requested_downloads` still reports matching format sizes and continues updating from its owned `.part` file while yt-dlp output is temporarily quiet. Active Downloads rows should show only one detailed progress bar per download, while Discord multi-stream progress should remain stable across video/audio handoff.
+Before release, review `CHANGELOG.md` and the maintained docs against the
+implementation. Use `docs/SPEC.md` as the smoke-test contract, especially for
+playlist fallback, cookie/aria2c recovery, media diagnostics, normalized
+duplicate identity, replacement safety, audio-aware progress, thumbnail
+remuxing, and compact one-bar rows. Also verify quiet native transfers recover
+sizes from `formats`/`.part` data and Discord aggregate progress survives
+video/audio handoff.
 
 ### Step 1: Update Extractor Lists
 
@@ -149,7 +156,11 @@ Before packaging or publishing, run the Qt test suite through the headless helpe
 python .\tests\run_headless_tests.py --build-dir build --config Release
 ```
 
-The helper builds the selected configuration and stops before testing if compilation fails, then runs `ctest` with timestamped output, `QT_QPA_PLATFORM=offscreen`, and parallel jobs based on the host CPU count. It prints a final summary and records failed tests in `build/.lzy-test-suspects.json`; use `--suspects` to rerun only that cache. Test sources and fixtures are kept in the top-level `tests/` directory. Coverage includes yt-dlp/gallery-dl argument building, playlist parsing and transient-probe fallback, download-manager behavior, worker progress and recovery diagnostics (including negative aria2c recovery boundaries), queue-backup persistence and malformed-entry filtering, temporary-root ownership cleanup, archive/config/API/process utilities, URL validation, sorting, playlist-range selection, UI progress widgets, and the local end-to-end fixture.
+The helper builds before CTest and stops on compilation failure, then runs
+offscreen tests in parallel with timestamped output and a final summary. It
+stores failed names in `build/.lzy-test-suspects.json`; use `--suspects` to rerun
+that cache. Test locations and coverage are indexed in
+`docs/FILE_MANIFEST.md` and `docs/SPEC.md`.
 
 ### Step 4: Manual Build Steps
 

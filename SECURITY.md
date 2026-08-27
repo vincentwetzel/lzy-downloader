@@ -10,6 +10,10 @@ versioned WinGet payloads. Updates must continue through the package manager or
 the tool's own updater; the application must not silently replace an unrelated
 external executable or log credentials from an installer command.
 
+Regression tests for binary discovery use isolated temporary directories and
+fake executable files; they must not inspect or modify a user's real
+`Microsoft\\WinGet\\Packages` tree, settings, credentials, or downloaded media.
+
 ## Reporting a vulnerability
 
 Please do not report an undisclosed vulnerability in a public issue. Use

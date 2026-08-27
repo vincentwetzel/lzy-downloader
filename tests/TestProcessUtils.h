@@ -13,5 +13,9 @@ private slots:
 
     void testCacheHit();
     void testCacheInvalidation();
+    void testAutoDetectedConfiguredPathIsRetained();
+#ifdef Q_OS_WIN
+    void testWinGetPackageCandidateDiscovery();
+#endif
     void testExplicitAppManagedPathWinsSystemFirstPreference();
 };

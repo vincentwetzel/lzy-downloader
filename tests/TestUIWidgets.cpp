@@ -1,7 +1,11 @@
 #include "TestUIWidgets.h"
+#include "core/ConfigManager.h"
+#include "ui/advanced_settings/BinariesPage.h"
 #include <QSignalSpy>
 #include <QVariantMap>
 #include <QPushButton>
+#include <QGroupBox>
+#include <QScrollArea>
 
 void TestUIWidgets::testProgressLabelBarFilling() {
     ProgressLabelBar progressBar;
@@ -80,6 +84,23 @@ void TestUIWidgets::testDownloadItemWidgetKeepsActionsVisibleWhenNarrow() {
     QVERIFY(cancelButton != nullptr);
     QVERIFY(cancelButton->isVisible());
     QVERIFY(cancelButton->geometry().right() <= widget.rect().right());
+}
+
+void TestUIWidgets::testBinariesPageUsesNaturalScrollDocument() {
+    BinariesPage page(getConfigManager());
+    page.resize(520, 320);
+    page.show();
+    QCoreApplication::processEvents();
+
+    QScrollArea *scrollArea = page.findChild<QScrollArea *>();
+    QVERIFY(scrollArea != nullptr);
+    QCOMPARE(scrollArea->widgetResizable(), false);
+    QCOMPARE(scrollArea->horizontalScrollBarPolicy(), Qt::ScrollBarAlwaysOff);
+
+    QGroupBox *document = qobject_cast<QGroupBox *>(scrollArea->widget());
+    QVERIFY(document != nullptr);
+    QVERIFY(document->layout() != nullptr);
+    QTRY_COMPARE(document->width(), scrollArea->viewport()->width());
 }
 
 QTEST_MAIN(TestUIWidgets)

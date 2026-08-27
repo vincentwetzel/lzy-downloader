@@ -1,364 +1,111 @@
 # LzyDownloader C++ Architecture
 
-## 1. Overview
-This document outlines the architecture for the C++ port of LzyDownloader. The application is built with **Qt 6 (Widgets)** and provides a graphical interface for downloading media using **yt-dlp** and **gallery-dl**. The design prioritizes performance, stability, and seamless compatibility with the original Python version.
+Use this page for ownership and data flow. [`FILE_MANIFEST.md`](FILE_MANIFEST.md)
+is the path index, [`SPEC.md`](SPEC.md) is the behavior contract,
+[`SETTINGS.md`](SETTINGS.md) is the schema, and [`API_SURFACE.md`](API_SURFACE.md)
+is the callable-interface index. Do not duplicate those contracts here.
 
-For a compact file-to-responsibility index, see [docs/FILE_MANIFEST.md](FILE_MANIFEST.md). For public methods and signals, see [docs/API_SURFACE.md](API_SURFACE.md). This document focuses on behavior, data flow, and component interaction rather than duplicating a full manifest.
+## System design
 
-The active documentation set is maintained together: user-visible behavior is
-described in `README.md` and `docs/SPEC.md`, configuration in `docs/SETTINGS.md`,
-interfaces in `docs/API_SURFACE.md`, and release implications in
-`UPDATE_AND_RELEASE.md`. Historical changelog entries are intentionally kept
-unchanged.
+`LzyAppLib` contains `src/core/`, `src/ui/`, and `src/utils/`; `main.cpp` owns
+startup and the executable. The UI submits options and renders signals. Core
+managers own queue state, workers, archive access, and finalization. Utilities
+provide process, logging, path, and platform helpers.
 
-Linux release packaging stages the vcpkg-built executable with linuxdeploy and
-the matching vcpkg qmake. The packager detects static Qt by inspecting the
-executable's dynamic dependencies: static-Qt builds skip linuxdeploy-plugin-qt
-because vcpkg's SQL directory contains `.a`/`.prl` files, while dynamic-Qt
-builds retain Qt and SQLite plugin deployment. The dbus runtime is excluded
-from linuxdeploy's ELF scan.
-
-Release-only linuxdeploy binaries are cached under `build-release/tooling/`,
-and the final Linux AppImage is written under `build-release/` rather than the
-repository root. Extractor maintenance scripts live under `tools/`; their
-generated JSON remains at the root because CMake copies it beside the executable.
-
-The VS Code debug configure task calls `tools/configure_debug.ps1`. The wrapper
-uses the regular `debug` preset when the generated compiler metadata is valid,
-and automatically selects CMake's `--fresh` mode when the metadata is missing
-or incomplete, preventing stale compiler-feature errors in `build-debug`.
-
-Project identity is declared consistently in `CMakeLists.txt` and `vcpkg.json`:
-the package description and canonical repository URL identify the application,
-and the package metadata records GPL-3.0-or-later for project-authored code and
-assets. The release workflow invokes `tools/generate_release_checksums.py` after
-packaging; its SHA-256 manifest is uploaded beside each platform artifact and
-does not participate in application startup or runtime configuration.
-
-The Windows CMake presets define the expected Qt MinGW compiler and Ninja
-locations so local builds use the same toolchain consistently. `vcpkg.json`
-uses an explicit Qt feature list for the modules required by the application
-and tests. During Windows post-build deployment, `CMakeLists.txt` invokes
-`cmake/deploy_openssl_runtime.cmake`; the helper copies Qt plugins under a
-runtime-directory lock and also deploys OpenSSL DLLs when configured. CMake's
-optional compiler-predefines probe is disabled because Qt's generated moc
-inputs do not require it and the probe can fail for MinGW processes launched
-through libuv.
-
-## 2. System Design
-
-### 2.1 Single Instance Enforcement
-The application ensures that only one GUI instance can run at a time. This is achieved in `main.cpp` using `QSystemSemaphore` and `QSharedMemory`. A `QSystemSemaphore` with a unique key guards startup, and a `QSharedMemory` segment marks the active instance. Startup first attempts to attach to and detach from any stale shared-memory segment so a previous crash does not permanently block relaunching, and semaphore release is handled by a scope guard. If another instance is already running and the new process was launched with a direct URL argument, the new process forwards that URL to the active instance through a lightweight `QLocalSocket` handoff channel and exits. Non-URL duplicate launches still exit gracefully. **Note:** Launching the application with `--headless`, `--server`, or `--background` appends a `_Server` suffix to these locks, allowing a headless API server to run concurrently with the standard GUI. User preferences still come from the shared main `settings.ini`; server/headless runtime state is isolated under `Server/`.
-
-### 2.2 Core Components
-- **LzyAppLib Static Library**: All application code (excluding `main.cpp`) from `src/core/`, `src/utils/`, and `src/ui/` is compiled into a single static library, `LzyAppLib`. This library encapsulates the core business logic, UI components, and utility functions, providing a modular foundation for both the main executable and the test suite.
-- **Identity and replacement safety:** `ArchiveManager` provides the shared normalized media identity used by `DownloadQueueManager` for queue/archive/retry deduplication. `FileReplacement` stages existing-destination replacement so a failed move does not discard the previous completed file.
-- **Retry and re-download safety:** Retry/resume receives the current active-item snapshot and rejects equivalent jobs before enqueueing. An explicit archive override may remove only a matching restored item marked stopped or failed; a genuinely paused item remains protected.
-- **UI Layer (`src/ui/`):** Handles user interaction, input, and visual feedback using Qt Widgets. This layer is now part of the `LzyAppLib` static library.
-  - **No Native Menus**: The application strictly avoids native OS menu bars (`QMenuBar`), utilizing in-app UI elements (buttons, tabs, sidebars) for all navigation and actions. For example, the Supported Sites dialog is launched from a dedicated button on the Start Tab.
-  - **Start Tab operational controls**: Playlist logic, Max Concurrent, Rate Limit, and override-duplicate controls live directly on the Start tab and save instantly to `ConfigManager`, allowing the backend to react immediately instead of waiting for a separate Apply action.
-  - **AdvancedSettingsTab navigation**: The left-side category list is a compact `QListWidget` whose stylesheet is rebuilt from `QPalette` values whenever the palette changes so it remains consistent with both light and dark themes.
-  - **Runtime format selection**: Advanced Settings can defer the entire video/audio format decision until enqueue time by setting `Quality` to `Select at Runtime`; `DownloadManager` fetches format metadata and `MainWindow` presents `FormatSelectionDialog`, which enqueues one item per selected format and marks those selected format IDs as concrete downloader overrides so they do not loop back into the picker.
-  - **Non-interactive enqueue path**: Direct CLI URL launches and Local API requests set a `non_interactive` option so automation can proceed without modal prompts. These requests force completed-archive override, use download-all playlist handling, skip runtime section/format/subtitle pickers, and downgrade UI-only warnings to log messages.
-  - **Terminal duplicate recovery**: `DownloadQueueManagerRecovery.cpp` removes a matching restored stopped/failed entry when an explicit re-download is requested. Genuine paused entries remain protected, and `DownloadManager` forwards rejected non-interactive duplicates to the terminal webhook signal.
-  - **Partial playlist selection**: When `playlist_logic=Ask` detects a multi-item playlist, `MainWindowConnections.cpp` can present `PlaylistRangeDialog` so the user can queue all entries, queue the first entry, cancel, or select a range/checkbox subset of expanded entries before the placeholder is replaced.
-  - **Playlist prompt bypasses**: Non-interactive requests always process playlists as "Download All", and single-item playlists are treated as standalone media so users are not prompted for a playlist decision.
-  - **Missing binary setup**: Startup checks, enqueue-time checks, and Start-tab format checks open `MissingBinariesDialog` when required tools are absent. The dialog presents a compact checklist and delegates install/browse actions to `BinariesPage`, so users can resolve missing tools without navigating through Advanced Settings first.
-  - **Authentication checks**: Browser cookie validation runs `yt-dlp` with the app-managed process environment, buffers stderr for accurate error messages, handles `FailedToStart`, suppresses stale timeout/cancellation popups, and terminates the process tree during page teardown.
-  - **Windows debug console toggle**: When the app owns its console window, Advanced Settings exposes `General/show_debug_console` and `MainWindow` can allocate, show, or hide that console at runtime without changing the executable type.
-  - **UI Builders**: `MainWindowUiBuilder` and `StartTabUiBuilder` classes are introduced to encapsulate the creation and layout of UI elements for `MainWindow` and `StartTab` respectively, improving modularity. `MainWindowUiBuilder` keeps footer status counters and current speed on the first row, with the exit-after-downloads control rightmost.
-  - **Sorting Rule Dialog**: The dialog for creating/editing sorting rules uses a `QScrollArea` with `QVBoxLayout` instead of `QListWidget` for smooth pixel-level scrolling without item-snapping. The scroll area is capped at 150-400px height with 4px spacing between conditions. Condition widgets use a `CONDITION_VALUE_INPUT_HEIGHT` constant (100px) for consistent text entry sizing via `setFixedHeight()`. Dialog minimum size is 650x500px.
-  - **Active Downloads toolbar**: The monitoring tab now favors compact icon-driven controls, including Resume All plus a unified Clear Inactive action for finished, stopped, and failed rows. Resume All snapshots row IDs before prompting so later UI changes do not invalidate widget pointers. If a download item is added with an ID already visible in the tab, the existing row is removed before the replacement widget is inserted so placeholder refreshes and restored queue items do not duplicate UI rows. Row-level Clear Temp controls are shown only when `DownloadItemWidget` can find an existing per-download temp folder, tracked temp path, original temp output, or persisted cleanup candidate on disk. Download rows use an explicitly shrinkable title region and a viewport-constrained scroll container; both the list content and rows may shrink below their natural title size so long titles wrap while Cancel/Retry and folder actions stay inside the visible window when snapped narrow. Horizontal scrolling is disabled for this list.
-  - **Download History**: `DownloadHistoryTab` displays completed items from `download_history.json`; valid HTTP/HTTPS source URLs are escaped and exposed as keyboard-accessible hyperlinks that open through `QDesktopServices`, while malformed or incomplete values remain plain text.
-  - **Video quality warning**: `DownloadManager` carries the completed item's title and source URL with below-480p video warnings. `MainWindow` renders escaped title/message text and enables keyboard-accessible HTTP/HTTPS source links.
-- **Core Logic (`src/core/`):** Manages download queues, file operations, configuration, and external process execution.
-- **Power Management:** `PowerInhibitor` uses `SetThreadExecutionState` on Windows, an IOPM assertion on macOS, and Qt D-Bus logind/freedesktop inhibition on Linux. `DownloadManager` holds the inhibitor from the first active item through worker, embedding, and finalization completion, including `--server`/`--headless` operation.
-- **Exit Cleanup:** `MainWindow::closeEvent` warns if downloads are queued or active, explains that state will be resumed on next launch, then calls `DownloadManager::shutdown()` to cleanly tear down active downloader/post-processing trees and flush terminal queue states to disk. It finally performs a catch-all sweep of its own `QProcess` children using `ProcessUtils::terminateProcessTree()`. **Note:** Headless or `--exit-after` automated shutdowns explicitly replicate this sequence before invoking `QCoreApplication::quit()`, as `quit()` natively bypasses window close events.
-- **Utilities (`src/utils/`):** Provides helper modules for binary discovery, browser detection, extractor-domain loading, and logging.
-- **Extractor Domain Loader:** `ExtractorJsonParser` loads `extractors_yt-dlp.json` and `extractors_gallery-dl.json` from the app directory for clipboard auto-paste checks, smart download-type switching, and the Supported Sites dialog. The legacy single-file `YtDlpJsonParser` path has been removed. CMake copies both extractor lists beside the executable in one post-build step.
-- **Auto-paste Control:** `DownloadOptionsPage` saves `General/auto_paste_mode`, and `MainWindow` reacts to app focus/clipboard changes to route matching URLs to `StartTab` according to the selected mode, using a brief debounce plus duplicate queue checks instead of a long lockout. The same page also stores `DownloadOptions/ffmpeg_cut_encoder` and `DownloadOptions/ffmpeg_cut_custom_args`, which let yt-dlp's accurate SponsorBlock cut pass use hardware or custom FFmpeg output arguments. Built-in cut modes re-encode/normalize audio timestamps and cap cut/filter threads while avoiding unsupported FFmpeg input options in the ModifyChapters/SponsorBlock phase. yt-dlp and standalone FFmpeg post-processes are launched below normal priority on Windows so accurate cuts do not monopolize the desktop. Hardware encoder choices are populated from asynchronous FFmpeg encoder and local GPU probes so irrelevant options stay hidden.
-  - **Temporary File Isolation:** yt-dlp and gallery-dl downloads are isolated under a per-item UUID subfolder resolved by `DownloadTempCleanup`, using the configured temporary directory, `<completed_downloads_directory>/temp_downloads`, or the OS temp fallback consistently. `YtDlpArgsBuilder` also injects the item ID as `%(lzy_id)s` so advanced output templates can opt into collision-proof names. Before launching yt-dlp, the builder strips common tracking parameters such as `utm_*`, `enter_*`, `igshid`, `fbclid`, `si`, `ref`, and `source` from probe/download URLs so share links do not alter downloader behavior. When aria2c is active, the builder forwards a generic referer derived from the request URL origin only when the URL has a non-empty scheme and host. Playlist expansion uses the same argument builder but remains read-only by suppressing both directory creation and archive-forcing arguments. `DownloadFinalizer`, `YtDlpWorker`, and `DownloadQueueManager` clean up empty, completed, skipped, cancelled, or gallery UUID temp folders when it is safe to do so. Terminal finalizer exits also remove the guarded UUID folder for missing output, missing gallery directories, and destination replacement failures; stopped downloads remain intact for resume. After queue restoration, `DownloadQueueManager` runs an asynchronous conservative sweep that removes only orphaned direct-child UUID folders, preserving restored stopped/failed IDs, non-UUID folders, symlinks, and the shared root. Finalizer cleanup runs off the GUI thread with guarded QObject callbacks and logs failed removals; finalization marshals sorting-rule resolution back through the application thread before worker-thread file moves continue. Audio playlist artwork generation now checks the `is_full_playlist_download` queue flag so `folder.jpg` is only produced for explicit full playlist or multi-item batch downloads, not for single-item tracks or partial playlist selections.
-  - **External Binaries:** Relies on user-installed binaries (`yt-dlp`, `ffmpeg`, `ffprobe`, `deno`, `gallery-dl`, `aria2c`) found in system paths, the app-local `bin` folder, user AppData `bin` folders, package-manager locations, or configured manually. **`deno` is used as the JavaScript runtime for yt-dlp's YouTube challenge solver (`--js-runtimes deno:...`).** `InitialBinarySetupDialog` handles a fresh interactive launch: it only offers a system-first/app-managed-first decision when system tools exist, selects both optional tools by default, and delegates each selected installation to the existing progress-capable installer. `ProcessUtils` preserves explicit external overrides while applying the saved app-managed/system-first preference to automatic candidates; on Windows it also scans bounded, name-matched nested payloads below `Microsoft\\WinGet\\Packages` when WinGet has not placed the versioned executable directory on `PATH`. `BinariesPage` owns the preference and update-cadence settings, performs supported app-managed updates without the former startup modal warning, keeps explicit confirmation for user-selected or package-managed tools, routes WinGet package paths through `winget upgrade`, and sends standalone external FFmpeg paths to the manual update flow. Completed local installs are also explicit overrides, so startup system-first rediscovery cannot undo a successful update; Windows FFmpeg/FFprobe pair paths retain their `.exe` suffixes. `MissingBinariesDialog` remains the focused recovery flow for tools that are still unavailable. The Windows resolver also checks common manual FFmpeg installation folders such as `C:\ffmpeg`, `C:\ffmpeg\bin`, and `C:\Program Files\ffmpeg\bin` before falling back to broader discovery. Package-managed installations are detected and update commands are routed through Scoop, WinGet, Chocolatey, Homebrew, pip, or tool-native self-updaters as appropriate. Install/update dialogs run with the app process environment, quote command paths containing spaces, close stdin to avoid helper prompts, can be cancelled by terminating the process tree, guard callbacks after dialog destruction, surface permission-denied failures with specific guidance, and display long command previews in a bounded read-only area that wraps arbitrary-length tokens without horizontal overflow.
-- **App Update Flow:** `AppUpdater` selects a release artifact that matches the running platform (`.exe`, `.AppImage`, or `.dmg`) and, on macOS, the current CPU architecture. Downloaded artifacts are written to a platform-specific temp filename. Before launching the artifact, it emits `installingUpdate`; `MainWindow` synchronously saves resumable queue state and stops downloader/helper process trees so the running executable is not locked during replacement. Windows launches the installer with the silent `/S` flow; the NSIS install section detects silent mode and starts the freshly installed `LzyDownloader.exe` after replacement. Linux marks its AppImage executable and launches it. macOS opens its DMG through Finder because a disk image is not an executable and the user must move the app bundle to Applications.
-  - **Livestream and Replay Safety:** `DownloadManager`, `PlaylistExpansionParser`, runtime format metadata, and `YtDlpWorker` preserve yt-dlp `live_status` so active/upcoming livestreams use wait/finalization behavior while `post_live` and `was_live` replays are treated as archived media. When a playlist probe bypasses an explicit yt-dlp premiere/upcoming diagnostic, `YtDlpLiveStatus.h` marks the fallback item as `is_upcoming`/`is_live` before arguments are built, preventing aria2c from being selected for a live manifest. Livestream mode is selected from extractor metadata or explicit options; URL words such as `/live/` and ambiguous title phrases such as `Live in` or `Starting in` are deliberately ignored because they can occur on ordinary archived-media routes. Livestream wait intervals are clamped to a safe minimum and invalid max/min pairs are repaired before launch, livestream jobs bypass aria2c and skip SponsorBlock, metadata/chapter embedding, thumbnail embedding, and subtitle arguments that can break active captures. Browser-cookie retry uses explicit cookie/browser-database/sign-in diagnostics, preventing ordinary description text such as `locked in a heated race` from terminating a worker.
-- **Local API Server:** `LocalApiServer` is an optional, localhost-only `QTcpServer` on port `8765`. GUI mode starts it only when `General/enable_local_api` is enabled; `--server`, `--headless`, and `--background` start it automatically without changing that GUI preference. It generates or loads `api_token.txt` from the app-local data directory, using `Server/api_token.txt` for server/headless runtime isolation, requires `Authorization: Bearer <token>`, accepts `POST /enqueue` with `url` plus optional `type` (`video`, `audio`, or `gallery`) and optional caller-provided `id` (falling back to a generated UUID), accepts authenticated `POST /cancel` for tracked job IDs, and exposes `GET /status` snapshots sourced from download manager signals. Requests are bounded, empty/malformed request lines are rejected with JSON errors, `Content-Length`/`Expect`/Host/Origin parsing is anchored, only localhost or trusted browser-extension origins are accepted, permitted origins receive CORS headers, and authorized `OPTIONS` preflight requests return `204 No Content`. Cancellation emits a signal into the existing manager path and retains `Cancelled` state until removal. Non-interactive enqueue failures use the caller job ID to emit a terminal webhook diagnostic. Token generation, unauthorized access, valid enqueue parsing, and cancellation are covered by `TestLocalApiServer`. `MainWindowDiscord.cpp` also mirrors queue state to the local Discord bridge with compact sanitized status strings, preserved progress across partial queue refreshes, explicit playlist parent mapping, queue positions for queued jobs, terminal completion/cancellation states retained long enough for bridge clients to observe them, immediate sends for status/progress changes, and bounded webhook requests whose callbacks are tied to the main window context and whose replies clean themselves up through Qt deferred deletion.
-  - Authenticated `POST /cancel` requests accept a tracked `job_id`, emit `cancelRequested`, and route through the existing `DownloadManager::cancelDownload` process-tree and queue-state handling. `LocalApiServer` mirrors the resulting `Cancelled` state for local status consumers.
-  - Non-interactive validation, runtime-extraction, and missing-binary failures emit terminal Discord webhook states with the caller-provided job ID and an `error` diagnostic before the request is discarded. This keeps automation clients from retaining rejected URLs indefinitely.
-- **App Update Lookup:** `AppUpdater` checks the current lowercase GitHub repo slug first and can fall back to legacy repo API URLs so releases remain discoverable across repository renames. Version tags are normalized and compared numerically, release JSON is validated before asset selection, malformed asset entries are skipped, and installer selection prefers `LzyDownloader-Setup-*.exe` assets.
-- **Error Dialog UX:** `DownloadManager` always forwards the active item's metadata with detected yt-dlp errors, and `MainWindow` renders rich-text popups that can include a clickable source URL for retry/open workflows.
-- **Qt SDK Discovery:** `CMakeLists.txt` auto-adds Qt search prefixes from `Qt6_DIR`/`QT_DIR`/`QTDIR` environment variables plus common Windows installs such as `C:\Qt\6.*\msvc2022_64`, which keeps CLion/Ninja configure steps working even when the IDE does not inherit a Qt kit path.
-
-### 2.3 Window/Tray Lifecycle
-- The main window close action (`X`) performs an application exit after temp-file safety checks.
-- The tray icon remains available for manual show/hide and quit commands, but close-to-tray behavior is not used.
-
-### 2.4 External Binary Replacement
-The Windows standalone FFmpeg/FFprobe install option downloads and extracts into temporary storage, stages each executable in the local binary directory, and retries the final move for up to one minute. This accommodates transient sharing locks from active or recently completed FFmpeg processes without deleting the previous executable before the replacement is ready.
-
-### 2.5 Data Flow
-1.  **Input:** User enters a URL in `StartTab`, passes one as a direct CLI argument, or submits it to the optional localhost API.
-2.  **Immediate Queue Feedback:** Download item appears instantly in Active Downloads tab with "Checking for playlist..." status. Item is added to `m_downloadQueue` immediately and tracked in `m_pendingExpansions` map.
-3.  **Validation/Expansion:** `PlaylistExpansionWorker` validates the URL and checks for playlists asynchronously. It uses `YtDlpArgsBuilder` to construct the full yt-dlp command (including `--js-runtimes deno:...`, `--ffmpeg-location`, etc.) so playlist expansion matches the actual download configuration, while setting builder options that prevent temp UUID directory creation and mark the call as metadata-only. Validation probes intentionally skip `--cookies-from-browser` so browser profile locks cannot stall the lightweight read-only check. Generic item index query hints (`img_index`, `slide`, `item`, `index`, `playlist_index`) are removed from the probe URL so yt-dlp can return the full playlist/carousel for parsing. `PlaylistExpansionParser` converts the resulting yt-dlp JSON into queue-ready item maps and, when an original index hint exists, narrows the result to the matching entry by title/index metadata or one-based position. A timeout or transient expansion/JSON failure for a URL without generic playlist markers converts the existing placeholder into a direct single-item download; explicit playlist URLs and missing-tool failures remain terminal. Explicit premiere/upcoming diagnostics are carried into that fallback item as live metadata so the normal download builder keeps the job on yt-dlp's native downloader.
-4.  **Runtime Selection Gate:** If Advanced Settings quality is set to `Select at Runtime` for video/audio downloads, `DownloadManager` asynchronously fetches `yt-dlp` format metadata and `MainWindow` shows `FormatSelectionDialog`. Each selected format becomes its own queued item. When section downloads are enabled, `MainWindow` also presents `DownloadSectionsDialog` (which includes instructions on how to disable the prompt), captures both the raw section expression and a filename-safe section label, and re-enqueues the item with both values. Non-interactive requests bypass these dialogs and fall back to automatic/default downloader choices.
-5.  **Queue Update:** For single videos, status updates from "Checking for playlist..." to "Queued". For playlists, placeholder is removed and individual track items are added. If the user chooses "Download Part...", `PlaylistRangeDialog` filters the expanded entry list before `DownloadManagerPlaylist.cpp` creates queue rows.
-6.  **Execution:** `DownloadManager` spawns a worker (`YtDlpWorker` or `GalleryDlWorker`) for each item via deferred `QMetaObject::invokeMethod` call to avoid GUI thread blocking.
-7.  **Progress:** The worker parses native yt-dlp progress from `stderr` (`[download] XX.X% of YY.YMiB at ZZ.ZMiB/s ETA 0:00`) or aria2 progress (`[#XXXXX ...]`) and emits progress signals (`progressUpdated`, `speedChanged`, etc.). `YtDlpWorker` routes both stdout and stderr through the same buffered line parser before output-line handling. It tracks each `[download] Destination:` target and aria2 `FILE:` target so auxiliary transfers like thumbnails, subtitles, and `.info.json` writes can surface as status updates without falsely pinning the main media bar at 100%, treats extraction/setup stages as indeterminate instead of leaving the UI on a stale queued `0%`, understands fragment-based native downloader lines, prefers requested `format_id` matches from temp filenames such as `.f251.webm.part`, then emitted total-size matches, then yt-dlp's announced format list plus aria2 command-line `itag`/`mime` hints when `requested_downloads` is missing, preserves that inferred order if a later `info.json` still omits `requested_downloads`, before relying on ambiguous container extensions or plain progress-reset ordering, and falls back to the `requested_downloads` metadata order when progress restarts onto the next primary stream without a fresh destination line. When totals are absent from `requested_downloads`, matching `formats` metadata supplies them and a bounded poll of the current owned `.part` file keeps native progress current while yt-dlp output is quiet. **YtDlpWorker includes diagnostic logging for process state changes, stderr/stdout byte counts, and progress parsing.**
-8.  **UI Update:** `ActiveDownloadsTab` receives signals and updates the corresponding progress bar, labels, and displays a thumbnail preview on the left side of the download GUI element. The UI now treats worker/finalizer status text as the source of truth and no longer guesses video-vs-audio phases from progress resets. **Queued rows consume `thumbnail_path` from queue metadata immediately; a remote URL starts a bounded request through the shared thumbnail network manager before the main download worker starts.** Worker-emitted converted thumbnail paths remain supported for later replacement. Remote thumbnails for queued, active, and history rows share one app-owned network manager with bounded requests instead of per-widget managers. Each row uses one detailed progress bar scoped to the current transfer or processing stage. For multi-stream downloads, the backend may also emit aggregate progress fields exclusively for the Discord webhook bridge; they are not rendered as a second desktop bar. For scheduled livestreams in a `[wait]` state, `YtDlpWorker` emits indeterminate progress immediately, fetches pre-wait metadata via a background `yt-dlp` process to populate the title and thumbnail, and displays either "Waiting for livestream to start..." or the next-check countdown. If yt-dlp exits on upcoming-premiere/offline-wait text before a user decision arrives, completion is delayed while the UI shows "Waiting for user response..." so the item does not prematurely fail. Progress bars are color-coded: colorless (queued), light blue (downloading), teal (animating indeterminately during post-processing), green (completed), with value changes animated. Progress details (percentage, downloaded/total size, speed, ETA) are painted centered directly on the progress bar using the custom `ProgressLabelBar` widget.
-9.  **Post-Processing:** Upon success, `DownloadManager` performs post-processing (e.g., embedding track numbers for audio playlists). If yt-dlp produced final media but exited non-zero, `YtDlpWorkerProcess.cpp` records an exit-code warning and `DownloadManagerWorkers.cpp` combines it with post-processor warnings only when no fatal diagnostic was retained. Disk-full/ENOSPC 28 and FFmpeg `-28` output is terminal and cannot continue to metadata embedding or finalization. `YtDlpWorkerDiagnostics.cpp` rejects observed final paths when retained output proves that stream fragments/data blocks, the media container, or available disk space is invalid, preventing metadata embedding from masking a transfer failure as an FFmpeg configuration error. When yt-dlp leaves a tracked thumbnail sidecar, the existing `MetadataEmbedder` rewrite maps that image as an `attached_pic` stream before `DownloadFinalizer` removes temporary candidates. `FileReplacement` preserves an existing destination until the verified replacement move/copy succeeds. Section clips in MP4-family containers now also run through an asynchronous ffprobe+ffmpeg normalization pass that first reads the clipped container duration and then rewrites with `-t <clip_duration>` plus `-fix_sub_duration`/`-c:s mov_text`, regenerating embedded subtitle stream durations against the clipped A/V timeline before the file is moved to the final output directory. Queue state persistence is deferred via `Qt::QueuedConnection`.
-10. **Stopped Download Cleanup:** While a download is running, `DownloadManager` records every observed temporary file path reported by worker progress updates. `DownloadItemWidget` only exposes `Clear Temp` for inactive rows that still have an existing UUID temp folder, tracked temp path, original downloaded temp path, or persisted cleanup candidate. If the user clicks it, `DownloadQueueManager` waits briefly for process handles to release, then uses the tracked path list plus literal stem matching to remove associated `.part`, `.aria2`, `.ytdl`, `.info.json`, fragment, thumbnail, subtitle, and partial media files without relying on fragile wildcard globs. When a tracked path is the item's UUID temp directory, that directory is removed recursively.
-
-## 3. Directory Structure
-
-```
-LzyDownloader/
-├── CMakeLists.txt              # Build System Configuration
-├── main.cpp                    # Application Entry Point
-├── src/
-│   ├── core/                   # Core Business Logic
-│   │   ├── ConfigManager.h/cpp   # Settings persistence (INI)
-│   │   ├── ArchiveManager.h/cpp  # Download history (SQLite)
-│   │   ├── DownloadQueueState.h/cpp # Manages persistence of download queue state
-│   │   ├── DownloadQueueManagerCleanup.cpp # Startup reconciliation for orphaned download folders
-│   │   ├── DownloadQueueManagerRecovery.cpp # Explicit stopped/failed duplicate recovery
-│   │   ├── DownloadTempCleanup.h/cpp # Shared temp-root resolution, ownership guards, and orphan sweep
-│   │   ├── DownloadManager.h/cpp # Queue & Lifecycle Management
-│   │   ├── LocalApiServer.h/cpp  # localhost API bridge for local integrations
-│   │   ├── YtDlpWorker.h/cpp     # yt-dlp process startup wrapper
-│   │   ├── YtDlpWorkerDiagnostics.cpp # fatal/incomplete-media and aria2c missing-output recovery classification
-│   │   ├── YtDlpWorkerProcess.cpp # completion, errors, output buffering, info.json parsing
-│   │   ├── YtDlpWorkerOutput.cpp  # output-line orchestration and wait-state metadata
-│   │   ├── YtDlpWorkerProgress.cpp # yt-dlp/aria2 progress parsing
-│   │   ├── YtDlpWorkerTransfers.cpp # transfer target and stream-stage inference
-│   │   ├── PlaylistExpansionWorker.h/cpp # Async playlist/single-item probe (uses YtDlpArgsBuilder)
-│   │   ├── PlaylistExpansionParser.h/cpp # Maps yt-dlp JSON to queue item metadata
-│   │   ├── PlaylistRangeDialog.h/cpp # Range/checkbox selector for partial playlist queueing
-│   │   ├── YtDlpArgsBuilder.h/cpp # yt-dlp CLI argument construction
-│   │   ├── ProcessUtils.h/cpp    # Process env/cache helpers and resolver facade
-│   │   ├── SmartBinaryResolver.h # Version-aware external binary discovery
-│   │   ├── BaseBinaryUpdater.h/cpp # External binary local version/update checks
-│   │   ├── VersionParser.h       # Version parsing helpers
-│   │   ├── GalleryDlWorker.h/cpp # gallery-dl Process Wrapper
-│   │   ├── download_pipeline/
-│   │   │   ├── Aria2RpcClient.h/cpp # aria2 RPC client / daemon controller
-│   │   │   ├── Aria2DownloadWorker.h/cpp # aria2-backed media pipeline worker
-│   │   │   ├── YtDlpDownloadInfoExtractor.h/cpp # yt-dlp --dump-json async extractor for aria2/runtime selection
-│   │   │   └── FfmpegMuxer.h/cpp # ffmpeg muxing wrapper for multi-part downloads
-│   │   ├── SortingManager.h/cpp  # File Sorting Logic
-│   │   ├── AppUpdater.h/cpp      # Application Update Logic
-│   │   └── ...
-│   ├── ui/                     # User Interface (Qt Widgets)
-│   │   ├── advanced_settings/
-│   │   │   ├── MetadataPage.h/cpp # Metadata, thumbnails, and formatting settings
-│   │   │   ├── BinariesPage.h/cpp # External binary status + install actions
-│   │   ├── MainWindowUiBuilder.h/cpp # Builds UI for MainWindow
-│   │   ├── StartTabUiBuilder.h/cpp # Builds UI for StartTab
-│   │   ├── FormatSelectionDialog.h/cpp # Runtime format picker
-│   │   ├── RuntimeSelectionDialog.h/cpp # Runtime subtitle picker
-│   │   ├── DownloadItemWidget.h/cpp # Individual download item widget (displays thumbnail on left side of progress bar)
-│   │   ├── SupportedSitesDialog.h/cpp # Searchable dialog listing supported domains
-│   │   └── ...
-│   └── utils/                  # Helper Modules
-│       ├── BinaryFinder.h/cpp    # Locates external binaries
-│       ├── ExtractorJsonParser.h/cpp # Extractor-domain cache loader
-│       ├── LogManager.h/cpp    # Structured logging, one file per run with timestamp
-│       └── ...
-└── resources/                  # qrc resources (icons, extractor seed data, etc.)
+```text
+StartTab / LocalApiServer / CLI
+        -> MainWindow -> DownloadManager -> QueueManager -> ArchiveManager
+                               |                 |
+                       PlaylistExpansionWorker  |
+                               |                 |
+                   YtDlpWorker / GalleryWorker  |
+                               |                 |
+                     DownloadFinalizer -> FFmpeg/metadata -> destination
+                               |
+                 ActiveDownloadsTab / webhook / history
 ```
 
-## 4. Key Modules
+All network, filesystem, database, and child-process work is asynchronous or
+off the GUI thread. Workers communicate through signals and queued calls; the
+UI is touched only on the GUI thread.
 
-### 4.1 ConfigManager (`src/core/ConfigManager.h`)
-- **Responsibilities:**
-  - Loads and saves application settings to `settings.ini` using `QSettings`.
-  - Provides default configuration values using an internal `m_defaultSettings` map. `DownloadOptions/prefix_playlist_indices` defaults to `true`, and the Advanced Settings control uses the same fallback so new installations consistently number playlist audio filenames.
-  - Uses the application's Qt-native INI schema. GUI and server/headless launches share the same app-local `settings.ini` so user preferences have one source of truth. Obsolete `Server/settings.ini` files are not used; if the main settings file is missing, one may be copied back once as a migration source.
-  - Emits `settingChanged` signal when a setting is modified.
-  - Automatically prunes legacy and dead keys from `settings.ini` on startup, ensuring the configuration file remains clean and canonical.
-  - Clamps persisted `General/max_threads` back to `4` during startup so resumed sessions do not reopen with an overly aggressive concurrency level.
+### Startup and modes
 
-### 4.2 ArchiveManager (`src/core/ArchiveManager.h`)
-- **Responsibilities:**
-  - Manages the `download_archive.db` SQLite database using `QtSql`.
-  - Provides methods to check for existing downloads (`isInArchive`) and add new ones (`addToArchive`).
-  - **Implements URL normalization logic identical to the Python version.**
-  - Uses one SQLite connection per calling thread and closes/removes only the current thread's named connection during teardown, preventing lingering locks without removing a connection owned by another thread.
+`main.cpp` enforces instances with `QSystemSemaphore` and `QSharedMemory`.
+GUI, `--server`, `--headless`, and `--background` share preferences but use
+separate runtime markers and `Server/` runtime state where applicable. A
+second GUI launch forwards a direct URL through `QLocalSocket`.
 
-### 4.3 DownloadManager (`src/core/DownloadManager.h`)
-- **Responsibilities:**
-  - Manages the download queue and enforces concurrency limits (`max_threads`).
-  - **Provides immediate UI feedback by emitting download items before playlist expansion completes.** Items are added to `m_downloadQueue` immediately and tracked in `m_pendingExpansions` map.
-  - Intercepts runtime video/audio format-selection settings, fetches format metadata asynchronously, and re-enqueues one download per chosen format ID.
-  - Processes playlist choices for all, selected subset, first item, or cancel after the UI resolves the `Ask` prompt.
-  - Handles the file lifecycle (Temp -> Final).
-  - Uses `yt-dlp --print after_move:filepath` as the authoritative final output path source and moves files using Qt-native rename/copy fallback for Unicode-safe, cross-volume behavior.
-  - Coordinates `YtDlpWorker` and `GalleryDlWorker` instances.
-  - Tracks per-download cleanup candidates from worker progress (`current_file`, thumbnail paths, and related temp outputs) so stopped items can later clear all known temporary files.
-  - Delegates queue state saving/loading to `DownloadQueueState`.
-  - Centralizes queue persistence through manager-level reactions instead of saving from every queue mutation, reducing duplicate writes during rapid reorder, pause, cancel, and placeholder transitions.
-  - Handles playlist expansion via `PlaylistExpansionWorker` and `PlaylistExpansionParser`.
-  - In single-download sleep mode, starts the first eligible item immediately and waits between subsequent starts.
-  - Preserves playlist context (`is_playlist`, `playlist_title`, playlist index, and original playlist URL) across single-item playlist handling, full playlist expansion, resume, sorting, and finalization.
-  - Preflights YouTube SponsorBlock segment availability before starting video/livestream jobs so no-segment videos can skip expensive accurate-cut encoder arguments while unavailable preflights still fall back to the safer cut path.
-  - Reinforces audio playlist metadata before sorting and embedding: the builder preserves an explicit track-level artist and otherwise derives the audio `artist` tag only from item-level `artists`, `creator`, `channel`, or `uploader` metadata, never playlist owner fields. When "Force Playlist as Single Album" is enabled, it also keeps album and album artist tags stable even when extractor metadata omits playlist context.
-  - Performs post-processing (renaming, metadata embedding), including carrying completion warnings from workers into the persisted item options and active-row status.
-  - **Defers queue state persistence (`saveQueueState`) and download initiation (`startNextDownload`) via `QMetaObject::invokeMethod` with `Qt::QueuedConnection` to prevent GUI thread blocking.** Queue-finished detection also guards against false positives by waiting for pending playlist expansions and actively paused items to drain before emitting `queueFinished`.
+Shutdown stops downloader/helper process trees, flushes resumable state, and
+releases power inhibition. Headless exit flushes terminal state before
+`QCoreApplication::quit()`.
 
-### 4.3b LocalApiServer (`src/core/LocalApiServer.h`)
-- **Responsibilities:**
-  - Provides an optional localhost-only HTTP API for trusted local integrations.
-  - Generates and persists an API token in `api_token.txt` under the app-local data directory, or under the `Server/` subfolder when launched with `--server`, `--headless`, or `--background`.
-  - Requires Bearer-token authentication for all endpoints.
-  - Emits enqueue requests through `MainWindow`, which applies non-interactive download defaults.
-  - Accepts an optional enqueue `type` value and passes it through to the normal queue path, defaulting to video when omitted.
-  - Accepts an optional caller-provided enqueue `id`; when omitted, the server generates a UUID.
-  - Tracks queue additions, progress, completion, and removals to serve `GET /status`.
+### Queue and media flow
 
-### 4.3c MissingBinariesDialog (`src/ui/MissingBinariesDialog.h`)
-- **Responsibilities:**
-  - Presents a guided checklist whenever required external tools are missing during startup, enqueue, or Start-tab format checks.
-  - Reuses `BinariesPage` install and browse actions so the setup flow stays consistent with Advanced Settings.
-  - Refreshes `ProcessUtils` binary resolution in place and lets the original interactive action continue only after required tools are available.
+`DownloadManager` registers a row immediately, then expands a playlist or
+starts a worker. `DownloadQueueManager` owns ordering, concurrency, duplicate
+identity, retry/resume snapshots, and restored-item recovery. `ArchiveManager`
+owns normalized identity and SQLite history. `DownloadFinalizer` verifies,
+sorts, embeds metadata, and moves/copies output. `FileReplacement` protects an
+existing destination during intentional replacement. Temp cleanup owns root
+resolution and guarded UUID-folder removal.
 
-### 4.4 YtDlpWorker (`src/core/YtDlpWorker.h`)
-- **Responsibilities:**
-  - Executes `yt-dlp` commands using `QProcess`.
-  - Keeps startup and binary-resolution logic in `YtDlpWorker.cpp`, including bounded browser-cookie recovery, transient aria2/native-downloader recovery, and the false-offline livestream retry path that can restart the worker once without `--wait-for-video` / `--live-from-start`.
-  - Splits process completion, shared stdout/stderr buffering, `info.json` cleanup, and buffered metadata reading into `YtDlpWorkerProcess.cpp`; final partial output is flushed through the same UTF-8 line parser, metadata JSON parsing uses one validated helper, empty UUID directory cleanup uses the shared temporary-directory fallback path on finish and process-error paths, and metadata reads can fall back to scanning the per-download UUID temp directory for `*.info.json`.
-  - Splits output-line orchestration and wait-state title/thumbnail fetching into `YtDlpWorkerOutput.cpp`, which routes prefix-specific `[info]`, `[download]`, `FILE:`, and thumbnail converter lines through cheap substring gates before handing remaining output to progress parsers, while keeping bounded diagnostic output without per-line shift overhead. Error classification preserves triggering diagnostics, distinguishes missing FFmpeg/FFprobe and FFmpeg post-processing failures from unavailable-media errors, recognizes only explicit browser-cookie/database/sign-in failures for retry decisions (not standalone prose such as `locked`), and records optional browser-impersonation warnings as completion guidance. Wait-state metadata fetches guard process lifetime with `QPointer`, validate thumbnail fields before download, and remove empty thumbnail files after failed writes.
-  - `YtDlpWorkerProcess.cpp` treats non-zero exits with final media as recoverable completed-with-warning results only when no critical extractor or incomplete-media diagnostics were captured; critical failures force a terminal failure even if a stale final path exists. `YtDlpWorkerDiagnostics.cpp` centralizes the reusable line classification, including missing fragments, empty data blocks, invalid headers, invalid-input FFmpeg errors, and the narrow missing-expected-`.part` condition for aria2c fallback.
-  - Splits native yt-dlp and aria2 progress parsing into `YtDlpWorkerProgress.cpp`, including shared progress metadata population, fragment-aware percentage overrides, aggregate primary-stream progress calculation, regex-free size parsing, and prefix/substring gates for high-frequency output lines.
-  - Splits transfer target classification and stream-stage inference into `YtDlpWorkerTransfers.cpp`, including suffix-based auxiliary transfer detection for metadata, thumbnails, and subtitles.
-  - Bounds retained diagnostic lines so warning/error tails remain useful without growing without limit during long or noisy runs.
-  - When aria2c reports transient exit codes 2, 5, 6, or 29, or yt-dlp reports an `Unable to download video` file-not-found diagnostic for aria2c's expected media `.part` output, removes the external-downloader arguments, cleans only stale `.info.json` sidecars, preserves media partials, and restarts once through yt-dlp's native downloader after emitting an indeterminate recovery status. Aria2 arguments include bounded retry/backoff and a conservative per-server connection limit.
+## Component ownership
 
-### 4.4b DownloadQueueState (`src/core/DownloadQueueState.h`)
-- **Responsibilities:**
-  - Manages the persistence of the download queue, active, and paused items.
-  - Serializes state including `tempFilePath`, `originalDownloadedFilePath`, and cleanup-related per-item options so features like cross-session resuming and manual temp file cleanup continue to work after an app restart.
-  - Saves the current state to a JSON backup file (`downloads_backup.json`) in the application's configuration directory, using the `Server/` subfolder for server/headless runtime state.
-  - Loads the state from the backup file on startup, validating that restored entries are JSON objects and skipping malformed elements instead of passing them into resume handling.
-  - Uses one shared serialization path for active, paused, stopped, and queued items so restart state fields stay consistent.
-  - Emits `resumeDownloadsRequested` to `DownloadManager` to prompt the user about resuming previous downloads.
-  - Resolves `yt-dlp` through configured overrides, system discovery, or bundled fallback paths.
-  - Forces UTF-8 process I/O environment (`PYTHONUTF8`, `PYTHONIOENCODING`) to preserve Unicode output text.
-  - Emits explicit failure results when `QProcess` cannot start, preventing stuck in-progress UI states.
-  - **Parses native yt-dlp progress from `stderr`** (`[download] XX.X% of YY.YMiB at ZZ.ZMiB/s ETA 0:00`) and aria2c progress (`[#XXXXX ...]`) for progress percentage, speed, ETA, and metadata. **Progress lines are matched directly against the `[download]` prefix (no `download:` URL scheme stripping), fragment/native variations are accepted (including intercepting `(frag X/Y)` tags to calculate overall percentage for HLS streams), hot paths avoid avoidable string copies before regex fallback, and `[download] Destination:` tracking prevents thumbnail/subtitle/info-json transfers from replacing the main media progress numbers.**
-  - Captures `stderr` for error reporting and progress. Captures `stdout` for the final file path (`--print after_move:filepath`).
-  - **Caches full metadata from `info.json`** in `m_fullMetadata` when `readInfoJsonWithRetry()` successfully parses the file, ensuring all fields (uploader, channel, tags, etc.) are available for sorting rule evaluation when the download completes.
-  - Includes diagnostic logging for process state changes, stderr/stdout data received, and progress parsing.
-  - Reads `info.json` via a retry mechanism (up to 5 attempts with 500ms delays) to extract video title and metadata through the same validated JSON parser used at process finish, falling back to a UUID-directory scan when yt-dlp writes the file under an unexpected final name.
-  - Uses `DownloadTempCleanup` for the configured temporary directory, `<completed_downloads_directory>/temp_downloads`, or the OS temp fallback when removing empty UUID folders or moving wait thumbnails into managed cleanup scope; wait-state thumbnails are only removed when they match the worker-owned filename prefix.
+| Component | Owns |
+|---|---|
+| `ConfigManager.*` | Validated Qt `QSettings`, defaults, reset, change signals |
+| `ArchiveManager.*` | Schema-compatible SQLite history and media identity |
+| `DownloadQueueManager.*` | Ordering, concurrency, duplicate checks, retry/resume |
+| `DownloadQueueManagerRecovery.cpp` | Restored stopped/failed replacement recovery |
+| `DownloadQueueState.*` | Atomic `downloads_backup.json` save/load/restore |
+| `DownloadQueueManagerCleanup.cpp`, `DownloadTempCleanup.*` | Async orphan reconciliation and guarded temp cleanup |
+| `FileReplacement.*` | Verified destination replacement and rollback |
+| `DownloadManager.*`, `DownloadManagerWorkers.cpp` | Scheduling, worker lifecycle, terminal classification, power, video quality warnings |
+| `DownloadManagerPlaylist.cpp`, `PlaylistExpansionWorker.*`, `PlaylistExpansionParser.*` | Read-only probing, item selection, placeholders, thumbnails, playlist metadata, fallback |
+| `YtDlpArgsBuilder.*` | Settings/options to yt-dlp/aria2c arguments and replay-safe live classification |
+| `YtDlpWorker.*` | Async yt-dlp process, output/progress parsing, cookies, livestream wait, aria2c recovery |
+| `YtDlpWorkerDiagnostics.cpp` | Fatal/incomplete-media, disk-full, and bounded recovery classification |
+| `YtDlpWorkerTransfers.cpp` | Transfer-stage inference, including combined-source audio |
+| `YtDlpLiveStatus.h` | Explicit premiere/upcoming diagnostic mapping |
+| `GalleryDlWorker.*` | gallery-dl process and gallery output handling |
+| `DownloadFinalizer.*` | Background verification, sorting, replacement, terminal cleanup |
+| `MetadataEmbedder.*` | Metadata/thumbnail rewrite and tracked `attached_pic` remux |
+| `download_pipeline/FfmpegMuxer.*` | Async FFmpeg muxing and progress |
+| `ProcessUtils.*`, `SmartBinaryResolver.*` | Process trees, environments, binary discovery, and ownership tracking |
 
-### 4.4c DownloadTempCleanup (`src/core/DownloadTempCleanup.h`)
-- Resolves the one temporary-root fallback chain used by argument builders, workers, and cleanup.
-- Guards recursive deletion by exact per-download ID directory ownership and refuses symlink targets.
-- Performs the startup orphan sweep off the GUI thread after restored queue IDs are known.
+### UI and integrations
 
-### 4.5 BaseBinaryUpdater (`src/core/BaseBinaryUpdater.h`)
-- **Responsibilities:**
-  - Provides shared local-version probing and remote update-availability checks for External Binaries rows.
-  - Resolves the active executable through `ProcessUtils`, runs bounded `QProcess` version probes, and supports caller-provided output parsers.
-  - Forces a fresh local version probe before remote update comparisons so update status cannot be based on a stale cached version from an older executable path.
-  - Uses the app process environment and a longer watchdog for version checks so wrapper scripts and first-run initialization have time to finish before the probe is considered failed.
-  - Handles WindowsApps alias probes through `cmd.exe` and truncates overly long raw version output before caching/display.
-  - Compares semantic and date-like versions, including FFmpeg/FFprobe builds whose Windows file resources or `-version` banners use different version families.
-  - Emits update status for GitHub release endpoints or direct latest-version endpoints with a bounded network watchdog and exact installed/latest diagnostics; actual update execution is delegated to `BinariesPage` package-manager or tool-native update commands, with a persistent GUI prompt for manually managed tools.
-  - Persists small per-binary version cache files in the configuration directory so the External Binaries page can display recent state consistently.
+| Component | Owns |
+|---|---|
+| `MainWindow.*`, `MainWindowUiBuilder.*` | Shell, tabs, footer, global actions, update handoff, webhook wiring |
+| `StartTab.*`, `start_tab/*` | URL submission, clipboard, playlist/runtime selection |
+| `ActiveDownloadsTab.*`, `DownloadItemWidget.*` | Download rows, thumbnails, compact layout, progress, actions |
+| `advanced_settings/*`, `InitialBinarySetupDialog.*` | Settings pages, templates, binary setup/provisioning |
+| `LocalApiServer.*` | Authenticated localhost enqueue/status/cancel and tracked-job signals |
+| `AppUpdater.*`, `LzyDownloader.nsi` | Release lookup/handoff and Windows silent-install relaunch |
+| `PowerInhibitor.*` | Platform idle-sleep inhibition |
+| `LogManager.*` | Per-run logs and five-file startup retention |
 
-### 4.5a SmartBinaryResolver (`src/core/SmartBinaryResolver.h`)
-- **Responsibilities:**
-  - Resolves external tool paths for `ProcessUtils` and the External Binaries page.
-  - Reads manual overrides directly from the app-local `settings.ini`, purges stale native-settings ghosts when the INI no longer contains an override, and returns invalid custom paths explicitly. Startup stores `<binary>_auto_detected` flags so automatic selections can be refreshed while Browse-selected and explicitly installed paths are not replaced by rediscovery.
-  - Searches the app-local `bin` folder, user AppData `bin` folders, system `PATH`, and common package-manager/user install folders.
-  - Probes multiple candidates with short version checks and selects the newest executable, including Windows file-version reads and date/snapshot-aware FFmpeg comparison.
+### Tests and release support
 
-### 4.5b Playlist Expansion (`src/core/PlaylistExpansionWorker.h`, `src/core/PlaylistExpansionParser.h`)
-- `DownloadManagerPlaylist.cpp` falls back from transient probe failures to the normal worker for non-playlist-shaped media URLs, preventing a probe timeout from incorrectly marking an available video stopped.
-- **Responsibilities:**
-  - `PlaylistExpansionWorker` runs an asynchronous `yt-dlp --dump-single-json --no-download` metadata probe to validate single media URLs and expand playlist URLs. It deliberately avoids `--flat-playlist`, because flat entries may omit per-entry thumbnail metadata needed by queued UI rows.
-  - Uses `YtDlpArgsBuilder` to construct the full yt-dlp command, ensuring playlist expansion includes the same configuration as actual downloads: `--js-runtimes deno:...`, `--ffmpeg-location`, `--windows-filenames`, etc. Validation probes intentionally omit browser cookies so read-only expansion stays non-interactive.
-  - Passes metadata-only builder options so expansion does not create the per-download UUID temp directory reserved for real media transfers and does not limit probing with `--playlist-items`.
-  - Cleans generic one-based item index query hints from the probe URL, then lets `PlaylistExpansionParser` select the requested expanded item by title/index metadata or fallback list offset.
-  - Removes download-specific args (format selection, output template, embedding options) before adding metadata-only probe arguments.
-  - Owns its timeout callback from the worker object so expired probes cannot call back through a deleted `QProcess`.
-  - `PlaylistExpansionParser` maps yt-dlp JSON into queue item metadata, including resolved URLs, playlist indices, titles, live flags, thumbnails, and playlist title carry-through; YouTube entries only become watch URLs when yt-dlp provides a real entry ID.
-  - Emits `playlistDetected` when a multi-item playlist is found and the user's playlist logic is set to "Ask".
+`tests/` links `LzyAppLib`, registers tests with `lzy_add_test(...)`, and runs
+offscreen. `tests/run_headless_tests.py` owns build-before-CTest execution,
+timestamped output, summaries, and the failed-test cache. `CMakeLists.txt`
+owns the build graph; `CMakePresets.json` owns supported local paths;
+`cmake/deploy_openssl_runtime.cmake` owns guarded Windows deployment;
+`build_release.py` owns native packaging/version checks; and
+`.github/workflows/release.yml` owns CI prerequisites, matrix, and publication.
 
-`DownloadManagerWorkers.cpp` classifies the terminal low-resolution warning from
-the queued download type before inspecting `height`; source video metadata on
-audio-only jobs is therefore not presented as a video-quality problem.
+## Concurrency and deployment
 
-### 4.5c PlaylistRangeDialog (`src/core/PlaylistRangeDialog.h`)
-- **Responsibilities:**
-  - Presents expanded playlist entries in a checkbox list for the `Download Part...` playlist prompt path.
-  - Accepts comma-separated one-based ranges, including open-ended ranges, and synchronizes that text with individual item check states.
-  - Returns only the selected `QVariantMap` entries to `MainWindowConnections.cpp`, which forwards them to `DownloadManagerPlaylist.cpp` for normal per-entry queueing.
+Use worker threads, asynchronous `QProcess`/network APIs, or queued callbacks
+for long operations. Mutexes use RAII and are not held while emitting signals.
+External processes have bounded watchdogs, UTF-8 line buffering, bounded
+diagnostics, and process-tree cleanup. Qt SQL connections stay within their
+creating thread.
 
-### 4.6 SortingManager (`src/core/SortingManager.h`)
-- **Responsibilities:**
-  - Evaluates user-defined sorting rules against video metadata.
-  - Replaces dynamic tokens (e.g., `{uploader}`) in destination paths by walking token matches one by one, preserving literal text and handling duplicate/date-helper tokens without broad case-insensitive string rewrites.
-  - Accepts both stored internal rule keys (`video_playlist`, `audio_playlist`, `any`, etc.) and older human-readable labels, while resolving aliases such as playlist title vs. album and uploader vs. channel.
-  - Treats empty strings, `null`, and `NA` metadata values as missing across direct keys, aliases, playlist-title fallbacks, and token expansion.
-  - Sanitizes unsafe path characters by replacing them with hyphens, then collapses repeated spaces, preserving readable separators instead of merging metadata words together.
-  - Uses Qt-native character and string comparisons in helper paths so the sorting rules remain compatible with Qt 6.2's narrower `QStringView` APIs.
-
-### 4.7 LogManager (`src/utils/LogManager.h`)
-- **Responsibilities:**
-  - Installs a custom Qt message handler to capture debug output.
-  - Writes logs to `%LOCALAPPDATA%\LzyDownloader\LzyDownloader_YYYY-MM-dd_HH-mm-ss.log` (or equivalent platform-specific config directory). Server/headless logs are written under the `Server/` subfolder while preferences remain in the shared main `settings.ini`.
-  - **One log file per run:** Each application startup creates a new log file with a timestamp in the filename.
-  - Implements **automatic cleanup on startup:** keeps only the 5 most recent log files, deleting older ones to prevent unbounded disk growth.
-  - Designed for **NSIS release deployment**: logs are stored in user data directories, not the installation directory, ensuring they persist across application updates.
-
-### 4.8 YtDlpArgsBuilder (`src/core/YtDlpArgsBuilder.h`)
-- **Responsibilities:**
-  - Constructs the full `yt-dlp` command-line arguments from `ConfigManager` settings and per-download options.
-  - Handles format selection (codec mapping, quality constraints, direct runtime `format` overrides, and separate runtime video/audio format merges), output templates, subtitle configuration, metadata/thumbnail embedding, JS runtime (`deno`), cookie extraction, and rate limiting.
-  - Converts generic positive item index hints from URL query parameters or queue metadata into `--playlist-items` for real downloads while leaving metadata-only expansion unrestricted.
-  - Detects livestream and live-replay options from queue metadata, preserving yt-dlp `live_status` so active/upcoming streams use wait/download container settings with safe wait interval bounds while `post_live`/`was_live` replays avoid livestream recorder args. Livestream mode is not inferred from generic URL path words such as `/live/`; active livestreams and completed live replays are selected from extractor metadata or explicit options. Active captures suppress aria2c, SponsorBlock, chapter/metadata embedding, thumbnail embedding, and subtitle arguments.
-  - Normalizes legacy codec labels from saved settings (for example `H.264` -> `H.264 (AVC)`) and translates codec preferences into yt-dlp regex selectors that match common aliases such as `avc1`, `hev1`, `hvc1`, and `mp4a`.
-  - Respects the Advanced Settings `restrict_filenames` toggle instead of hardcoding `--no-restrict-filenames`.
-  - Injects `--parse-metadata "%(artist,artists,creator,channel,uploader)s:%(artist)s"` for audio playlist items so yt-dlp's embedded artist tag follows track metadata instead of playlist ownership. The expression deliberately excludes `playlist_uploader` and `playlist_owner`. It also injects album/album_artist mappings when the "Force Playlist as Single Album" setting is enabled.
-  - Preserves the requested output container for `--download-sections` jobs instead of forcing an intermediate MKV remux; section video jobs only add `--force-keyframes-at-cuts` for cleaner clip boundaries.
-  - Adds optional `ModifyChapters+ffmpeg_o` postprocessor arguments when a hardware/custom FFmpeg cut encoder is configured and SponsorBlock segments are confirmed or could not be preflighted, speeding up yt-dlp's accurate re-encode path without paying that cost for videos with no removable segments. It does not add `-ignore_editlist` to the ModifyChapters/SponsorBlock input phase because some FFmpeg builds reject that option there.
-  - Injects the internal download ID as `%(lzy_id)s` and scopes yt-dlp output to a per-download temporary subfolder so concurrent jobs with identical site filenames do not corrupt each other.
-  - When aria2c is the external downloader, derives a generic referer header from the request URL origin and forwards it through aria2c arguments so referer-gated transfers can proceed without hardcoded per-site rules.
-  - Rewrites common uploader and upload-date template tokens with yt-dlp fallback metadata expressions so playlist/carousel entries can use playlist-level owner/date metadata when item-level fields are absent.
-  - Supports a `skip_dir_creation` per-download option for callers such as `PlaylistExpansionWorker` that need command parity without touching the filesystem.
-  - Injects a filename-safe section suffix into the output template when `download_sections_label` is present so clipped files identify the chosen time range or chapter in their saved filename.
-
-`YtDlpWorkerTransfers.cpp` treats a combined `video/*` aria2c transport as an
-audio-stage transfer when audio extraction is requested, because the final
-product is audio and the transport container is not the user's selected media
-type.
-
-### 4.9 OutputTemplatesPage (`src/ui/advanced_settings/OutputTemplatesPage.h`)
-- **Responsibilities:**
-  - Edits shared, video-specific, audio-specific, and gallery filename templates.
-  - Validates yt-dlp video/audio templates asynchronously by starting `yt-dlp -o <template> dummy:` with a managed environment, a 5-second watchdog, guarded callbacks, and process-tree cleanup on timeout so the settings UI stays responsive.
-  - Keeps blank type-specific templates inheriting the current shared default and reloads all template fields when any related config key changes.
-  - Resets gallery templates to the factory gallery default while video/audio reset to the current shared template.
-
-### 4.10 Test Automation
-- **CTest registration:** `CMakeLists.txt` registers single-source Qt tests with `lzy_add_test(...)`. Test targets cover yt-dlp and gallery-dl argument construction, playlist expansion parsing and transient-probe fallback, yt-dlp progress and recovery diagnostics (including negative aria2c recovery boundaries), queue-backup status/field persistence and malformed-entry filtering, temporary-root fallback and ownership cleanup, archive URL normalization, configuration defaults/reset cleanup, Local API auth/enqueue behavior, binary-resolution cache invalidation, sorting sanitization, playlist-range selection, UI progress widgets, URL validation, download-manager behavior, and the local end-to-end fixture. Each test is configured with `QT_QPA_PLATFORM=offscreen`; targets link the production `LzyAppLib` library and the Qt Test/Core/Network/Sql/Widgets/Concurrent modules.
-- **Automation re-download confirmation:** `POST /enqueue` accepts a boolean `override_archive` at the top level or under `options`; `LocalApiServer` forwards it through `MainWindow` into the non-interactive queue path so Discord clients do not depend on a GUI duplicate dialog.
-- **Headless helper:** `tests/run_headless_tests.py` builds the selected CMake configuration before starting tests and exits immediately on build failure. It timestamps streamed command output, runs `ctest` with `QT_QPA_PLATFORM=offscreen` and parallel jobs, prints a final status summary including CTest exit-code failures, and maintains `build/.lzy-test-suspects.json` for `--suspects` reruns. Windows target deployment explicitly includes Qt's `qoffscreen.dll` because windeployqt normally selects only the desktop Windows platform.
-- **Workflow templates:** `tests/cmake-tests.yml` and `tests/headless_tests.yml` document Windows GitHub Actions flows for installing Qt, configuring CMake, building, and running the test suite. The top-level `tests/` directory contains the shared fixtures, Qt test sources, test-only helpers, and end-to-end server fixture. `.github/workflows/release.yml` is the active release workflow; pushing a `v*` tag runs the unified release builder on Windows, Linux, Intel macOS, and Apple Silicon macOS and uploads installer/AppImage/DMG assets to the matching GitHub Release. Linux release jobs install vcpkg's archive utilities (`curl`, `tar`, `unzip`, and `zip`), host build tools (`autoconf`, `automake`, `autoconf-archive`, `bison`, `flex`, and `libtool`), and required XCB development packages (`^libxcb.*-dev`, `libx11-xcb-dev`, `libxkbcommon-dev`, `libxkbcommon-x11-dev`, `libxi-dev`, `libxrender-dev`, `libegl1-mesa-dev`, `libgl1-mesa-dev`, and `libglu1-mesa-dev`) before manifest resolution. Release validation installs yt-dlp from its prerelease channel with `python -m pip install --pre --upgrade yt-dlp`; this is CI-only and does not bundle yt-dlp. Windows release CI uses the Qt 6.6 `win64_msvc2019_64` archive, Linux release builds use vcpkg's Qt directly and linuxdeploy is pointed at its qmake, and macOS uses Qt's universal `clang_64` archive on both native runners plus `macdeployqt` to produce distinct CPU-labelled DMGs.
-
-## 5. Concurrency Model
-- **GUI Thread:** The main thread handles all UI updates and user interactions. **No blocking operations are allowed on this thread.**
-- **Worker Threads:** `QProcess` runs external binaries asynchronously. Qt signals and slots are used for communication.
-
-## 6. Deployment
-- **Build System:** CMake.
-- **Qt Configure Resilience:** The build should succeed in IDE-driven configure runs by auto-detecting common Windows Qt SDK locations before `find_package(Qt6 ...)` executes.
-- **Installer:** NSIS is used to create a versioned Windows installer (`LzyDownloader-Setup-X.X.X.exe`). Its finish page includes a checked-by-default option to launch the newly installed `LzyDownloader.exe`.
-- **Release Helper Script:** `build_release.py` refreshes extractor JSONs using the scripts under `tools/`, performs a clean `build-release` configure/build, and packages the current platform. Its native-only `--target auto|windows|linux|macos` option selects the host packaging path explicitly and rejects cross-OS requests. Before cleaning or building, it compares the CMake version with fetched semantic `v*` tags and rejects reuse of an existing release number; tag-triggered CI also requires an exact tag/version match. Manual workflow dispatches skip the monotonicity check, and intentional rebuilds require `LZY_ALLOW_VERSION_REBUILD=1`. Windows runs `makensis` with the CMake project version and release build directory; Linux downloads `linuxdeploy` helpers into `build-release/tooling/`, selects qmake from `build-release/vcpkg_installed` so the plugin matches the executable's Qt, stages AppImage metadata under `build-release/AppDir`, generates a desktop file whose `Icon` entry matches the resized release PNG, and emits a versioned AppImage under `build-release/`. macOS locates `macdeployqt` from the hosted Qt SDK, deploys the `.app` bundle, generates an ICNS icon from the release PNG, and creates a versioned architecture-labelled DMG. Child commands inherit the invoking terminal; the script does not create a separate Windows console.
-- **GitHub Tag Releases:** The `Build and Release` GitHub Actions workflow fetches full tag history, triggers on `v*` tag pushes, installs NSIS on `windows-latest`, runs `build_release.py` on Windows, Linux, Intel macOS, and Apple Silicon macOS, and attaches the Windows installer, Linux AppImage, and both macOS DMGs to the tag's GitHub Release. A missing tag-matched notes file is replaced in the runner by a minimal fallback body. Manual `workflow_dispatch` runs execute the build matrix without publishing assets.
-- **Executable Name:** The final executable will be named `LzyDownloader.exe` to ensure a seamless update from the Python version.
-- **Bundling:** All dependencies (Qt runtime DLLs, binaries) will be included in the installation directory.
-- **Release Output Hygiene:** After `windeployqt`, `CMakeLists.txt` re-copies the resolved Qt runtime DLLs from the configured Qt installation. Keep the deployed compression/runtime DLLs that ship with Qt, including `zlib1.dll`, because `Qt6Network.dll` depends on them on Windows.
-- **OpenSSL Runtime Deployment:** Windows builds must copy `libcrypto-3-x64.dll` and `libssl-3-x64.dll` next to `LzyDownloader.exe` so Qt's TLS backend can initialize HTTPS for update checks and other network requests.
-- **Qt Image Format Plugins:** Windows deployments must include the required `plugins/imageformats` codecs for active-download artwork and converted thumbnails, including `qjpeg`, `qpng`, `qwebp`, and `qico` (plus debug variants when available).
-- **User Data Preservation:** The NSIS installer MUST NOT overwrite user data files (`settings.ini`, `download_archive.db`, `downloads_backup.json`, or timestamped log files). These are stored in platform-specific user data directories (for example `%LOCALAPPDATA%\LzyDownloader\` on Windows), separate from the installation directory, ensuring they persist across application updates.
+Windows keeps required Qt plugins, SQLite, and OpenSSL beside the executable.
+Linux packaging selects qmake from the vcpkg Qt build and handles static versus
+dynamic Qt. macOS packaging creates architecture-labelled bundles/DMGs and
+uses Finder for DMG handoff.

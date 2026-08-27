@@ -56,6 +56,32 @@ def run_command(command, cwd, env=None):
     return process.wait(), "\n".join(output)
 
 
+def cmake_build_command(build_dir: Path, config: str):
+    """Build with a vcpkg setting that matches the existing CMake configure."""
+    command = ["cmake", "--build", ".", "--config", config]
+    cache_path = build_dir / "CMakeCache.txt"
+    try:
+        cache = cache_path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return command
+
+    generator = re.search(r"^CMAKE_GENERATOR:INTERNAL=(.*)$", cache, re.MULTILINE)
+    if generator and generator.group(1).startswith("Visual Studio"):
+        uses_vcpkg_toolchain = bool(re.search(
+            r"^CMAKE_TOOLCHAIN_FILE:[^=]*=.*vcpkg[\\/]scripts[\\/]buildsystems[\\/]vcpkg\\.cmake$",
+            cache,
+            re.MULTILINE | re.IGNORECASE,
+        ))
+        manifest_mode = bool(re.search(
+            r"^VCPKG_MANIFEST_MODE:[^=]*=ON$", cache, re.MULTILINE | re.IGNORECASE
+        ))
+        if uses_vcpkg_toolchain or manifest_mode:
+            command.extend(["--", "/p:VcpkgEnableManifest=true"])
+        else:
+            command.extend(["--", "/p:VcpkgEnabled=false"])
+    return command
+
+
 def load_suspects(path: Path):
     if not path.exists():
         return []
@@ -140,7 +166,7 @@ def main() -> int:
 
     log(f"Build directory: {build_dir}")
     log(f"Configuration: {args.config}")
-    build_code, _ = run_command(["cmake", "--build", ".", "--config", args.config], build_dir)
+    build_code, _ = run_command(cmake_build_command(build_dir, args.config), build_dir)
     if build_code != 0:
         log(f"BUILD FAILED with exit code {build_code}; no tests were started.")
         print_summary({}, [], cache_path, build_failed=True)

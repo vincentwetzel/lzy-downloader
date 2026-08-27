@@ -159,7 +159,7 @@ through libuv-based tooling.
 
 ### Testing
 
-Qt test sources and fixtures live in the top-level `tests/` directory. Test executables are registered through CMake and can be run with CTest. The current suite includes argument builders, playlist parsing and fallback, download-manager behavior, worker progress/recovery, persistence, API, sorting, UI, URL, and end-to-end coverage. For headless Windows/CI runs, the helper builds before testing (and stops before test execution on a build failure), timestamps streamed output, runs CTest in parallel, prints a final summary, and stores failed tests in the build tree:
+Qt test sources and fixtures live in the top-level `tests/` directory. Test executables are registered through CMake and can be run with CTest. The current suite includes argument builders, playlist parsing and fallback, download-manager behavior, worker progress/recovery, persistence, API, sorting, UI, URL, and end-to-end coverage. For headless Windows/CI runs, the helper builds before testing (and stops before test execution on a build failure), timestamps streamed output, runs CTest in parallel, prints a final summary, and stores failed tests in the build tree. On Visual Studio builds it forwards the vcpkg setting from the CMake cache: manifest configurations enable manifest mode, while direct-Qt configurations disable the vcpkg MSBuild integration so it does not emit the misleading manifest-disabled diagnostic:
 
 ```bash
 python tests/run_headless_tests.py --build-dir build --config Release
@@ -167,7 +167,7 @@ python tests/run_headless_tests.py --build-dir build --config Release
 
 Use `python tests/run_headless_tests.py --build-dir build --config Release --suspects` to rerun only tests recorded as failing by the previous run. The default cache is `build/.lzy-test-suspects.json`.
 
-Current coverage includes argument construction (including aria2c retry policy), progress parsing, browser-cookie recovery, queue-backup status/field persistence and malformed-entry filtering, protected temporary-directory root fallback and ownership cleanup, negative aria2c recovery boundaries, archive normalization, configuration defaults/reset cleanup, Local API auth/enqueue behavior, process binary-resolution caching, URL validation, sorting sanitization, playlist range selection, UI progress widgets, and a local end-to-end download fixture.
+Current coverage includes argument construction (including aria2c retry policy), progress parsing, browser-cookie recovery, queue-backup status/field persistence and malformed-entry filtering, protected temporary-directory root fallback and ownership cleanup, negative aria2c recovery boundaries, archive normalization, configuration defaults/reset cleanup, Local API auth/enqueue behavior, process binary-resolution caching and explicit/WinGet discovery, URL validation, sorting sanitization, playlist range selection, the single-bar download widget and compact External Binaries scroll layout, and a local end-to-end download fixture.
 
 ### Release Checklist
 
@@ -280,26 +280,21 @@ tools without bundling them into the repository.
 
 ### Current download behavior
 
-Playlist expansion is an asynchronous optimization. If a normal media URL has no generic playlist markers and its probe times out or returns a transient expansion/JSON error, the queued placeholder is handed to the regular yt-dlp worker. Explicit playlist-shaped URLs and missing yt-dlp errors remain terminal failures.
+Playlist probing is asynchronous: ordinary URLs recover from transient probe
+failures, while explicit playlist-shaped URLs and missing tools fail visibly.
+Livestream state comes from extractor metadata or explicit wait options, not
+URL/title words. Incomplete media is rejected before metadata embedding, and
+accurate cuts re-encode audio with bounded post-processing.
 
-SponsorBlock and accurate section cuts normalize the rebuilt audio timeline by re-encoding audio; they do not copy packets from the pre-cut timeline. Cut and post-processing processes are resource-bounded and run at below-normal priority on Windows where supported.
+See [docs/FILE_MANIFEST.md](docs/FILE_MANIFEST.md) for paths,
+[docs/API_SURFACE.md](docs/API_SURFACE.md) for interfaces,
+[docs/SPEC.md](docs/SPEC.md) for requirements, and
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for data flow.
 
-Livestream mode is selected from yt-dlp metadata or explicit wait options. URL words such as `/live/`, and ordinary title phrases such as `Live in` or `Starting in`, are not treated as livestream evidence.
+Contributors should start with [`AGENTS.md`](AGENTS.md), which routes each task
+to the smallest relevant reference instead of requiring all technical docs.
 
-If playlist probing encounters an explicit premiere/upcoming diagnostic, that
-metadata is preserved on the fallback item before downloader arguments are
-constructed. Ordinary media URLs may recover from transient probe failures,
-while explicit playlist-shaped URLs and missing tools remain terminal errors.
-
-When yt-dlp reports missing fragments, empty data blocks, invalid media input,
-or related FFmpeg input errors, the observed final path is rejected and the
-download is reported as incomplete before metadata embedding begins.
-
-See [docs/FILE_MANIFEST.md](docs/FILE_MANIFEST.md) for the path-to-code index, [docs/API_SURFACE.md](docs/API_SURFACE.md) for public interfaces, [docs/SPEC.md](docs/SPEC.md) for behavior requirements, and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for data flow.
-
-The application is built using **C++20** and the **Qt 6** framework. The core logic, UI components, and utility functions are consolidated into a static library, `LzyAppLib`.
-
-For a quick map of where things live, start with [`docs/FILE_MANIFEST.md`](docs/FILE_MANIFEST.md). Use [`docs/API_SURFACE.md`](docs/API_SURFACE.md) for integration contracts, [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for system behavior, and [`docs/SPEC.md`](docs/SPEC.md) for functional requirements.
+The application uses **C++20**, **Qt 6**, and the `LzyAppLib` static library.
 
 ```
 LzyDownloader/
