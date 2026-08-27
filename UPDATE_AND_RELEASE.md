@@ -93,7 +93,15 @@ not automatically use an image merely because it exists in the repository.
 
 ## Build Process
 
-Before release, review `CHANGELOG.md` and the maintained docs against the
+This project uses GitHub Actions as the normal release build environment. A
+release-preparation task updates metadata, refreshes extractor lists, writes
+the changelog and matching release notes, and prepares the commit/tag commands.
+Do not run `build_release.py` locally as part of the normal release workflow;
+the pushed `vX.Y.Z` tag starts the matrix build on GitHub Actions. Local builds
+and headless tests are optional diagnostics only and should be run only when
+explicitly requested.
+
+Before preparing a release, review `CHANGELOG.md` and the maintained docs against the
 implementation. Use `docs/SPEC.md` as the smoke-test contract, especially for
 playlist fallback, cookie/aria2c recovery, media diagnostics, normalized
 duplicate identity, replacement safety, audio-aware progress, thumbnail
@@ -129,14 +137,14 @@ check. To intentionally rebuild an existing release, set
 
 **Release rule:** Do not manually rename the installer `.exe` to fix a version mismatch. If the setup filename version is wrong, fix the release inputs/scripts and rebuild so the installer filename, Windows app version, and uninstall `DisplayVersion` all match the same `CMakeLists.txt` version.
 
-### Step 3: Run the Release Builder
+### Step 3: GitHub Actions builds the release
 
-The preferred release path is the helper script:
-```powershell
-python .\build_release.py
-```
+Push the synchronized release commit and then its matching annotated tag as
+described in [Release to GitHub](#release-to-github). The tag-triggered
+workflow invokes `build_release.py` on GitHub-hosted Windows, Linux, Intel
+macOS, and Apple Silicon macOS runners.
 
-This script:
+On each runner, the workflow:
 - Deletes the existing `build-release/` directory to avoid stale DLL mismatches
 - Refreshes both extractor JSON files
 - Configures a Release build with CMake
@@ -148,9 +156,13 @@ This script:
 - On Linux, detects whether the vcpkg-built executable uses static Qt. Static-Qt builds skip linuxdeploy-plugin-qt because vcpkg's `.a`/`.prl` SQL driver files are not deployable ELF plugins; dynamic-Qt builds retain the Qt/SQLite plugin deployment. vcpkg's dbus runtime is excluded from linuxdeploy's ELF scan.
 - On macOS, runs `macdeployqt`, converts the release PNG into the bundle's ICNS icon, and emits `LzyDownloader-<version>-macos-x86_64.dmg` or `LzyDownloader-<version>-macos-arm64.dmg` according to the runner architecture.
 
-### Step 3b: Run Headless Tests
+### Optional local validation
 
-Before packaging or publishing, run the Qt test suite through the headless helper:
+Local packaging is not required for a release. If a local build or test run is
+specifically requested, use the repository tools below; their results do not
+replace the tag-triggered GitHub Actions build.
+
+To run the Qt suite locally:
 
 ```powershell
 python .\tests\run_headless_tests.py --build-dir build --config Release
@@ -164,16 +176,15 @@ It stores failed names in `build/.lzy-test-suspects.json`; use `--suspects` to r
 that cache. Test locations and coverage are indexed in
 `docs/FILE_MANIFEST.md` and `docs/SPEC.md`.
 
-### Step 4: Manual Build Steps
+To package locally for troubleshooting only:
 
-If you are not using `build_release.py`, run the equivalent Windows commands manually:
+Use the canonical helper:
 ```powershell
-cmake -B build-release -DCMAKE_BUILD_TYPE=Release
-cmake --build build-release --config Release
-& 'C:\Program Files (x86)\NSIS\makensis.exe' "/DAPP_VERSION=X.X.X" "/DRELEASE_BUILD_DIR=build-release\Release" LzyDownloader.nsi
+python .\build_release.py
 ```
 
-Replace `X.X.X` with the exact version from `CMakeLists.txt`.
+Do not manually rename generated installers. Manual CMake/NSIS commands are
+only for diagnosing a packaging problem and are not the release procedure.
 
 `CMakeLists.txt` already runs `windeployqt`, re-copies the resolved Qt runtime
 DLLs from the configured Qt installation, deploys the OpenSSL runtime DLLs
@@ -199,10 +210,14 @@ GitHub Actions automatically builds release assets when a `v*` tag is pushed. Th
 Before tagging, commit the synchronized release inputs:
 
 ```powershell
-git add CMakeLists.txt vcpkg.json CHANGELOG.md README.md UPDATE_AND_RELEASE.md docs/ AGENTS.md TODO.md .github/workflows/release.yml build_release.py tools/ LzyDownloader.nsi src/ui/LzyDownloader.desktop extractors_yt-dlp.json extractors_gallery-dl.json
+git add CMakeLists.txt vcpkg.json CHANGELOG.md README.md UPDATE_AND_RELEASE.md docs/ AGENTS.md TODO.md .github/workflows/release.yml build_release.py tools/ LzyDownloader.nsi src/ui/LzyDownloader.desktop extractors_yt-dlp.json extractors_gallery-dl.json release-notes/vX.Y.Z.md
 git commit -m "Release vX.X.X"
 git push origin HEAD
 ```
+
+The release-preparation handoff should stop after presenting these commands
+unless the user explicitly asks for repository mutation. Do not create a tag
+before the synchronized release commit is available on the remote.
 
 ### Step 2: Create and Push a Git Tag
 
@@ -245,9 +260,9 @@ If the workflow is unavailable, navigate to https://github.com/vincentwetzel/lzy
 - [ ] SHA-256 manifest is attached for each release build job
 - [ ] `release-notes/` exists in the checkout and the file name matches the pushed tag
 - [ ] Active documentation matches the release behavior, including the README, API, architecture, settings, specification, manifest, coding standards, and release guides
-- [ ] Installer was rebuilt from the current `CMakeLists.txt` version (`python build_release.py` or `makensis /DAPP_VERSION=...`), not manually renamed afterward
-- [ ] Release build completed successfully (`python build_release.py`)
-- [ ] Headless Qt tests passed (`python .\tests\run_headless_tests.py --build-dir build --config Release`)
+- [ ] GitHub Actions rebuilt the installer from the current `CMakeLists.txt` version (the tag workflow runs `python build_release.py`); artifacts were not manually renamed
+- [ ] Tag-triggered GitHub Actions release matrix completed successfully
+- [ ] Headless Qt tests passed when run as an explicitly requested validation (local test execution is not required for the tag workflow)
 - [ ] NSIS installer tested (install/uninstall preserves `%LOCALAPPDATA%\LzyDownloader\settings.ini`, `download_archive.db`, `downloads_backup.json`, and log files)
 - [ ] NSIS installer finish-page launch option starts `LzyDownloader.exe` when left checked and does not start it when cleared
 - [ ] Clean Windows install tested for HTTPS update checks (Qt TLS backend loads with `libcrypto-3-x64.dll` and `libssl-3-x64.dll` beside `LzyDownloader.exe`)

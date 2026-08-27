@@ -9,6 +9,11 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## [Unreleased]
 
+## [1.2.32] - 2026-08-27
+
+- **Release workflow:** Clarified that GitHub Actions is the normal packaging
+  path; local release builds and headless tests are optional diagnostics.
+
 - **Cross-platform binary installs:** External Tools now marks only app-local
   installers as **(Recommended)**, consistently targets the platform app-data
   `bin` folder for direct yt-dlp installs, and installs Deno there on Windows,

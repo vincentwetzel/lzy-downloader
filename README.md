@@ -180,9 +180,15 @@ Before building a release, keep all release metadata in sync:
 - `CMakeLists.txt` `project(VERSION x.y.z)` is the app version source of truth.
 - The release builder compares that version with fetched `vX.Y.Z` tags and stops when it is not newer; tag-triggered CI also requires an exact tag/version match. Set `LZY_ALLOW_VERSION_REBUILD=1` only for an intentional rebuild of an existing release.
 - `vcpkg.json` `version-string` must be updated to the same version, and `builtin-baseline` should remain pinned to the intended vcpkg commit.
-- `build_release.py` is the canonical packaging path for local release builds and the GitHub release workflow.
-- `python build_release.py --target macos` explicitly selects the macOS packaging path when run inside the macOS VM. The builder remains native-only: `--target auto` is the default, and cross-OS installers cannot be produced from Windows or Linux.
-- Windows GitHub Actions installs NSIS before packaging; local builds may use the standard NSIS location or a `makensis` executable on `PATH`.
+- GitHub Actions is the normal release packaging path: push a synchronized
+  release commit, then its matching `vX.Y.Z` tag. The workflow runs
+  `build_release.py` on the Windows, Linux, Intel macOS, and Apple Silicon
+  runners. Local `build_release.py` runs are optional diagnostics only.
+- The release builder remains native-only: GitHub Actions selects the platform
+  runner and packaging path for each artifact. Its `--target` options are for
+  explicitly requested local diagnostics, not the normal release procedure.
+- Windows GitHub Actions installs NSIS before packaging; local NSIS setup is
+  only relevant to explicitly requested packaging diagnostics.
 - Linux GitHub Actions installs the vcpkg Qt Base prerequisites, including `bison`, `curl`, `flex`, `tar`, `unzip`, `zip`, `^libxcb.*-dev`, `libx11-xcb-dev`, and `libxkbcommon-x11-dev`, before configuring the release build.
 - macOS CI builds separate Intel (`macos-13`) and Apple Silicon (`macos-14`) app bundles from Qt's universal `clang_64` archive, deploys Qt with `macdeployqt`, and packages `LzyDownloader-X.Y.Z-macos-x86_64.dmg` plus `LzyDownloader-X.Y.Z-macos-arm64.dmg`.
 - Release automation installs yt-dlp from its prerelease/nightly channel (`pip install --pre --upgrade yt-dlp`) so extractor/runtime changes are exercised before packaging.
@@ -193,7 +199,11 @@ Before building a release, keep all release metadata in sync:
 - The Linux release prerequisite step also installs `autoconf`, `autoconf-archive`, `automake`, `libtool`, `libegl1-mesa-dev`, `libgl1-mesa-dev`, `libglu1-mesa-dev`, `libxi-dev`, `libxkbcommon-dev`, and `libxrender-dev`; these are development dependencies for vcpkg's Qt/XCB build, not application runtime requirements.
 - `LzyDownloader.nsi` must not contain stale hardcoded version examples or installer metadata; pass the release version with `makensis /DAPP_VERSION=x.y.z /DRELEASE_BUILD_DIR=build-release\Release LzyDownloader.nsi` when building manually.
 - `CHANGELOG.md` must move `[Unreleased]` notes under the dated release version.
-- Pushing a `v*` tag starts `.github/workflows/release.yml`, which builds the Windows installer, Linux AppImage, and Intel/Apple-Silicon macOS DMGs and attaches them to the GitHub Release.
+- The normal release workflow is metadata preparation followed by pushing the
+  release commit and matching `v*` tag. Pushing the tag starts
+  `.github/workflows/release.yml`, which builds the Windows installer, Linux
+  AppImage, and Intel/Apple-Silicon macOS DMGs and attaches them to the GitHub
+  Release; local packaging is optional diagnostics only.
 
 ## Usage
 

@@ -74,9 +74,11 @@ the `download_archive.db` schema, and use Qt-native `QSettings` INI semantics
   concise bullets/tables, and links to detailed references over duplicated
   prose. Remove stale or completed guidance without omitting behavioral
   contracts merely to shorten a document.
-- Release builds must pass version/tag checks, synchronized CMake/vcpkg/notes,
-  `python build_release.py`, and headless tests. Never push commits or tags;
-  provide commands for the user.
+- Releases are CI-first: prepare synchronized CMake/vcpkg/changelog/release-note
+  inputs, then provide the commit and tag push commands so GitHub Actions can
+  build and publish the release. Do not run `python build_release.py` locally
+  or push commits/tags unless the user explicitly requests a local validation
+  or a different release workflow.
 
 ## High-value locations
 

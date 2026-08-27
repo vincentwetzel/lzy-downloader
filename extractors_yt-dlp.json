@@ -3972,6 +3972,7 @@
     },
     "niconico": {
         "domains": [
+            "ch.nicovideo.jp",
             "live.nicovideo.jp",
             "nico.ms",
             "nicovideo.jp",
@@ -4005,7 +4006,7 @@
     },
     "nitter": {
         "domains": [
-            "nitter.nl"
+            "nitter.adminforge.de"
         ]
     },
     "njoy": {
@@ -6277,7 +6278,8 @@
     "tiktok": {
         "domains": [
             "m.tiktok.com",
-            "tiktok.com"
+            "tiktok.com",
+            "tiktokv.com"
         ]
     },
     "tlc": {
