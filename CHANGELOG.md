@@ -9,6 +9,27 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## [Unreleased]
 
+- **Deno updates:** WinGet-managed Deno updates now use the official stable
+  installer when WinGet's catalog has not published the newest release yet,
+  while WinGet remains available for initial installation. The Windows
+  PowerShell download uses the built-in Windows curl client with retries,
+  avoiding legacy web parsing and HTTP-stack compatibility failures.
+  Suppressed duplicate generic process-error text for normal command failures.
+
+- **Startup tool updates:** The startup outdated-binary prompt now provides an
+  **Update Now** action for every detected binary and reuses the External Tools
+  update implementation directly; the settings page remains available for
+  alternate installation methods.
+
+- **Non-interactive launches:** `--background` now follows the same
+  non-interactive path as server/headless and API requests, suppressing modal
+  playlist, runtime, missing-binary, duplicate, and download-error dialogs
+  while exposing failures through the bridge/webhook diagnostic signal.
+
+- **Progress stability:** The single Active Downloads progress bar now prefers
+  aggregate multi-stream progress and ignores delayed lower values, so it does
+  not jump backward when yt-dlp switches between video and audio streams.
+
 ## [1.2.32] - 2026-08-27
 
 - **Release workflow:** Clarified that GitHub Actions is the normal packaging

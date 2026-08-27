@@ -10,16 +10,19 @@ grow wider than the screen.
 Windows standalone FFmpeg/FFprobe updates stage both executables before bounded
 replacement retries, then persist the local pair as explicit overrides so a
 system-first preference cannot silently switch back to an older package copy.
-WinGet-managed paths are updated through `winget upgrade`; other external
-standalone copies require manual replacement rather than an unrequested local
-install.
+WinGet-managed paths are updated through `winget upgrade`, except that a stale
+WinGet Deno catalog falls back to the official stable app-managed installer.
+Standalone yt-dlp, gallery-dl, and Deno use their own updater where supported;
+standalone FFmpeg/FFprobe and aria2c remain manual-replacement cases.
 
 The Discord bridge cancellation route is a runtime Local API feature and does not change release packaging or installer requirements.
 
-Active downloads use native OS sleep inhibition in the GUI and headless/server
-builds. Linux builds link Qt D-Bus (provided by the Qt installation) for the
-logind/freedesktop inhibition services; this is a runtime platform integration,
-not a newly bundled downloader dependency.
+Active downloads use native OS sleep inhibition in the GUI and
+headless/server/background builds. Linux builds link Qt D-Bus (enabled by
+qtbase's Linux-only `dbus`
+feature in the vcpkg manifest) for the logind/freedesktop inhibition services;
+this is a runtime platform integration, not a newly bundled downloader
+dependency.
 
 The Local API cancellation endpoint, terminal webhook diagnostics, and
 stopped/failed duplicate recovery are runtime contracts only. They require no
@@ -203,7 +206,7 @@ tests rather than Qt's default feature bundle.
 
 ## Release to GitHub
 
-GitHub Actions automatically builds release assets when a `v*` tag is pushed. The workflow at `.github/workflows/release.yml` runs `python build_release.py` on `windows-latest`, `ubuntu-22.04`, `macos-13` (Intel), and `macos-14` (Apple Silicon), then uploads the Windows installer, Linux AppImage, and both architecture-labelled macOS DMGs to the GitHub Release for that tag. If the matching release-notes file is absent, CI creates a minimal fallback body before publication. Use `workflow_dispatch` to run the matrix as a non-publishing validation; uploads are tag-only.
+GitHub Actions automatically builds release assets when a `v*` tag is pushed. The workflow at `.github/workflows/release.yml` runs `python build_release.py` on `windows-latest`, `ubuntu-22.04`, `macos-15-intel` (Intel), and `macos-15` (Apple Silicon), then uploads the Windows installer, Linux AppImage, and both architecture-labelled macOS DMGs to the GitHub Release for that tag. If the matching release-notes file is absent, CI creates a minimal fallback body before publication. Use `workflow_dispatch` to run the matrix as a non-publishing validation; uploads are tag-only.
 
 ### Step 1: Commit Release Inputs
 
@@ -291,7 +294,7 @@ The application stores user data in standard Windows directories:
 The Local API also accepts `override_archive: true` on intentional automation re-downloads; verify the Discord bridge and C++ executable are updated together so this confirmation reaches the queue manager.
 | Logs | `%LOCALAPPDATA%\LzyDownloader\LzyDownloader_YYYY-MM-dd_HH-mm-ss.log` (one new file per run; oldest logs deleted after the most recent 5) |
 
-Server/headless mode still reads user preferences from `%LOCALAPPDATA%\LzyDownloader\settings.ini`, but isolates runtime queue backups, API tokens, and logs under `%LOCALAPPDATA%\LzyDownloader\Server\`.
+Server/headless/background mode still reads user preferences from `%LOCALAPPDATA%\LzyDownloader\settings.ini`, but isolates runtime queue backups, API tokens, and logs under `%LOCALAPPDATA%\LzyDownloader\Server\`.
 
 **Important:** The NSIS installer must NOT overwrite `settings.ini`, `download_archive.db`, `downloads_backup.json`, `api_token.txt`, or log files. These are stored in user data directories, not the installation directory.
 

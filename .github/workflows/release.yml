@@ -21,11 +21,11 @@ jobs:
             platform: windows
           - os: ubuntu-22.04
             platform: linux
-          - os: macos-13
+          - os: macos-15-intel
             platform: macos
             architecture: x86_64
             qt_arch: clang_64
-          - os: macos-14
+          - os: macos-15
             platform: macos
             architecture: arm64
             # Qt's macOS desktop archives are published as clang_64 universal

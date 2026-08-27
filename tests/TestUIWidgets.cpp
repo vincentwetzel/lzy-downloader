@@ -66,6 +66,38 @@ void TestUIWidgets::testDownloadItemWidgetFinishedState() {
     QVERIFY(progressBar != nullptr);
 }
 
+void TestUIWidgets::testDownloadItemWidgetUsesAggregateProgressAcrossStreams() {
+    QVariantMap itemData;
+    itemData[QStringLiteral("id")] = QStringLiteral("aggregate-progress");
+    DownloadItemWidget widget(itemData);
+    ProgressLabelBar *progressBar = widget.findChild<ProgressLabelBar *>();
+    QVERIFY(progressBar != nullptr);
+
+    widget.updateProgress({
+        {QStringLiteral("progress"), 100.0},
+        {QStringLiteral("overall_progress"), 66.0},
+        {QStringLiteral("status"), QStringLiteral("Downloading video stream...")}
+    });
+    QTRY_COMPARE(progressBar->value(), 66);
+
+    // The active audio stream starts at 87%, but the aggregate download has
+    // advanced to 91%; the visible bar must not jump back to 87%.
+    widget.updateProgress({
+        {QStringLiteral("progress"), 87.0},
+        {QStringLiteral("overall_progress"), 91.0},
+        {QStringLiteral("status"), QStringLiteral("Downloading audio stream...")}
+    });
+    QTRY_COMPARE(progressBar->value(), 91);
+
+    // A delayed native line must not undo already visible aggregate progress.
+    widget.updateProgress({
+        {QStringLiteral("progress"), 93.0},
+        {QStringLiteral("overall_progress"), 62.0},
+        {QStringLiteral("status"), QStringLiteral("Downloading video stream...")}
+    });
+    QTRY_COMPARE(progressBar->value(), 91);
+}
+
 void TestUIWidgets::testDownloadItemWidgetKeepsActionsVisibleWhenNarrow() {
     QVariantMap itemData;
     itemData[QStringLiteral("id")] = QStringLiteral("narrow-row");

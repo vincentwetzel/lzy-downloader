@@ -36,6 +36,7 @@ private slots:
 
     void testTransientPlaylistProbeFallback();
     void testExplicitPlaylistFailureClassification();
+    void testNonInteractiveDuplicateUsesFailureSignal();
 
 private:
     DownloadManager *m_manager = nullptr;

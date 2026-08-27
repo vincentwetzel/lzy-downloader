@@ -167,6 +167,14 @@ inline ProcessUtils::FoundBinary resolve(const QString& binaryName, ConfigManage
         searchDirs.append(QDir(localAppData).filePath(QStringLiteral("Programs/Python/Python312/Scripts")));
         searchDirs.append(QDir(localAppData).filePath(QStringLiteral("Programs/Python/Python311/Scripts")));
     }
+#ifdef Q_OS_MACOS
+    searchDirs.append(QStringLiteral("/opt/homebrew/bin")); // Apple Silicon Homebrew
+    searchDirs.append(QStringLiteral("/usr/local/bin"));    // Intel Homebrew
+#elif defined(Q_OS_LINUX) || defined(Q_OS_UNIX)
+    searchDirs.append(QStringLiteral("/usr/local/bin"));
+    searchDirs.append(QStringLiteral("/usr/bin"));
+    searchDirs.append(QDir::home().filePath(QStringLiteral(".local/bin"))); // User pip installs
+#endif
 
     // Find all candidate executable paths
     QStringList candidates;

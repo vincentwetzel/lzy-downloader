@@ -1,5 +1,6 @@
 #include "TestDownloadManager.h"
 #include <QSignalSpy>
+#include <QUuid>
 
 void TestDownloadManager::init() {
     BaseTest::init();
@@ -47,6 +48,28 @@ void TestDownloadManager::testExplicitPlaylistFailureClassification() {
     QVERIFY(!expansionSpy.isEmpty());
     QCOMPARE(expansionSpy.last().at(0).toString(), explicitPlaylistUrl);
     QCOMPARE(expansionSpy.last().at(1).toInt(), 0);
+}
+
+void TestDownloadManager::testNonInteractiveDuplicateUsesFailureSignal() {
+    TestableDownloadManager manager(getConfigManager(), this);
+
+    QSignalSpy duplicateSpy(&manager, SIGNAL(duplicateDownloadDetected(QString,QString)));
+    QSignalSpy failureSpy(&manager, SIGNAL(nonInteractiveRequestFailed(QString,QString,QString)));
+
+    const QString url = QStringLiteral("https://media.example/noninteractive-duplicate-%1")
+        .arg(QUuid::createUuid().toString(QUuid::WithoutBraces));
+    QVariantMap options;
+    options.insert(QStringLiteral("type"), QStringLiteral("video"));
+    options.insert(QStringLiteral("non_interactive"), true);
+    options.insert(QStringLiteral("id"), QStringLiteral("discord-job-id"));
+
+    manager.enqueueDownload(url, options);
+    manager.enqueueDownload(url, options);
+
+    QCOMPARE(duplicateSpy.count(), 0);
+    QCOMPARE(failureSpy.count(), 1);
+    QCOMPARE(failureSpy.at(0).at(0).toString(), QStringLiteral("discord-job-id"));
+    QCOMPARE(failureSpy.at(0).at(1).toString(), url);
 }
 
 QTEST_MAIN(TestDownloadManager)

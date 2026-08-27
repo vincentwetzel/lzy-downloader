@@ -47,11 +47,16 @@ Key signals:
   playlist expansion completes.
 - `void downloadStarted(const QString &id)` fires when the downloader launches.
 - `void downloadProgress(const QString &id, const QVariantMap &progressData)`
-  carries progress, speed, ETA, and sizes.
+  carries progress, speed, ETA, sizes, and (when available) the aggregate
+  multi-stream `overall_progress` value used by desktop and webhook consumers.
 - `void formatSelectionRequested(const QString &url, const QVariantMap &options,
   const QVariantMap &infoDict)` requests a runtime picker.
 - `void downloadFinished(const QString &id, bool success, const QString &message)`
   reports worker completion.
+- `void nonInteractiveRequestFailed(const QString &jobId, const QString &url,
+  const QString &error)` reports validation, duplicate, missing-binary, runtime,
+  and terminal download failures for non-interactive requests without opening
+  a modal dialog.
 - `void queueFinished()` fires when active and queued work is complete.
 
 ### [PowerInhibitor](../src/core/PowerInhibitor.h)
@@ -98,7 +103,7 @@ Serves authenticated automation on `127.0.0.1:8765`.
 
 - `void start()`, `void stop()`, `bool isRunning() const`, and
   `QString getApiKey() const` manage the server and
-  token (`api_token.txt`; server/headless mode uses `Server/`).
+  token (`api_token.txt`; server/headless/background mode uses `Server/`).
 - `void enqueueRequested(const QString &url, const QString &type,
   const QString &jobId, bool overrideArchive)` fires for an authorized
   valid enqueue. `jobId` is generated when omitted; the override is explicit.
@@ -110,6 +115,8 @@ Serves authenticated automation on `127.0.0.1:8765`.
 - `POST /cancel` accepts `job_id` or compatibility key `id`; it returns 200 for
   an accepted tracked request, 400 for malformed/missing IDs, and 404 for an
   unknown ID. `/enqueue` and `/status` share its authentication and bounds.
+  Webhook payloads may include `overall_progress` for multi-stream jobs and
+  retain terminal completion/cancellation state for bridge consumers.
 
 ### [AppUpdater](../src/core/AppUpdater.h)
 

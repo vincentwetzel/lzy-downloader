@@ -47,7 +47,7 @@ void MainWindow::onLocalApiCancelRequested(const QString &jobId)
 
 void MainWindow::onDownloadRequested(const QString &url, const QVariantMap &options)
 {
-    const bool nonInteractive = MainWindowHelpers::isNonInteractiveRequest(options);
+    const bool nonInteractive = m_nonInteractiveLaunch || MainWindowHelpers::isNonInteractiveRequest(options);
 
     if (!m_pendingUrl.isEmpty()) {
         if (nonInteractive) {
@@ -173,6 +173,17 @@ void MainWindow::onDownloadRequested(const QString &url, const QVariantMap &opti
 void MainWindow::onRuntimeInfoReady(const QVariantMap &info)
 {
     statusBar()->clearMessage();
+    if (m_nonInteractiveLaunch || MainWindowHelpers::isNonInteractiveRequest(m_pendingOptions)) {
+        const QString pendingUrl = m_pendingUrl;
+        QVariantMap options = m_pendingOptions;
+        MainWindowHelpers::applyNonInteractiveDownloadDefaults(options);
+        m_downloadManager->enqueueDownload(pendingUrl, options);
+        m_pendingUrl.clear();
+        m_pendingOptions.clear();
+        qInfo() << "Skipping runtime selection dialog for non-interactive request:" << pendingUrl;
+        return;
+    }
+
     const bool runtimeSubs = m_configManager->get(QStringLiteral("Subtitles"), QStringLiteral("languages"), QStringLiteral("en")).toString().split(QLatin1Char(',')).contains(QStringLiteral("runtime"));
 
     RuntimeSelectionDialog dialog(info, false, false, runtimeSubs, this);
@@ -192,7 +203,7 @@ void MainWindow::onRuntimeInfoReady(const QVariantMap &info)
 void MainWindow::onRuntimeInfoError(const QString &error)
 {
     statusBar()->clearMessage();
-    if (MainWindowHelpers::isNonInteractiveRequest(m_pendingOptions)) {
+    if (m_nonInteractiveLaunch || MainWindowHelpers::isNonInteractiveRequest(m_pendingOptions)) {
         emit nonInteractiveRequestFailed(
             m_pendingOptions.value(QStringLiteral("id")).toString(),
             m_pendingUrl,
@@ -207,7 +218,7 @@ void MainWindow::onRuntimeInfoError(const QString &error)
 
 void MainWindow::onDownloadSectionsRequested(const QString &url, const QVariantMap &options, const QVariantMap &infoJson)
 {
-    if (MainWindowHelpers::isNonInteractiveRequest(options)) {
+    if (m_nonInteractiveLaunch || MainWindowHelpers::isNonInteractiveRequest(options)) {
         QVariantMap newOptions = options;
         newOptions.insert(QStringLiteral("download_sections_set"), true);
         qInfo() << "Skipping download sections dialog for non-interactive request:" << url;
@@ -241,7 +252,7 @@ void MainWindow::onValidationFinished(bool isValid, const QString &error)
         m_downloadManager->enqueueDownload(m_pendingUrl, m_pendingOptions);
         m_uiBuilder->tabWidget()->setCurrentWidget(m_activeDownloadsTab);
     } else {
-        if (MainWindowHelpers::isNonInteractiveRequest(m_pendingOptions)) {
+        if (m_nonInteractiveLaunch || MainWindowHelpers::isNonInteractiveRequest(m_pendingOptions)) {
             emit nonInteractiveRequestFailed(
                 m_pendingOptions.value(QStringLiteral("id")).toString(),
                 m_pendingUrl,
@@ -257,11 +268,9 @@ void MainWindow::onValidationFinished(bool isValid, const QString &error)
 
 void MainWindow::onYtDlpErrorPopup(const QString &id, const QString &errorType, const QString &userMessage, const QString &rawError, const QVariantMap &itemData)
 {
-    Q_UNUSED(id);
-
     const QString url = itemData.value(QStringLiteral("url")).toString();
     const QVariantMap requestOptions = itemData.value(QStringLiteral("options")).toMap();
-    const bool nonInteractive = MainWindowHelpers::isNonInteractiveRequest(requestOptions);
+    const bool nonInteractive = m_nonInteractiveLaunch || MainWindowHelpers::isNonInteractiveRequest(requestOptions);
     const QString urlHtml = url.isEmpty() ? QString() : QStringLiteral("<br><br><a href=\"%1\">%1</a>").arg(url.toHtmlEscaped());
     const QString richUserMessage = userMessage.toHtmlEscaped().replace(QStringLiteral("\n"), QStringLiteral("<br>"));
 
@@ -325,6 +334,22 @@ void MainWindow::onYtDlpErrorPopup(const QString &id, const QString &errorType, 
             m_downloadManager->restartDownloadWithOptions(newItemData);
         }
     } else {
+        if (nonInteractive) {
+            QString diagnostic = userMessage.trimmed();
+            if (!cleanError.trimmed().isEmpty() && diagnostic != cleanError.trimmed()) {
+                if (!diagnostic.isEmpty()) {
+                    diagnostic += QLatin1Char('\n');
+                }
+                diagnostic += cleanError.trimmed();
+            }
+            if (diagnostic.isEmpty()) {
+                diagnostic = tr("Download failed.");
+            }
+            emit nonInteractiveRequestFailed(id, url, diagnostic);
+            qWarning() << "Download error for non-interactive request:" << url << diagnostic;
+            return;
+        }
+
         QMessageBox msgBox(this);
         msgBox.setWindowTitle(tr("Download Error"));
         msgBox.setTextFormat(Qt::RichText);

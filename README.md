@@ -75,10 +75,10 @@ input are reported as incomplete-transfer failures before metadata embedding.
 - 🔄 **App Updates** — Checks validated GitHub Releases for newer installers, saves unfinished downloads, stops downloader processes, and automatically restarts the app after installation
 - 🔌 **Local API** — Optional localhost API for trusted local integrations such as Discord bots
 - 📊 **Concurrent Downloads** — Queue and manage multiple downloads simultaneously
-- 🌙 **Sleep Prevention** — Prevents system idle sleep while downloads, post-processing, or finalization are active in GUI and headless/server modes; the display may still turn off normally
+- 🌙 **Sleep Prevention** — Prevents system idle sleep while downloads, post-processing, or finalization are active in GUI and non-interactive server/headless/background modes; the display may still turn off normally
 - 📌 **Compact Footer Status** — Download counters and current speed share the footer's first row, with the exit-after-downloads switch at the far right
 - ⏸️ **Pause & Resume** — Safely stop downloads, preserve partial `.part` files, and resume validated queue backups across application restarts
-- 🧰 **External Binaries Manager** — Detect, version-check, install, and update `yt-dlp`, `gallery-dl`, `ffmpeg`, `ffprobe`, `aria2c`, and `deno` from inside the app, with version-aware local `bin` discovery, package-manager-aware commands, wrapped command previews, exact installed/latest update warnings, persistent prompts for manually managed tools, SHA-256 checks when available, and cancellable install/update logs. Fresh interactive installs use guided system-first/app-managed-first setup with optional-tool provisioning.
+- 🧰 **External Binaries Manager** — Detect, version-check, install, and update `yt-dlp`, `gallery-dl`, `ffmpeg`, `ffprobe`, `aria2c`, and `deno` from inside the app, with version-aware local `bin` discovery, package-manager-aware commands, wrapped command previews, exact installed/latest update warnings, persistent prompts for manually managed tools, SHA-256 checks when available, and cancellable install/update logs. Fresh interactive installs use guided system-first/app-managed-first setup with optional-tool provisioning; a WinGet-managed Deno install can fall back to the official stable installer when the catalog lags upstream.
 - 🛡️ **Recovery Diagnostics** — Distinguishes incomplete media and critical extractor failures from recoverable post-processing warnings, even when yt-dlp printed a final path
 - 🎚️ **Media-Aware Quality Warnings** — Video-resolution warnings apply only to video downloads; audio extraction remains audio-labeled even when yt-dlp transfers a combined video/audio source
 - 🔗 **Useful Quality Warnings** — Low-quality video warnings include the media title and a clickable source link when the URL is complete
@@ -115,7 +115,7 @@ Requires CMake, a C++20 compatible compiler, and Qt 6. The checked-in Windows
 presets use the supported Qt MinGW/Ninja toolchain; the build deploys the Qt
 platform/runtime and MinGW runtime DLLs needed by the executable and tests.
 
-The repository includes a `vcpkg.json` manifest for source builds with a pinned `builtin-baseline` for reproducible dependency resolution. The manifest enables only the Qt modules used by the application and tests (`concurrent`, `gui`, `network`, `sql-sqlite`, `testlib`, and `widgets`). On Windows, the checked-in `CMakePresets.json` expects vcpkg at `E:/vcpkg/scripts/buildsystems/vcpkg.cmake`, Qt's MinGW toolchain under `C:/Qt/Tools/mingw1310_64/bin`, and Ninja under `C:/Qt/Tools/Ninja`. If these paths differ on your machine, adjust the preset or pass equivalent compiler, generator, and toolchain settings when configuring.
+The repository includes a `vcpkg.json` manifest for source builds with a pinned `builtin-baseline` for reproducible dependency resolution. The manifest enables only the Qt modules used by the application and tests (`concurrent`, `gui`, `network`, `sql-sqlite`, `testlib`, and `widgets`), plus Qt D-Bus on Linux for idle-sleep inhibition. On Windows, the checked-in `CMakePresets.json` expects vcpkg at `E:/vcpkg/scripts/buildsystems/vcpkg.cmake`, Qt's MinGW toolchain under `C:/Qt/Tools/mingw1310_64/bin`, and Ninja under `C:/Qt/Tools/Ninja`. If these paths differ on your machine, adjust the preset or pass equivalent compiler, generator, and toolchain settings when configuring.
 
 ```bash
 # Clone the repo
@@ -190,7 +190,7 @@ Before building a release, keep all release metadata in sync:
 - Windows GitHub Actions installs NSIS before packaging; local NSIS setup is
   only relevant to explicitly requested packaging diagnostics.
 - Linux GitHub Actions installs the vcpkg Qt Base prerequisites, including `bison`, `curl`, `flex`, `tar`, `unzip`, `zip`, `^libxcb.*-dev`, `libx11-xcb-dev`, and `libxkbcommon-x11-dev`, before configuring the release build.
-- macOS CI builds separate Intel (`macos-13`) and Apple Silicon (`macos-14`) app bundles from Qt's universal `clang_64` archive, deploys Qt with `macdeployqt`, and packages `LzyDownloader-X.Y.Z-macos-x86_64.dmg` plus `LzyDownloader-X.Y.Z-macos-arm64.dmg`.
+- macOS CI builds separate Intel (`macos-15-intel`) and Apple Silicon (`macos-15`) app bundles from Qt's universal `clang_64` archive, deploys Qt with `macdeployqt`, and packages `LzyDownloader-X.Y.Z-macos-x86_64.dmg` plus `LzyDownloader-X.Y.Z-macos-arm64.dmg`.
 - Release automation installs yt-dlp from its prerelease/nightly channel (`pip install --pre --upgrade yt-dlp`) so extractor/runtime changes are exercised before packaging.
 - Linux AppImage packaging uses the same vcpkg Qt installation that built the executable when invoking linuxdeploy, including QtSql's SQLite plugin discovery; the Windows-only Qt SDK setup is not used for Linux packaging.
 - If a tag-matched `release-notes/<tag>.md` file is absent, CI creates a minimal fallback release body so GitHub Release publication does not emit a missing-file warning.
@@ -218,7 +218,7 @@ When playlist handling is set to `Ask`, detected playlists can be queued entirel
 
 ## Configuration
 
-All settings are saved to `%LOCALAPPDATA%\LzyDownloader\settings.ini` on Windows and persist between sessions. GUI and `--server`/`--headless` launches share this same preferences file, so folders, binary paths, templates, cookies, codecs, and related choices stay in sync. The app uses a Qt-native `QSettings` INI layout. Download history is shared through `download_archive.db`.
+All settings are saved to `%LOCALAPPDATA%\LzyDownloader\settings.ini` on Windows and persist between sessions. GUI and `--server`/`--headless`/`--background` launches share this same preferences file, so folders, binary paths, templates, cookies, codecs, and related choices stay in sync. The app uses a Qt-native `QSettings` INI layout. Download history is shared through `download_archive.db`.
 
 - **Output folder** — Where completed downloads are saved
 - **Temporary folder** — Where downloads are cached during progress
@@ -233,7 +233,7 @@ All settings are saved to `%LOCALAPPDATA%\LzyDownloader\settings.ini` on Windows
 - **Queue previews** - Queued rows begin loading supplied remote thumbnails immediately, and long titles wrap within narrow windows so row actions remain reachable
 - **Playlist audio filenames** - Playlist audio downloads are prefixed with zero-padded indices by default; change `Download Options -> Prefix playlist indices` to disable this behavior
 - **Local API** - Enable a localhost-only API server from Advanced Settings -> Configuration
-- **Binary management** - Choose app-managed-first or system-first resolution and configure launch, daily, or weekly automatic updates for app-managed tools in Advanced Settings -> External Tools. Options marked **(Recommended)** install a private copy in the platform app-data `bin` folder (on Windows, `%LOCALAPPDATA%\\LzyDownloader\\bin`); package-manager choices remain explicit alternatives and update through their manager. Explicit Browse selections and completed local installs remain selected regardless of preference. Windows FFmpeg updates install and retain both `ffmpeg.exe` and `ffprobe.exe` together.
+- **Binary management** - Choose app-managed-first or system-first resolution and configure launch, daily, or weekly automatic updates for app-managed tools in Advanced Settings -> External Tools. Options marked **(Recommended)** install a private copy in the platform app-data `bin` folder (on Windows, `%LOCALAPPDATA%\\LzyDownloader\\bin`); package-manager choices remain explicit alternatives and update through their manager. Explicit Browse selections and completed local installs remain selected regardless of preference. Windows FFmpeg updates install and retain both `ffmpeg.exe` and `ffprobe.exe` together. If startup finds an outdated tool that was not updated automatically, **Update Now** runs the same manager-aware update action as External Tools, while **Open External Binaries** exposes alternate methods.
 
 ### Local API
 
@@ -245,9 +245,9 @@ Equivalent URLs are deduplicated using normalized media identity across queued, 
 - `POST /cancel` with JSON body `{"job_id":"..."}` requests cancellation of a tracked queued or active job. The endpoint uses the same bearer token and returns `404` for an unknown job ID.
 - `GET /status` returns current tracked jobs, including progress fields when available.
 - Requests are bounded and validated; malformed request lines, oversized payloads, invalid Host headers, or untrusted browser origins are rejected.
-- **Webhook Outbound**: The application automatically emits real-time HTTP POST JSON payloads to `http://127.0.0.1:8766/webhook` whenever download status, progress, speed, or ETA changes. Payloads are throttled to 1.5 seconds, sanitize long or multi-line status strings, preserve terminal completion/cancellation state for local bridge clients, include `parent_id` mapping to track playlist child items, report non-interactive validation/runtime/binary failures with an `error` diagnostic, and clean up bounded network replies through the owning window context.
+- **Webhook Outbound**: The application automatically emits real-time HTTP POST JSON payloads to `http://127.0.0.1:8766/webhook` whenever download status, progress, speed, or ETA changes. Payloads are throttled to 1.5 seconds, sanitize long or multi-line status strings, preserve terminal completion/cancellation state for local bridge clients, include `parent_id` mapping to track playlist child items, carry `overall_progress` for multi-stream jobs when available, report non-interactive validation/duplicate/missing-binary/runtime/terminal failures with an `error` diagnostic, and clean up bounded network replies through the owning window context.
 
-Automation can also launch `LzyDownloader.exe --background <url>`, `LzyDownloader.exe --server <url>`, or `LzyDownloader.exe --headless <url>` to enqueue a direct URL without showing blocking prompt dialogs. Server/headless queue backups, API tokens, and logs are isolated under `Server/`, but user preferences still come from the main `settings.ini`.
+Automation can also launch `LzyDownloader.exe --background <url>`, `LzyDownloader.exe --server <url>`, or `LzyDownloader.exe --headless <url>` to enqueue a direct URL without showing blocking prompt dialogs. Server/headless/background queue backups, API tokens, and logs are isolated under `Server/`, but user preferences still come from the main `settings.ini`.
 
 Extractor-list refresh scripts are non-interactive and live under `tools/`, so release automation can run `tools/update_yt-dlp_extractors.py` and `tools/update_gallery-dl_extractors.py` without waiting for a final keypress. They write the generated extractor JSON files to the repository root because those files are bundled runtime assets.
 

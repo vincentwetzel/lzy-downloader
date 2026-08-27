@@ -51,11 +51,13 @@ the `download_archive.db` schema, and use Qt-native `QSettings` INI semantics
 - Show queue rows/thumbnails immediately. Keep compact rows/action controls
   visible with no horizontal scroll; render one detailed `ProgressLabelBar`.
   Preserve audio artist fallback, thumbnail `attached_pic` remuxing, bounded
-  cuts, deferred queue saves, and terminal state before headless quit.
+  cuts, deferred queue saves, and terminal state before non-interactive quit.
 - Local API is localhost-only, bearer-authenticated, bounded, and
-  non-interactive; route cancellation through the manager. Inhibit idle sleep
-  (not display power-off) during GUI/server/headless downloads and release it
-  on completion, cancellation, and shutdown.
+  non-interactive; route cancellation through the manager. Validation,
+  duplicate, binary, runtime, and terminal failures must remain observable to
+  non-interactive callers without opening modal dialogs. Inhibit idle sleep
+  (not display power-off) during GUI/server/headless/background downloads and
+  release it on completion, cancellation, and shutdown.
 
 ## Implementation and handoff
 

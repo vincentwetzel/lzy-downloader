@@ -426,183 +426,154 @@ void BinariesPage::setupRow(QVBoxLayout *layout,
     });
 
     connect(updateButton, &QPushButton::clicked, this, [this, binaryName]() {
-        const ProcessUtils::FoundBinary foundBinary = ProcessUtils::resolveBinary(binaryName, m_configManager);
-        QString pathLower = foundBinary.path.toLower();
+        updateBinaryFor(binaryName);
+    });
+}
 
-        QString manager;
-        QString updateProgram;
-        QStringList updateArgs;
+void BinariesPage::updateBinaryFor(const QString &binaryName, bool askForConfirmation)
+{
+    const ProcessUtils::FoundBinary foundBinary = ProcessUtils::resolveBinary(binaryName, m_configManager);
+    const QString pathLower = foundBinary.path.toLower();
 
-        if (pathLower.contains(QStringLiteral("scoop"))) {
-            manager = QStringLiteral("Scoop");
-            updateProgram = QStringLiteral("scoop");
-
-            if (binaryName == QStringLiteral("yt-dlp")) {
-                updateArgs = {QStringLiteral("update"), QStringLiteral("yt-dlp-nightly")};
-            } else if (binaryName == QStringLiteral("ffmpeg") || binaryName == QStringLiteral("ffprobe")) {
-                updateArgs = {QStringLiteral("update"), QStringLiteral("ffmpeg")};
-            } else {
-                updateArgs = {QStringLiteral("update"), binaryName};
-            }
-
-        } else if (pathLower.contains(QStringLiteral("windowsapps")) ||
-                   pathLower.contains(QStringLiteral("winget"))) {
-            manager = QStringLiteral("WinGet");
-            updateProgram = QStringLiteral("winget");
-
-            if (binaryName == QStringLiteral("gallery-dl")) {
-                updateArgs = {QStringLiteral("upgrade"), QStringLiteral("--id"), QStringLiteral("mikf.gallery-dl"), QStringLiteral("--exact"), QStringLiteral("--accept-package-agreements"), QStringLiteral("--accept-source-agreements")};
-            } else if (binaryName == QStringLiteral("yt-dlp")) {
-                updateArgs = {QStringLiteral("upgrade"), QStringLiteral("--id"), QStringLiteral("yt-dlp.yt-dlp"), QStringLiteral("--exact"), QStringLiteral("--accept-package-agreements"), QStringLiteral("--accept-source-agreements")};
-            } else if (binaryName == QStringLiteral("ffmpeg") || binaryName == QStringLiteral("ffprobe")) {
-                updateArgs = {QStringLiteral("upgrade"), QStringLiteral("--id"), QStringLiteral("Gyan.FFmpeg"), QStringLiteral("--exact"), QStringLiteral("--accept-package-agreements"), QStringLiteral("--accept-source-agreements")};
-            } else if (binaryName == QStringLiteral("aria2c")) {
-                updateArgs = {QStringLiteral("upgrade"), QStringLiteral("--id"), QStringLiteral("aria2.aria2"), QStringLiteral("--exact"), QStringLiteral("--accept-package-agreements"), QStringLiteral("--accept-source-agreements")};
-            } else if (binaryName == QStringLiteral("deno")) {
-                updateArgs = {QStringLiteral("upgrade"), QStringLiteral("--id"), QStringLiteral("DenoLand.Deno"), QStringLiteral("--exact"), QStringLiteral("--accept-package-agreements"), QStringLiteral("--accept-source-agreements")};
-            } else {
-                updateArgs = {QStringLiteral("upgrade"), binaryName, QStringLiteral("--accept-package-agreements"), QStringLiteral("--accept-source-agreements")};
-            }
-
-        } else if (pathLower.contains(QStringLiteral("python")) ||
-                   pathLower.contains(QStringLiteral("pip")) ||
-                   pathLower.contains(QStringLiteral("scripts")) ||
-                   pathLower.contains(QStringLiteral("site-packages"))) {
-            manager = QStringLiteral("pip");
-            updateProgram = QStringLiteral("pip");
-
-            if (binaryName == QStringLiteral("yt-dlp")) {
-                updateArgs = {QStringLiteral("install"), QStringLiteral("-U"), QStringLiteral("--pre"), QStringLiteral("yt-dlp")};
-            } else {
-                updateArgs = {QStringLiteral("install"), QStringLiteral("-U"), binaryName};
-            }
-
-        } else if (pathLower.contains(QStringLiteral("homebrew")) ||
-                   pathLower.contains(QStringLiteral("cellar")) ||
-                   pathLower.contains(QStringLiteral("linuxbrew"))) {
-            manager = QStringLiteral("Homebrew");
-            updateProgram = QStringLiteral("brew");
-
-            if (binaryName == QStringLiteral("ffmpeg") || binaryName == QStringLiteral("ffprobe")) {
-                updateArgs = {QStringLiteral("upgrade"), QStringLiteral("ffmpeg")};
-            } else {
-                updateArgs = {QStringLiteral("upgrade"), binaryName};
-            }
-
-        } else if (pathLower.contains(QStringLiteral("chocolatey")) ||
-                   pathLower.contains(QStringLiteral("choco"))) {
-            manager = QStringLiteral("Chocolatey");
-            updateProgram = QStringLiteral("choco");
-
-            if (binaryName == QStringLiteral("ffmpeg") || binaryName == QStringLiteral("ffprobe")) {
-                updateArgs = {QStringLiteral("upgrade"), QStringLiteral("-y"), QStringLiteral("ffmpeg")};
-            } else {
-                updateArgs = {QStringLiteral("upgrade"), QStringLiteral("-y"), binaryName};
-            }
-        }
-
-        const bool isStandalone = manager.isEmpty();
-
-        if (isStandalone) {
-            const bool isFfmpegBinary = binaryName == QStringLiteral("ffmpeg") || binaryName == QStringLiteral("ffprobe");
-            const bool isAria2Binary = binaryName == QStringLiteral("aria2c");
-            if (isFfmpegBinary || isAria2Binary) {
-#ifdef Q_OS_WIN
-                if (isFfmpegBinary && isAppManagedPath(foundBinary.path)) {
-                    QMessageBox msgBox(this);
-                    msgBox.setWindowTitle(tr("Update %1").arg(displayName(binaryName)));
-                    msgBox.setTextFormat(Qt::RichText);
-                    msgBox.setText(tr("A recommended update is available for <b>%1</b>.<br><br>"
-                                     "How would you like to update?<br><br>"
-                                     "<b>Automated Update (Recommended):</b> Downloads and installs the latest stable build of FFmpeg and FFprobe directly to your local application folder.<br>"
-                                     "<b>Manual Update:</b> Opens the official download page in your web browser.")
-                                      .arg(displayName(binaryName)));
-                    msgBox.setIcon(QMessageBox::Question);
-                    QPushButton *autoBtn = msgBox.addButton(tr("Automated Update"), QMessageBox::AcceptRole);
-                    QPushButton *manualBtn = msgBox.addButton(tr("Manual Update"), QMessageBox::ActionRole);
-                    msgBox.addButton(QMessageBox::Cancel);
-                    msgBox.exec();
-
-                    if (msgBox.clickedButton() == autoBtn) {
-                        installBinaryFor(binaryName);
-                        return;
-                    } else if (msgBox.clickedButton() == manualBtn) {
-                        QDesktopServices::openUrl(QUrl(m_manualUrls.value(binaryName)));
-                        return;
-                    } else {
-                        return;
-                    }
-                }
-#endif
-                QDesktopServices::openUrl(QUrl(m_manualUrls.value(binaryName)));
-                QMessageBox::information(
-                    this,
-                    tr("Manual Update Required"),
-                    tr("The official download page for %1 was opened in your browser.\n\n"
-                       "Please download the latest version, extract/install it, and use the 'Browse...' button to select the new executable.")
-                        .arg(displayName(binaryName)));
-                return;
-            }
-
-            manager = tr("Standalone");
-            updateProgram = foundBinary.path;
-
-            if (binaryName == QStringLiteral("deno")) {
-                updateArgs = {QStringLiteral("upgrade")};
-            } else {
-                updateArgs = {QStringLiteral("-U")};
-            }
-        }
-
-        if (!manager.isEmpty()) {
+    // The WinGet Deno manifest can lag the upstream stable release. In that
+    // case WinGet reports success as a command invocation but returns a
+    // non-zero "no available upgrade" result. Use the same official,
+    // app-managed installer offered for new Deno installs instead; it also
+    // leaves the newly installed executable selected as the explicit path.
+    const bool isDenoWinGetInstall = binaryName == QStringLiteral("deno") &&
+        (pathLower.contains(QStringLiteral("winget")) || pathLower.contains(QStringLiteral("windowsapps")));
+    if (isDenoWinGetInstall) {
+        if (askForConfirmation) {
             QMessageBox msgBox(this);
             msgBox.setWindowTitle(tr("Update %1").arg(displayName(binaryName)));
             msgBox.setTextFormat(Qt::RichText);
-
-            QString cmdPreview = updateProgram;
-            for (const QString &arg : updateArgs) {
-                if (arg.contains(QLatin1Char(' '))) {
-                    cmdPreview += QStringLiteral(" \"%1\"").arg(arg);
-                } else {
-                    cmdPreview += QStringLiteral(" %1").arg(arg);
-                }
-            }
-
-            QString messageText;
-            if (isStandalone) {
-                messageText = tr("Would you like to run the built-in updater for <b>%1</b>?<br><br>"
-                                 "<code>%2</code>")
-                                  .arg(displayName(binaryName), cmdPreview);
-            } else {
-                messageText = tr("LzyDownloader detected that %1 is managed by <b>%2</b>.<br><br>"
-                                 "Would you like to run the following update command now?<br><br>"
-                                 "<code>%3</code>")
-                                  .arg(displayName(binaryName), manager, cmdPreview);
-            }
-
-            msgBox.setText(messageText);
+            msgBox.setText(tr("WinGet has not published the latest Deno release yet.<br><br>"
+                              "Would you like LzyDownloader to download the latest stable Deno release "
+                              "into its app-managed tools folder?"));
             msgBox.setIcon(QMessageBox::Question);
-
-            QPushButton *runButton = msgBox.addButton(tr("Run Update"), QMessageBox::AcceptRole);
+            QPushButton *runButton = msgBox.addButton(tr("Download Update"), QMessageBox::AcceptRole);
             msgBox.addButton(QMessageBox::Cancel);
-
             msgBox.exec();
-
-            if (msgBox.clickedButton() == runButton) {
-                ProcessRunOptions opts;
-                opts.dialogTitle = tr("Updating %1 via %2").arg(displayName(binaryName), manager);
-                opts.program = updateProgram;
-                opts.arguments = updateArgs;
-                opts.binaryName = binaryName;
-                opts.isAlias = false;
-                opts.isUpdate = true;
-
-                runProcessWithLog(opts);
+            if (msgBox.clickedButton() != runButton) {
+                return;
             }
-        } else {
-            installBinaryFor(binaryName);
         }
-    });
+        installRecommendedBinary(binaryName);
+        return;
+    }
+
+    QString manager;
+    QString updateProgram;
+    QStringList updateArgs;
+
+    if (pathLower.contains(QStringLiteral("scoop"))) {
+        manager = QStringLiteral("Scoop");
+        updateProgram = QStringLiteral("scoop");
+        if (binaryName == QStringLiteral("yt-dlp")) updateArgs = {QStringLiteral("update"), QStringLiteral("yt-dlp-nightly")};
+        else if (binaryName == QStringLiteral("ffmpeg") || binaryName == QStringLiteral("ffprobe")) updateArgs = {QStringLiteral("update"), QStringLiteral("ffmpeg")};
+        else updateArgs = {QStringLiteral("update"), binaryName};
+    } else if (pathLower.contains(QStringLiteral("windowsapps")) || pathLower.contains(QStringLiteral("winget"))) {
+        manager = QStringLiteral("WinGet");
+        updateProgram = QStringLiteral("winget");
+        if (binaryName == QStringLiteral("gallery-dl")) updateArgs = {QStringLiteral("upgrade"), QStringLiteral("--id"), QStringLiteral("mikf.gallery-dl"), QStringLiteral("--exact"), QStringLiteral("--accept-package-agreements"), QStringLiteral("--accept-source-agreements")};
+        else if (binaryName == QStringLiteral("yt-dlp")) updateArgs = {QStringLiteral("upgrade"), QStringLiteral("--id"), QStringLiteral("yt-dlp.yt-dlp"), QStringLiteral("--exact"), QStringLiteral("--accept-package-agreements"), QStringLiteral("--accept-source-agreements")};
+        else if (binaryName == QStringLiteral("ffmpeg") || binaryName == QStringLiteral("ffprobe")) updateArgs = {QStringLiteral("upgrade"), QStringLiteral("--id"), QStringLiteral("Gyan.FFmpeg"), QStringLiteral("--exact"), QStringLiteral("--accept-package-agreements"), QStringLiteral("--accept-source-agreements")};
+        else if (binaryName == QStringLiteral("aria2c")) updateArgs = {QStringLiteral("upgrade"), QStringLiteral("--id"), QStringLiteral("aria2.aria2"), QStringLiteral("--exact"), QStringLiteral("--accept-package-agreements"), QStringLiteral("--accept-source-agreements")};
+        else if (binaryName == QStringLiteral("deno")) {
+            // Deno's self-updater can leave deno.old.exe and replace the
+            // portable payload, so WinGet needs --force to replace it.
+            updateArgs = {QStringLiteral("upgrade"), QStringLiteral("--id"), QStringLiteral("DenoLand.Deno"), QStringLiteral("--exact"), QStringLiteral("--accept-package-agreements"), QStringLiteral("--accept-source-agreements"), QStringLiteral("--force")};
+        } else updateArgs = {QStringLiteral("upgrade"), binaryName, QStringLiteral("--accept-package-agreements"), QStringLiteral("--accept-source-agreements")};
+    } else if (pathLower.contains(QStringLiteral("python")) || pathLower.contains(QStringLiteral("pip")) || pathLower.contains(QStringLiteral("scripts")) || pathLower.contains(QStringLiteral("site-packages"))) {
+        manager = QStringLiteral("pip");
+        updateProgram = QStringLiteral("pip");
+        if (binaryName == QStringLiteral("yt-dlp")) updateArgs = {QStringLiteral("install"), QStringLiteral("-U"), QStringLiteral("--pre"), QStringLiteral("yt-dlp")};
+        else updateArgs = {QStringLiteral("install"), QStringLiteral("-U"), binaryName};
+    } else if (pathLower.contains(QStringLiteral("homebrew")) || pathLower.contains(QStringLiteral("cellar")) || pathLower.contains(QStringLiteral("linuxbrew"))) {
+        manager = QStringLiteral("Homebrew");
+        updateProgram = QStringLiteral("brew");
+        if (binaryName == QStringLiteral("ffmpeg") || binaryName == QStringLiteral("ffprobe")) updateArgs = {QStringLiteral("upgrade"), QStringLiteral("ffmpeg")};
+        else updateArgs = {QStringLiteral("upgrade"), binaryName};
+    } else if (pathLower.contains(QStringLiteral("chocolatey")) || pathLower.contains(QStringLiteral("choco"))) {
+        manager = QStringLiteral("Chocolatey");
+        updateProgram = QStringLiteral("choco");
+        if (binaryName == QStringLiteral("ffmpeg") || binaryName == QStringLiteral("ffprobe")) updateArgs = {QStringLiteral("upgrade"), QStringLiteral("-y"), QStringLiteral("ffmpeg")};
+        else updateArgs = {QStringLiteral("upgrade"), QStringLiteral("-y"), binaryName};
+    }
+
+    const bool isStandalone = manager.isEmpty();
+    if (isStandalone) {
+        const bool isFfmpegBinary = binaryName == QStringLiteral("ffmpeg") || binaryName == QStringLiteral("ffprobe");
+        const bool isAria2Binary = binaryName == QStringLiteral("aria2c");
+        if (isFfmpegBinary || isAria2Binary) {
+#ifdef Q_OS_WIN
+            if (isFfmpegBinary && isAppManagedPath(foundBinary.path)) {
+                if (!askForConfirmation) {
+                    installRecommendedBinary(binaryName);
+                    return;
+                }
+                QMessageBox msgBox(this);
+                msgBox.setWindowTitle(tr("Update %1").arg(displayName(binaryName)));
+                msgBox.setTextFormat(Qt::RichText);
+                msgBox.setText(tr("A recommended update is available for <b>%1</b>.<br><br>"
+                                 "How would you like to update?<br><br>"
+                                 "<b>Automated Update (Recommended):</b> Downloads and installs the latest stable build of FFmpeg and FFprobe directly to your local application folder.<br>"
+                                 "<b>Manual Update:</b> Opens the official download page in your web browser.")
+                                  .arg(displayName(binaryName)));
+                msgBox.setIcon(QMessageBox::Question);
+                QPushButton *autoBtn = msgBox.addButton(tr("Automated Update"), QMessageBox::AcceptRole);
+                QPushButton *manualBtn = msgBox.addButton(tr("Manual Update"), QMessageBox::ActionRole);
+                msgBox.addButton(QMessageBox::Cancel);
+                msgBox.exec();
+                if (msgBox.clickedButton() == autoBtn) installBinaryFor(binaryName);
+                else if (msgBox.clickedButton() == manualBtn) QDesktopServices::openUrl(QUrl(m_manualUrls.value(binaryName)));
+                return;
+            }
+#endif
+            QDesktopServices::openUrl(QUrl(m_manualUrls.value(binaryName)));
+            QMessageBox::information(this, tr("Manual Update Required"),
+                tr("The official download page for %1 was opened in your browser.\n\n"
+                   "Please download the latest version, extract/install it, and use the 'Browse...' button to select the new executable.")
+                    .arg(displayName(binaryName)));
+            return;
+        }
+
+        manager = tr("Standalone");
+        updateProgram = foundBinary.path;
+        updateArgs = binaryName == QStringLiteral("deno")
+            ? QStringList{QStringLiteral("upgrade")}
+            : QStringList{QStringLiteral("-U")};
+    }
+
+    if (askForConfirmation) {
+        QMessageBox msgBox(this);
+        msgBox.setWindowTitle(tr("Update %1").arg(displayName(binaryName)));
+        msgBox.setTextFormat(Qt::RichText);
+        QString cmdPreview = updateProgram;
+        for (const QString &arg : updateArgs) {
+            cmdPreview += arg.contains(QLatin1Char(' '))
+                ? QStringLiteral(" \"%1\"").arg(arg)
+                : QStringLiteral(" %1").arg(arg);
+        }
+        const QString messageText = isStandalone
+            ? tr("Would you like to run the built-in updater for <b>%1</b>?<br><br><code>%2</code>").arg(displayName(binaryName), cmdPreview)
+            : tr("LzyDownloader detected that %1 is managed by <b>%2</b>.<br><br>Would you like to run the following update command now?<br><br><code>%3</code>").arg(displayName(binaryName), manager, cmdPreview);
+        msgBox.setText(messageText);
+        msgBox.setIcon(QMessageBox::Question);
+        QPushButton *runButton = msgBox.addButton(tr("Run Update"), QMessageBox::AcceptRole);
+        msgBox.addButton(QMessageBox::Cancel);
+        msgBox.exec();
+        if (msgBox.clickedButton() != runButton) return;
+    }
+
+    ProcessRunOptions opts;
+    opts.dialogTitle = tr("Updating %1 via %2").arg(displayName(binaryName), manager);
+    opts.program = updateProgram;
+    opts.arguments = updateArgs;
+    opts.binaryName = binaryName;
+    opts.isAlias = false;
+    opts.isUpdate = true;
+    runProcessWithLog(opts);
 }
 
 void BinariesPage::fetchBinaryVersion(const QString &binaryName, const QString &path) {
@@ -1140,8 +1111,15 @@ void BinariesPage::runProcessWithLog(const ProcessRunOptions &opts) {
         }
     });
 
-    connect(process, &QProcess::errorOccurred, process, [process, outputEdit, closeBtn, opts, pDialog](QProcess::ProcessError) {
+    connect(process, &QProcess::errorOccurred, process, [process, outputEdit, closeBtn, opts, pDialog](QProcess::ProcessError error) {
         if (!pDialog) return;
+        // On Windows, WinGet returns HRESULT-style failure codes with the
+        // high bit set. Qt may report those exits as CrashExit and emit
+        // errorOccurred before finished(); the finished handler already
+        // presents the useful exit code and captured command output.
+        if (error != QProcess::FailedToStart) {
+            return;
+        }
         closeBtn->setEnabled(true);
         if (!opts.cleanupPath.isEmpty()) {
             QFile::remove(opts.cleanupPath);
@@ -1598,11 +1576,14 @@ QList<BinariesPage::InstallOption> BinariesPage::buildInstallOptions(const QStri
                 "if (Test-Path $extractDir) { Remove-Item -Recurse -Force $extractDir }; "
                 "$architecture = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString(); "
                 "$asset = if ($architecture -eq 'Arm64') { 'deno-aarch64-pc-windows-msvc.zip' } else { 'deno-x86_64-pc-windows-msvc.zip' }; "
-                "$version = (Invoke-WebRequest -Uri 'https://dl.deno.land/release-latest.txt').Content.Trim(); "
-                "if ([string]::IsNullOrWhiteSpace($version)) { throw 'Deno did not return a release version' }; "
-                "$downloadUrl = if ($version -like '*-*') { 'https://dl.deno.land/release/' + $version + '/' + $asset } else { 'https://github.com/denoland/deno/releases/download/' + $version + '/' + $asset }; "
-                "Write-Host 'Downloading Deno release...'; "
-                "Invoke-WebRequest -Uri $downloadUrl -OutFile $zipPath; "
+                 "$curlPath = (Get-Command curl.exe -ErrorAction Stop).Source; "
+                 "$version = (& $curlPath -fsSL --retry 3 --retry-all-errors 'https://dl.deno.land/release-latest.txt' | Out-String).Trim(); "
+                 "if ($LASTEXITCODE -ne 0) { throw ('Failed to fetch Deno release version with curl (exit code ' + $LASTEXITCODE + ')') }; "
+                 "if ([string]::IsNullOrWhiteSpace($version)) { throw 'Deno did not return a release version' }; "
+                 "$downloadUrl = if ($version -like '*-*') { 'https://dl.deno.land/release/' + $version + '/' + $asset } else { 'https://github.com/denoland/deno/releases/download/' + $version + '/' + $asset }; "
+                 "Write-Host 'Downloading Deno release...'; "
+                 "& $curlPath -fL --retry 3 --retry-all-errors --output $zipPath $downloadUrl; "
+                 "if ($LASTEXITCODE -ne 0) { throw ('Failed to download Deno release with curl (exit code ' + $LASTEXITCODE + ')') }; "
                 "Expand-Archive -Path $zipPath -DestinationPath $extractDir -Force; "
                 "$denoExe = Get-ChildItem -Path $extractDir -Filter 'deno.exe' -Recurse | Select-Object -First 1; "
                 "if (!$denoExe) { throw 'Failed to locate deno.exe inside archive' }; "

@@ -170,7 +170,7 @@ void MainWindow::connectAppUpdaterSignals()
         const bool wasSilent = m_silentUpdateCheck;
         m_silentUpdateCheck = false;
         qWarning() << "App update check failed:" << error;
-        if (!wasSilent) {
+        if (!wasSilent && !m_nonInteractiveLaunch) {
             QMessageBox::warning(this, tr("Update Check Failed"), error);
         }
     });
@@ -204,12 +204,7 @@ void MainWindow::connectAppUpdaterSignals()
 void MainWindow::scheduleInitialSetup()
 {
     QTimer::singleShot(0, this, [this]() {
-        const bool isHeadless = QCoreApplication::arguments().contains(QStringLiteral("--headless")) || QCoreApplication::arguments().contains(QStringLiteral("--server"));
         const bool isNonInteractive = m_nonInteractiveLaunch;
-
-        if (isHeadless && m_trayIcon) {
-            m_trayIcon->showMessage(QStringLiteral("LzyDownloader"), tr("Running in headless server mode."), QSystemTrayIcon::Information, 3000);
-        }
 
         QString completedDownloadsDir = m_configManager->get(QStringLiteral("Paths"), QStringLiteral("completed_downloads_directory")).toString();
         if (completedDownloadsDir.isEmpty()) {
@@ -429,7 +424,15 @@ void MainWindow::connectDownloadManagerSignals()
 
     connectDiscordWebhookSignals();
 
-    connect(m_downloadManager, &DownloadManager::duplicateDownloadDetected, m_startTab, &StartTab::onDuplicateDownloadDetected);
+    // Non-interactive/API requests report duplicate failures through the
+    // webhook signal.  Do not route the same event through the GUI warning
+    // slot, especially when the API is hosted by an already-open GUI process.
+    connect(m_downloadManager, &DownloadManager::duplicateDownloadDetected, this,
+            [this](const QString &url, const QString &reason) {
+                if (!m_nonInteractiveLaunch) {
+                    m_startTab->onDuplicateDownloadDetected(url, reason);
+                }
+            });
     connect(m_downloadManager, &DownloadManager::nonInteractiveRequestFailed,
             this, &MainWindow::nonInteractiveRequestFailed);
     connect(m_downloadManager, &DownloadManager::ytDlpErrorPopupRequested, this, &MainWindow::onYtDlpErrorPopup);
@@ -437,7 +440,7 @@ void MainWindow::connectDownloadManagerSignals()
 
     connect(m_downloadManager, &DownloadManager::playlistActionRequested, this,
             [this](const QString &url, int itemCount, const QVariantMap &options, const QList<QVariantMap> &expandedItems) {
-                if (MainWindowHelpers::isNonInteractiveRequest(options)) {
+                if (m_nonInteractiveLaunch || MainWindowHelpers::isNonInteractiveRequest(options)) {
                     qInfo() << "Non-interactive playlist request detected; queueing all playlist items for" << url << "count:" << itemCount;
                     m_downloadManager->processPlaylistSelection(url, QStringLiteral("Download All"), options, expandedItems);
                     m_uiBuilder->tabWidget()->setCurrentWidget(m_activeDownloadsTab);
@@ -486,7 +489,7 @@ void MainWindow::connectDownloadManagerSignals()
 
     connect(m_downloadManager, &DownloadManager::formatSelectionRequested, this,
             [this](const QString &url, const QVariantMap &options, const QVariantMap &infoDict) {
-                if (MainWindowHelpers::isNonInteractiveRequest(options)) {
+                if (m_nonInteractiveLaunch || MainWindowHelpers::isNonInteractiveRequest(options)) {
                     QVariantMap newOptions = options;
                 newOptions.insert(QStringLiteral("runtime_format_selected"), true);
                     qInfo() << "Skipping runtime format dialog for non-interactive request:" << url;
@@ -573,11 +576,24 @@ void MainWindow::connectStartupWorkerSignals()
             messageBox.setWindowTitle(tr("External Tool Update Required"));
             messageBox.setIcon(QMessageBox::Warning);
             messageBox.setText(tr("A newer version of %1 is available.").arg(binaryName));
-            messageBox.setInformativeText(tr("%1\n\nOpen External Binaries to update or replace this executable.").arg(details));
-            QPushButton *openButton = messageBox.addButton(tr("Open External Binaries"), QMessageBox::AcceptRole);
+            messageBox.setInformativeText(tr("%1\n\nClick Update Now to update this executable directly, or open External Binaries for more options.").arg(details));
+            QPushButton *updateButton = messageBox.addButton(tr("Update Now"), QMessageBox::AcceptRole);
+            QPushButton *openButton = messageBox.addButton(tr("Open External Binaries"), QMessageBox::ActionRole);
             messageBox.addButton(QMessageBox::Close);
             messageBox.exec();
-            if (messageBox.clickedButton() == openButton) {
+            if (messageBox.clickedButton() == updateButton) {
+                bool updateDispatched = false;
+                if (m_advancedSettingsTab) {
+                    if (auto *binariesPage = m_advancedSettingsTab->findChild<BinariesPage*>()) {
+                        binariesPage->updateBinaryFor(binaryName, false);
+                        updateDispatched = true;
+                    }
+                }
+                if (!updateDispatched) {
+                    m_uiBuilder->tabWidget()->setCurrentWidget(m_advancedSettingsTab);
+                    m_advancedSettingsTab->navigateToCategory(QStringLiteral("External Tools"));
+                }
+            } else if (messageBox.clickedButton() == openButton) {
                 m_uiBuilder->tabWidget()->setCurrentWidget(m_advancedSettingsTab);
                 m_advancedSettingsTab->navigateToCategory(QStringLiteral("External Tools"));
             }

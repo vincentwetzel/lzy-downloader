@@ -125,7 +125,7 @@ void LogManager::installHandler() {
     // Use the same location family as settings.ini/state files (AppData on Windows).
     QString logDir = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation);
     if (logDir.isEmpty()) {
-        // Fallback to application directory if AppConfigLocation is unavailable
+        // Fallback to application directory if AppLocalDataLocation is unavailable
         logDir = QCoreApplication::applicationDirPath();
     }
     if (isHeadlessMode()) {

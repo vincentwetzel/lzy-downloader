@@ -11,6 +11,10 @@
       "default-features": false,
       "features": [
         "concurrent",
+        {
+          "name": "dbus",
+          "platform": "linux"
+        },
         "gui",
         "network",
         "sql-sqlite",

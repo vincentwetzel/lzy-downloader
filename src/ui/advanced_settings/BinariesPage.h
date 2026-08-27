@@ -22,6 +22,7 @@ public:
     void browseBinaryFor(const QString &binaryName);
     void installBinaryFor(const QString &binaryName);
     void installRecommendedBinary(const QString &binaryName);
+    void updateBinaryFor(const QString &binaryName, bool askForConfirmation = true);
     bool tryAutomaticUpdate(const QString &binaryName);
     void setBinaryWarning(const QString &binaryName, const QString &details);
     void refreshBinaryStatus(const QString &binaryName);

@@ -218,7 +218,9 @@ Manual path overrides for external executables. If not set, the application auto
 
 > **Binary Resolution Order:** Explicit external paths always win. Otherwise the selected preference chooses app-managed `bin` copies before system candidates, or system candidates before app-managed copies. The resolver then probes candidates in that preferred group with a short timeout and prefers the newest usable candidate.
 
-The External Tools page marks an installer as **(Recommended)** only when it writes a private app-managed copy to `<app data>/LzyDownloader/bin` (on Windows, `%LOCALAPPDATA%\\LzyDownloader\\bin`). Existing system tools and explicit Browse paths remain valid. Package-manager options remain available as explicit alternatives, but install to locations owned by WinGet, Scoop, Chocolatey, Homebrew, or the platform package manager rather than LzyDownloader's `bin` folder. On every supported OS, direct yt-dlp installs target the app-managed folder; Deno's direct installer also targets it without adding it to the user's `PATH`. Windows additionally provides direct app-managed FFmpeg/FFprobe and gallery-dl installers. Cancellable progress dialogs preserve command output for troubleshooting. Version checks are bounded by short watchdogs, install/update helpers close stdin so package aliases cannot hang waiting for input, and successful updates clear update-warning flags before refreshing binary status. Explicit Browse selections and completed local installs are stored as non-auto-detected overrides; Windows FFmpeg/FFprobe pair installs persist both `.exe` paths. Installation command previews use a bounded, horizontally scroll-free text area that wraps long tokens.
+The External Tools page marks an installer as **(Recommended)** only when it writes a private app-managed copy to `<app data>/LzyDownloader/bin` (on Windows, `%LOCALAPPDATA%\\LzyDownloader\\bin`). Existing system tools and explicit Browse paths remain valid. Package-manager options remain available as explicit alternatives, but install to locations owned by WinGet, Scoop, Chocolatey, Homebrew, or the platform package manager rather than LzyDownloader's `bin` folder. On every supported OS, direct yt-dlp installs target the app-managed folder; Deno's direct installer also targets it without adding it to the user's `PATH`. Windows additionally provides direct app-managed FFmpeg/FFprobe and gallery-dl installers. If a WinGet-managed Deno install is newer upstream than the WinGet catalog, **Update Deno** uses the official stable installer and stores the resulting app-managed path. Cancellable progress dialogs preserve command output for troubleshooting. Version checks are bounded by short watchdogs, install/update helpers close stdin so package aliases cannot hang waiting for input, and successful updates clear update-warning flags before refreshing binary status. Explicit Browse selections and completed local installs are stored as non-auto-detected overrides; Windows FFmpeg/FFprobe pair installs persist both `.exe` paths. Installation command previews use a bounded, horizontally scroll-free text area that wraps long tokens.
+
+When startup detects an outdated binary and cannot update it in the background, the update-required prompt provides **Update Now**. This invokes the same manager-aware update operation as the External Tools row button; **Open External Binaries** remains available for alternate installation methods.
 
 Transfer progress recovery is automatic and is not a persisted setting: when yt-dlp omits `requested_downloads`, the worker uses matching format sizes and a bounded poll of the active temporary `.part` file.
 
@@ -307,7 +309,7 @@ by `QStandardPaths::AppLocalDataLocation`:
 - **Linux:** `~/.local/share/LzyDownloader/settings.ini`
 - **macOS:** `~/Library/Application Support/LzyDownloader/settings.ini`
 
-This file is the single source of truth for user preferences in both GUI and server/headless mode. Obsolete `Server/settings.ini` files are not used; if the main settings file is missing, the app may copy an old server settings file back to this shared location once.
+This file is the single source of truth for user preferences in GUI and server/headless/background modes. Obsolete `Server/settings.ini` files are not used; if the main settings file is missing, the app may copy an old server settings file back to this shared location once.
 
 ## Queue Backup Location
 
@@ -329,7 +331,7 @@ When `General/enable_local_api` is enabled in GUI mode, or when `--server`, `--h
 - **Linux:** `~/.local/share/LzyDownloader/api_token.txt`
 - **macOS:** `~/Library/Application Support/LzyDownloader/api_token.txt`
 
-Server/headless mode isolates this runtime token under `Server/`, for example `%LOCALAPPDATA%\LzyDownloader\Server\api_token.txt` on Windows.
+Server/headless/background mode isolates this runtime token under `Server/`, for example `%LOCALAPPDATA%\LzyDownloader\Server\api_token.txt` on Windows.
 
 The server binds only to `127.0.0.1:8765`. Requests must include `Authorization: Bearer <token>`. Supported endpoints are `POST /enqueue` with a JSON `url` field plus optional `type` (`video`, `audio`, or `gallery`), optional caller-provided `id`, and optional boolean `override_archive` (also accepted under `options`) for intentional re-downloads; authenticated `POST /cancel` with `job_id` for tracked jobs; and `GET /status`. If `id` is omitted, LzyDownloader generates a UUID.
 
@@ -340,7 +342,7 @@ Application logs are stored in the same application-local data directory:
 - **Linux:** `~/.local/share/LzyDownloader/LzyDownloader_YYYY-MM-dd_HH-mm-ss.log`
 - **macOS:** `~/Library/Application Support/LzyDownloader/LzyDownloader_YYYY-MM-dd_HH-mm-ss.log`
 
-Server/headless logs are isolated under the `Server/` subfolder.
+Server/headless/background logs are isolated under the `Server/` subfolder.
 
 **Log Retention:** Each app launch creates a fresh timestamped log file, and startup cleanup keeps only the 5 most recent logs. Legacy size-rotated `LzyDownloader.log.*` files are also deleted if they are still present from older builds.
 

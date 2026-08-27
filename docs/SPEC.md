@@ -36,8 +36,9 @@ only the sections relevant to the change.
   removes only unprotected direct-child UUID folders after queue restoration;
   shared roots, symlinks, non-UUID folders, and stopped/failed IDs are kept.
 - `downloads_backup.json` is written atomically and terminal state is flushed
-  before headless `QCoreApplication::quit()`. GUI and server/headless modes use
-  shared preferences but isolate runtime state under `Server/`.
+  before non-interactive `QCoreApplication::quit()`. GUI and
+  server/headless/background modes use shared preferences but isolate runtime
+  state under `Server/`.
 
 ### 2.2 Instances, settings, and archive
 
@@ -68,8 +69,8 @@ only the sections relevant to the change.
   `FileReplacement::moveReplacing()`: retain the old destination until a
   verified new output moves/copies successfully, and restore it on failure.
 - Power inhibition prevents idle sleep, not display power-off, while any GUI or
-  server/headless download is active. Release it on completion, cancellation,
-  and shutdown; unsupported platform services are best-effort.
+  server/headless/background download is active. Release it on completion,
+  cancellation, and shutdown; unsupported platform services are best-effort.
 
 ## 3. User interface
 
@@ -176,9 +177,14 @@ only the sections relevant to the change.
   extension origins. `POST /enqueue` accepts URL, type, optional ID, and
   explicit `override_archive`; `GET /status` returns snapshots; authenticated
   `POST /cancel` accepts `job_id` (or `id`) and routes through the manager.
-  Direct/API requests are non-interactive. Webhooks use the main-thread network
-  manager, bounded requests, sanitized status, queue positions, parent IDs, and
-  observable terminal completion/cancellation states.
+  Direct/API requests and `--background`/`--server`/`--headless` launches are
+  non-interactive. Validation, duplicate, missing-binary, runtime, and
+  terminal failures emit the `nonInteractiveRequestFailed` signal for bridge
+  consumers instead of opening modal dialogs. Webhooks use the main-thread
+  network manager, bounded
+  requests, sanitized status, queue positions, parent IDs, aggregate
+  `overall_progress` when available, and observable terminal
+  completion/cancellation states.
 - `AppUpdater` checks HTTPS releases asynchronously, validates JSON/assets,
   matches OS and macOS CPU architecture, and opens macOS DMGs through Finder.
   Before install launch, save resumable state and terminate child processes.
@@ -189,7 +195,13 @@ only the sections relevant to the change.
   manager alternatives remain explicit and are detected without relocation.
   App-managed copies can update by cadence; manual/package-managed tools
   require explicit confirmation. WinGet paths use `winget upgrade`; standalone
-  FFmpeg is never silently replaced.
+  FFmpeg and aria2c are never silently replaced. Standalone yt-dlp,
+  gallery-dl, and Deno use their own updater when supported. If WinGet has not
+  published the latest Deno release, the update falls back to the official
+  stable app-managed installer. When startup detects an outdated binary and no
+  background update is running, its **Update Now** action invokes the same
+  binary update operation used by External Tools; that page remains the
+  alternate path for choosing another installation method.
   Windows FFmpeg/FFprobe replacements stage beside the destination and retry
   transient locks while preserving the old executable on failure.
 - Windows deployment includes required Qt image plugins, SQLite, OpenSSL, and

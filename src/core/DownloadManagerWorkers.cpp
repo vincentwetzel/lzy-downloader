@@ -164,7 +164,8 @@ void DownloadManager::onWorkerFinished(const QString &id, bool success, const QS
     const QString downloadType = item.options.value(QStringLiteral("type")).toString();
     if (downloadType == QStringLiteral("video")
         && metadata.contains(QStringLiteral("height"))
-        && metadata.value(QStringLiteral("height")).toInt() < 480) {
+        && metadata.value(QStringLiteral("height")).toInt() < 480
+        && !item.options.value(QStringLiteral("non_interactive"), false).toBool()) {
         QString title = metadata.value(QStringLiteral("title")).toString().trimmed();
         if (title.isEmpty()) {
             title = item.metadata.value(QStringLiteral("title")).toString().trimmed();

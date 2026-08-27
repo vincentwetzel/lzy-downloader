@@ -26,13 +26,14 @@ inline QString directCliUrl()
 inline bool hasNonInteractiveLaunchArgument()
 {
     const QStringList args = QCoreApplication::arguments();
-    return args.contains("--headless") || args.contains("--server") || !directCliUrl().isEmpty();
+    return args.contains("--headless") || args.contains("--server") || args.contains("--background")
+        || !directCliUrl().isEmpty();
 }
 
 inline bool hasServerLaunchArgument()
 {
     const QStringList args = QCoreApplication::arguments();
-    return args.contains("--headless") || args.contains("--server");
+    return args.contains("--headless") || args.contains("--server") || args.contains("--background");
 }
 
 inline bool isNonInteractiveRequest(const QVariantMap &options)
@@ -50,4 +51,3 @@ inline void applyNonInteractiveDownloadDefaults(QVariantMap &options)
 }
 
 }
-

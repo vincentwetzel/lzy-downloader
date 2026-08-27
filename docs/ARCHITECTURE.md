@@ -37,18 +37,20 @@ separate runtime markers and `Server/` runtime state where applicable. A
 second GUI launch forwards a direct URL through `QLocalSocket`.
 
 Shutdown stops downloader/helper process trees, flushes resumable state, and
-releases power inhibition. Headless exit flushes terminal state before
+releases power inhibition. Non-interactive exit flushes terminal state before
 `QCoreApplication::quit()`.
 
 ### Queue and media flow
 
 `DownloadManager` registers a row immediately, then expands a playlist or
 starts a worker. `DownloadQueueManager` owns ordering, concurrency, duplicate
-identity, retry/resume snapshots, and restored-item recovery. `ArchiveManager`
-owns normalized identity and SQLite history. `DownloadFinalizer` verifies,
-sorts, embeds metadata, and moves/copies output. `FileReplacement` protects an
-existing destination during intentional replacement. Temp cleanup owns root
-resolution and guarded UUID-folder removal.
+identity, retry/resume snapshots, and restored-item recovery. Non-interactive
+validation, duplicate, binary, runtime, and terminal errors are emitted as
+`nonInteractiveRequestFailed` for bridge/webhook consumers rather than shown in
+modal dialogs. `ArchiveManager` owns normalized identity and SQLite history.
+`DownloadFinalizer` verifies, sorts, embeds metadata, and moves/copies output.
+`FileReplacement` protects an existing destination during intentional
+replacement. Temp cleanup owns root resolution and guarded UUID-folder removal.
 
 ## Component ownership
 
@@ -78,11 +80,11 @@ resolution and guarded UUID-folder removal.
 
 | Component | Owns |
 |---|---|
-| `MainWindow.*`, `MainWindowUiBuilder.*` | Shell, tabs, footer, global actions, update handoff, webhook wiring |
+| `MainWindow.*`, `MainWindowUiBuilder.*` | Shell, tabs, footer, global actions, startup/external-tool update handoff, webhook wiring |
 | `StartTab.*`, `start_tab/*` | URL submission, clipboard, playlist/runtime selection |
-| `ActiveDownloadsTab.*`, `DownloadItemWidget.*` | Download rows, thumbnails, compact layout, progress, actions |
+| `ActiveDownloadsTab.*`, `DownloadItemWidget.*` | Download rows, thumbnails, compact layout, one focused progress bar, actions |
 | `advanced_settings/*`, `InitialBinarySetupDialog.*` | Settings pages, templates, binary setup/provisioning |
-| `LocalApiServer.*` | Authenticated localhost enqueue/status/cancel and tracked-job signals |
+| `LocalApiServer.*` | Authenticated localhost enqueue/status/cancel, aggregate progress, and tracked-job signals |
 | `AppUpdater.*`, `LzyDownloader.nsi` | Release lookup/handoff and Windows silent-install relaunch |
 | `PowerInhibitor.*` | Platform idle-sleep inhibition |
 | `LogManager.*` | Per-run logs and five-file startup retention |
@@ -105,7 +107,8 @@ Use worker threads, asynchronous `QProcess`/network APIs, or queued callbacks
 for long operations. Mutexes use RAII and are not held while emitting signals.
 External processes have bounded watchdogs, UTF-8 line buffering, bounded
 diagnostics, and process-tree cleanup. Qt SQL connections stay within their
-creating thread.
+creating thread. GUI and server/headless/background downloads inhibit idle
+sleep while active, without preventing normal display power-off.
 
 Windows keeps required Qt plugins, SQLite, OpenSSL, Qt runtime, and MinGW
 compiler runtime DLLs beside the executable. The deployment helper is also

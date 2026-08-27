@@ -71,6 +71,11 @@ void MainWindow::setupUI()
         m_advancedSettingsTab->navigateToCategory(QStringLiteral("External Binaries"));
     });
     connect(m_startTab, &StartTab::missingBinariesDetected, this, [this](const QStringList &missingBinaries) {
+        if (m_nonInteractiveLaunch) {
+            qWarning() << "Ignoring missing-binaries dialog request during non-interactive launch:"
+                       << missingBinaries;
+            return;
+        }
         showMissingBinariesDialog(missingBinaries);
     });
     connect(m_advancedSettingsTab, &AdvancedSettingsTab::themeChanged, this, &MainWindow::applyTheme);
@@ -84,6 +89,11 @@ void MainWindow::setupUI()
 
 void MainWindow::setupTrayIcon()
 {
+    if (m_nonInteractiveLaunch) {
+        qInfo() << "Skipping system tray setup for non-interactive launch.";
+        return;
+    }
+
     m_trayIcon = new QSystemTrayIcon(QIcon(QStringLiteral(":/app-icon")), this);
     m_trayIcon->setToolTip(QStringLiteral("LzyDownloader"));
 
@@ -109,7 +119,7 @@ void MainWindow::closeEvent(QCloseEvent *event)
     const int activeCount = m_uiBuilder->activeDownloadsLabel()->property("count").toInt();
     const int queuedCount = m_uiBuilder->queuedDownloadsLabel()->property("count").toInt();
 
-    if (activeCount > 0 || queuedCount > 0) {
+    if (!m_nonInteractiveLaunch && (activeCount > 0 || queuedCount > 0)) {
         QMessageBox::StandardButton reply;
         reply = QMessageBox::warning(this, tr("Downloads in Progress"),
                                      tr("There are downloads currently running or queued.\n\nAre you sure you want to exit?\nYour downloads will be safely saved and will resume the next time you start the application."),
@@ -176,6 +186,10 @@ void MainWindow::onClipboardChanged()
 
 void MainWindow::handleClipboardAutoPaste(bool forceEnqueue)
 {
+    if (m_nonInteractiveLaunch) {
+        return;
+    }
+
     if (!m_startTab || !m_uiBuilder || !m_uiBuilder->tabWidget() || !m_startTab->isEnabled()) {
         return;
     }

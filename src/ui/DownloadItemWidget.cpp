@@ -19,6 +19,7 @@
 #include <QStandardPaths>
 #include <QMap>
 #include <QPair>
+#include <QtMath>
 
 static QIcon createColoredIcon(QStyle::StandardPixmap sp, const QColor &color) {
     static QMap<QPair<int, QRgb>, QIcon> cache;
@@ -263,7 +264,21 @@ void DownloadItemWidget::updateProgress(const QVariantMap &progressData) {
         }
     }
     if (progressData.contains(QStringLiteral("progress"))) {
-        int progress = progressData[QStringLiteral("progress")].toInt();
+        const double streamProgress = progressData.value(QStringLiteral("progress")).toDouble();
+        // A multi-format download reports the active stream percentage, which
+        // naturally resets when yt-dlp switches from video to audio. Prefer
+        // the worker's aggregate value for the desktop bar so it remains
+        // monotonic across those stream transitions.
+        const bool hasOverallProgress = progressData.contains(QStringLiteral("overall_progress"))
+            && progressData.value(QStringLiteral("overall_progress")).toDouble() >= 0.0;
+        const double displayedProgress = hasOverallProgress
+            ? progressData.value(QStringLiteral("overall_progress")).toDouble()
+            : streamProgress;
+        // Native yt-dlp and file polling can report the same stream out of
+        // order. Do not let a delayed lower aggregate value move the bar back.
+        const double monotonicProgress = qMax(m_lastDisplayedProgress, displayedProgress);
+        m_lastDisplayedProgress = monotonicProgress;
+        int progress = qRound(monotonicProgress);
         if (progress < 0) {
             // Indeterminate state (queued/starting) - colorless/default
             if (QPropertyAnimation *anim = m_progressBar->findChild<QPropertyAnimation*>(QStringLiteral("progressAnim"))) {
@@ -484,6 +499,7 @@ void DownloadItemWidget::onRetryClicked() {
     m_isFinished = false;
     m_isSuccessful = false;
     m_isPaused = false;
+    m_lastDisplayedProgress = -1.0;
 
     // Restore normal buttons
     m_retryButton->hide();
@@ -562,7 +578,7 @@ bool DownloadItemWidget::hasAssociatedTemporaryFiles() const {
     }
 
     // 1. Check the standard temporary downloads directory directly using the download's ID
-    QSettings settings(QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation) + QStringLiteral("/settings.ini"), QSettings::IniFormat);
+    QSettings settings(QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation) + QStringLiteral("/settings.ini"), QSettings::IniFormat);
     QString tempDirStr = settings.value(QStringLiteral("Paths/temporary_downloads_directory")).toString();
     if (tempDirStr.isEmpty()) {
         const QString completedDir = settings.value(QStringLiteral("Paths/completed_downloads_directory")).toString();

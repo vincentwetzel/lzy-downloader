@@ -102,6 +102,7 @@ private:
     bool m_isFinished = false;
     bool m_isSuccessful = false;
     bool m_isPaused = false;
+    double m_lastDisplayedProgress = -1.0;
     QString m_currentThumbnailPath;
 
 public:

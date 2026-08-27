@@ -30,7 +30,7 @@ MainWindow::MainWindow(ExtractorJsonParser *extractorJsonParser, QWidget *parent
       m_initialBinarySetupShown(false), m_lastAutoPasteTimestamp(0)
 {
     // Intercept window creation BEFORE it can be shown by main.cpp
-    if (QCoreApplication::arguments().contains(QStringLiteral("--headless")) || QCoreApplication::arguments().contains(QStringLiteral("--server"))) {
+    if (m_nonInteractiveLaunch) {
         setAttribute(Qt::WA_DontShowOnScreen, true);
     }
 

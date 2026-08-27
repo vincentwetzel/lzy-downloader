@@ -70,10 +70,11 @@ void DownloadManager::enqueueDownload(const QString &url, const QVariantMap &opt
                     break;
             }
             qDebug() << "DownloadManager: Skipping duplicate URL:" << url << "- Reason:" << reason;
-            emit duplicateDownloadDetected(url, reason);
             if (isNonInteractiveRequest(effectiveOptions)) {
                 emit nonInteractiveRequestFailed(
                     effectiveOptions.value(QStringLiteral("id")).toString(), url, reason);
+            } else {
+                emit duplicateDownloadDetected(url, reason);
             }
             return;
         }
