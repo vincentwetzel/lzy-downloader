@@ -15,6 +15,7 @@
                 "CMAKE_TOOLCHAIN_FILE": "E:/vcpkg/scripts/buildsystems/vcpkg.cmake",
                 "CMAKE_CXX_COMPILER": "C:/Qt/Tools/mingw1310_64/bin/g++.exe",
                 "CMAKE_MAKE_PROGRAM": "C:/Qt/Tools/Ninja/ninja.exe",
+                "QT_HOST_PATH": "C:/Qt/6.10.2/mingw_64",
                 "VCPKG_MANIFEST_MODE": "ON",
                 "VCPKG_TARGET_TRIPLET": "x64-mingw-dynamic",
                 "VCPKG_OVERLAY_PORTS": "${sourceDir}/ports"
@@ -34,23 +35,10 @@
                 "CMAKE_TOOLCHAIN_FILE": "E:/vcpkg/scripts/buildsystems/vcpkg.cmake",
                 "CMAKE_CXX_COMPILER": "C:/Qt/Tools/mingw1310_64/bin/g++.exe",
                 "CMAKE_MAKE_PROGRAM": "C:/Qt/Tools/Ninja/ninja.exe",
+                "QT_HOST_PATH": "C:/Qt/6.10.2/mingw_64",
                 "VCPKG_MANIFEST_MODE": "ON",
                 "VCPKG_TARGET_TRIPLET": "x64-mingw-dynamic",
                 "VCPKG_OVERLAY_PORTS": "${sourceDir}/ports"
-            }
-        },
-        {
-            "name": "debug-local-qt",
-            "displayName": "Debug (Local Qt)",
-            "description": "Debug build with Ninja using the local Qt/MinGW install instead of vcpkg manifest dependencies",
-            "binaryDir": "${sourceDir}/build-debug-local-qt",
-            "generator": "Ninja",
-            "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "Debug",
-                "CMAKE_PREFIX_PATH": "C:/Qt/6.10.2/mingw_64",
-                "CMAKE_CXX_COMPILER": "C:/Qt/Tools/mingw1310_64/bin/g++.exe",
-                "CMAKE_MAKE_PROGRAM": "C:/Qt/Tools/Ninja/ninja.exe",
-                "LZY_SKIP_QT_DEPLOY": "ON"
             }
         }
     ],
@@ -72,16 +60,6 @@
                 "PATH": "C:/Qt/Tools/mingw1310_64/bin;C:/Qt/Tools/Ninja;$penv{PATH}"
             },
             "configuration": "Debug"
-        },
-        {
-            "name": "debug-local-qt",
-            "displayName": "Debug (Local Qt)",
-            "configurePreset": "debug-local-qt",
-            "environment": {
-                "PATH": "C:/Qt/Tools/mingw1310_64/bin;C:/Qt/Tools/Ninja;$penv{PATH}"
-            },
-            "configuration": "Debug",
-            "targets": ["LzyDownloader"]
         }
     ]
 }

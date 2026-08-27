@@ -55,10 +55,6 @@ protected: // Changed from private for testing
     bool requestedAudioExtraction() const;
     bool isBrowserCookieFailureLine(const QString &line) const;
     bool hasBrowserCookieFailureDiagnostic() const;
-    /** Retries once without browser cookies when cookie-backed format selection is degraded. */
-    bool retryWithoutBrowserCookiesForDegradedFormat();
-    /** Returns true when cookie-backed selection produced a generic degraded combined stream. */
-    bool shouldRetryWithoutBrowserCookiesForDegradedFormat() const;
     /** Removes browser cookie flags and their values from the pending yt-dlp arguments. */
     void removeBrowserCookieArguments();
     /** Returns whether one output line proves that the media transfer is unusable. */

@@ -439,5 +439,7 @@ void MainWindow::onDownloadStatsUpdated(int queued, int active, int completed, i
 
 void MainWindow::setYtDlpVersion(const QString &version)
 {
-    Q_UNUSED(version);
+    if (m_advancedSettingsTab) {
+        m_advancedSettingsTab->setYtDlpVersion(version);
+    }
 }

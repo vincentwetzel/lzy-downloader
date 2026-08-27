@@ -16,7 +16,9 @@
 #include <QFormLayout>
 #include <QGroupBox>
 #include <QHBoxLayout>
+#include <QLayout>
 #include <QLabel>
+#include <QMargins>
 #include <QMessageBox>
 #include <QProcess>
 #include <QProcessEnvironment>
@@ -28,6 +30,7 @@
 #include <QVBoxLayout>
 #include <QTextEdit>
 #include <QTextCursor>
+#include <QTextOption>
 #include <QTimer>
 #include <QPointer>
 #include <QEvent>
@@ -52,22 +55,22 @@ BinariesPage::BinariesPage(ConfigManager *configManager, QWidget *parent)
     mainLayout->setSpacing(0);
 
     QScrollArea *scrollArea = new QScrollArea(this);
-    scrollArea->setWidgetResizable(true);
+    // Keep the document at its natural height. With widgetResizable enabled,
+    // QScrollArea expands the document to the viewport and the unused portion
+    // becomes scrollable blank space when the list is scrolled to the bottom.
+    scrollArea->setWidgetResizable(false);
     scrollArea->setFrameShape(QFrame::NoFrame);
     scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     scrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     scrollArea->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 
-    QWidget *scrollWidget = new QWidget(scrollArea);
-    scrollWidget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Minimum);
-
-    QVBoxLayout *layout = new QVBoxLayout(scrollWidget);
-    layout->setContentsMargins(0, 0, 0, 0);
-    layout->setSpacing(0);
-
-    QGroupBox *group = new QGroupBox(tr("External Binaries"), scrollWidget);
+    // The group box is the document. An intermediate QWidget/QVBoxLayout
+    // feeds the group's expanded geometry back into the layout size hint,
+    // which creates a false scroll range below the last binary row.
+    QGroupBox *group = new QGroupBox(tr("External Binaries"), scrollArea);
     group->setToolTip(tr("Review detected tool locations, choose manual executable paths, install missing tools, or update installed tools."));
     group->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Minimum);
+    group->installEventFilter(this);
 
     QVBoxLayout *groupLayout = new QVBoxLayout(group);
     groupLayout->setSpacing(6);
@@ -173,21 +176,82 @@ BinariesPage::BinariesPage(ConfigManager *configManager, QWidget *parent)
     setupRow(groupLayout, QStringLiteral("gallery-dl"), QStringLiteral("gallery-dl"), QStringLiteral("gallery-dl_path"), QStringLiteral("https://github.com/mikf/gallery-dl"), true);
     setupRow(groupLayout, QStringLiteral("aria2c"), QStringLiteral("aria2c"), QStringLiteral("aria2c_path"), QStringLiteral("https://github.com/aria2/aria2/releases"), true);
 
-    // Keep the scrollable document exactly as tall as its tool controls.  A
-    // trailing stretch becomes part of the scroll range once the page is
-    // taller than the viewport, leaving a large empty region after aria2c.
-    layout->addWidget(group, 0, Qt::AlignTop);
-
-    scrollArea->setWidget(scrollWidget);
-    scrollArea->setMinimumWidth(scrollWidget->minimumSizeHint().width() + scrollArea->verticalScrollBar()->sizeHint().width());
-
+    scrollArea->setWidget(group);
+    scrollArea->viewport()->installEventFilter(this);
     mainLayout->addWidget(scrollArea);
+    // The document must match the viewport width so wrapped paths and status
+    // text retain the available width without enabling horizontal scrolling.
+    scheduleScrollDocumentResize();
+    setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 
     connect(m_configManager, &ConfigManager::settingChanged, this, &BinariesPage::handleConfigSettingChanged);
 }
 
 bool BinariesPage::eventFilter(QObject *watched, QEvent *event) {
+    if (event->type() == QEvent::Resize) {
+        auto *viewport = qobject_cast<QWidget *>(watched);
+        auto *scrollArea = viewport ? qobject_cast<QScrollArea *>(viewport->parentWidget()) : nullptr;
+        if (scrollArea) {
+            scheduleScrollDocumentResize();
+        }
+    }
+    if (event->type() == QEvent::LayoutRequest) {
+        scheduleScrollDocumentResize();
+    }
     return QWidget::eventFilter(watched, event);
+}
+
+void BinariesPage::scheduleScrollDocumentResize() {
+    if (m_scrollResizeQueued) {
+        return;
+    }
+
+    m_scrollResizeQueued = true;
+    QTimer::singleShot(0, this, [this]() {
+        m_scrollResizeQueued = false;
+        if (QScrollArea *scrollArea = findChild<QScrollArea *>()) {
+            resizeScrollDocument(scrollArea);
+        }
+    });
+}
+
+void BinariesPage::resizeScrollDocument(QScrollArea *scrollArea) {
+    if (!scrollArea || !scrollArea->widget() || scrollArea->viewport()->width() <= 0) {
+        return;
+    }
+
+    QWidget *scrollWidget = scrollArea->widget();
+    QLayout *layout = scrollWidget->layout();
+    if (!layout) {
+        return;
+    }
+
+    // Clear the previous height constraint before measuring the layout at the
+    // new wrapped width.
+    scrollWidget->setMinimumHeight(0);
+    scrollWidget->setMaximumHeight(QWIDGETSIZE_MAX);
+    scrollWidget->setFixedWidth(scrollArea->viewport()->width());
+    layout->invalidate();
+    layout->activate();
+
+    // Do not use QGroupBox::sizeHint() here. After QScrollArea has laid out a
+    // tall viewport, that hint can retain the expanded child-row geometry.
+    // Measuring the layout for its actual available width gives the natural
+    // wrapped height and cannot redistribute an old surplus between rows.
+    const QMargins groupMargins = scrollWidget->contentsMargins();
+    const int layoutWidth = qMax(0, scrollWidget->width()
+        - groupMargins.left() - groupMargins.right());
+    int layoutHeight = layout->totalHeightForWidth(layoutWidth);
+    if (layoutHeight < 0) {
+        layoutHeight = layout->totalSizeHint().height();
+    }
+    const int contentHeight = groupMargins.top() + layoutHeight + groupMargins.bottom();
+    if (scrollWidget->height() != contentHeight) {
+        qDebug() << "[BinariesPage] Resizing scroll document from"
+                 << scrollWidget->height() << "to" << contentHeight
+                 << "at viewport width" << scrollArea->viewport()->width();
+        scrollWidget->setFixedHeight(contentHeight);
+    }
 }
 
 
@@ -207,6 +271,7 @@ void BinariesPage::setupRow(QVBoxLayout *layout,
 
     QGroupBox *rowGroup = new QGroupBox(layout->parentWidget());
     rowGroup->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Minimum);
+    rowGroup->installEventFilter(this);
 
     const QString title = optional ? tr("%1 (Optional)").arg(labelText) : labelText;
     rowGroup->setTitle(title);
@@ -360,7 +425,8 @@ void BinariesPage::setupRow(QVBoxLayout *layout,
                 updateArgs = {QStringLiteral("update"), binaryName};
             }
 
-        } else if (pathLower.contains(QStringLiteral("windowsapps"))) {
+        } else if (pathLower.contains(QStringLiteral("windowsapps")) ||
+                   pathLower.contains(QStringLiteral("winget"))) {
             manager = QStringLiteral("WinGet");
             updateProgram = QStringLiteral("winget");
 
@@ -418,9 +484,11 @@ void BinariesPage::setupRow(QVBoxLayout *layout,
         const bool isStandalone = manager.isEmpty();
 
         if (isStandalone) {
-            if (binaryName == QStringLiteral("ffmpeg") || binaryName == QStringLiteral("ffprobe") || binaryName == QStringLiteral("aria2c")) {
+            const bool isFfmpegBinary = binaryName == QStringLiteral("ffmpeg") || binaryName == QStringLiteral("ffprobe");
+            const bool isAria2Binary = binaryName == QStringLiteral("aria2c");
+            if (isFfmpegBinary || isAria2Binary) {
 #ifdef Q_OS_WIN
-                if (binaryName == QStringLiteral("ffmpeg") || binaryName == QStringLiteral("ffprobe")) {
+                if (isFfmpegBinary && isAppManagedPath(foundBinary.path)) {
                     QMessageBox msgBox(this);
                     msgBox.setWindowTitle(tr("Update %1").arg(displayName(binaryName)));
                     msgBox.setTextFormat(Qt::RichText);
@@ -560,6 +628,7 @@ void BinariesPage::fetchBinaryVersion(const QString &binaryName, const QString &
 
         connect(updater, &BaseBinaryUpdater::versionFetched, this, [this, binaryName](const QString &version) {
             m_versionLabels[binaryName]->setText(tr("Version: %1").arg(version));
+            scheduleScrollDocumentResize();
         });
         m_updaters.insert(binaryName, updater);
     }
@@ -618,22 +687,30 @@ void BinariesPage::installBinaryFor(const QString &binaryName) {
 
     QLabel *descriptionLabel = new QLabel(&dialog);
     descriptionLabel->setWordWrap(true);
+    descriptionLabel->setMinimumWidth(0);
+    descriptionLabel->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Minimum);
     descriptionLabel->setToolTip(tr("Summary of the selected install method."));
     layout->addWidget(descriptionLabel);
 
-    QLabel *commandLabel = new QLabel(&dialog);
-    commandLabel->setWordWrap(true);
-    commandLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
-    commandLabel->setToolTip(tr("Command that will be launched when you choose Run Install Command."));
-    layout->addWidget(commandLabel);
+    QTextEdit *commandPreviewEdit = new QTextEdit(&dialog);
+    commandPreviewEdit->setReadOnly(true);
+    commandPreviewEdit->setAcceptRichText(false);
+    commandPreviewEdit->setLineWrapMode(QTextEdit::WidgetWidth);
+    commandPreviewEdit->setWordWrapMode(QTextOption::WrapAnywhere);
+    commandPreviewEdit->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    commandPreviewEdit->setMinimumHeight(60);
+    commandPreviewEdit->setMaximumHeight(110);
+    commandPreviewEdit->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+    commandPreviewEdit->setToolTip(tr("Command that will be launched when you choose Run Install Command. Long commands wrap to the dialog width."));
+    layout->addWidget(commandPreviewEdit);
 
     auto updateSelectionText = [&]() {
         const InstallOption &option = options.at(optionsCombo->currentIndex());
         descriptionLabel->setText(option.description);
         if (option.extraData.value(QStringLiteral("is_manual_download")).toBool()) {
-            commandLabel->setText(tr("Command: Opens in default web browser"));
+            commandPreviewEdit->setPlainText(tr("Command: Opens in default web browser"));
         } else {
-                commandLabel->setText(tr("<div style='word-break: break-all;'><b>Command:</b> %1</div>").arg(commandPreview(option)));
+            commandPreviewEdit->setPlainText(tr("Command: %1").arg(commandPreview(option)));
         }
     };
 
@@ -912,7 +989,11 @@ void BinariesPage::runProcessWithLog(const ProcessRunOptions &opts) {
                     const QString siblingName = (opts.binaryName == QStringLiteral("ffmpeg"))
                         ? QStringLiteral("ffprobe")
                         : QStringLiteral("ffmpeg");
-                    QString siblingPath = binInfo.dir().filePath(siblingName);
+                    QString siblingFileName = siblingName;
+#ifdef Q_OS_WIN
+                    siblingFileName += QStringLiteral(".exe");
+#endif
+                    QString siblingPath = binInfo.dir().filePath(siblingFileName);
                     QString siblingKey = (opts.binaryName == QStringLiteral("ffmpeg")) ? QStringLiteral("ffprobe") : QStringLiteral("ffmpeg");
                     this->saveBinaryOverride(siblingKey, siblingPath);
                 }
@@ -1074,7 +1155,12 @@ void BinariesPage::saveBinaryOverride(const QString &binaryName, const QString &
 
     if (!path.isEmpty()) {
         m_configManager->set(QStringLiteral("Binaries"), configKey, path);
-        m_configManager->set(QStringLiteral("Binaries"), QStringLiteral("%1_auto_detected").arg(binaryName), isAppManagedPath(path));
+        // A path selected by Browse or installed through the explicit installer is
+        // an intentional override, even when it points at the app-managed folder.
+        // Marking it as auto-detected lets startup rediscovery replace it with a
+        // system copy when the preference is system-first, which made a successful
+        // FFmpeg update appear to have done nothing.
+        m_configManager->set(QStringLiteral("Binaries"), QStringLiteral("%1_auto_detected").arg(binaryName), false);
     }
     m_configManager->save();
 }
@@ -1146,7 +1232,7 @@ void BinariesPage::refreshBinaryStatus(const QString &binaryName) {
     const bool hasCustomPath = !m_configManager->get(QStringLiteral("Binaries"), m_configKeys.value(binaryName)).toString().isEmpty();
 
     const QString pathLower = foundBinary.path.toLower();
-    const bool isPackageManaged = pathLower.contains(QStringLiteral("scoop")) || pathLower.contains(QStringLiteral("windowsapps")) ||
+    const bool isPackageManaged = pathLower.contains(QStringLiteral("scoop")) || pathLower.contains(QStringLiteral("windowsapps")) || pathLower.contains(QStringLiteral("winget")) ||
                             pathLower.contains(QStringLiteral("python")) || pathLower.contains(QStringLiteral("pip")) || pathLower.contains(QStringLiteral("scripts")) || pathLower.contains(QStringLiteral("site-packages")) ||
                             pathLower.contains(QStringLiteral("homebrew")) || pathLower.contains(QStringLiteral("cellar")) || pathLower.contains(QStringLiteral("linuxbrew")) ||
                             pathLower.contains(QStringLiteral("chocolatey")) || pathLower.contains(QStringLiteral("choco"));
@@ -1205,6 +1291,10 @@ void BinariesPage::refreshBinaryStatus(const QString &binaryName) {
         }
         fetchBinaryVersion(binaryName, foundBinary.path);
     }
+
+    // Status/path/version text can reflow rows after the initial page layout.
+    // Queue one natural-height measurement after the complete row update.
+    scheduleScrollDocumentResize();
 }
 
 QList<BinariesPage::InstallOption> BinariesPage::buildInstallOptions(const QString &binaryName) const {

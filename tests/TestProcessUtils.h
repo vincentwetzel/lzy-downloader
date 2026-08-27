@@ -13,4 +13,5 @@ private slots:
 
     void testCacheHit();
     void testCacheInvalidation();
+    void testExplicitAppManagedPathWinsSystemFirstPreference();
 };

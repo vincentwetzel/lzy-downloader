@@ -15,12 +15,13 @@ This document is a quick file-to-responsibility index for the C++ port. It is in
 - `TODO.md`: Active maintenance items, planned work, and known gaps.
 - `UPDATE_AND_RELEASE.md`: Release/operator workflow reference.
 - `CMakeLists.txt`: Primary build graph and executable/library registration.
-- `CMakePresets.json`: Reproducible Windows release/debug and standalone-Qt
-  configure/build presets, including the expected Qt MinGW and Ninja tools.
+- `CMakePresets.json`: Reproducible Windows release/debug configure/build
+  presets, including the expected Qt MinGW, host Qt, and Ninja tools.
 - `cmake/deploy_openssl_runtime.cmake`: Windows post-build helper that guards
   Qt plugin copying and deploys configured OpenSSL runtime DLLs.
 - `build_release.py`: Native-only release build and packaging orchestration, including the explicit `--target` selector, release-version/tag consistency checks, static/dynamic Qt detection, and Linux AppImage linuxdeploy handling.
 - `tools/`: Extractor-list maintenance scripts and their shared domain-parsing utility; generated extractor JSON remains at the root as bundled runtime data.
+- `tools/configure_debug.ps1`: VS Code debug-configure wrapper that detects incomplete CMake compiler metadata and automatically retries with `--fresh` in the standard `build-debug` directory; it does not create a parallel debug tree.
 - `tools/generate_release_checksums.py`: Standard-library release helper that writes platform-specific SHA-256 manifests for packaged assets.
 - `docs/assets/screenshots/lzydownloader-interface.png`: Approved public product screenshot showing the native download interface and sorting rules.
 - `docs/assets/social-preview.png`: Approved wide branded project preview for README sharing and GitHub social-preview upload.
@@ -50,12 +51,14 @@ This document is a quick file-to-responsibility index for the C++ port. It is in
 ## High-Value Entry Points
 - `src/core/DownloadManager.*`: Queue orchestration, download lifecycle, finalization flow, and type-aware terminal quality warnings (including title/source context).
 - `src/core/PowerInhibitor.*`: Platform-native system idle-sleep inhibition for active GUI and headless/server downloads.
+- `src/core/BaseBinaryUpdater.*` and `src/core/StartupWorker.*`: Bounded
+  external-tool version checks and installed/latest update diagnostics.
 - `src/core/DownloadFinalizer.*`: Background verification, destination moves, and guarded terminal temporary-directory cleanup.
 - `src/core/FileReplacement.*`: Recoverable replacement of an existing destination after verified download output is ready.
 - `src/core/ArchiveManager.*`: SQLite archive persistence and normalized media identity comparison shared by duplicate checks.
 - `src/core/DownloadQueueManager.*`: Queue, active, paused, retry, and archive duplicate-state checks using shared media identity.
 - `src/core/DownloadQueueManagerRecovery.cpp`: Explicit re-download recovery for matching restored stopped/failed queue entries.
-- `src/core/YtDlpWorker.*`: yt-dlp process handling, output parsing, progress classification including audio-aware combined-source labels, metadata-size and bounded temporary-file progress recovery, browser-cookie failure and metadata-backed degraded-format recovery, and bounded aria2c-to-native recovery.
+- `src/core/YtDlpWorker.*`: yt-dlp process handling, output parsing, progress classification including audio-aware combined-source labels, metadata-size and bounded temporary-file progress recovery, browser-cookie failure recovery, and bounded aria2c-to-native recovery.
 - `src/core/YtDlpWorkerDiagnostics.cpp`: Shared fatal/incomplete-media and bounded aria2c missing-output recovery classification used to reject stale final paths before FFmpeg metadata embedding or finalization.
 - `src/core/YtDlpLiveStatus.h`: Narrow mapping from explicit yt-dlp premiere/upcoming diagnostics to live queue metadata during probe fallback.
 - `src/core/DownloadQueueState.*`: Queue persistence to `downloads_backup.json`.
@@ -73,9 +76,9 @@ This document is a quick file-to-responsibility index for the C++ port. It is in
 - `src/core/LocalApiServer.*`: Localhost API server/auth handling, enqueue routing, tracked-job cancellation, and status snapshots.
 - `src/ui/MainWindow.*`: Main application shell, tab wiring, and global UI actions.
 - `src/ui/StartTab.*`: Queue entry point and download submission controls.
-- `src/ui/ActiveDownloadsTab.*` / `src/ui/DownloadItemWidget.*`: Responsive active-download rows, queued thumbnail previews, progress display, and row actions.
+- `src/ui/ActiveDownloadsTab.*` / `src/ui/DownloadItemWidget.*`: Responsive active-download rows, queued thumbnail previews, single-bar progress display, and row actions.
 - `src/ui/advanced_settings/`: Advanced Settings pages, including template and binary management.
-- `src/ui/advanced_settings/BinariesPage.*`: External-binary discovery, install/update actions, version status, and staged Windows FFmpeg replacement.
+- `src/ui/advanced_settings/BinariesPage.*`: External-binary discovery, package-manager/manual update routing, install/update actions, wrapped command previews, version status, staged Windows FFmpeg replacement, and explicit override persistence for completed local installs.
 - `src/ui/InitialBinarySetupDialog.*`: First-launch binary preference and optional-tool selection UI that drives guided provisioning.
 - `src/ui/advanced_settings/DownloadOptionsPage.*`: Download-option controls, including the enabled-by-default playlist-index prefix.
 - `src/ui/`: Reusable widgets, tabs, dialogs, and row controls; resource files
@@ -84,7 +87,6 @@ This document is a quick file-to-responsibility index for the C++ port. It is in
 - `tests/TestDownloadManager.cpp`: Manager-level regression coverage for transient playlist-probe fallback and explicit playlist failure classification.
 - `tests/TestGalleryDlArgsBuilder.cpp`: Gallery-dl argument and rate-limit construction coverage.
 - `tests/TestPlaylistExpansionParser.cpp`: Metadata-to-queue mapping, playlist selection, thumbnail, and live-status parsing coverage.
-- `tests/TestYtDlpWorker.cpp`: Regression coverage for native/aria2 progress, metadata-size fallback, audio-aware combined-source labels, diagnostics, transient downloader recovery, and cookie-backed degraded-format recovery exclusions.
 - `tests/TestDownloadQueueState.cpp`: Queue-backup serialization, resume-status mapping, malformed-entry filtering, and empty-queue cleanup coverage.
 - `tests/TestDownloadQueueManager.cpp`: Equivalent-URL deduplication across active/retry state and explicit stopped/failed re-download recovery coverage.
 - `tests/TestFileReplacement.cpp`: Existing-destination preservation when replacement succeeds or the verified source is missing.

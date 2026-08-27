@@ -10,6 +10,7 @@ class QLabel;
 class QPushButton;
 class QVBoxLayout;
 class QEvent;
+class QScrollArea;
 class BaseBinaryUpdater;
 
 class BinariesPage : public QWidget {
@@ -55,6 +56,8 @@ private:
     };
 
     void runProcessWithLog(const ProcessRunOptions &opts);
+    void resizeScrollDocument(QScrollArea *scrollArea);
+    void scheduleScrollDocumentResize();
 
     void setupRow(QVBoxLayout *layout,
                   const QString &binaryName,
@@ -84,4 +87,5 @@ private:
     QMap<QString, QPushButton *> m_installButtons;
     QMap<QString, QPushButton *> m_updateButtons;
     QMap<QString, BaseBinaryUpdater *> m_updaters;
+    bool m_scrollResizeQueued = false;
 };

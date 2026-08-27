@@ -601,10 +601,6 @@ void YtDlpWorker::readInfoJsonWithRetry() {
     qDebug() << "[YtDlpWorker] requested transfer format IDs:" << m_requestedTransferFormatIds;
     qDebug() << "[YtDlpWorker] requested transfer sizes:" << m_requestedTransferSizes;
 
-    if (retryWithoutBrowserCookiesForDegradedFormat()) {
-        return;
-    }
-
     if (m_videoTitle.isEmpty()) {
         if (const QJsonValue titleVal = obj.value(QStringLiteral("title")); titleVal.isString()) {
             m_videoTitle = titleVal.toString();

@@ -78,16 +78,18 @@ input are reported as incomplete-transfer failures before metadata embedding.
 - 🌙 **Sleep Prevention** — Prevents system idle sleep while downloads, post-processing, or finalization are active in GUI and headless/server modes; the display may still turn off normally
 - 📌 **Compact Footer Status** — Download counters and current speed share the footer's first row, with the exit-after-downloads switch at the far right
 - ⏸️ **Pause & Resume** — Safely stop downloads, preserve partial `.part` files, and resume validated queue backups across application restarts
-- 🧰 **External Binaries Manager** — Detect, version-check, install, and update `yt-dlp`, `gallery-dl`, `ffmpeg`, `ffprobe`, `aria2c`, and `deno` from inside the app, with version-aware local `bin` discovery, package-manager-aware commands, update warnings, SHA-256 checks when available, and cancellable install/update logs. Fresh interactive installs use guided system-first/app-managed-first setup with optional-tool provisioning.
+- 🧰 **External Binaries Manager** — Detect, version-check, install, and update `yt-dlp`, `gallery-dl`, `ffmpeg`, `ffprobe`, `aria2c`, and `deno` from inside the app, with version-aware local `bin` discovery, package-manager-aware commands, wrapped command previews, exact installed/latest update warnings, persistent prompts for manually managed tools, SHA-256 checks when available, and cancellable install/update logs. Fresh interactive installs use guided system-first/app-managed-first setup with optional-tool provisioning.
 - 🛡️ **Recovery Diagnostics** — Distinguishes incomplete media and critical extractor failures from recoverable post-processing warnings, even when yt-dlp printed a final path
 - 🎚️ **Media-Aware Quality Warnings** — Video-resolution warnings apply only to video downloads; audio extraction remains audio-labeled even when yt-dlp transfers a combined video/audio source
 - 🔗 **Useful Quality Warnings** — Low-quality video warnings include the media title and a clickable source link when the URL is complete
 - 🖼️ **Thumbnail Embedding** — Automatic thumbnail download, bounded preview loading, and embedding for videos and audio
-- 🌐 **Browser Cookies** — Use saved cookies from Firefox, Chrome, Edge, or other browsers for age-restricted content; a low-resolution cookie-backed result for an uncapped bestvideo request retries once without cookies when the browser manifest may have hidden adaptive formats
+- 🌐 **Browser Cookies** — Use saved cookies from Firefox, Chrome, Edge, or other browsers for age-restricted content; explicit browser-cookie extraction failures may retry once without cookies
 - 📂 **Smart Sorting** — Automatically organize downloads into subfolders based on uploader, playlist, date, or custom patterns
 - 🛡️ **Duplicate-safe retries** — Equivalent source URLs share a normalized media identity, preventing duplicate queue/retry jobs without adding site-specific downloader behavior
 - 🔁 **Terminal retry recovery** — Explicit API re-downloads can replace matching restored stopped/failed jobs, while genuinely paused downloads remain protected
 - 📈 **Transfer progress recovery** — Native downloads recover stream sizes from yt-dlp format metadata and bounded `.part`-file polling keeps progress moving when yt-dlp temporarily emits no progress line
+- 📊 **Single-bar progress display** — Active download rows keep progress focused on the current transfer or processing stage without a secondary aggregate bar
+- 🤖 **Stable Discord progress** — The bridge uses backend aggregate progress for multi-stream jobs so Discord percentages do not reset during video/audio handoff
 - 🧱 **Safe destination replacement** — Intentional re-downloads preserve the existing completed file until the verified replacement is in place; failed replacements leave the old file recoverable
 
 ## Installation
@@ -130,12 +132,24 @@ cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=E:/vcpkg/script
 cmake --build build --config Release
 ```
 
-For local Windows debugging with a standalone Qt/MinGW install, use the `debug-local-qt` preset. It writes to the separate `build-debug-local-qt` folder so it cannot inherit vcpkg toolchain state from the manifest-based `debug` preset, skips vcpkg manifest install, and copies the minimal Qt runtime/plugin set needed to launch from the build tree:
+For local Windows debugging, use the checked-in `debug` preset. It writes to
+`build-debug` and uses the same MinGW/Ninja toolchain as the release preset;
+the local Qt installation supplies the host Qt tools while vcpkg supplies the
+target libraries.
+
+The VS Code task `CMake: Configure Debug` runs
+`tools/configure_debug.ps1`, which checks for incomplete compiler metadata and
+automatically selects a fresh configure when recovery is needed.
 
 ```bash
-cmake --preset debug-local-qt
-cmake --build --preset debug-local-qt
+cmake --preset debug
+cmake --build --preset debug
 ```
+
+If CMake reports a manifest-mode mismatch or `No known features for CXX
+compiler`, the generated `build-debug` directory contains stale or incomplete
+compiler metadata. Run `cmake --fresh --preset debug` once (or use the VS Code
+task **CMake: Fresh Configure Debug**), then run the normal build command again.
 
 Windows builds copy Qt runtime plugins through a guarded post-build CMake
 helper. This keeps plugin deployment safe when multiple build processes target
@@ -153,7 +167,7 @@ python tests/run_headless_tests.py --build-dir build --config Release
 
 Use `python tests/run_headless_tests.py --build-dir build --config Release --suspects` to rerun only tests recorded as failing by the previous run. The default cache is `build/.lzy-test-suspects.json`.
 
-Current coverage includes argument construction (including aria2c retry policy), progress parsing, browser-cookie degraded-format recovery, queue-backup status/field persistence and malformed-entry filtering, protected temporary-directory root fallback and ownership cleanup, negative aria2c recovery boundaries, archive normalization, configuration defaults/reset cleanup, Local API auth/enqueue behavior, process binary-resolution caching, URL validation, sorting sanitization, playlist range selection, UI progress widgets, and a local end-to-end download fixture.
+Current coverage includes argument construction (including aria2c retry policy), progress parsing, browser-cookie recovery, queue-backup status/field persistence and malformed-entry filtering, protected temporary-directory root fallback and ownership cleanup, negative aria2c recovery boundaries, archive normalization, configuration defaults/reset cleanup, Local API auth/enqueue behavior, process binary-resolution caching, URL validation, sorting sanitization, playlist range selection, UI progress widgets, and a local end-to-end download fixture.
 
 ### Release Checklist
 
@@ -199,13 +213,13 @@ All settings are saved to `%LOCALAPPDATA%\LzyDownloader\settings.ini` on Windows
 - **Metadata** — Embed titles, artists, and thumbnails
 - **SponsorBlock** — Automatically skip sponsored segments
 - **Browser Cookies** - Select a browser to use for authentication
-- **Browser Cookie fallback** - Public media can retry once without browser cookies when yt-dlp's cookie extraction or cookie-backed extractor state fails, including a low-resolution combined result for an uncapped or higher-capped bestvideo request when the cookie manifest may have hidden adaptive formats
+- **Browser Cookie fallback** - Public media can retry once without browser cookies when yt-dlp's cookie extraction or cookie-backed extractor state fails
 - **Livestream replays** - Completed livestreams are detected from yt-dlp `live_status` metadata and downloaded as archived media; active/upcoming streams keep native wait and Finish Now behavior
 - **Download History links** - Valid HTTP/HTTPS source URLs are keyboard-accessible links; malformed or incomplete values remain plain text
 - **Queue previews** - Queued rows begin loading supplied remote thumbnails immediately, and long titles wrap within narrow windows so row actions remain reachable
 - **Playlist audio filenames** - Playlist audio downloads are prefixed with zero-padded indices by default; change `Download Options -> Prefix playlist indices` to disable this behavior
 - **Local API** - Enable a localhost-only API server from Advanced Settings -> Configuration
-- **Binary management** - Choose app-managed-first or system-first resolution and configure launch, daily, or weekly automatic updates for app-managed tools in Advanced Settings -> External Tools
+- **Binary management** - Choose app-managed-first or system-first resolution and configure launch, daily, or weekly automatic updates for app-managed tools in Advanced Settings -> External Tools. Explicit Browse selections and completed local installs remain selected regardless of that preference; package-managed tools update through their manager (including WinGet), while standalone external FFmpeg copies require manual replacement. Windows FFmpeg updates install and retain both `ffmpeg.exe` and `ffprobe.exe` together.
 
 ### Local API
 

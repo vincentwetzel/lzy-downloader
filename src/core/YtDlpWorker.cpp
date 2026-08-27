@@ -13,8 +13,6 @@
 #include <QRegularExpression>
 
 namespace {
-    constexpr int COOKIE_DEGRADED_FORMAT_MAX_HEIGHT = 480;
-
     bool isMetadataSidecar(const QFileInfo &fileInfo) {
         const QString fileName = fileInfo.fileName();
         return fileName.endsWith(QStringLiteral(".info.json"), Qt::CaseInsensitive)
@@ -54,19 +52,6 @@ YtDlpWorker::YtDlpWorker(const QString &id, const QStringList &args, ConfigManag
     });
 
     connect(m_process, &QProcess::finished, this, [this](int exitCode, QProcess::ExitStatus exitStatus) {
-        if (m_process->property("degraded_format_retry_active").toBool()) {
-            m_process->setProperty("degraded_format_retry_active", false);
-            cleanupMetadataSidecarsForRetry();
-            m_process->setProperty("accumulated_stderr", QString());
-            qWarning() << "[YtDlpWorker] Restarting after cookie-backed degraded format selection for" << m_id;
-            QTimer::singleShot(RECOVERY_RETRY_DELAY_MS, this, [this]() {
-                if (!m_finishEmitted) {
-                    start();
-                }
-            });
-            return;
-        }
-
         QString accumulatedStderr = m_process->property("accumulated_stderr").toString();
         bool cookieRetryAttempted = m_process->property("cookie_retry_attempted").toBool();
         bool waitRetryAttempted = m_process->property("wait_retry_attempted").toBool();
@@ -326,112 +311,6 @@ void YtDlpWorker::removeBrowserCookieArguments() {
     removeFlagAndValue(QStringLiteral("--cookies"));
 }
 
-bool YtDlpWorker::shouldRetryWithoutBrowserCookiesForDegradedFormat() const {
-    if (m_retriedWithoutBrowserCookies
-        || (!m_args.contains(QStringLiteral("--cookies-from-browser"))
-            && !m_args.contains(QStringLiteral("--cookies")))
-        || m_fullMetadata.isEmpty()) {
-        return false;
-    }
-
-    const QString liveStatus = m_fullMetadata.value(QStringLiteral("live_status")).toString();
-    if (m_fullMetadata.value(QStringLiteral("is_live")).toBool()
-        || liveStatus == QStringLiteral("is_live")
-        || liveStatus == QStringLiteral("is_upcoming")) {
-        return false;
-    }
-
-    const qsizetype formatIndex = m_args.indexOf(QStringLiteral("-f"));
-    if (formatIndex < 0 || formatIndex + 1 >= m_args.size()) {
-        return false;
-    }
-
-    const QString selector = m_args.at(formatIndex + 1);
-    // Direct/runtime format selections are intentional and must not be changed.
-    if (!selector.contains(QStringLiteral("bestvideo"), Qt::CaseInsensitive)) {
-        return false;
-    }
-
-    const QString selectedVideoCodec = m_fullMetadata.value(QStringLiteral("vcodec")).toString();
-    const QString selectedAudioCodec = m_fullMetadata.value(QStringLiteral("acodec")).toString();
-    const bool selectedHasVideo = !selectedVideoCodec.isEmpty() && selectedVideoCodec != QStringLiteral("none");
-    const bool selectedHasAudio = !selectedAudioCodec.isEmpty() && selectedAudioCodec != QStringLiteral("none");
-    const int selectedHeight = m_fullMetadata.value(QStringLiteral("height")).toInt();
-    if (!selectedHasVideo || !selectedHasAudio || selectedHeight <= 0) {
-        return false;
-    }
-
-    int requestedMaxHeight = -1;
-    static const QRegularExpression heightLimitRegex(QStringLiteral("height<=\\?(\\d+)"));
-    const QRegularExpressionMatch heightLimitMatch = heightLimitRegex.match(selector);
-    if (heightLimitMatch.hasMatch()) {
-        requestedMaxHeight = heightLimitMatch.captured(1).toInt();
-    }
-
-    bool hasBetterVideoOnlyFormat = false;
-    bool hasAudioOnlyFormat = false;
-    const QVariantList formats = m_fullMetadata.value(QStringLiteral("formats")).toList();
-    for (const QVariant &formatValue : formats) {
-        const QVariantMap format = formatValue.toMap();
-        const QString videoCodec = format.value(QStringLiteral("vcodec")).toString();
-        const QString audioCodec = format.value(QStringLiteral("acodec")).toString();
-        const bool hasVideo = !videoCodec.isEmpty() && videoCodec != QStringLiteral("none");
-        const bool hasAudio = !audioCodec.isEmpty() && audioCodec != QStringLiteral("none");
-
-        if (hasVideo && !hasAudio) {
-            const int height = format.value(QStringLiteral("height")).toInt();
-            if (height > selectedHeight && (requestedMaxHeight < 0 || height <= requestedMaxHeight)) {
-                hasBetterVideoOnlyFormat = true;
-            }
-        } else if (!hasVideo && hasAudio) {
-            hasAudioOnlyFormat = true;
-        }
-
-        if (hasBetterVideoOnlyFormat && hasAudioOnlyFormat) {
-            return true;
-        }
-    }
-
-    // A cookie-backed manifest can be degraded enough that it no longer
-    // contains the adaptive formats that would prove the downgrade. A
-    // combined stream below 480p is therefore sufficient recovery evidence
-    // for an uncapped (or higher-capped) bestvideo request. This is generic
-    // format metadata behavior and is bounded by the one-shot retry guard.
-    if (selectedHeight >= COOKIE_DEGRADED_FORMAT_MAX_HEIGHT
-        || (requestedMaxHeight >= 0 && requestedMaxHeight <= selectedHeight)) {
-        return false;
-    }
-
-    qDebug() << "[YtDlpWorker] Cookie-backed metadata exposed only a low-resolution"
-             << "combined stream; adaptive alternatives may be absent from this manifest."
-             << "selected height:" << selectedHeight
-             << "requested max height:" << requestedMaxHeight;
-    return true;
-}
-
-bool YtDlpWorker::retryWithoutBrowserCookiesForDegradedFormat() {
-    if (!m_process || m_process->state() == QProcess::NotRunning
-        || !shouldRetryWithoutBrowserCookiesForDegradedFormat()) {
-        return false;
-    }
-
-    m_retriedWithoutBrowserCookies = true;
-    removeBrowserCookieArguments();
-    m_process->setProperty("degraded_format_retry_active", true);
-    m_process->setProperty("accumulated_stderr", QString());
-
-    qWarning() << "[YtDlpWorker] Browser cookies selected a degraded combined format for" << m_id
-               << "; retrying once without browser cookies because the selected bestvideo request"
-                  " resolved below the generic low-quality threshold.";
-
-    QVariantMap progressData;
-    progressData.insert(QStringLiteral("status"), tr("Browser cookies selected a low-quality format; retrying without browser cookies..."));
-    progressData.insert(QStringLiteral("progress"), -1);
-    emit progressUpdated(m_id, progressData);
-
-    ProcessUtils::terminateProcessTree(m_process);
-    return true;
-}
 
 void YtDlpWorker::finishGracefully() {
     if (m_process && m_process->state() != QProcess::NotRunning) {

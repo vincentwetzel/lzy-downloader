@@ -9,6 +9,38 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## [Unreleased]
 
+- **Debug configure recovery:** The VS Code debug configure task now detects
+  incomplete CMake compiler metadata and automatically retries with `--fresh`
+  in the standard `build-debug` directory.
+
+- **External Tools layout:** The External Binaries group is now the scroll
+  document directly, removing the intermediate layout whose expanded geometry
+  fed back into the document height and created blank space after the final
+  row. The document retains vertical scrolling, matches the viewport width,
+  and derives its natural height from the width-constrained layout rather than
+  from previously expanded row geometry.
+
+- **FFmpeg updates:** Completed Windows standalone FFmpeg/FFprobe installations
+  now remain selected after restart even with system-first preference enabled,
+  and the paired FFprobe override is persisted with its `.exe` suffix. WinGet
+  package paths now route through `winget upgrade`; standalone external copies
+  no longer silently create a second app-local installation.
+
+- **Active Downloads UI:** Removed the secondary aggregate progress bar so each
+  download row presents one focused progress bar for its current transfer or
+  processing stage.
+- **Discord progress:** The webhook now carries aggregate multi-stream
+  progress separately, allowing the bridge to avoid percentage resets during
+  video/audio stream handoff without restoring the desktop bar.
+
+- **External-tool dialog layout:** Long package-manager and PowerShell command
+  previews now wrap at arbitrary characters inside a bounded, horizontally
+  scroll-free preview area instead of expanding the install dialog off-screen.
+
+- External-tool checks now time out cleanly, retain the exact installed/latest
+  yt-dlp versions, and show a persistent prompt when a manually managed tool
+  needs updating.
+
 - **Windows build reliability:** The checked-in CMake presets now select the
   Qt MinGW compiler and Ninja explicitly, while CMake disables the optional
   compiler-predefines probe that can fail under Windows/libuv launches.
@@ -69,7 +101,9 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 - **CI/CD:** Linux AppImage packaging now selects qmake from the vcpkg Qt installation used to build the executable, prevents the linuxdeploy Qt-module mismatch, and supplies a fallback release body when tag-matched notes are absent.
 - **CI/CD:** Linux AppImage packaging detects vcpkg's statically linked Qt build and skips linuxdeploy-plugin-qt, preventing `.a`/`.prl` SQL driver files from causing the Ubuntu `Invalid magic bytes in file header` crash; dynamic Qt builds still receive Qt/SQL deployment.
 - **CI/CD:** The release workflow now supports manual build-only dispatches; GitHub Release assets remain tag-only.
-- **Build:** The `debug-local-qt` preset now uses an isolated build directory and cannot inherit stale vcpkg manifest/toolchain state.
+- **Build:** Release and debug now use the standard MinGW/Ninja preset layout;
+  debug uses local Qt only for host tools and no longer needs a separate local-Qt
+  build directory.
 - **CI/CD:** Tag releases now build separate Intel and Apple Silicon macOS app bundles, deploy Qt with `macdeployqt`, and publish architecture-labelled DMGs alongside the Windows and Linux assets.
 - **Updater:** macOS update selection now requires a CPU-matching DMG and opens the downloaded disk image through Finder instead of treating it as an executable.
 - **Portability:** Start-tab command previews and format probing now resolve generic binary names rather than Windows `.exe` names.

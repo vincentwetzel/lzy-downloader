@@ -245,9 +245,9 @@ Manual path overrides for external executables. If not set, the application auto
 | `deno_path` | String | *(auto-detected)* | Path to the `deno` executable. **Required** (for JS runtime support). |
 | `gallery-dl_path` | String | *(auto-detected)* | Path to the `gallery-dl` executable. *Optional.* |
 | `aria2c_path` | String | *(auto-detected)* | Path to the `aria2c` executable. *Optional.* |
-| `<binary>_auto_detected` | Boolean | `true` | Marks whether the saved `<binary>_path` came from automatic discovery. Startup may temporarily clear and refresh auto-detected paths, but must preserve manual paths. |
+| `<binary>_auto_detected` | Boolean | `true` | Marks whether the saved `<binary>_path` came from automatic discovery. Startup may temporarily clear and refresh auto-detected paths, but must preserve Browse-selected and explicitly installed paths, including app-managed paths. |
 | `<binary>_update_available` | Boolean | `false` | Runtime status flag used by the External Tools page to show an update warning for a detected tool. Cleared when overrides are changed. |
-| `<binary>_latest_version` | String | *(empty)* | Runtime status value used with `<binary>_update_available` to display the newest detected version. Cleared when overrides are changed. |
+| `<binary>_latest_version` | String | *(empty)* | Runtime status value used with `<binary>_update_available` to display the newest detected version. Update-available checks persist it for all install sources; it is cleared when overrides are changed. |
 | `setup_completed` | Boolean | `false` | Marks that the first interactive binary setup has been completed. Existing configurations with saved tool paths are migrated without showing the setup again. Invalid values reset to `false`. |
 | `prefer_app_managed` | Boolean | `false` | When true, selects app-managed copies in the app-data `bin` folder ahead of auto-detected system copies. Explicit external overrides still win. Invalid values reset to `false`. |
 | `automatic_update_frequency` | String | `daily` | Cadence for automatic updates of app-managed tools: `launch`, `daily`, or `weekly`. Invalid values are reset to `daily`. |
@@ -255,9 +255,12 @@ Manual path overrides for external executables. If not set, the application auto
 
 > **Binary Resolution Order:** Explicit external paths always win. Otherwise the selected preference chooses app-managed `bin` copies before system candidates, or system candidates before app-managed copies. The resolver then probes candidates in that preferred group with a short timeout and prefers the newest usable candidate.
 
-The External Tools page can also run install/update commands through detected package managers or safe tool-native updaters. WinGet updates use exact package IDs where available (`yt-dlp.yt-dlp`, `mikf.gallery-dl`, `Gyan.FFmpeg`, `aria2.aria2`, `DenoLand.Deno`), Deno standalone updates use `deno upgrade`, and cancellable progress dialogs preserve command output for troubleshooting. Version checks are bounded by short watchdogs, install/update helpers close stdin so package aliases cannot hang waiting for input, and successful updates clear update-warning flags before refreshing binary status.
+The External Tools page can also run install/update commands through detected package managers or safe tool-native updaters. WinGet package paths use exact package IDs where available (`yt-dlp.yt-dlp`, `mikf.gallery-dl`, `Gyan.FFmpeg`, `aria2.aria2`, `DenoLand.Deno`); Windows discovery also checks nested, versioned payloads below `Microsoft\\WinGet\\Packages` when those directories are not on `PATH`. Deno standalone updates use `deno upgrade`, and standalone external FFmpeg paths use the manual update flow rather than creating an implicit local copy. Cancellable progress dialogs preserve command output for troubleshooting. Version checks are bounded by short watchdogs, install/update helpers close stdin so package aliases cannot hang waiting for input, and successful updates clear update-warning flags before refreshing binary status. Explicit Browse selections and completed local installs are stored as non-auto-detected overrides; Windows FFmpeg/FFprobe pair installs persist both `.exe` paths. Installation command previews use a bounded, horizontally scroll-free text area that wraps long tokens.
 
 Transfer progress recovery is automatic and is not a persisted setting: when yt-dlp omits `requested_downloads`, the worker uses matching format sizes and a bounded poll of the active temporary `.part` file.
+
+Active download rows display one detailed progress bar for the current transfer
+or processing stage; there is no user setting for an aggregate secondary bar.
 
 ---
 
@@ -431,7 +434,7 @@ If you see a "database is locked" error when selecting a browser for cookies, cl
 
 ### Browser Cookie Download Failures
 
-If yt-dlp fails during a public video/audio download while browser cookies are enabled, LzyDownloader retries the job once without `--cookies-from-browser`. This covers temporary cookie database permission errors, stale browser-cookie extractor state, and low-resolution combined results from an uncapped or higher-capped `bestvideo` request when the cookie manifest may have hidden adaptive formats. The regression coverage also verifies that explicit resolution caps and downloads without cookie arguments do not trigger this recovery. Read-only validation and playlist-expansion probes intentionally skip browser cookies so they stay lightweight and cannot stall on browser-profile locks.
+If yt-dlp fails during a public video/audio download while browser cookies are enabled, LzyDownloader retries the job once without `--cookies-from-browser`. This covers temporary cookie database permission errors and stale browser-cookie extractor state while still allowing protected media to fail with a clearer diagnostic. Read-only validation and playlist-expansion probes intentionally skip browser cookies so they stay lightweight and cannot stall on browser-profile locks.
 
 ### Missing Binaries
 

@@ -110,6 +110,78 @@ struct ParsedVersion {
 };
 
 #ifdef Q_OS_WIN
+void appendWinGetPackageCandidates(const QString &localAppData,
+                                   const QString &binaryName,
+                                   const QString &executableName,
+                                   QStringList &candidatePaths)
+{
+    if (localAppData.isEmpty()) {
+        return;
+    }
+
+    const QDir packageRoot(QDir(localAppData).filePath(QStringLiteral("Microsoft/WinGet/Packages")));
+    if (!packageRoot.exists()) {
+        return;
+    }
+
+    // WinGet package payloads are versioned below the package directory and
+    // are not reliably added to PATH. Keep this scan narrow to the package
+    // family implied by the requested executable and let version selection
+    // choose between old and current payloads.
+    QString packageHint = binaryName.toLower();
+    if (packageHint == QStringLiteral("ffprobe")) {
+        packageHint = QStringLiteral("ffmpeg");
+    }
+
+    const QFileInfoList packageDirs = packageRoot.entryInfoList(
+        QDir::Dirs | QDir::NoDotAndDotDot, QDir::Name);
+    QStringList discoveredCandidates;
+    for (const QFileInfo &packageDir : packageDirs) {
+        if (!packageDir.fileName().toLower().contains(packageHint)) {
+            continue;
+        }
+
+        struct SearchNode {
+            QString path;
+            int depth = 0;
+        };
+        QList<SearchNode> pending;
+        pending.append({packageDir.absoluteFilePath(), 0});
+        int inspectedDirectories = 0;
+        while (!pending.isEmpty() && inspectedDirectories < 256) {
+            const SearchNode node = pending.takeFirst();
+            ++inspectedDirectories;
+            const QDir directory(node.path);
+
+            const QFileInfoList files = directory.entryInfoList(
+                QStringList{executableName}, QDir::Files, QDir::Name);
+            for (const QFileInfo &file : files) {
+                const QString path = QDir::toNativeSeparators(file.absoluteFilePath());
+                if (!candidatePaths.contains(path, Qt::CaseInsensitive)) {
+                    candidatePaths.append(path);
+                    discoveredCandidates.append(path);
+                }
+            }
+
+            if (node.depth >= 4) {
+                continue;
+            }
+            const QFileInfoList childDirectories = directory.entryInfoList(
+                QDir::Dirs | QDir::NoDotAndDotDot, QDir::Name);
+            for (const QFileInfo &childDirectory : childDirectories) {
+                pending.append({childDirectory.absoluteFilePath(), node.depth + 1});
+            }
+        }
+    }
+
+    if (!discoveredCandidates.isEmpty()) {
+        qInfo() << "[ProcessUtils::resolveBinary] Added WinGet package candidates for"
+                << binaryName << ":" << discoveredCandidates;
+    }
+}
+#endif
+
+#ifdef Q_OS_WIN
 typedef DWORD (WINAPI *GetFileVersionInfoSizeW_t)(LPCWSTR, LPDWORD);
 typedef BOOL (WINAPI *GetFileVersionInfoW_t)(LPCWSTR, DWORD, DWORD, LPVOID);
 typedef BOOL (WINAPI *VerQueryValueW_t)(LPCVOID, LPCWSTR, LPVOID*, PUINT);
@@ -373,14 +445,19 @@ FoundBinary resolveBinary(const QString& name, ConfigManager* configManager)
             QDir::cleanPath(managedRoot), Qt::CaseInsensitive);
     };
 
-    // 1. Check INI first
+    QString configuredPath;
+    bool configuredPathAutoDetected = true;
+
+    // 1. Check INI first. Explicit paths are authoritative; auto-detected
+    // paths are only a cache hint and must be re-evaluated against newer
+    // package-manager payloads.
     if (configManager) {
         QString configKey = name + QStringLiteral("_path");
-        QString configuredPath = configManager->get(QStringLiteral("Binaries"), configKey).toString();
-        const bool autoDetected = configManager->get(
+        configuredPath = configManager->get(QStringLiteral("Binaries"), configKey).toString();
+        configuredPathAutoDetected = configManager->get(
             QStringLiteral("Binaries"), name + QStringLiteral("_auto_detected"), true).toBool();
         if (!configuredPath.isEmpty() && QFileInfo::exists(configuredPath) &&
-            (!autoDetected || preferAppManaged == isAppManagedPath(configuredPath))) {
+            !configuredPathAutoDetected) {
             FoundBinary found;
             found.path = QDir::toNativeSeparators(configuredPath);
             found.source = QStringLiteral("Custom");
@@ -503,6 +580,18 @@ FoundBinary resolveBinary(const QString& name, ConfigManager* configManager)
         }
     }
 
+#ifdef Q_OS_WIN
+    appendWinGetPackageCandidates(localAppData, name, exeName, candidatePaths);
+#endif
+
+    if (configuredPathAutoDetected && !configuredPath.isEmpty() &&
+        QFileInfo::exists(configuredPath) && QFileInfo(configuredPath).isFile() &&
+        !candidatePaths.contains(configuredPath, Qt::CaseInsensitive)) {
+        candidatePaths.append(QDir::toNativeSeparators(configuredPath));
+        qInfo() << "[ProcessUtils::resolveBinary] Retaining auto-detected configured candidate for"
+                << name << ":" << configuredPath;
+    }
+
     if (candidatePaths.isEmpty()) {
         FoundBinary notFound;
         notFound.path = QString();
@@ -577,7 +666,8 @@ FoundBinary resolveBinary(const QString& name, ConfigManager* configManager)
         source = QStringLiteral("Scoop");
     } else if (bestPathLower.contains(QStringLiteral("chocolatey")) || bestPathLower.contains(QStringLiteral("choco"))) {
         source = QStringLiteral("Chocolatey");
-    } else if (bestPathLower.contains(QStringLiteral("windowsapps"))) {
+    } else if (bestPathLower.contains(QStringLiteral("windowsapps")) ||
+               bestPathLower.contains(QStringLiteral("winget"))) {
         source = QStringLiteral("WinGet");
     } else if (bestPathLower.contains(QStringLiteral("homebrew"))) {
         source = QStringLiteral("Homebrew");

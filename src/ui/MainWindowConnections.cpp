@@ -567,6 +567,21 @@ void MainWindow::connectStartupWorkerSignals()
                                       ? tr("Updating app-managed %1 in the background.").arg(binaryName)
                                       : tr("%1: %2").arg(binaryName, details),
                                   8000);
+
+        if (!automaticUpdateStarted) {
+            QMessageBox messageBox(this);
+            messageBox.setWindowTitle(tr("External Tool Update Required"));
+            messageBox.setIcon(QMessageBox::Warning);
+            messageBox.setText(tr("A newer version of %1 is available.").arg(binaryName));
+            messageBox.setInformativeText(tr("%1\n\nOpen External Binaries to update or replace this executable.").arg(details));
+            QPushButton *openButton = messageBox.addButton(tr("Open External Binaries"), QMessageBox::AcceptRole);
+            messageBox.addButton(QMessageBox::Close);
+            messageBox.exec();
+            if (messageBox.clickedButton() == openButton) {
+                m_uiBuilder->tabWidget()->setCurrentWidget(m_advancedSettingsTab);
+                m_advancedSettingsTab->navigateToCategory(QStringLiteral("External Tools"));
+            }
+        }
     });
     connect(m_startupWorker, &StartupWorker::ytDlpVersionFetched, this, &MainWindow::setYtDlpVersion);
     connect(m_startupWorker, &StartupWorker::galleryDlVersionFetched, m_advancedSettingsTab, &AdvancedSettingsTab::setGalleryDlVersion);

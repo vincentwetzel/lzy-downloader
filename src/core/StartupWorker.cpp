@@ -136,10 +136,12 @@ void StartupWorker::start() {
         if (status == Updater::UpdateStatus::UpdateAvailable || status == Updater::UpdateStatus::UpToDate) {
             bool available = (status == Updater::UpdateStatus::UpdateAvailable);
             m_configManager->set(QStringLiteral("Binaries"), QStringLiteral("%1_update_available").arg(binaryName), available);
+            const QString latestVer = updater ? updater->property("remoteVersionTag").toString() : QString();
+            if (available && !latestVer.isEmpty()) {
+                m_configManager->set(QStringLiteral("Binaries"), QStringLiteral("%1_latest_version").arg(binaryName), latestVer);
+            }
             if (onlyCheck) {
                 if (available) {
-                    QString latestVer = updater->property("remoteVersionTag").toString();
-                    m_configManager->set(QStringLiteral("Binaries"), QStringLiteral("%1_latest_version").arg(binaryName), latestVer);
                     m_configManager->save();
                     
                     QString alertMsg;
@@ -157,7 +159,8 @@ void StartupWorker::start() {
             } else {
                 m_configManager->save();
                 if (available) {
-                    emit binaryUpdateRequired(binaryName, tr("A newer version of %1 is available. Please update it in settings.").arg(binaryName));
+                    qWarning() << message;
+                    emit binaryUpdateRequired(binaryName, message);
                 } else {
                     qInfo() << message;
                 }

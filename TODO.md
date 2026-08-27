@@ -1,6 +1,9 @@
 # LzyDownloader C++ Port TODO
 
 ## In Progress
+- [x] Keep the External Tools list compact by using the External Binaries group itself as the scroll document, eliminating wrapper-layout height feedback; derive its wrapped natural height from the width-constrained layout after viewport and row layout changes while retaining scrolling for smaller windows.
+- [x] Keep long external-tool installation command previews wrapped within the installer dialog.
+- [x] Make stale external-tool versions visible with exact installed/latest diagnostics and a persistent prompt for manually managed yt-dlp installs.
 - [x] Prevent system idle sleep during active downloads in GUI and headless/server modes with platform-native power inhibitors.
 - [x] Add authenticated Local API and Discord bridge cancellation for tracked downloads.
 - [x] Upgrade the headless test runner with fail-fast builds, timestamped output, summaries, and a previous-failure suspects mode.
@@ -12,8 +15,10 @@
 - [x] Replace matching restored stopped/failed jobs for explicit non-interactive re-downloads while preserving genuinely paused duplicate protection.
 - [x] Protect retry/resume requests with the current active-item snapshot and shared normalized media identity.
 - [x] Recover native progress when `info.json` omits `requested_downloads`, using matching format sizes and bounded temporary-file polling.
+- [x] Keep Active Downloads rows focused on one current-transfer progress bar and remove the secondary aggregate bar.
 - [x] Treat disk-full diagnostics as terminal failures and preserve existing destination files during replacement.
 - [x] Add a native-only `build_release.py --target` selector for explicit macOS VM packaging tests.
+- [x] Keep completed local FFmpeg/FFprobe installations as explicit overrides when system-first binary preference is enabled.
 - [ ] Refactor and split large `.cpp` files above or approaching 500 lines (e.g., `BinariesPage.cpp`, `DownloadItemWidget.cpp`, `MainWindowConnections.cpp`, and `YtDlpWorkerProcess.cpp`) to preserve optimal AI context limits.
 - [ ] Split `ProcessUtils.cpp` after the external-binary resolver expansion; the file is currently above the 500-line guidance and should move version parsing/probing into a focused helper.
 - [ ] Evaluate whether `YtDlpWorker` should expose a reusable capped diagnostic tail helper so warning/error retention stays consistent across workers.

@@ -19,8 +19,17 @@ public:
     void callParseStandardError(const QByteArray &output) { parseStandardError(output); }
     void callHandleOutputLine(const QString &line) { handleOutputLine(line); }
     bool callRetryWithoutAria2c(const QString &diagnostic) { return retryWithoutAria2cIfTransientFailure(diagnostic); }
-    bool callShouldRetryWithoutBrowserCookiesForDegradedFormat() const { return shouldRetryWithoutBrowserCookiesForDegradedFormat(); }
     double callInferPrimaryStreamSizeFromMetadata(const QString &formatId) const { return inferPrimaryStreamSizeFromMetadata(formatId); }
+    QVariantMap callApplyOverallPrimaryProgress(double percentage, double downloadedBytes, double totalBytes) {
+        QVariantMap progressData;
+        applyOverallPrimaryProgress(progressData, percentage, downloadedBytes, totalBytes);
+        return progressData;
+    }
+    void setPrimaryTransferState(const QList<double> &sizes, int index) {
+        m_requestedTransferSizes = sizes;
+        m_inferredTransferIndex = index;
+        m_currentTransferIsAuxiliary = false;
+    }
     void setFullMetadata(const QVariantMap &metadata) { m_fullMetadata = metadata; }
     bool callIsIncompleteMediaDiagnosticLine(const QString &line) const { return isIncompleteMediaDiagnosticLine(line); }
     bool callHasFatalDownloadDiagnostic() const { return hasFatalDownloadDiagnostic(); }
@@ -47,8 +56,8 @@ private slots:
     void testTransientAria2FailureFallsBackToNativeDownloader();
     void testMissingAria2OutputFallsBackToNativeDownloader();
     void testAria2RecoveryRejectsUnrelatedFailuresAndRetriesOnce();
-    void testCookieBackedDegradedFormatRecoveryDetection();
     void testMetadataFormatSizeFallback();
+    void testOverallProgressPayloadForDiscord();
     void testYtDlpProgressStalledParsing();
     void testLifecycleStatusParsing();
     void testLivestreamWaitParsing();
@@ -288,63 +297,16 @@ void TestYtDlpWorker::testAria2RecoveryRejectsUnrelatedFailuresAndRetriesOnce() 
     QVERIFY(!worker.callRetryWithoutAria2c(QStringLiteral("ERROR: aria2c exited with code 29")));
 }
 
-void TestYtDlpWorker::testCookieBackedDegradedFormatRecoveryDetection() {
-    ConfigManager *config = getConfigManager();
-    TestableYtDlpWorker worker(QStringLiteral("cookieQuality"),
-                               {QStringLiteral("--cookies-from-browser"), QStringLiteral("firefox"),
-                                QStringLiteral("-f"), QStringLiteral("bestvideo+bestaudio/best")},
-                               config, nullptr);
+void TestYtDlpWorker::testOverallProgressPayloadForDiscord() {
+    TestableYtDlpWorker worker(QStringLiteral("overallProgress"), {}, getConfigManager(), nullptr);
+    worker.setPrimaryTransferState({800.0, 200.0}, 0);
 
-    QVariantMap selectedFormat;
-    selectedFormat.insert(QStringLiteral("format_id"), QStringLiteral("18"));
-    selectedFormat.insert(QStringLiteral("height"), 360);
-    selectedFormat.insert(QStringLiteral("vcodec"), QStringLiteral("avc1.42001E"));
-    selectedFormat.insert(QStringLiteral("acodec"), QStringLiteral("mp4a.40.2"));
+    QVariantMap progressData = worker.callApplyOverallPrimaryProgress(50.0, 400.0, 800.0);
+    QCOMPARE(progressData.value(QStringLiteral("overall_progress")).toDouble(), 40.0);
 
-    QVariantMap betterVideoFormat;
-    betterVideoFormat.insert(QStringLiteral("format_id"), QStringLiteral("299"));
-    betterVideoFormat.insert(QStringLiteral("height"), 1080);
-    betterVideoFormat.insert(QStringLiteral("vcodec"), QStringLiteral("avc1.64002a"));
-    betterVideoFormat.insert(QStringLiteral("acodec"), QStringLiteral("none"));
-
-    QVariantMap audioFormat;
-    audioFormat.insert(QStringLiteral("format_id"), QStringLiteral("140"));
-    audioFormat.insert(QStringLiteral("height"), 0);
-    audioFormat.insert(QStringLiteral("vcodec"), QStringLiteral("none"));
-    audioFormat.insert(QStringLiteral("acodec"), QStringLiteral("mp4a.40.2"));
-
-    QVariantMap metadata;
-    metadata.insert(QStringLiteral("is_live"), false);
-    metadata.insert(QStringLiteral("height"), 360);
-    metadata.insert(QStringLiteral("vcodec"), QStringLiteral("avc1.42001E"));
-    metadata.insert(QStringLiteral("acodec"), QStringLiteral("mp4a.40.2"));
-    metadata.insert(QStringLiteral("formats"), QVariantList{selectedFormat, betterVideoFormat, audioFormat});
-    worker.setFullMetadata(metadata);
-
-    QVERIFY(worker.callShouldRetryWithoutBrowserCookiesForDegradedFormat());
-
-    TestableYtDlpWorker manifestAlreadyDegradedWorker(
-        QStringLiteral("cookieQualityManifestAlreadyDegraded"),
-        {QStringLiteral("--cookies-from-browser"), QStringLiteral("firefox"),
-         QStringLiteral("-f"), QStringLiteral("bestvideo+bestaudio/best")},
-        config, nullptr);
-    QVariantMap degradedOnlyMetadata = metadata;
-    degradedOnlyMetadata.insert(QStringLiteral("formats"), QVariantList{selectedFormat});
-    manifestAlreadyDegradedWorker.setFullMetadata(degradedOnlyMetadata);
-    QVERIFY(manifestAlreadyDegradedWorker.callShouldRetryWithoutBrowserCookiesForDegradedFormat());
-
-    TestableYtDlpWorker cappedWorker(QStringLiteral("cookieQualityCapped"),
-                                     {QStringLiteral("--cookies-from-browser"), QStringLiteral("firefox"),
-                                      QStringLiteral("-f"), QStringLiteral("bestvideo[height<=?360]+bestaudio/best")},
-                                     config, nullptr);
-    cappedWorker.setFullMetadata(metadata);
-    QVERIFY(!cappedWorker.callShouldRetryWithoutBrowserCookiesForDegradedFormat());
-
-    TestableYtDlpWorker noCookieWorker(QStringLiteral("cookieQualityNoCookies"),
-                                        {QStringLiteral("-f"), QStringLiteral("bestvideo+bestaudio/best")},
-                                        config, nullptr);
-    noCookieWorker.setFullMetadata(metadata);
-    QVERIFY(!noCookieWorker.callShouldRetryWithoutBrowserCookiesForDegradedFormat());
+    worker.setPrimaryTransferState({800.0, 200.0}, 1);
+    progressData = worker.callApplyOverallPrimaryProgress(50.0, 100.0, 200.0);
+    QCOMPARE(progressData.value(QStringLiteral("overall_progress")).toDouble(), 90.0);
 }
 
 void TestYtDlpWorker::testYtDlpProgressStalledParsing() {

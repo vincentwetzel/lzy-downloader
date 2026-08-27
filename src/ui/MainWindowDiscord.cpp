@@ -48,6 +48,15 @@ void MainWindow::connectDiscordWebhookSignals()
             json[QStringLiteral("error")] = state.value(QStringLiteral("error")).toString();
         }
         json[QStringLiteral("progress")] = state.value(QStringLiteral("progress")).toDouble();
+        if (state.contains(QStringLiteral("overall_progress"))) {
+            json[QStringLiteral("overall_progress")] = state.value(QStringLiteral("overall_progress")).toDouble();
+        }
+        if (state.contains(QStringLiteral("overall_downloaded_size"))) {
+            json[QStringLiteral("overall_downloaded_size")] = state.value(QStringLiteral("overall_downloaded_size")).toString();
+        }
+        if (state.contains(QStringLiteral("overall_total_size"))) {
+            json[QStringLiteral("overall_total_size")] = state.value(QStringLiteral("overall_total_size")).toString();
+        }
         json[QStringLiteral("speed")] = state.value(QStringLiteral("speed")).toString();
         json[QStringLiteral("eta")] = state.value(QStringLiteral("eta")).toString();
 

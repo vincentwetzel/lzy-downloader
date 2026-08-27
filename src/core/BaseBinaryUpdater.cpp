@@ -86,6 +86,15 @@ void BaseBinaryUpdater::performUpdateCheck() {
     request.setHeader(QNetworkRequest::UserAgentHeader, QStringLiteral("LzyDownloader-Updater"));
     
     QNetworkReply *reply = m_networkManager->get(request);
+    QTimer *watchdog = new QTimer(reply);
+    watchdog->setSingleShot(true);
+    connect(watchdog, &QTimer::timeout, reply, [this, reply]() {
+        if (reply->isRunning()) {
+            qWarning() << "Timed out while checking for" << m_binaryName << "updates.";
+            reply->abort();
+        }
+    });
+    watchdog->start(15000);
     connect(reply, &QNetworkReply::finished, this, [this, reply]() {
         reply->deleteLater();
         if (reply->error() != QNetworkReply::NoError) {

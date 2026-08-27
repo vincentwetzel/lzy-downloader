@@ -52,13 +52,32 @@ licenses.
 - `ActiveDownloadsTab` and `DownloadItemWidget` keep their scroll content and
   flexible text columns shrinkable to the viewport. Horizontal scrolling is
   disabled, so Cancel/Retry/folder actions remain reachable at narrow widths.
+- `DownloadItemWidget` presents one `ProgressLabelBar` for the current transfer
+  or processing stage. The worker may still provide `overall_progress` and its
+  size fields to the Discord webhook bridge; those fields are not rendered as
+  a second desktop widget.
 - `BinariesPage` installs standalone Windows FFmpeg and FFprobe files through a
   staged destination-side file and bounded replacement retries. A persistent
   sharing violation leaves the existing executable in place and reports the
   failure.
+- `BinariesPage` uses its External Binaries group directly as the natural-height
+  scroll document. This avoids the intermediate wrapper-layout geometry feedback
+  that inflated the scroll range below the final row. Viewport and row layout
+  requests schedule a deduplicated width/height recomputation from the layout's
+  width-constrained natural height after text reflow.
+- `BinariesPage::installBinaryFor(const QString&)` presents command previews in
+  a bounded read-only text area that wraps arbitrary-length command tokens and
+  suppresses horizontal scrolling.
 - `BinariesPage::installRecommendedBinary(const QString&)` runs the preferred
   unattended first-launch install path. `tryAutomaticUpdate(const QString&)`
   only updates copies inside the managed application-data `bin` folder.
+- Completed explicit installs and Browse selections are persisted as manual
+  overrides even when they target that managed folder; Windows FFmpeg/FFprobe
+  pair updates persist both executable paths with `.exe` suffixes.
+- Update routing recognizes WinGet package paths and invokes the package
+  manager; standalone external FFmpeg paths open the manual update flow.
+- Startup update checks retain the exact installed/latest versions; `MainWindow`
+  presents a persistent prompt when manual action is required.
 - `InitialBinarySetupDialog` records a fresh install's system-first or
   app-managed-first preference and selects gallery-dl and aria2c by default.
 - `YtDlpArgsBuilder` adds the item-level artist fallback expression only for
@@ -78,8 +97,6 @@ licenses.
 - `DownloadFinalizer` removes a temporary directory only when its final directory name matches the download ID; stopped downloads retain their temporary data for resume. `DownloadTempCleanup` supplies the configured/completed-downloads/OS-temp fallback chain and refuses shared-root, non-ID, and symlink removal.
 - `DownloadQueueManager::cleanupOrphanedTempDirectories()` runs the protected startup reconciliation asynchronously after queue restoration, deleting only unprotected direct-child UUID folders.
 - `YtDlpWorker` may retry one transient aria2c transport failure (exit codes 2, 5, 6, or 29), or a narrowly classified missing expected media `.part` output after aria2c returns, with the native downloader, deleting stale metadata sidecars but retaining media partials.
-- `YtDlpWorker` may retry once without browser-cookie arguments when a cookie-backed uncapped or higher-capped `bestvideo` request selects a combined stream below 480p. This also handles manifests that omit the adaptive pair needed for direct comparison. Explicit/direct selections, caps at the selected resolution, and active livestreams are excluded.
-- `TestYtDlpWorker::testCookieBackedDegradedFormatRecoveryDetection()` covers the adaptive-format and manifest-without-adaptive-pair cases, plus exclusions for explicit caps and missing cookie arguments.
 - `YtDlpWorker` rejects a captured final path when retained output contains missing-fragment, empty-data-block, invalid-header, invalid-container, or critical extractor diagnostics; these failures do not enter metadata embedding or finalization.
 - `YtDlpWorker` backfills missing `requested_downloads` sizes from matching `formats` metadata and emits bounded temporary-file progress when a native downloader is transferring data without a fresh progress line.
 - `YtDlpArgsBuilder` generates synchronization-safe accurate-cut arguments, including audio timestamp normalization and bounded FFmpeg thread settings.
@@ -227,7 +244,7 @@ critical extractor failures remain terminal and bypass metadata embedding.
 Shared utilities for process configuration, binary location, and termination.
 
 #### Key Functions
-- `FoundBinary resolveBinary(const QString& name, ConfigManager* configManager)`: Resolves an external tool path, prioritizing manual overrides, then cache checks.
+- `FoundBinary resolveBinary(const QString& name, ConfigManager* configManager)`: Resolves an external tool path. Explicit non-auto-detected overrides win; auto-detected paths remain candidates while the resolver checks preferred app-managed/system locations, package-manager paths, and bounded nested WinGet payloads on Windows, then selects the newest usable candidate.
 - `void setProcessEnvironment(QProcess &process)`: Injects default environmental variables (e.g., `PYTHONUTF8`, `PYTHONIOENCODING`).
 - `void terminateProcessTree(QProcess *process, int gracefulTimeoutMs = 2000)`: Cleanly interrupts (or kills) a process and all spawned sub-processes.
 - `void clearCache()`: Invalidates resolved binary path mappings.
@@ -236,7 +253,7 @@ Shared utilities for process configuration, binary location, and termination.
 Implements version-aware discovery logic for external binary dependencies (`yt-dlp`, `ffmpeg`, `gallery-dl`, `aria2c`, `deno`).
 
 #### Key Functions
-- `ProcessUtils::FoundBinary resolve(const QString& binaryName, ConfigManager* configManager)`: Dynamically searches system folders, package manager installs (Scoop, WinGet, Chocolatey), and resolves the highest-version executable.
+- `ProcessUtils::FoundBinary resolve(const QString& binaryName, ConfigManager* configManager)`: Dynamically searches system folders and package-manager installs (including bounded nested WinGet payloads), preserving explicit overrides and resolving the highest-version usable executable.
 - `QString readIniKeyDirect(const QString &filePath, const QString &section, const QString &key)`: Bypass registry/QSettings caches to read direct config files.
 
 ### [SortingManager](../src/core/SortingManager.h)

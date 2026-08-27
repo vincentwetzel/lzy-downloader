@@ -3,6 +3,17 @@
 The main-window footer keeps status counters and current speed on its first row;
 the exit-after-downloads control remains the rightmost item.
 
+The External Binaries install dialog keeps long package-manager and PowerShell
+command previews wrapped inside a bounded text area so narrow windows do not
+grow wider than the screen.
+
+Windows standalone FFmpeg/FFprobe updates stage both executables before bounded
+replacement retries, then persist the local pair as explicit overrides so a
+system-first preference cannot silently switch back to an older package copy.
+WinGet-managed paths are updated through `winget upgrade`; other external
+standalone copies require manual replacement rather than an unrequested local
+install.
+
 The Discord bridge cancellation route is a runtime Local API feature and does not change release packaging or installer requirements.
 
 Active downloads use native OS sleep inhibition in the GUI and headless/server
@@ -16,6 +27,9 @@ additional installer payloads, ports, or release-time configuration beyond the
 existing localhost API/webhook integration.
 
 This document describes how to build, package, and release the C++ version of LzyDownloader with auto-update support.
+
+Release smoke tests should also verify that a stale manually managed yt-dlp
+executable produces an exact installed/latest update prompt.
 
 ## Public repository discoverability
 
@@ -76,9 +90,9 @@ not automatically use an image merely because it exists in the repository.
 
 ## Build Process
 
-Before release, review the `[Unreleased]` section of `CHANGELOG.md` and verify that the maintained documentation set (`README.md`, `AGENTS.md`, `TODO.md`, and the active files under `docs/`) matches the current implementation. In particular, ordinary URLs must recover from transient playlist-probe failures, browser-cookie format downgrades must retry once from an uncapped or higher-capped `bestvideo` request when the selected combined stream is below 480p, video-only quality warnings must not inspect audio-job height metadata, audio extraction labels must remain audio-oriented when aria2c transfers a combined source, the worker's degraded-format regression test must remain covered, aria2c transport or missing-output failures must use the bounded native-downloader fallback while preserving partials, accurate cuts must use timestamp-normalized audio and bounded/background-priority FFmpeg work, playlist audio filename prefixes must agree with the settings default, narrow Active Downloads rows must keep actions visible, tracked thumbnail sidecars must be remuxed as attached artwork before cleanup, and Windows FFmpeg/FFprobe replacement must tolerate transient locks. Also verify normalized duplicate identity across queue/retry/archive paths, active-snapshot retry protection, explicit re-download recovery for restored stopped/failed jobs, duplicate recovery-entry suppression in the Discord bridge, terminal non-interactive duplicate diagnostics, terminal disk-full diagnostics, and recoverable existing-destination replacement.
+Before release, review the `[Unreleased]` section of `CHANGELOG.md` and verify that the maintained documentation set (`README.md`, `AGENTS.md`, `TODO.md`, and the active files under `docs/`) matches the current implementation. In particular, ordinary URLs must recover from transient playlist-probe failures, browser-cookie extraction failures must use the bounded fallback while preserving authentication diagnostics, video-only quality warnings must not inspect audio-job height metadata, audio extraction labels must remain audio-oriented when aria2c transfers a combined source, aria2c transport or missing-output failures must use the bounded native-downloader fallback while preserving partials, accurate cuts must use timestamp-normalized audio and bounded/background-priority FFmpeg work, playlist audio filename prefixes must agree with the settings default, narrow Active Downloads rows must keep actions visible, tracked thumbnail sidecars must be remuxed as attached artwork before cleanup, and Windows FFmpeg/FFprobe replacement must tolerate transient locks. Also verify normalized duplicate identity across queue/retry/archive paths, active-snapshot retry protection, explicit re-download recovery for restored stopped/failed jobs, duplicate recovery-entry suppression in the Discord bridge, terminal non-interactive duplicate diagnostics, terminal disk-full diagnostics, and recoverable existing-destination replacement.
 
-Release smoke checks should also confirm that a native transfer whose `info.json` omits `requested_downloads` still reports matching format sizes and continues updating from its owned `.part` file while yt-dlp output is temporarily quiet.
+Release smoke checks should also confirm that a native transfer whose `info.json` omits `requested_downloads` still reports matching format sizes and continues updating from its owned `.part` file while yt-dlp output is temporarily quiet. Active Downloads rows should show only one detailed progress bar per download, while Discord multi-stream progress should remain stable across video/audio handoff.
 
 ### Step 1: Update Extractor Lists
 
@@ -150,10 +164,9 @@ Replace `X.X.X` with the exact version from `CMakeLists.txt`.
 
 `CMakeLists.txt` already runs `windeployqt`, re-copies the resolved Qt runtime DLLs from the configured Qt installation, and deploys the OpenSSL runtime DLLs (`libcrypto-3-x64.dll`, `libssl-3-x64.dll`) when available. Keep the deployed compression/runtime dependencies that Qt ships with, including `zlib1.dll`, because `Qt6Network.dll` depends on them on Windows.
 
-For Windows development builds, the checked-in `release`, `debug`, and
-`debug-local-qt` presets explicitly select the repository's expected Qt MinGW
-and Ninja locations. Update those preset paths when using another Qt
-installation. Qt plugin copying is performed by
+For Windows development builds, the checked-in `release` and `debug` presets
+explicitly select the repository's expected Qt MinGW and Ninja locations.
+Update those preset paths when using another Qt installation. Qt plugin copying is performed by
 `cmake/deploy_openssl_runtime.cmake` under a per-runtime-directory lock so
 parallel builds do not partially overwrite the deployed plugin tree. The
 vcpkg manifest enables the specific Qt modules required by the application and

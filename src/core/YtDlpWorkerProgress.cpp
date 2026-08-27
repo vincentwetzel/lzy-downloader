@@ -46,7 +46,6 @@ namespace {
         return QStringLiteral("%1:%2").arg(minutes).arg(seconds, 2, 10, QLatin1Char('0'));
     }
 }
-
 void YtDlpWorker::pollTransferProgress() {
     if (!m_process || m_process->state() == QProcess::NotRunning
         || m_currentTransferTarget.isEmpty() || m_currentTransferIsAuxiliary
@@ -113,7 +112,6 @@ void YtDlpWorker::pollTransferProgress() {
              << "/" << totalBytes << "(" << percentage << "%)";
     emit progressUpdated(m_id, progressData);
 }
-
 double YtDlpWorker::parseSizeStringToBytes(const QString &sizeString) {
     QStringView view(sizeString);
     view = view.trimmed();
@@ -166,7 +164,6 @@ double YtDlpWorker::parseSizeStringToBytes(const QString &sizeString) {
 
     return value * multiplier;
 }
-
 QString YtDlpWorker::formatBytes(double bytes) {
     if (bytes < 0) return tr("N/A");
     if (bytes == 0) return tr("0 B");
@@ -312,7 +309,6 @@ bool YtDlpWorker::parseYtDlpProgressLine(const QString &line) {
     emit progressUpdated(m_id, progressData);
     return true;
 }
-
 bool YtDlpWorker::parseAria2ProgressLine(const QString &line) {
     // High-frequency optimization: bypass expensive regex evaluation entirely for non-aria2 lines
     if (!line.contains(u"[#")) {
@@ -359,7 +355,6 @@ void YtDlpWorker::applyOverallPrimaryProgress(QVariantMap &progressData, double 
 
     const double completedBytes = std::accumulate(m_requestedTransferSizes.begin(), m_requestedTransferSizes.begin() + m_inferredTransferIndex, 0.0);
     const double overallTotalBytes = std::accumulate(m_requestedTransferSizes.begin(), m_requestedTransferSizes.end(), 0.0);
-
     if (overallTotalBytes <= 0.0) {
         return;
     }
@@ -377,7 +372,6 @@ void YtDlpWorker::applyOverallPrimaryProgress(QVariantMap &progressData, double 
 
     const double overallDownloadedBytes = completedBytes + effectiveCurrentDownloaded;
     const double overallPercentage = qBound(0.0, (overallDownloadedBytes / overallTotalBytes) * 100.0, 100.0);
-
     progressData.insert(QStringLiteral("overall_progress"), overallPercentage);
     progressData.insert(QStringLiteral("overall_downloaded_size"), formatBytes(overallDownloadedBytes));
     progressData.insert(QStringLiteral("overall_total_size"), formatBytes(overallTotalBytes));

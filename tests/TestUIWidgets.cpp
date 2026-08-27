@@ -41,6 +41,7 @@ void TestUIWidgets::testDownloadItemWidgetFinishedState() {
     QCOMPARE(widget.isSuccessful(), true);
     ProgressLabelBar *progressBar = widget.findChild<ProgressLabelBar*>();
     QVERIFY(progressBar != nullptr);
+    QCOMPARE(widget.findChildren<QProgressBar*>().size(), 1);
 
     // Test cancelled state
     widget.setCancelled();

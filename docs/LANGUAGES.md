@@ -5,6 +5,18 @@ below are planned translation targets; they are not selectable UI languages
 until Qt Linguist catalogs and the corresponding CMake build steps are added.
 The implementation work remains tracked in `TODO.md`.
 
+External-tool update prompts retain translated binary names and installed/latest
+version values.
+
+External-tool installation command previews are translated as ordinary text and
+wrap within their bounded dialog area, including commands containing long
+unbroken tokens.
+
+Explicit external-tool overrides and paired Windows FFmpeg/FFprobe executable
+paths are persisted configuration behavior; they add no language-specific UI.
+Package-manager routing for WinGet and manual-update routing for standalone
+external binaries likewise add no language-specific UI.
+
 The footer status indicators and exit-after-downloads control remain on the
 same translated UI surface; their compact first-row layout does not change
 translation coverage.
@@ -47,13 +59,14 @@ Thumbnail-remux, quiet-transfer progress-recovery, status, and error messages re
 surface; this artwork behavior change does not add a new selectable language or
 change the translation build requirements.
 
-Browser-cookie degraded-format recovery adds a translated worker status message
-but does not add a selectable language or change the translation build
-requirements.
 
 Aria2c missing-output recovery uses a translated worker status message and
 does not add a selectable language or change the translation build
 requirements.
+
+Active download progress uses the existing translated status and metric strings
+on one progress bar per row; removing the aggregate bar does not add a
+selectable language or change the translation build requirements.
 
 Audio-aware transfer status and the video-only quality-warning behavior use the
 existing `tr()` translation surface; they do not add a selectable language or
