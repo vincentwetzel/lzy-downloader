@@ -10,12 +10,24 @@ if(DEFINED QT_PLUGINS_SOURCE AND NOT QT_PLUGINS_SOURCE STREQUAL "")
     endif()
 endif()
 
-if(NOT DEFINED OPENSSL_RUNTIME_DIR OR OPENSSL_RUNTIME_DIR STREQUAL "")
-    return()
-endif()
-
 if(NOT DEFINED TARGET_RUNTIME_DIR OR TARGET_RUNTIME_DIR STREQUAL "")
     message(FATAL_ERROR "TARGET_RUNTIME_DIR was not provided for OpenSSL runtime deployment.")
+endif()
+
+# vcpkg's dynamic triplets keep Qt and its transitive DLL dependencies in the
+# selected configuration's bin directory. Plugin deployment alone leaves test
+# executables unable to start outside a developer shell.
+if(DEFINED QT_RUNTIME_DIR AND NOT QT_RUNTIME_DIR STREQUAL "")
+    file(GLOB _qt_runtime_dlls "${QT_RUNTIME_DIR}/*.dll")
+    if(_qt_runtime_dlls)
+        file(COPY ${_qt_runtime_dlls} DESTINATION "${TARGET_RUNTIME_DIR}")
+    else()
+        message(WARNING "No Qt runtime DLLs were found in ${QT_RUNTIME_DIR}.")
+    endif()
+endif()
+
+if(NOT DEFINED OPENSSL_RUNTIME_DIR OR OPENSSL_RUNTIME_DIR STREQUAL "")
+    return()
 endif()
 
 file(GLOB _openssl_runtime_dlls

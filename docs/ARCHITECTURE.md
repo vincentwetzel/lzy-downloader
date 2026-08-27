@@ -90,10 +90,12 @@ resolution and guarded UUID-folder removal.
 ### Tests and release support
 
 `tests/` links `LzyAppLib`, registers tests with `lzy_add_test(...)`, and runs
-offscreen. `tests/run_headless_tests.py` owns build-before-CTest execution,
+with Qt's `minimal` platform plugin. `tests/run_headless_tests.py` owns
+build-before-CTest execution,
 timestamped output, summaries, and the failed-test cache. `CMakeLists.txt`
 owns the build graph; `CMakePresets.json` owns supported local paths;
-`cmake/deploy_openssl_runtime.cmake` owns guarded Windows deployment;
+`cmake/deploy_openssl_runtime.cmake` owns guarded Windows Qt/OpenSSL runtime
+deployment;
 `build_release.py` owns native packaging/version checks; and
 `.github/workflows/release.yml` owns CI prerequisites, matrix, and publication.
 
@@ -105,7 +107,9 @@ External processes have bounded watchdogs, UTF-8 line buffering, bounded
 diagnostics, and process-tree cleanup. Qt SQL connections stay within their
 creating thread.
 
-Windows keeps required Qt plugins, SQLite, and OpenSSL beside the executable.
+Windows keeps required Qt plugins, SQLite, OpenSSL, Qt runtime, and MinGW
+compiler runtime DLLs beside the executable. The deployment helper is also
+used for test executables so headless runs do not depend on the developer shell.
 Linux packaging selects qmake from the vcpkg Qt build and handles static versus
 dynamic Qt. macOS packaging creates architecture-labelled bundles/DMGs and
 uses Finder for DMG handoff.

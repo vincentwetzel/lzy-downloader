@@ -13,6 +13,7 @@ private slots:
     void testDownloadItemWidgetFinishedState();
     void testDownloadItemWidgetKeepsActionsVisibleWhenNarrow();
     void testBinariesPageUsesNaturalScrollDocument();
+    void testDenoAppManagedInstallIsRecommended();
 
 private slots:
     void init() {

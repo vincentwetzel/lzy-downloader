@@ -72,7 +72,8 @@ Read the relevant section only.
 
 - Add focused regression tests for changed logic using isolated temporary
   paths; never touch real user settings, archives, credentials, or package
-  trees. Use `QT_QPA_PLATFORM=offscreen` for headless Qt tests.
+  trees. Use `QT_QPA_PLATFORM=minimal` for headless Qt tests and ensure the
+  required Qt platform/runtime DLLs are deployed with Windows test targets.
 - `tests/run_headless_tests.py` builds before CTest, fails on build errors,
   timestamps output, summarizes pass/fail/not-run, and supports `--suspects`.
   For Visual Studio, preserve the cache-selected vcpkg/MSBuild integration.

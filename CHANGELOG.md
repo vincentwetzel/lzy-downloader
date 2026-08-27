@@ -9,6 +9,13 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## [Unreleased]
 
+- **Cross-platform binary installs:** External Tools now marks only app-local
+  installers as **(Recommended)**, consistently targets the platform app-data
+  `bin` folder for direct yt-dlp installs, and installs Deno there on Windows,
+  macOS, and Linux without modifying the user's `PATH`. Package-manager
+  choices remain explicit system-managed alternatives. Windows retains direct
+  app-managed FFmpeg/FFprobe and gallery-dl installers.
+
 - **Documentation efficiency:** Agent guidance now routes tasks to the smallest
   relevant reference; repeated API, architecture, and coding-policy prose was
   removed while the detailed behavior and settings references remain intact.
@@ -96,7 +103,9 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 - **Power management:** Added cross-platform system idle-sleep inhibition for active downloads and post-processing, including the headless/server lifecycle used by the Discord bot. The display remains eligible for normal power-off, and the inhibitor is released on completion, cancellation, and shutdown.
 - **Build:** Added the platform-specific power-management implementation and the Linux Qt D-Bus component.
 - **Tests:** Fixed the new queue-state and temporary-cleanup tests by including the QtTest macros they use, allowing those targets to compile past source parsing and into AutoMOC.
-- **Tests:** Windows test deployment now includes Qt's `qoffscreen.dll`, and the headless summary recognizes CTest exit-code failures as failed tests.
+- **Tests:** Windows test deployment now includes Qt's `qminimal.dll` and the
+  required Qt runtime DLLs; the headless summary recognizes CTest exit-code
+  failures as failed tests.
 - **Tests:** Fixed YouTube short-link archive normalization and updated livestream MPEG-TS coverage for the remux-based argument path.
 - **Tests:** Upgraded the headless runner with timestamped streaming output, build-before-test fail-fast behavior, end-of-run summaries, and a build-local suspects cache usable with `--suspects`.
 - **Build:** Moved Qt test sources, fixtures, workflow templates, and the end-to-end server fixture from `src/tests/` to the top-level `tests/` directory.

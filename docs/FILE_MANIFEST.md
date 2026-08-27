@@ -62,7 +62,7 @@ Public/project guidance is in `README.md`, `CONTRIBUTING.md`, `SECURITY.md`,
 ## Regression-test index
 
 Tests are registered with `lzy_add_test(...)` and should use isolated temp
-paths/offscreen Qt. Main focused files are:
+paths/headless Qt. Main focused files are:
 
 | Concern | Test |
 |---|---|

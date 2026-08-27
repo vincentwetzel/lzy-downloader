@@ -6,6 +6,10 @@
 #include <QPushButton>
 #include <QGroupBox>
 #include <QScrollArea>
+#include <QApplication>
+#include <QComboBox>
+#include <QDialog>
+#include <QTimer>
 
 void TestUIWidgets::testProgressLabelBarFilling() {
     ProgressLabelBar progressBar;
@@ -101,6 +105,31 @@ void TestUIWidgets::testBinariesPageUsesNaturalScrollDocument() {
     QVERIFY(document != nullptr);
     QVERIFY(document->layout() != nullptr);
     QTRY_COMPARE(document->width(), scrollArea->viewport()->width());
+}
+
+void TestUIWidgets::testDenoAppManagedInstallIsRecommended() {
+    BinariesPage page(getConfigManager());
+    bool dialogWasShown = false;
+    bool firstOptionIsRecommended = false;
+
+    QTimer::singleShot(0, &page, [&]() {
+        auto *dialog = qobject_cast<QDialog *>(QApplication::activeModalWidget());
+        if (!dialog) {
+            return;
+        }
+        dialogWasShown = true;
+        auto *options = dialog->findChild<QComboBox *>(QStringLiteral("binaryInstallOptionsCombo"));
+        if (options) {
+            firstOptionIsRecommended = options->count() > 0 &&
+                options->itemText(0).contains(QStringLiteral("(Recommended)"));
+        }
+        dialog->reject();
+    });
+
+    page.installBinaryFor(QStringLiteral("deno"));
+
+    QVERIFY(dialogWasShown);
+    QVERIFY(firstOptionIsRecommended);
 }
 
 QTEST_MAIN(TestUIWidgets)

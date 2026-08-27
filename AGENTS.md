@@ -67,7 +67,7 @@ the `download_archive.db` schema, and use Qt-native `QSettings` INI semantics
   QObject lifetimes, `Q_INVOKABLE` for queued `invokeMethod` targets, escaped
   rich text, complete HTTP/HTTPS links, and `QDebug` for non-trivial logic.
 - Keep source files under 500 lines and Markdown under 100 KB. Add focused
-  isolated-temp regression tests with offscreen Qt. Update affected docs and
+  isolated-temp regression tests with headless Qt (`QT_QPA_PLATFORM=minimal`). Update affected docs and
   changelog/TODO entries as appropriate; synchronize `ARCHITECTURE` and
   `FILE_MANIFEST` when ownership or locations change.
 - Keep documentation token-efficient: prefer one canonical statement,

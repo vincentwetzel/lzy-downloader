@@ -184,13 +184,18 @@ only the sections relevant to the change.
   Before install launch, save resumable state and terminate child processes.
   Silent Windows `/S` installs relaunch the installed `LzyDownloader.exe`.
 - Runtime binaries are not required to be bundled: users may configure or
-  install them through External Binaries. App-managed copies can update by
-  cadence; manual/package-managed tools require explicit confirmation. WinGet
-  paths use `winget upgrade`; standalone FFmpeg is never silently replaced.
+  install them through External Binaries. Mark **(Recommended)** only install
+  options that write to the platform app-data `bin` folder; system/package
+  manager alternatives remain explicit and are detected without relocation.
+  App-managed copies can update by cadence; manual/package-managed tools
+  require explicit confirmation. WinGet paths use `winget upgrade`; standalone
+  FFmpeg is never silently replaced.
   Windows FFmpeg/FFprobe replacements stage beside the destination and retry
   transient locks while preserving the old executable on failure.
-- Windows deployment includes required Qt image plugins, SQLite, and OpenSSL
-  DLLs. CMake presets, the shared deployment helper, and vcpkg keep builds
+- Windows deployment includes required Qt image plugins, SQLite, OpenSSL, and
+  Qt runtime DLLs. MinGW builds also deploy the compiler runtime DLLs needed
+  outside the developer shell. CMake presets, the shared deployment helper,
+  and vcpkg keep builds
   reproducible; no new runtime dependency may be introduced without approval.
 
 ## 7. Release and test requirements
@@ -212,7 +217,7 @@ only the sections relevant to the change.
   child commands retain the invoking terminal. The final executable is
   `LzyDownloader.exe`.
 - Register tests with `lzy_add_test(...)`; keep them isolated from user files
-  and use `QT_QPA_PLATFORM=offscreen`. Required coverage includes argument
+  and use `QT_QPA_PLATFORM=minimal`. Required coverage includes argument
   builders, playlist/probe fallback, progress and recovery boundaries,
   persistence/cleanup, archive identity, API/power/binary behavior, sorting,
   UI row layout, and the end-to-end fixture.
@@ -220,7 +225,8 @@ only the sections relevant to the change.
   it timestamps output, reports pass/fail/not-run totals, keeps CTest exit-code
   failures failed, and stores failed names for `--suspects`. Visual Studio
   vcpkg-toolchain caches enable manifest mode; direct-Qt caches disable MSBuild
-  integration. Windows test deployment includes `qoffscreen.dll`.
+  integration. Windows test deployment includes `qminimal.dll` and the Qt
+  runtime DLLs required by deployed test executables.
 
 ## 8. Logging and stack
 

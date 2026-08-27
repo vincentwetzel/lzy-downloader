@@ -111,7 +111,9 @@ matching release manifest.
 
 ### From Source
 
-Requires CMake, a C++20 compatible compiler (MSVC recommended on Windows), and Qt 6.
+Requires CMake, a C++20 compatible compiler, and Qt 6. The checked-in Windows
+presets use the supported Qt MinGW/Ninja toolchain; the build deploys the Qt
+platform/runtime and MinGW runtime DLLs needed by the executable and tests.
 
 The repository includes a `vcpkg.json` manifest for source builds with a pinned `builtin-baseline` for reproducible dependency resolution. The manifest enables only the Qt modules used by the application and tests (`concurrent`, `gui`, `network`, `sql-sqlite`, `testlib`, and `widgets`). On Windows, the checked-in `CMakePresets.json` expects vcpkg at `E:/vcpkg/scripts/buildsystems/vcpkg.cmake`, Qt's MinGW toolchain under `C:/Qt/Tools/mingw1310_64/bin`, and Ninja under `C:/Qt/Tools/Ninja`. If these paths differ on your machine, adjust the preset or pass equivalent compiler, generator, and toolchain settings when configuring.
 
@@ -151,9 +153,11 @@ compiler`, the generated `build-debug` directory contains stale or incomplete
 compiler metadata. Run `cmake --fresh --preset debug` once (or use the VS Code
 task **CMake: Fresh Configure Debug**), then run the normal build command again.
 
-Windows builds copy Qt runtime plugins through a guarded post-build CMake
-helper. This keeps plugin deployment safe when multiple build processes target
-the same runtime directory. Qt's optional compiler-predefines probe is disabled
+Windows builds copy Qt runtime plugins and runtime DLLs through a guarded
+post-build CMake helper. This keeps deployment safe when multiple build
+processes target the same runtime directory. MinGW builds also expose the
+compiler's sibling `bin` directory to compiler subprocesses, and Qt's optional
+compiler-predefines probe is disabled
 because it is not needed by this project and can fail when MinGW is launched
 through libuv-based tooling.
 
@@ -219,7 +223,7 @@ All settings are saved to `%LOCALAPPDATA%\LzyDownloader\settings.ini` on Windows
 - **Queue previews** - Queued rows begin loading supplied remote thumbnails immediately, and long titles wrap within narrow windows so row actions remain reachable
 - **Playlist audio filenames** - Playlist audio downloads are prefixed with zero-padded indices by default; change `Download Options -> Prefix playlist indices` to disable this behavior
 - **Local API** - Enable a localhost-only API server from Advanced Settings -> Configuration
-- **Binary management** - Choose app-managed-first or system-first resolution and configure launch, daily, or weekly automatic updates for app-managed tools in Advanced Settings -> External Tools. Explicit Browse selections and completed local installs remain selected regardless of that preference; package-managed tools update through their manager (including WinGet), while standalone external FFmpeg copies require manual replacement. Windows FFmpeg updates install and retain both `ffmpeg.exe` and `ffprobe.exe` together.
+- **Binary management** - Choose app-managed-first or system-first resolution and configure launch, daily, or weekly automatic updates for app-managed tools in Advanced Settings -> External Tools. Options marked **(Recommended)** install a private copy in the platform app-data `bin` folder (on Windows, `%LOCALAPPDATA%\\LzyDownloader\\bin`); package-manager choices remain explicit alternatives and update through their manager. Explicit Browse selections and completed local installs remain selected regardless of preference. Windows FFmpeg updates install and retain both `ffmpeg.exe` and `ffprobe.exe` together.
 
 ### Local API
 

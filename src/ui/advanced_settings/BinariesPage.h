@@ -2,6 +2,7 @@
 
 #include <QMap>
 #include <QSet>
+#include <QByteArray>
 #include <QWidget>
 #include <QVariant>
 
@@ -52,6 +53,10 @@ private:
         QString binaryName;
         bool isAlias = false;
         QString setCustomPath;
+        QVariantMap environmentOverrides;
+        QString followUpProgram;
+        QStringList followUpArguments;
+        QString cleanupPath;
         bool isUpdate = false;
     };
 

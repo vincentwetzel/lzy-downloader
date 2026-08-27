@@ -60,8 +60,8 @@ InitialBinarySetupDialog::InitialBinarySetupDialog(ConfigManager *configManager,
     auto *modeLayout = new QVBoxLayout(modeGroup);
     m_systemFirstButton = new QRadioButton(tr("Use existing system tools when available"), modeGroup);
     m_systemFirstButton->setToolTip(tr("Use compatible tools already installed by you or your package manager. Missing tools are installed for LzyDownloader."));
-    m_appManagedFirstButton = new QRadioButton(tr("Install and prefer LzyDownloader-managed tools"), modeGroup);
-    m_appManagedFirstButton->setToolTip(tr("Install selected tools into LzyDownloader's private bin folder and prefer them over system tools."));
+    m_appManagedFirstButton = new QRadioButton(tr("Prefer LzyDownloader-managed tools when available"), modeGroup);
+    m_appManagedFirstButton->setToolTip(tr("Use private copies in LzyDownloader's bin folder when a direct installer is available; package-manager alternatives remain available for tools without one."));
     modeLayout->addWidget(m_systemFirstButton);
     modeLayout->addWidget(m_appManagedFirstButton);
 

@@ -157,8 +157,10 @@ python .\tests\run_headless_tests.py --build-dir build --config Release
 ```
 
 The helper builds before CTest and stops on compilation failure, then runs
-offscreen tests in parallel with timestamped output and a final summary. It
-stores failed names in `build/.lzy-test-suspects.json`; use `--suspects` to rerun
+headless tests with Qt's `minimal` platform plugin in parallel with timestamped
+output and a final summary. Windows test targets receive the platform and Qt
+runtime DLLs through the same guarded deployment helper used by the application.
+It stores failed names in `build/.lzy-test-suspects.json`; use `--suspects` to rerun
 that cache. Test locations and coverage are indexed in
 `docs/FILE_MANIFEST.md` and `docs/SPEC.md`.
 
@@ -173,7 +175,12 @@ cmake --build build-release --config Release
 
 Replace `X.X.X` with the exact version from `CMakeLists.txt`.
 
-`CMakeLists.txt` already runs `windeployqt`, re-copies the resolved Qt runtime DLLs from the configured Qt installation, and deploys the OpenSSL runtime DLLs (`libcrypto-3-x64.dll`, `libssl-3-x64.dll`) when available. Keep the deployed compression/runtime dependencies that Qt ships with, including `zlib1.dll`, because `Qt6Network.dll` depends on them on Windows.
+`CMakeLists.txt` already runs `windeployqt`, re-copies the resolved Qt runtime
+DLLs from the configured Qt installation, deploys the OpenSSL runtime DLLs
+(`libcrypto-3-x64.dll`, `libssl-3-x64.dll`) when available, and copies the
+MinGW runtime DLLs when using the MinGW toolchain. Keep the deployed
+compression/runtime dependencies that Qt ships with, including `zlib1.dll`,
+because `Qt6Network.dll` depends on them on Windows.
 
 For Windows development builds, the checked-in `release` and `debug` presets
 explicitly select the repository's expected Qt MinGW and Ninja locations.

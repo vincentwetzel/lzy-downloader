@@ -34,9 +34,14 @@
 #include <QTimer>
 #include <QPointer>
 #include <QEvent>
+#include <QFile>
 #include <QSettings>
 #include <QScrollBar>
 #include <QRegularExpression>
+
+#include <algorithm>
+#include <cstddef>
+#include <cstring>
 
 namespace {
 QString getWindowsAppsDir() {
@@ -45,6 +50,21 @@ QString getWindowsAppsDir() {
         return QString();
     }
     return QDir(localAppData).filePath(QStringLiteral("Microsoft/WindowsApps"));
+}
+
+QString powerShellSingleQuoted(const QString &path)
+{
+    QString escapedPath = QDir::toNativeSeparators(path);
+    escapedPath.replace(QLatin1Char('\''), QStringLiteral("''"));
+    return escapedPath;
+}
+
+QString powerShellEncodedCommand(const QString &script)
+{
+    QByteArray utf16Bytes;
+    utf16Bytes.resize(script.length() * static_cast<int>(sizeof(char16_t)));
+    std::memcpy(utf16Bytes.data(), script.utf16(), static_cast<std::size_t>(utf16Bytes.size()));
+    return QString::fromLatin1(utf16Bytes.toBase64());
 }
 }
 
@@ -80,7 +100,7 @@ BinariesPage::BinariesPage(ConfigManager *configManager, QWidget *parent)
         tr("<b>REQUIRED:</b> yt-dlp, ffmpeg, ffprobe, deno<br>"
            "<b>OPTIONAL:</b> gallery-dl, aria2c<br><br>"
            "<b>Browse</b> sets a manual path override. <b>Clear Path</b> reverts to auto-detection.<br>"
-           "<b>Install</b> opens package-manager or official website download options.<br><br>"
+           "<b>Install</b> offers a recommended private-copy installer when available, plus package-manager and official website options.<br><br>"
            "<span style='color: #d97706;'><b>Note:</b> If a package-manager install does not appear after Refresh, "
            "restart LzyDownloader or use Browse to select the installed executable.</span>"),
         group
@@ -663,8 +683,15 @@ void BinariesPage::installBinaryFor(const QString &binaryName) {
     QList<InstallOption> options = buildInstallOptions(binaryName);
 
     QLabel *infoLabel = new QLabel(&dialog);
+    const bool hasAppManagedOption = std::any_of(options.cbegin(), options.cend(), [](const InstallOption &option) {
+        return option.extraData.value(QStringLiteral("is_app_managed")).toBool();
+    });
     if (options.isEmpty()) {
         infoLabel->setText(tr("No supported package managers were detected for %1. Please use the 'Download from Official Website' option.").arg(displayName(binaryName)));
+    } else if (hasAppManagedOption) {
+        const QString managedBinDir = QDir(m_configManager->getConfigDir()).filePath(QStringLiteral("bin"));
+        infoLabel->setText(tr("Choose an installation method for %1. Options marked (Recommended) keep a private copy in %2; package-manager options install outside LzyDownloader.")
+                               .arg(displayName(binaryName), QDir::toNativeSeparators(managedBinDir)));
     } else {
         infoLabel->setText(tr("Select an installation method for %1. Package-manager options were detected from this system.").arg(displayName(binaryName)));
     }
@@ -674,14 +701,18 @@ void BinariesPage::installBinaryFor(const QString &binaryName) {
 
     InstallOption manualOpt;
     manualOpt.label = tr("Download from Official Website");
-    manualOpt.description = tr("Open the official download page in your web browser and show manual placement instructions.");
+    manualOpt.description = tr("Open the official download page in your web browser. This option does not install into LzyDownloader's private bin folder.");
     manualOpt.extraData.insert(QStringLiteral("is_manual_download"), true);
     options.append(manualOpt);
 
     QComboBox *optionsCombo = new QComboBox(&dialog);
     optionsCombo->setToolTip(tr("Choose an installation method."));
+    optionsCombo->setObjectName(QStringLiteral("binaryInstallOptionsCombo"));
     for (const InstallOption &option : options) {
-        optionsCombo->addItem(option.label);
+        const QString label = option.extraData.value(QStringLiteral("is_app_managed")).toBool()
+            ? tr("%1 (Recommended)").arg(option.label)
+            : option.label;
+        optionsCombo->addItem(label);
     }
     layout->addWidget(optionsCombo);
 
@@ -706,7 +737,10 @@ void BinariesPage::installBinaryFor(const QString &binaryName) {
 
     auto updateSelectionText = [&]() {
         const InstallOption &option = options.at(optionsCombo->currentIndex());
-        descriptionLabel->setText(option.description);
+        const QString description = option.extraData.value(QStringLiteral("is_app_managed")).toBool()
+            ? tr("Recommended: %1").arg(option.description)
+            : option.description;
+        descriptionLabel->setText(description);
         if (option.extraData.value(QStringLiteral("is_manual_download")).toBool()) {
             commandPreviewEdit->setPlainText(tr("Command: Opens in default web browser"));
         } else {
@@ -729,12 +763,13 @@ void BinariesPage::installBinaryFor(const QString &binaryName) {
 
         if (option.extraData.value(QStringLiteral("is_manual_download")).toBool()) {
             QDesktopServices::openUrl(QUrl(m_manualUrls.value(binaryName)));
-            QMessageBox::information(
+                QMessageBox::information(
                 &dialog,
                 tr("Browser Download"),
                 tr("The official download page for %1 was opened in your browser.\n\n"
-                        "After downloading, place the executable somewhere permanent and use Browse to point LzyDownloader to it.")
-                    .arg(displayName(binaryName)));
+                        "To keep it app-managed, place the executable in %2. Otherwise, place it somewhere permanent and use Browse to point LzyDownloader to it.")
+                    .arg(displayName(binaryName), QDir::toNativeSeparators(
+                        QDir(m_configManager->getConfigDir()).filePath(QStringLiteral("bin")))));
             dialog.accept();
             return;
         }
@@ -748,6 +783,10 @@ void BinariesPage::installBinaryFor(const QString &binaryName) {
         if (option.extraData.contains(QStringLiteral("set_custom_path"))) {
             opts.setCustomPath = option.extraData.value(QStringLiteral("set_custom_path")).toString();
         }
+        opts.environmentOverrides = option.extraData.value(QStringLiteral("environment_overrides")).toMap();
+        opts.followUpProgram = option.extraData.value(QStringLiteral("follow_up_program")).toString();
+        opts.followUpArguments = option.extraData.value(QStringLiteral("follow_up_arguments")).toStringList();
+        opts.cleanupPath = option.extraData.value(QStringLiteral("cleanup_path")).toString();
         opts.isUpdate = false;
 
         runProcessWithLog(opts);
@@ -779,6 +818,10 @@ void BinariesPage::installRecommendedBinary(const QString &binaryName)
     opts.binaryName = binaryName;
     opts.isAlias = option.extraData.value(QStringLiteral("is_windows_apps_alias")).toBool();
     opts.setCustomPath = option.extraData.value(QStringLiteral("set_custom_path")).toString();
+    opts.environmentOverrides = option.extraData.value(QStringLiteral("environment_overrides")).toMap();
+    opts.followUpProgram = option.extraData.value(QStringLiteral("follow_up_program")).toString();
+    opts.followUpArguments = option.extraData.value(QStringLiteral("follow_up_arguments")).toStringList();
+    opts.cleanupPath = option.extraData.value(QStringLiteral("cleanup_path")).toString();
     qInfo() << "Running recommended binary installation for" << binaryName << "using" << option.label;
     runProcessWithLog(opts);
 }
@@ -904,11 +947,14 @@ void BinariesPage::runProcessWithLog(const ProcessRunOptions &opts) {
     ProcessUtils::setProcessEnvironment(*process);
     process->setProcessChannelMode(QProcess::MergedChannels);
 
-    connect(&progressDialog, &QDialog::rejected, process, [process]() {
+    connect(&progressDialog, &QDialog::rejected, process, [process, opts]() {
         if (process->state() != QProcess::NotRunning) {
             process->setProperty("cancelled", QVariant(true));
             ProcessUtils::terminateProcessTree(process);
             process->kill();
+        }
+        if (!opts.cleanupPath.isEmpty()) {
+            QFile::remove(opts.cleanupPath);
         }
     });
 
@@ -920,6 +966,14 @@ void BinariesPage::runProcessWithLog(const ProcessRunOptions &opts) {
             env.insert(QStringLiteral("PATH"), QStringLiteral("%1;%2").arg(windowsAppsPath, currentPath));
             process->setProcessEnvironment(env);
         }
+    }
+
+    if (!opts.environmentOverrides.isEmpty()) {
+        QProcessEnvironment env = process->processEnvironment();
+        for (auto it = opts.environmentOverrides.cbegin(); it != opts.environmentOverrides.cend(); ++it) {
+            env.insert(it.key(), it.value().toString());
+        }
+        process->setProcessEnvironment(env);
     }
 
     QStringList commandParts;
@@ -957,13 +1011,31 @@ void BinariesPage::runProcessWithLog(const ProcessRunOptions &opts) {
     connect(process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished), this, [this, process, outputEdit, closeBtn, opts, pDialog](int exitCode, QProcess::ExitStatus exitStatus) {
         if (!pDialog) return;
         if (process->property("cancelled").toBool()) return;
-        closeBtn->setEnabled(true);
         QByteArray buffer = process->property("outputBuffer").toByteArray();
         if (!buffer.isEmpty()) {
             outputEdit->moveCursor(QTextCursor::End);
             outputEdit->insertPlainText(QString::fromUtf8(buffer));
+            process->setProperty("outputBuffer", QByteArray());
         }
+
+        const bool shouldStartFollowUp = exitStatus == QProcess::NormalExit && exitCode == 0 &&
+            !opts.followUpProgram.isEmpty() && !process->property("followUpStarted").toBool();
+        if (shouldStartFollowUp) {
+            process->setProperty("followUpStarted", true);
+            outputEdit->moveCursor(QTextCursor::End);
+            outputEdit->insertPlainText(tr("\n--- Download completed. Starting installation step... ---\n"));
+            outputEdit->insertPlainText(tr("Running command: %1\n\n").arg(
+                opts.followUpProgram + QLatin1Char(' ') + opts.followUpArguments.join(QLatin1Char(' '))));
+            process->start(opts.followUpProgram, opts.followUpArguments);
+            process->closeWriteChannel();
+            return;
+        }
+
+        closeBtn->setEnabled(true);
         const QString logText = outputEdit->toPlainText();
+        if (!opts.cleanupPath.isEmpty()) {
+            QFile::remove(opts.cleanupPath);
+        }
         if (exitStatus == QProcess::NormalExit && exitCode == 0) {
             outputEdit->moveCursor(QTextCursor::End);
             outputEdit->insertPlainText(tr("\n--- Process completed successfully. ---\n"));
@@ -1068,9 +1140,12 @@ void BinariesPage::runProcessWithLog(const ProcessRunOptions &opts) {
         }
     });
 
-    connect(process, &QProcess::errorOccurred, process, [process, outputEdit, closeBtn, pDialog](QProcess::ProcessError) {
+    connect(process, &QProcess::errorOccurred, process, [process, outputEdit, closeBtn, opts, pDialog](QProcess::ProcessError) {
         if (!pDialog) return;
         closeBtn->setEnabled(true);
+        if (!opts.cleanupPath.isEmpty()) {
+            QFile::remove(opts.cleanupPath);
+        }
         outputEdit->moveCursor(QTextCursor::End);
         outputEdit->insertPlainText(tr("\n--- Process error: %1 ---\n").arg(process->errorString()));
     });
@@ -1300,6 +1375,15 @@ void BinariesPage::refreshBinaryStatus(const QString &binaryName) {
 QList<BinariesPage::InstallOption> BinariesPage::buildInstallOptions(const QString &binaryName) const {
     QList<InstallOption> options;
     const QString display = displayName(binaryName);
+    const QString managedRoot = m_configManager ? m_configManager->getConfigDir() : QString();
+    const QString managedBinDir = QDir(managedRoot).filePath(QStringLiteral("bin"));
+
+    auto markAsAppManaged = [&managedBinDir](InstallOption &option, const QString &targetPath) {
+        option.extraData.insert(QStringLiteral("is_app_managed"), true);
+        option.extraData.insert(QStringLiteral("set_custom_path"), targetPath);
+        option.description = QObject::tr("Install a private copy in %1.")
+                                 .arg(QDir::toNativeSeparators(managedBinDir));
+    };
 
     // OS-gating so users don't see macOS/Linux-only managers on Windows and vice versa.
     auto isWindows = []() -> bool {
@@ -1366,36 +1450,37 @@ QList<BinariesPage::InstallOption> BinariesPage::buildInstallOptions(const QStri
     };
 
     if (binaryName == QStringLiteral("yt-dlp")) {
-        // Direct GitHub nightly download via curl
+        // Direct GitHub nightly download into the platform app-data bin folder.
         const QString curlPath = QStandardPaths::findExecutable(QStringLiteral("curl"));
-        if (!curlPath.isEmpty()) {
+        if (!curlPath.isEmpty() && !managedRoot.isEmpty()) {
             InstallOption opt;
             opt.label = tr("curl (yt-dlp nightly)");
             opt.extraData.insert(QStringLiteral("is_windows_apps_alias"), false);
-
-            if (isWindows()) {
-                const QString localAppData = QProcessEnvironment::systemEnvironment().value(QStringLiteral("LOCALAPPDATA"));
-                if (!localAppData.isEmpty()) {
-                    const QString targetPath = QDir(localAppData).filePath(QStringLiteral("LzyDownloader/bin/yt-dlp.exe"));
-                    opt.description = tr("Recommended on Windows. Download the latest nightly yt-dlp standalone executable directly from GitHub to your user directory.");
-                    opt.program = curlPath;
-                    opt.arguments = {QStringLiteral("-L"), QStringLiteral("--create-dirs"), QStringLiteral("-o"), targetPath, QStringLiteral("https://github.com/yt-dlp/yt-dlp-nightly-builds/releases/latest/download/yt-dlp.exe")};
-                    opt.extraData.insert(QStringLiteral("set_custom_path"), targetPath);
-                    options.append(opt);
-                }
-            } else {
-                const QString targetDir = QDir(QDir::homePath()).filePath(QStringLiteral(".local/bin"));
-                const QString targetPath = QDir(targetDir).filePath(QStringLiteral("yt-dlp"));
-                QString downloadUrl = QStringLiteral("https://github.com/yt-dlp/yt-dlp-nightly-builds/releases/latest/download/yt-dlp");
-                if (isMacOS()) downloadUrl = QStringLiteral("https://github.com/yt-dlp/yt-dlp-nightly-builds/releases/latest/download/yt-dlp_macos");
-                else if (isLinux()) downloadUrl = QStringLiteral("https://github.com/yt-dlp/yt-dlp-nightly-builds/releases/latest/download/yt-dlp_linux");
-
-                opt.description = tr("Download the latest nightly yt-dlp executable directly from GitHub to ~/.local/bin.");
-                opt.program = curlPath;
-                opt.arguments = {QStringLiteral("-L"), QStringLiteral("--create-dirs"), QStringLiteral("-o"), targetPath, downloadUrl};
-                opt.extraData.insert(QStringLiteral("set_custom_path"), targetPath);
+            QString executableName = QStringLiteral("yt-dlp");
+            QString downloadUrl = QStringLiteral("https://github.com/yt-dlp/yt-dlp-nightly-builds/releases/latest/download/yt-dlp");
+#ifdef Q_OS_WIN
+            executableName += QStringLiteral(".exe");
+            downloadUrl += QStringLiteral(".exe");
+#elif defined(Q_OS_MACOS)
+            downloadUrl += QStringLiteral("_macos");
+#elif defined(Q_OS_LINUX)
+            downloadUrl += QStringLiteral("_linux");
+#endif
+            const QString targetPath = QDir(managedBinDir).filePath(executableName);
+            opt.program = curlPath;
+            opt.arguments = {QStringLiteral("-L"), QStringLiteral("--create-dirs"), QStringLiteral("-o"), targetPath, downloadUrl};
+#ifndef Q_OS_WIN
+            const QString chmodPath = QStandardPaths::findExecutable(QStringLiteral("chmod"));
+            if (!chmodPath.isEmpty()) {
+                opt.extraData.insert(QStringLiteral("follow_up_program"), chmodPath);
+                opt.extraData.insert(QStringLiteral("follow_up_arguments"), QStringList{QStringLiteral("+x"), targetPath});
+                markAsAppManaged(opt, targetPath);
                 options.append(opt);
             }
+#else
+            markAsAppManaged(opt, targetPath);
+            options.append(opt);
+#endif
         }
 
         if (isWindows()) addOptionIfPresent(QStringLiteral("scoop"), {QStringLiteral("install"), QStringLiteral("yt-dlp-nightly")}, tr("Install yt-dlp (nightly) with Scoop. Requires the 'extras' bucket (`scoop bucket add extras`)."));
@@ -1403,14 +1488,11 @@ QList<BinariesPage::InstallOption> BinariesPage::buildInstallOptions(const QStri
         if (isWindows()) addOptionIfPresent(QStringLiteral("choco"), {QStringLiteral("install"), QStringLiteral("-y"), QStringLiteral("yt-dlp")}, tr("Install yt-dlp (stable) with Chocolatey."));
         if (isMacOS() || isLinux()) addOptionIfPresent(QStringLiteral("brew"), {QStringLiteral("install"), QStringLiteral("yt-dlp"), QStringLiteral("--HEAD")}, tr("Install yt-dlp (latest from master) with Homebrew."));
     } else if (binaryName == QStringLiteral("ffmpeg") || binaryName == QStringLiteral("ffprobe")) {
-        if (isWindows()) {
-            const QString localAppData = QProcessEnvironment::systemEnvironment().value(QStringLiteral("LOCALAPPDATA"));
-            if (!localAppData.isEmpty()) {
-                const QString targetPath = QDir(localAppData).filePath(QStringLiteral("LzyDownloader/bin/%1.exe").arg(binaryName));
-                InstallOption opt;
-                opt.label = tr("PowerShell (FFmpeg/FFprobe stable essentials)");
-                opt.description = tr("Download and extract the latest stable FFmpeg and FFprobe binaries directly to LzyDownloader's local bin folder.");
-                opt.program = QStringLiteral("powershell");
+        if (isWindows() && !managedRoot.isEmpty()) {
+            const QString targetPath = QDir(managedBinDir).filePath(QStringLiteral("%1.exe").arg(binaryName));
+            InstallOption opt;
+            opt.label = tr("PowerShell (FFmpeg/FFprobe stable essentials)");
+            opt.program = QStringLiteral("powershell");
                 
                 QString rawScript = QStringLiteral(
                     "$ErrorActionPreference = 'Stop'; "
@@ -1452,19 +1534,12 @@ QList<BinariesPage::InstallOption> BinariesPage::buildInstallOptions(const QStri
                     "}; "
                     "Remove-Item -Force $zipPath; "
                     "Remove-Item -Recurse -Force $extractDir"
-                ).arg(QDir::toNativeSeparators(QDir(localAppData).filePath(QStringLiteral("LzyDownloader/bin"))));
-                
-                // Convert raw script to UTF-16LE and encode to Base64 to prevent shell parsing errors
-                QByteArray utf16Bytes;
-                utf16Bytes.resize(rawScript.length() * 2);
-                memcpy(utf16Bytes.data(), rawScript.utf16(), rawScript.length() * 2);
-                QString encodedCmd = QString::fromLatin1(utf16Bytes.toBase64());
-                
-                opt.arguments = {QStringLiteral("-NoProfile"), QStringLiteral("-ExecutionPolicy"), QStringLiteral("Bypass"), QStringLiteral("-EncodedCommand"), encodedCmd};
-                opt.extraData.insert(QStringLiteral("is_windows_apps_alias"), false);
-                opt.extraData.insert(QStringLiteral("set_custom_path"), targetPath);
-                options.append(opt);
-            }
+            ).arg(powerShellSingleQuoted(managedBinDir));
+
+            opt.arguments = {QStringLiteral("-NoProfile"), QStringLiteral("-ExecutionPolicy"), QStringLiteral("Bypass"), QStringLiteral("-EncodedCommand"), powerShellEncodedCommand(rawScript)};
+            opt.extraData.insert(QStringLiteral("is_windows_apps_alias"), false);
+            markAsAppManaged(opt, targetPath);
+            options.append(opt);
         }
 
         if (isWindows()) addOptionIfPresent(QStringLiteral("winget"), {QStringLiteral("install"), QStringLiteral("--id"), QStringLiteral("Gyan.FFmpeg"), QStringLiteral("--exact"), QStringLiteral("--accept-package-agreements"), QStringLiteral("--accept-source-agreements")}, tr("Install FFmpeg (includes ffprobe) with WinGet."));
@@ -1475,22 +1550,18 @@ QList<BinariesPage::InstallOption> BinariesPage::buildInstallOptions(const QStri
         if (isLinux()) addOptionIfPresent(QStringLiteral("pacman"), {QStringLiteral("-S"), QStringLiteral("--noconfirm"), QStringLiteral("ffmpeg")}, tr("Install FFmpeg (includes ffprobe) with pacman."));
         if (isMacOS() || isLinux()) addOptionIfPresent(QStringLiteral("brew"), {QStringLiteral("install"), QStringLiteral("ffmpeg")}, tr("Install FFmpeg (includes ffprobe) with Homebrew."));
     } else if (binaryName == QStringLiteral("gallery-dl")) {
-        // Direct GitHub standalone download via curl (Windows only)
-        if (isWindows()) {
+        // gallery-dl distributes a standalone executable for Windows.
+        if (isWindows() && !managedRoot.isEmpty()) {
             const QString curlPath = QStandardPaths::findExecutable(QStringLiteral("curl"));
             if (!curlPath.isEmpty()) {
-                const QString localAppData = QProcessEnvironment::systemEnvironment().value(QStringLiteral("LOCALAPPDATA"));
-                if (!localAppData.isEmpty()) {
-                    const QString targetPath = QDir(localAppData).filePath(QStringLiteral("LzyDownloader/bin/gallery-dl.exe"));
-                    InstallOption opt;
-                    opt.label = tr("curl (gallery-dl standalone)");
-                    opt.description = tr("Recommended on Windows. Download the latest gallery-dl standalone executable directly from GitHub to your user directory.");
-                    opt.program = curlPath;
-                    opt.arguments = {QStringLiteral("-L"), QStringLiteral("--create-dirs"), QStringLiteral("-o"), targetPath, QStringLiteral("https://github.com/mikf/gallery-dl/releases/latest/download/gallery-dl.exe")};
-                    opt.extraData.insert(QStringLiteral("is_windows_apps_alias"), false);
-                    opt.extraData.insert(QStringLiteral("set_custom_path"), targetPath);
-                    options.append(opt);
-                }
+                const QString targetPath = QDir(managedBinDir).filePath(QStringLiteral("gallery-dl.exe"));
+                InstallOption opt;
+                opt.label = tr("curl (gallery-dl standalone)");
+                opt.program = curlPath;
+                opt.arguments = {QStringLiteral("-L"), QStringLiteral("--create-dirs"), QStringLiteral("-o"), targetPath, QStringLiteral("https://github.com/mikf/gallery-dl/releases/latest/download/gallery-dl.exe")};
+                opt.extraData.insert(QStringLiteral("is_windows_apps_alias"), false);
+                markAsAppManaged(opt, targetPath);
+                options.append(opt);
             }
         }
 
@@ -1508,6 +1579,68 @@ QList<BinariesPage::InstallOption> BinariesPage::buildInstallOptions(const QStri
         if (isLinux()) addOptionIfPresent(QStringLiteral("pacman"), {QStringLiteral("-S"), QStringLiteral("--noconfirm"), QStringLiteral("aria2")}, tr("Install aria2 with pacman."));
         if (isMacOS() || isLinux()) addOptionIfPresent(QStringLiteral("brew"), {QStringLiteral("install"), QStringLiteral("aria2")}, tr("Install aria2 with Homebrew."));
     } else if (binaryName == QStringLiteral("deno")) {
+        if (!managedRoot.isEmpty()) {
+#ifdef Q_OS_WIN
+            const QString targetPath = QDir(managedBinDir).filePath(QStringLiteral("deno.exe"));
+            InstallOption opt;
+            opt.label = tr("PowerShell (Deno stable)");
+            opt.program = QStringLiteral("powershell");
+            const QString rawScript = QStringLiteral(
+                "$ErrorActionPreference = 'Stop'; "
+                "$progressPreference = 'SilentlyContinue'; "
+                "[Net.ServicePointManager]::SecurityProtocol = 'Tls12, Tls13'; "
+                "$binDir = '%1'; "
+                "if (!(Test-Path $binDir)) { New-Item -ItemType Directory -Path $binDir -Force | Out-Null }; "
+                "$target = Join-Path $binDir 'deno.exe'; "
+                "$staged = Join-Path $binDir 'deno.exe.lzy-update'; "
+                "$zipPath = Join-Path $env:TEMP 'lzy-downloader-deno.zip'; "
+                "$extractDir = Join-Path $env:TEMP 'lzy-downloader-deno-extract'; "
+                "if (Test-Path $extractDir) { Remove-Item -Recurse -Force $extractDir }; "
+                "$architecture = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString(); "
+                "$asset = if ($architecture -eq 'Arm64') { 'deno-aarch64-pc-windows-msvc.zip' } else { 'deno-x86_64-pc-windows-msvc.zip' }; "
+                "$version = (Invoke-WebRequest -Uri 'https://dl.deno.land/release-latest.txt').Content.Trim(); "
+                "if ([string]::IsNullOrWhiteSpace($version)) { throw 'Deno did not return a release version' }; "
+                "$downloadUrl = if ($version -like '*-*') { 'https://dl.deno.land/release/' + $version + '/' + $asset } else { 'https://github.com/denoland/deno/releases/download/' + $version + '/' + $asset }; "
+                "Write-Host 'Downloading Deno release...'; "
+                "Invoke-WebRequest -Uri $downloadUrl -OutFile $zipPath; "
+                "Expand-Archive -Path $zipPath -DestinationPath $extractDir -Force; "
+                "$denoExe = Get-ChildItem -Path $extractDir -Filter 'deno.exe' -Recurse | Select-Object -First 1; "
+                "if (!$denoExe) { throw 'Failed to locate deno.exe inside archive' }; "
+                "Copy-Item -Path $denoExe.FullName -Destination $staged -Force; "
+                "$lastError = $null; "
+                "for ($attempt = 1; $attempt -le 60; $attempt++) { try { Move-Item -Path $staged -Destination $target -Force -ErrorAction Stop; $lastError = $null; break } catch { $lastError = $_; Start-Sleep -Seconds 1 } }; "
+                "if ($lastError) { if (Test-Path $staged) { Remove-Item -Path $staged -Force -ErrorAction SilentlyContinue }; throw ('Timed out replacing deno.exe: ' + $lastError.Exception.Message) }; "
+                "Remove-Item -Force $zipPath -ErrorAction SilentlyContinue; "
+                "Remove-Item -Recurse -Force $extractDir -ErrorAction SilentlyContinue; "
+                "Write-Host 'Deno installed successfully!'").arg(powerShellSingleQuoted(managedBinDir));
+            opt.arguments = {QStringLiteral("-NoProfile"), QStringLiteral("-ExecutionPolicy"), QStringLiteral("Bypass"), QStringLiteral("-EncodedCommand"), powerShellEncodedCommand(rawScript)};
+            opt.extraData.insert(QStringLiteral("is_windows_apps_alias"), false);
+            markAsAppManaged(opt, targetPath);
+            options.append(opt);
+#else
+            const QString curlPath = QStandardPaths::findExecutable(QStringLiteral("curl"));
+            const QString shellPath = QStandardPaths::findExecutable(QStringLiteral("sh"));
+            if (!curlPath.isEmpty() && !shellPath.isEmpty()) {
+                const QString targetPath = QDir(managedBinDir).filePath(QStringLiteral("deno"));
+                const QString installerPath = QDir(QStandardPaths::writableLocation(QStandardPaths::TempLocation))
+                                                .filePath(QStringLiteral("lzy-downloader-deno-install.sh"));
+                InstallOption opt;
+                opt.label = tr("Deno official installer");
+                opt.program = curlPath;
+                opt.arguments = {QStringLiteral("-f"), QStringLiteral("-s"), QStringLiteral("-S"), QStringLiteral("-L"),
+                                 QStringLiteral("-o"), installerPath, QStringLiteral("https://deno.land/install.sh")};
+                opt.extraData.insert(QStringLiteral("follow_up_program"), shellPath);
+                opt.extraData.insert(QStringLiteral("follow_up_arguments"), QStringList{installerPath});
+                opt.extraData.insert(QStringLiteral("cleanup_path"), installerPath);
+                QVariantMap environmentOverrides;
+                environmentOverrides.insert(QStringLiteral("DENO_INSTALL"), managedRoot);
+                environmentOverrides.insert(QStringLiteral("CI"), QStringLiteral("1"));
+                opt.extraData.insert(QStringLiteral("environment_overrides"), environmentOverrides);
+                markAsAppManaged(opt, targetPath);
+                options.append(opt);
+            }
+#endif
+        }
         if (isWindows()) addOptionIfPresent(QStringLiteral("winget"), {QStringLiteral("install"), QStringLiteral("--id"), QStringLiteral("DenoLand.Deno"), QStringLiteral("--exact"), QStringLiteral("--accept-package-agreements"), QStringLiteral("--accept-source-agreements")}, tr("Install Deno with WinGet."));
         if (isWindows()) addOptionIfPresent(QStringLiteral("choco"), {QStringLiteral("install"), QStringLiteral("-y"), QStringLiteral("deno")}, tr("Install Deno with Chocolatey."));
         if (isWindows()) addOptionIfPresent(QStringLiteral("scoop"), {QStringLiteral("install"), QStringLiteral("deno")}, tr("Install Deno with Scoop."));

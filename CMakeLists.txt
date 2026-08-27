@@ -55,6 +55,15 @@ if(UNIX AND NOT APPLE)
     find_package(Qt6 COMPONENTS DBus REQUIRED)
 endif()
 
+# A MinGW driver launched by an absolute path still needs its sibling bin
+# directory on PATH when it starts cc1plus. This is common for Qt's bundled
+# MinGW toolchain, whose runtime DLLs are not in the system PATH by default.
+if(WIN32 AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    get_filename_component(_lzy_mingw_bin_dir "${CMAKE_CXX_COMPILER}" DIRECTORY)
+    set(CMAKE_CXX_COMPILER_LAUNCHER
+        "${CMAKE_COMMAND};-E;env;PATH=${_lzy_mingw_bin_dir}")
+endif()
+
 option(LZY_SKIP_QT_DEPLOY "Skip Qt runtime deployment post-build steps for local developer builds." OFF)
 
 if(WIN32)
@@ -97,15 +106,15 @@ if(WIN32)
                     endif()
                 endforeach()
 
-                set(_qt_offscreen_plugin "${_qt_prefix}/plugins/platforms/qoffscreen.dll")
-                if(EXISTS "${_qt_offscreen_plugin}")
+                set(_qt_minimal_plugin "${_qt_prefix}/plugins/platforms/qminimal.dll")
+                if(EXISTS "${_qt_minimal_plugin}")
                     add_custom_command(TARGET ${target_name} POST_BUILD
                         COMMAND "${CMAKE_COMMAND}" -E make_directory
                             "$<TARGET_FILE_DIR:${target_name}>/platforms"
                         COMMAND "${CMAKE_COMMAND}" -E copy_if_different
-                            "${_qt_offscreen_plugin}"
-                            "$<TARGET_FILE_DIR:${target_name}>/platforms/qoffscreen.dll"
-                        COMMENT "Deploying Qt offscreen platform for ${target_name}"
+                            "${_qt_minimal_plugin}"
+                            "$<TARGET_FILE_DIR:${target_name}>/platforms/qminimal.dll"
+                        COMMENT "Deploying Qt minimal platform for ${target_name}"
                         VERBATIM
                     )
                 endif()
@@ -115,16 +124,30 @@ if(WIN32)
 
         if(DEFINED VCPKG_INSTALLED_DIR AND DEFINED VCPKG_TARGET_TRIPLET)
             set(qt_plugins_dir "$<$<CONFIG:Debug>:${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/debug/Qt6/plugins>$<$<NOT:$<CONFIG:Debug>>:${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/Qt6/plugins>")
+            set(qt_runtime_dir "$<$<CONFIG:Debug>:${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/debug/bin>$<$<NOT:$<CONFIG:Debug>>:${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/bin>")
             add_custom_command(TARGET ${target_name} POST_BUILD
                 COMMAND "${CMAKE_COMMAND}"
                     -DQT_PLUGINS_SOURCE=${qt_plugins_dir}
                     -DQT_PLUGINS_DEST=$<TARGET_FILE_DIR:${target_name}>
+                    -DQT_RUNTIME_DIR=${qt_runtime_dir}
                     -DTARGET_RUNTIME_DIR=$<TARGET_FILE_DIR:${target_name}>
                     -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/deploy_openssl_runtime.cmake"
                 COMMENT "Copying Qt runtime plugins for ${target_name}"
                 USES_TERMINAL
                 VERBATIM
             )
+
+            get_filename_component(_mingw_runtime_dir "${CMAKE_CXX_COMPILER}" DIRECTORY)
+            foreach(_mingw_runtime_dll libgcc_s_seh-1.dll libstdc++-6.dll libwinpthread-1.dll)
+                if(EXISTS "${_mingw_runtime_dir}/${_mingw_runtime_dll}")
+                    add_custom_command(TARGET ${target_name} POST_BUILD
+                        COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+                            "${_mingw_runtime_dir}/${_mingw_runtime_dll}"
+                            "$<TARGET_FILE_DIR:${target_name}>"
+                        VERBATIM
+                    )
+                endif()
+            endforeach()
         else()
             find_program(WINDEPLOYQT_EXECUTABLE NAMES windeployqt windeployqt6)
         endif()
@@ -143,20 +166,19 @@ if(WIN32)
             message(WARNING "windeployqt was not found; ${target_name} may fail to start without Qt plugins in the output directory.")
         endif()
 
-        # The headless test suite uses Qt's offscreen platform. windeployqt
-        # normally deploys only qwindows.dll, so copy this test/runtime plugin
-        # explicitly when the selected Qt installation provides it.
+        # The non-vcpkg Qt deployment normally omits the headless platform
+        # plugin used by the test suite, so copy it when available.
         if(DEFINED Qt6_DIR)
             get_filename_component(_qt_prefix "${Qt6_DIR}/../../.." ABSOLUTE)
-            set(_qt_offscreen_plugin "${_qt_prefix}/plugins/platforms/qoffscreen.dll")
-            if(EXISTS "${_qt_offscreen_plugin}")
+            set(_qt_minimal_plugin "${_qt_prefix}/plugins/platforms/qminimal.dll")
+            if(EXISTS "${_qt_minimal_plugin}")
                 add_custom_command(TARGET ${target_name} POST_BUILD
                     COMMAND "${CMAKE_COMMAND}" -E make_directory
                         "$<TARGET_FILE_DIR:${target_name}>/platforms"
                     COMMAND "${CMAKE_COMMAND}" -E copy_if_different
-                        "${_qt_offscreen_plugin}"
-                        "$<TARGET_FILE_DIR:${target_name}>/platforms/qoffscreen.dll"
-                    COMMENT "Deploying Qt offscreen platform for ${target_name}"
+                        "${_qt_minimal_plugin}"
+                        "$<TARGET_FILE_DIR:${target_name}>/platforms/qminimal.dll"
+                    COMMENT "Deploying Qt minimal platform for ${target_name}"
                     VERBATIM
                 )
             endif()
@@ -383,8 +405,11 @@ function(lzy_add_test target_name source_file)
     
     lzy_add_qt_windows_deploy(${target_name})
     add_test(NAME ${target_name} COMMAND ${target_name})
+    # Qt's vcpkg MinGW builds provide the headless qminimal plugin, whereas
+    # qoffscreen is not consistently packaged. minimal also supports QWidget
+    # tests without requiring a display server.
     set_tests_properties(${target_name} PROPERTIES
-        ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+        ENVIRONMENT "QT_QPA_PLATFORM=minimal"
     )
 endfunction()
 
