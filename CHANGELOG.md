@@ -9,6 +9,15 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## [Unreleased]
 
+## [1.2.37] - 2026-08-27
+
+- **Linux release packaging:** Exclude Qt's unused Mimer, MySQL, and other
+  non-SQLite drivers from the linuxdeploy scan. The Mimer driver references the
+  unavailable proprietary `libmimerapi.so` library and previously blocked the
+  otherwise successful Ubuntu build.
+- **Release build speed:** Enable Qt SDK caching and a persistent Linux ccache
+  across release runs, and use Ninja for the Linux build graph when available.
+
 ## [1.2.36] - 2026-08-27
 
 - **Linux release CI:** Use aqtinstall's current `linux_gcc_64` host

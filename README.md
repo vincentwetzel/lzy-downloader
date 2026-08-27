@@ -199,7 +199,10 @@ Before building a release, keep all release metadata in sync:
 - Release automation installs yt-dlp from its prerelease/nightly channel (`pip install --pre --upgrade yt-dlp`) so extractor/runtime changes are exercised before packaging.
 - Linux AppImage packaging uses qmake from the same prebuilt Qt SDK that built
   the executable when invoking linuxdeploy, including QtSql's SQLite plugin
-  discovery.
+  discovery; unused Qt SQL drivers are excluded from the deployment scan.
+- Linux release builds use a persistent ccache, and the pinned Qt SDK is cached
+  by `install-qt-action` between compatible GitHub Actions runs; Ninja is used
+  when available for the Linux compilation graph.
 - If a tag-matched `release-notes/<tag>.md` file is absent, CI creates a minimal fallback release body so GitHub Release publication does not emit a missing-file warning.
 - The workflow also supports `workflow_dispatch` validation runs; release assets are uploaded only when the workflow was started by a `v*` tag.
 - Each tag release includes a platform-specific `SHA256SUMS-*.txt` manifest beside the packaged installer, AppImage, or DMG.

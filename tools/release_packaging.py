@@ -30,6 +30,55 @@ def find_vcpkg_qmake(build_dir):
     )
 
 
+def hide_unused_linux_sql_drivers(qmake_bin, log):
+    """Temporarily hide Qt SQL drivers that this SQLite-only app cannot use."""
+    if not qmake_bin:
+        return []
+
+    query = subprocess.run(
+        [str(qmake_bin), "-query", "QT_INSTALL_PLUGINS"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if query.returncode != 0 or not query.stdout.strip():
+        log("Warning: Could not query Qt's plugin directory; keeping SQL drivers unchanged.", YELLOW)
+        return []
+
+    driver_dir = Path(query.stdout.strip()) / "sqldrivers"
+    if not driver_dir.is_dir():
+        return []
+
+    hidden = []
+    for driver in sorted(driver_dir.glob("libqsql*.so")):
+        if driver.name == "libqsqlite.so":
+            continue
+        hidden_driver = driver.with_name(f"{driver.name}.lzy-disabled")
+        try:
+            driver.rename(hidden_driver)
+        except OSError as error:
+            log(f"Warning: Could not hide unused Qt SQL driver {driver.name}: {error}", YELLOW)
+            continue
+        hidden.append((driver, hidden_driver))
+
+    if hidden:
+        log(
+            "Temporarily excluding unused Qt SQL drivers from AppImage deployment: "
+            + ", ".join(original.name for original, _ in hidden),
+            GREEN,
+        )
+    return hidden
+
+
+def restore_linux_sql_drivers(hidden, log):
+    """Restore Qt SQL drivers after linuxdeploy has finished scanning them."""
+    for original, hidden_driver in hidden:
+        try:
+            hidden_driver.rename(original)
+        except OSError as error:
+            log(f"Warning: Could not restore Qt SQL driver {original.name}: {error}", YELLOW)
+
+
 def package_linux(app_version, build_dir, log, run_command):
     """Create the Linux AppImage from the already-built application target."""
     appdir = build_dir / "AppDir"
@@ -163,7 +212,11 @@ def package_linux(app_version, build_dir, log, run_command):
 
     linuxdeploy_args.extend(["--output", "appimage"])
     os.environ["PATH"] = str(tooling_dir.resolve()) + os.pathsep + os.environ.get("PATH", "")
-    run_command(linuxdeploy_args, cwd=build_dir)
+    hidden_sql_drivers = hide_unused_linux_sql_drivers(os.environ.get("QMAKE"), log) if dynamic_qt else []
+    try:
+        run_command(linuxdeploy_args, cwd=build_dir)
+    finally:
+        restore_linux_sql_drivers(hidden_sql_drivers, log)
 
     generated_appimage = build_dir / "LzyDownloader-x86_64.AppImage"
     if generated_appimage.exists():

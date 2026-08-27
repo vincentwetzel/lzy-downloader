@@ -176,11 +176,16 @@ On each runner, the workflow:
   linuxdeploy discovers the same Qt modules; the QtSql SQLite driver is
   included through the explicit QtSql module.
 - On Linux, deploys the dynamic Qt libraries and SQLite plugin with
-  linuxdeploy-plugin-qt; platform-service libraries such as D-Bus are excluded
-  from linuxdeploy's ELF scan.
+  linuxdeploy-plugin-qt; unused Qt SQL drivers are temporarily hidden during
+  the scan so proprietary optional drivers cannot break the SQLite-only bundle.
+  Platform-service libraries such as D-Bus are excluded from linuxdeploy's ELF
+  scan.
 - On macOS, runs `macdeployqt`, converts the release PNG into the bundle's ICNS icon, and emits `LzyDownloader-<version>-macos-x86_64.dmg` or `LzyDownloader-<version>-macos-arm64.dmg` according to the runner architecture.
 - Windows and Linux compile only the `LzyDownloader` target for packaging; the
   separate headless test targets remain part of optional local/test workflows.
+- Qt SDK installation uses the action cache, and Linux release compilation uses
+  a persistent ccache keyed by runner/toolchain inputs. Linux also selects Ninja
+  when available to reduce build-graph overhead.
 
 ### Optional local validation
 

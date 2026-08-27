@@ -273,6 +273,15 @@ def main():
         else:
             log("No Qt SDK prefix was exposed; relying on CMake's default Qt search paths.", YELLOW)
 
+    compiler_launcher = os.environ.get("LZY_CXX_COMPILER_LAUNCHER", "").strip()
+    if compiler_launcher:
+        cmake_args.append(f"-DCMAKE_CXX_COMPILER_LAUNCHER={compiler_launcher}")
+        log(f"Using C++ compiler launcher: {compiler_launcher}", GREEN)
+
+    if target_platform == "linux" and shutil.which("ninja"):
+        cmake_args.extend(["-G", "Ninja"])
+        log("Using Ninja for the Linux release build.", GREEN)
+
     run_command(cmake_args)
 
     # 5. Build C++ Application

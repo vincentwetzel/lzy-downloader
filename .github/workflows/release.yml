@@ -60,7 +60,32 @@ jobs:
         with:
           version: '6.10.2'
           arch: ${{ matrix.qt_arch }}
+          cache: true
           install-deps: ${{ matrix.platform == 'linux' }}
+
+      - name: Install compiler cache (Linux)
+        if: matrix.platform == 'linux'
+        run: sudo apt-get install -y ccache ninja-build
+
+      - name: Cache compiler outputs (Linux)
+        if: matrix.platform == 'linux'
+        uses: actions/cache@v4
+        with:
+          path: .cache/ccache
+          key: ccache-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('CMakeLists.txt', 'vcpkg.json') }}
+          restore-keys: |
+            ccache-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Configure compiler cache (Linux)
+        if: matrix.platform == 'linux'
+        shell: bash
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/.cache/ccache"
+          ccache --set-config=cache_dir="$GITHUB_WORKSPACE/.cache/ccache"
+          ccache --set-config=max_size=1G
+          ccache --zero-stats
+          echo "CCACHE_DIR=$GITHUB_WORKSPACE/.cache/ccache" >> "$GITHUB_ENV"
+          echo 'LZY_CXX_COMPILER_LAUNCHER=ccache' >> "$GITHUB_ENV"
 
       # install-qt-action uses its own Python setup internally. Restore the
       # release interpreter before installing packages used by build_release.py.
