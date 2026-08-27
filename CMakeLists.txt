@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 project(LzyDownloader
-    VERSION 1.2.33
+    VERSION 1.2.34
     DESCRIPTION "Qt desktop video, audio, playlist, and gallery downloader powered by yt-dlp and gallery-dl"
     HOMEPAGE_URL "https://github.com/vincentwetzel/lzy-downloader"
     LANGUAGES CXX
@@ -373,8 +373,8 @@ target_link_libraries(LzyDownloader PRIVATE
 lzy_add_qt_windows_deploy(LzyDownloader)
 
 if(MSVC)
-    target_compile_options(LzyAppLib PRIVATE /FS)
-    target_compile_options(LzyDownloader PRIVATE /FS)
+    target_compile_options(LzyAppLib PRIVATE /FS /MP)
+    target_compile_options(LzyDownloader PRIVATE /FS /MP)
 endif()
 
 add_custom_command(TARGET LzyDownloader POST_BUILD

@@ -13,6 +13,8 @@ tasks to the smallest useful reference.
 | `CMakeLists.txt` | Build graph, targets, Qt modules, deployment hooks |
 | `CMakePresets.json` | Supported local configure/build presets |
 | `build_release.py` | Native release build, packaging, and version checks |
+| `tools/release_packaging.py` | Linux AppImage staging and Qt runtime deployment |
+| `triplets/*.cmake` | Optional release-only vcpkg dependency triplets for local/source builds |
 | `LzyDownloader.nsi` | Windows installer and silent relaunch |
 | `cmake/deploy_openssl_runtime.cmake` | Windows Qt/OpenSSL/plugin deployment |
 | `tools/` | Extractor refresh, shared parsing, and checksum helpers |

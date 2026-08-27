@@ -7,8 +7,9 @@ import plistlib
 import subprocess
 import re
 import shutil
-import urllib.request
 from pathlib import Path
+
+from tools.release_packaging import package_linux
 
 # ANSI Colors
 CYAN = "\033[36m"
@@ -29,23 +30,6 @@ def run_command(cmd, shell=False, cwd=None):
         sys.exit(result.returncode)
 
 
-def find_vcpkg_qmake(build_dir):
-    """Return the qmake belonging to the Qt used by the release build, if present."""
-    candidates = []
-    for triplet_dir in (build_dir / "vcpkg_installed").glob("*/"):
-        qt_tools = triplet_dir / "tools"
-        # vcpkg currently installs the tools under tools/Qt6 on Linux and
-        # Windows; retain the lowercase form for older/custom triplets.
-        for qt_dir_name in ("Qt*", "qt*"):
-            candidates.extend(qt_tools.glob(f"{qt_dir_name}/bin/qmake"))
-            candidates.extend(qt_tools.glob(f"{qt_dir_name}/bin/qmake6"))
-
-    for candidate in candidates:
-        if candidate.is_file() and os.access(candidate, os.X_OK):
-            return candidate
-    return None
-
-
 def find_qt_tool(tool_name):
     """Locate a Qt deployment tool from PATH or the configured Qt installation."""
     path_candidate = shutil.which(tool_name)
@@ -62,6 +46,22 @@ def find_qt_tool(tool_name):
         candidates.append(qt_dir_path.parents[2] / "bin" / tool_name)
 
     return next((candidate for candidate in candidates if candidate.is_file()), None)
+
+
+def find_configured_qt_prefix():
+    """Return the Qt SDK prefix exposed by install-qt-action or a local build."""
+    for variable_name in ("QT_ROOT_DIR", "Qt6_DIR", "QTDIR", "QT_DIR"):
+        configured_path = os.environ.get(variable_name)
+        if not configured_path:
+            continue
+
+        path = Path(configured_path)
+        if (path / "lib" / "cmake" / "Qt6" / "Qt6Config.cmake").exists():
+            return path
+        if path.name == "Qt6" and path.parent.name == "cmake":
+            return path.parents[2]
+
+    return None
 
 
 def create_macos_icon(source_icon, destination_icon):
@@ -246,20 +246,45 @@ def main():
     log("\n[2/4] Configuring CMake (Release)...", YELLOW)
     cmake_args = ["cmake", "-B", str(build_dir), "-DCMAKE_BUILD_TYPE=Release"]
 
-    if target_platform in ("windows", "linux"):
+    use_vcpkg = os.environ.get("LZY_USE_VCPKG", "1").strip().lower() not in {
+        "0", "false", "no", "off"
+    }
+    if target_platform in ("windows", "linux") and use_vcpkg:
         vcpkg_root = os.environ.get("VCPKG_ROOT", "E:/vcpkg")
         toolchain = Path(vcpkg_root) / "scripts/buildsystems/vcpkg.cmake"
         if toolchain.exists():
             cmake_args.append(f"-DCMAKE_TOOLCHAIN_FILE={toolchain.as_posix()}")
+            release_triplet = {
+                "windows": "x64-windows-release",
+                "linux": "x64-linux-release",
+            }[target_platform]
+            overlay_triplets = Path("triplets").resolve()
+            cmake_args.extend([
+                f"-DVCPKG_TARGET_TRIPLET={release_triplet}",
+                f"-DVCPKG_OVERLAY_TRIPLETS={overlay_triplets.as_posix()}",
+            ])
+        else:
+            log("vcpkg was requested but its toolchain was not found; using configured Qt.", YELLOW)
+    elif target_platform in ("windows", "linux"):
+        qt_prefix = find_configured_qt_prefix()
+        if qt_prefix is not None:
+            cmake_args.append(f"-DCMAKE_PREFIX_PATH={qt_prefix.as_posix()}")
+            log(f"Using prebuilt Qt SDK at {qt_prefix}", GREEN)
+        else:
+            log("No Qt SDK prefix was exposed; relying on CMake's default Qt search paths.", YELLOW)
 
     run_command(cmake_args)
 
     # 5. Build C++ Application
     log("\n[3/4] Compiling Application...", YELLOW)
-    build_args = ["cmake", "--build", str(build_dir), "--config", "Release"]
-    if target_platform != "windows":
-        import multiprocessing
-        build_args.extend(["--parallel", str(multiprocessing.cpu_count())])
+    parallel_jobs = max(1, os.cpu_count() or 1)
+    build_args = [
+        "cmake", "--build", str(build_dir),
+        "--target", "LzyDownloader",
+        "--config", "Release",
+        "--parallel", str(parallel_jobs),
+    ]
+    log(f"Building with up to {parallel_jobs} parallel jobs.", GREEN)
     run_command(build_args)
 
     # 6. Packaging & Verification
@@ -301,146 +326,7 @@ def main():
             sys.exit(1)
 
     elif target_platform == "linux":
-        appdir = build_dir / "AppDir"
-        if appdir.exists():
-            shutil.rmtree(appdir)
-
-        # Clean PATH to remove Windows mounts (e.g., /mnt/c/...) under WSL.
-        # This prevents linuxdeploy from crashing with a Permission Denied filesystem_error
-        path_env = os.environ.get("PATH", "")
-        filtered_paths = [p for p in path_env.split(":") if not p.startswith("/mnt/")]
-        os.environ["PATH"] = ":".join(filtered_paths)
-
-        # Find build artifact (accounting for flexible path locations)
-        built_exe = build_dir / "Release" / "LzyDownloader"
-        if not built_exe.exists():
-            exes = [e for e in build_dir.glob("**/LzyDownloader") if e.is_file() and os.access(e, os.X_OK)]
-            if exes:
-                built_exe = exes[0]
-            else:
-                log("Error: Could not locate compiled LzyDownloader executable", RED)
-                sys.exit(1)
-
-        # Grab AppImage dependencies
-        tooling_dir = build_dir / "tooling"
-        tooling_dir.mkdir(parents=True, exist_ok=True)
-        ld_path = tooling_dir / "linuxdeploy"
-        ld_plugin_path = tooling_dir / "linuxdeploy-plugin-qt"
-        if not ld_path.exists():
-            urllib.request.urlretrieve("https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage", ld_path)
-            ld_path.chmod(0o755)
-        if not ld_plugin_path.exists():
-            urllib.request.urlretrieve("https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-x86_64.AppImage", ld_plugin_path)
-            ld_plugin_path.chmod(0o755)
-
-        # The executable is linked against vcpkg's Qt.  linuxdeploy-plugin-qt
-        # must query that same Qt installation; using the unrelated Qt SDK
-        # supplied by install-qt-action makes it report no Qt modules.
-        qmake_bin = find_vcpkg_qmake(build_dir)
-        if qmake_bin is not None:
-            os.environ["QMAKE"] = str(qmake_bin.resolve())
-        else:
-            qmake_bin = shutil.which("qmake6")
-            if qmake_bin:
-                os.environ["QMAKE"] = qmake_bin
-            elif Path("/usr/lib/qt6/bin/qmake").exists():
-                os.environ["QMAKE"] = "/usr/lib/qt6/bin/qmake"
-            else:
-                os.environ["QT_SELECT"] = "qt6"
-
-        # Generate a temporary 512x512 icon for linuxdeploy to avoid the 1024px limit
-        icon_path = Path("src/resources/icon.png")
-        resized_icon = build_dir / "app-icon.png"
-        icon_resized = False
-
-        # Tier 1: Try PIL (Pillow), auto-installing if missing
-        try:
-            try:
-                from PIL import Image
-            except ImportError:
-                log("Pillow not found. Attempting to install it inside the virtual environment...", YELLOW)
-                subprocess.run([sys.executable, "-m", "pip", "install", "Pillow"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                from PIL import Image
-            with Image.open(icon_path) as img:
-                img.resize((512, 512), Image.Resampling.LANCZOS).save(resized_icon)
-            icon_resized = True
-        except Exception:
-            pass
-
-        # Tier 2: Try FFmpeg fallback
-        if not icon_resized and shutil.which("ffmpeg"):
-            try:
-                subprocess.run(
-                    ["ffmpeg", "-y", "-i", str(icon_path), "-vf", "scale=512:512", str(resized_icon)],
-                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
-                )
-                icon_resized = resized_icon.exists()
-            except Exception:
-                pass
-
-        # Tier 3: Try ImageMagick fallback
-        if not icon_resized and shutil.which("convert"):
-            try:
-                subprocess.run(
-                    ["convert", str(icon_path), "-resize", "512x512", str(resized_icon)],
-                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
-                )
-                icon_resized = resized_icon.exists()
-            except Exception:
-                pass
-
-        if not icon_resized:
-            try:
-                shutil.copy(icon_path, resized_icon)
-            except Exception as e:
-                log(f"Warning: Failed to copy icon fallback to app-icon.png: {e}", YELLOW)
-
-        deploy_icon = resized_icon
-        linux_desktop = build_dir / "LzyDownloader.desktop"
-        desktop_content = Path("src/ui/LzyDownloader.desktop").read_text(encoding="utf-8")
-        desktop_content = re.sub(r"^Icon=.*$", f"Icon={deploy_icon.stem}", desktop_content, flags=re.MULTILINE)
-        linux_desktop.write_text(desktop_content, encoding="utf-8")
-
-        # vcpkg's Linux Qt build is static, including the SQLite driver. In
-        # that configuration the Qt plugin directory contains .a/.prl files,
-        # not deployable shared plugins. The linuxdeploy Qt plugin attempts to
-        # parse those files when EXTRA_QT_MODULES=sql is set and aborts with
-        # "Invalid magic bytes in file header". Dynamic Qt builds still use
-        # the plugin so their Qt and SQL runtime files are deployed.
-        ldd_result = subprocess.run(
-            ["ldd", str(built_exe)],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        dynamic_qt = "libQt6" in ldd_result.stdout
-        linuxdeploy_args = [
-            str(ld_path.resolve()),
-            "--appdir", str(appdir),
-            "-e", str(built_exe),
-            "-d", str(linux_desktop),
-            "-i", str(deploy_icon),
-            # Keep vcpkg dbus out of linuxdeploy's ELF scan. It is not
-            # needed by the statically linked GUI and can trigger the same
-            # parser failure on affected Ubuntu runners.
-            "--exclude-library", "libdbus-1.so.3",
-        ]
-        if dynamic_qt:
-            os.environ["EXTRA_QT_MODULES"] = "sql"
-            linuxdeploy_args.extend(["--plugin", "qt"])
-            log("Detected dynamic Qt; enabling linuxdeploy-plugin-qt.", GREEN)
-        else:
-            os.environ.pop("EXTRA_QT_MODULES", None)
-            log("Detected statically linked Qt; skipping linuxdeploy-plugin-qt.", GREEN)
-        linuxdeploy_args.extend(["--output", "appimage"])
-        os.environ["PATH"] = str(tooling_dir.resolve()) + os.pathsep + os.environ.get("PATH", "")
-        run_command(linuxdeploy_args, cwd=build_dir)
-
-        generated_appimage = build_dir / "LzyDownloader-x86_64.AppImage"
-        if generated_appimage.exists():
-            target_appimage = build_dir / f"LzyDownloader-{app_version}-x86_64.AppImage"
-            shutil.move(str(generated_appimage), str(target_appimage))
-            log(f"\n=== Linux Build Success: {target_appimage} ===", GREEN)
+        package_linux(app_version, build_dir, log, run_command)
 
     elif target_platform == "macos":
         app_candidates = [

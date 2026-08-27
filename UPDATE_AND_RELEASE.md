@@ -74,12 +74,18 @@ not automatically use an image merely because it exists in the repository.
    - Required to build the C++ application. GitHub Actions uses the hosted Windows MSVC environment; local Windows builds should use an MSVC toolchain compatible with Qt 6.
 
 3. **Qt 6**
-   - Required for building the application.
-   - The manifest build path uses vcpkg; keep `vcpkg.json` synchronized with the app version before release and keep its `builtin-baseline` pinned for reproducible dependency resolution.
+   - Required for building the application. Release CI installs the pinned
+     prebuilt Qt 6.10.2 desktop SDK with `jurplel/install-qt-action`, using
+     `win64_msvc2022_64` on Windows, `gcc_64` on Linux, and `clang_64` on macOS.
+   - Local/source builds may use the vcpkg manifest; keep `vcpkg.json`
+     synchronized with the app version before release and keep its
+     `builtin-baseline` pinned for reproducible dependency resolution.
 
-4. **Linux Qt/XCB Development Packages (Linux release builds)**
-   - When vcpkg builds Qt Base on Ubuntu, install `autoconf`, `automake`, `autoconf-archive`, `bison`, `curl`, `flex`, `libtool`, `tar`, `unzip`, `zip`, `'^libxcb.*-dev'`, `libx11-xcb-dev`, `libxkbcommon-dev`, `libxkbcommon-x11-dev`, `libxi-dev`, `libxrender-dev`, `libegl1-mesa-dev`, `libgl1-mesa-dev`, and `libglu1-mesa-dev`.
-   - The release workflow installs these prerequisites before manifest resolution; runtime-only XCB packages do not provide the headers or pkg-config data Qt's XCB backend requires.
+4. **Linux source-build packages (optional)**
+   - The tag workflow uses the prebuilt Qt SDK and does not compile Qt or
+     require the vcpkg Qt/XCB host packages. If vcpkg is used for a local
+     Linux source build, install the compiler, Qt/XCB development, and archive
+     packages required by that vcpkg revision.
 
 5. **macOS Qt deployment (macOS release builds)**
    - GitHub Actions uses Qt 6's universal `clang_64` desktop package on both macOS runners. The archive contains x86_64 and arm64 support; each native runner produces its architecture-specific build and DMG.
@@ -147,6 +153,11 @@ described in [Release to GitHub](#release-to-github). The tag-triggered
 workflow invokes `build_release.py` on GitHub-hosted Windows, Linux, Intel
 macOS, and Apple Silicon macOS runners.
 
+Windows and Linux release jobs install the same pinned prebuilt Qt 6.10.2 SDK
+model used by macOS. This removes the source Qt build that previously consumed
+most of the Windows job, avoids duplicate Debug dependency builds, and keeps
+the release toolchain independent of vcpkg's removed `x-gha` cache backend.
+
 On each runner, the workflow:
 - Deletes the existing `build-release/` directory to avoid stale DLL mismatches
 - Refreshes both extractor JSON files
@@ -155,9 +166,15 @@ On each runner, the workflow:
 - On Windows, runs `makensis` from `PATH` when available, otherwise the standard NSIS installation path, against `LzyDownloader.nsi` with `/DAPP_VERSION=<version from CMakeLists.txt>` and `/DRELEASE_BUILD_DIR=build-release\Release`
 - The Windows installer finish page offers a checked-by-default option to launch `LzyDownloader.exe` after installation
 - On Linux, stages a clean `build-release/AppDir`, caches linuxdeploy and its Qt plugin under `build-release/tooling/`, generates a linuxdeploy desktop file whose `Icon` matches the resized release PNG, and packages `build-release/LzyDownloader-<version>-x86_64.AppImage`
-- On Linux, selects qmake from `build-release/vcpkg_installed/*/tools/Qt*/bin` when available so linuxdeploy discovers the same Qt modules used by the executable; the SQLite driver remains included through the explicit QtSql module.
-- On Linux, detects whether the vcpkg-built executable uses static Qt. Static-Qt builds skip linuxdeploy-plugin-qt because vcpkg's `.a`/`.prl` SQL driver files are not deployable ELF plugins; dynamic-Qt builds retain the Qt/SQLite plugin deployment. vcpkg's dbus runtime is excluded from linuxdeploy's ELF scan.
+- On Linux, selects qmake from the Qt SDK that built the executable so
+  linuxdeploy discovers the same Qt modules; the QtSql SQLite driver is
+  included through the explicit QtSql module.
+- On Linux, deploys the dynamic Qt libraries and SQLite plugin with
+  linuxdeploy-plugin-qt; platform-service libraries such as D-Bus are excluded
+  from linuxdeploy's ELF scan.
 - On macOS, runs `macdeployqt`, converts the release PNG into the bundle's ICNS icon, and emits `LzyDownloader-<version>-macos-x86_64.dmg` or `LzyDownloader-<version>-macos-arm64.dmg` according to the runner architecture.
+- Windows and Linux compile only the `LzyDownloader` target for packaging; the
+  separate headless test targets remain part of optional local/test workflows.
 
 ### Optional local validation
 
@@ -213,7 +230,7 @@ GitHub Actions automatically builds release assets when a `v*` tag is pushed. Th
 Before tagging, commit the synchronized release inputs:
 
 ```powershell
-git add CMakeLists.txt vcpkg.json CHANGELOG.md README.md UPDATE_AND_RELEASE.md docs/ AGENTS.md TODO.md .github/workflows/release.yml build_release.py tools/ LzyDownloader.nsi src/ui/LzyDownloader.desktop extractors_yt-dlp.json extractors_gallery-dl.json release-notes/vX.Y.Z.md
+git add CMakeLists.txt vcpkg.json CHANGELOG.md README.md UPDATE_AND_RELEASE.md docs/ AGENTS.md TODO.md .github/workflows/release.yml build_release.py tools/ triplets/ LzyDownloader.nsi src/ui/LzyDownloader.desktop extractors_yt-dlp.json extractors_gallery-dl.json release-notes/vX.Y.Z.md
 git commit -m "Release vX.X.X"
 git push origin HEAD
 ```

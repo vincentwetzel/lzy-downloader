@@ -9,6 +9,14 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## [Unreleased]
 
+## [1.2.34] - 2026-08-27
+
+- **Release build performance:** Windows and Linux release jobs now use the
+  pinned prebuilt Qt 6.10.2 SDK, MSVC parallel compilation, and an
+  application-only build target with explicit host parallelism. This removes
+  the source Qt build, duplicate Debug dependency builds, and test executable
+  compilation from packaging.
+
 ## [1.2.33] - 2026-08-27
 
 - **Deno updates:** WinGet-managed Deno updates now use the official stable

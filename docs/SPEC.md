@@ -216,18 +216,16 @@ only the sections relevant to the change.
   refreshes extractor data, checks semantic CMake/tag versions, rejects reused
   versions unless `LZY_ALLOW_VERSION_REBUILD=1`, and packages the platform.
   CI publishes only for matching `v*` tags; manual dispatch validates without
-  publishing. Linux uses qmake from the vcpkg Qt build, detects static/dynamic
-  Qt, caches linuxdeploy under `build-release/tooling/`, and emits the AppImage
-  under `build-release/`. macOS emits x86_64 and arm64 DMGs.
-- Linux release CI installs `curl`, `tar`, `unzip`, `zip`; `autoconf`,
-  `automake`, `autoconf-archive`, `bison`, `flex`, `libtool`; and
-  `^libxcb.*-dev`, `libx11-xcb-dev`, `libxkbcommon-dev`,
-  `libxkbcommon-x11-dev`, `libxi-dev`, `libxrender-dev`, `libegl1-mesa-dev`,
-  `libgl1-mesa-dev`, and `libglu1-mesa-dev` before vcpkg resolution. It
-  validates with `python -m pip install --pre --upgrade yt-dlp`. These are
-  CI-only and are not bundled runtime dependencies. Windows CI installs NSIS;
-  child commands retain the invoking terminal. The final executable is
-  `LzyDownloader.exe`.
+  publishing. Windows and Linux use the pinned prebuilt Qt 6.10.2 SDK and build
+  only the application target in parallel. Linux selects qmake from that SDK,
+  deploys dynamic Qt/SQLite with linuxdeploy, caches linuxdeploy under
+  `build-release/tooling/`, and emits the AppImage under `build-release/`.
+  macOS emits x86_64 and arm64 DMGs.
+- Release CI no longer resolves or compiles Qt through vcpkg. Local/source
+  builds may still use the pinned vcpkg manifest and optional triplets. CI
+  validates with `python -m pip install --pre --upgrade yt-dlp`; these tools are
+  not bundled runtime dependencies. Windows CI installs NSIS; child commands
+  retain the invoking terminal. The final executable is `LzyDownloader.exe`.
 - Register tests with `lzy_add_test(...)`; keep them isolated from user files
   and use `QT_QPA_PLATFORM=minimal`. Required coverage includes argument
   builders, playlist/probe fallback, progress and recovery boundaries,

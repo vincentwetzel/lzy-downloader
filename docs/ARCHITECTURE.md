@@ -98,7 +98,9 @@ timestamped output, summaries, and the failed-test cache. `CMakeLists.txt`
 owns the build graph; `CMakePresets.json` owns supported local paths;
 `cmake/deploy_openssl_runtime.cmake` owns guarded Windows Qt/OpenSSL runtime
 deployment;
-`build_release.py` owns native packaging/version checks; and
+`build_release.py` owns native build/version checks, while
+`tools/release_packaging.py` owns Linux AppImage packaging; and
+`triplets/*.cmake` owns optional release-only settings for local vcpkg builds;
 `.github/workflows/release.yml` owns CI prerequisites, matrix, and publication.
 
 ## Concurrency and deployment
@@ -113,6 +115,6 @@ sleep while active, without preventing normal display power-off.
 Windows keeps required Qt plugins, SQLite, OpenSSL, Qt runtime, and MinGW
 compiler runtime DLLs beside the executable. The deployment helper is also
 used for test executables so headless runs do not depend on the developer shell.
-Linux packaging selects qmake from the vcpkg Qt build and handles static versus
-dynamic Qt. macOS packaging creates architecture-labelled bundles/DMGs and
+Linux packaging selects qmake from the Qt SDK used for the release build and
+deploys its dynamic Qt/SQLite runtime. macOS packaging creates architecture-labelled bundles/DMGs and
 uses Finder for DMG handoff.

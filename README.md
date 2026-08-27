@@ -189,14 +189,20 @@ Before building a release, keep all release metadata in sync:
   explicitly requested local diagnostics, not the normal release procedure.
 - Windows GitHub Actions installs NSIS before packaging; local NSIS setup is
   only relevant to explicitly requested packaging diagnostics.
-- Linux GitHub Actions installs the vcpkg Qt Base prerequisites, including `bison`, `curl`, `flex`, `tar`, `unzip`, `zip`, `^libxcb.*-dev`, `libx11-xcb-dev`, and `libxkbcommon-x11-dev`, before configuring the release build.
+- Windows and Linux GitHub Actions install the pinned prebuilt Qt 6.10.2 SDK
+  (`win64_msvc2022_64` and `gcc_64`) instead of compiling Qt through vcpkg;
+  macOS uses the matching `clang_64` SDK.
 - macOS CI builds separate Intel (`macos-15-intel`) and Apple Silicon (`macos-15`) app bundles from Qt's universal `clang_64` archive, deploys Qt with `macdeployqt`, and packages `LzyDownloader-X.Y.Z-macos-x86_64.dmg` plus `LzyDownloader-X.Y.Z-macos-arm64.dmg`.
 - Release automation installs yt-dlp from its prerelease/nightly channel (`pip install --pre --upgrade yt-dlp`) so extractor/runtime changes are exercised before packaging.
-- Linux AppImage packaging uses the same vcpkg Qt installation that built the executable when invoking linuxdeploy, including QtSql's SQLite plugin discovery; the Windows-only Qt SDK setup is not used for Linux packaging.
+- Linux AppImage packaging uses qmake from the same prebuilt Qt SDK that built
+  the executable when invoking linuxdeploy, including QtSql's SQLite plugin
+  discovery.
 - If a tag-matched `release-notes/<tag>.md` file is absent, CI creates a minimal fallback release body so GitHub Release publication does not emit a missing-file warning.
 - The workflow also supports `workflow_dispatch` validation runs; release assets are uploaded only when the workflow was started by a `v*` tag.
 - Each tag release includes a platform-specific `SHA256SUMS-*.txt` manifest beside the packaged installer, AppImage, or DMG.
-- The Linux release prerequisite step also installs `autoconf`, `autoconf-archive`, `automake`, `libtool`, `libegl1-mesa-dev`, `libgl1-mesa-dev`, `libglu1-mesa-dev`, `libxi-dev`, `libxkbcommon-dev`, and `libxrender-dev`; these are development dependencies for vcpkg's Qt/XCB build, not application runtime requirements.
+- Local Linux source builds that choose vcpkg still need the development
+  packages required by that vcpkg revision; they are not release-runtime
+  dependencies.
 - `LzyDownloader.nsi` must not contain stale hardcoded version examples or installer metadata; pass the release version with `makensis /DAPP_VERSION=x.y.z /DRELEASE_BUILD_DIR=build-release\Release LzyDownloader.nsi` when building manually.
 - `CHANGELOG.md` must move `[Unreleased]` notes under the dated release version.
 - The normal release workflow is metadata preparation followed by pushing the

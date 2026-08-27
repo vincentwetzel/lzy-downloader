@@ -19,8 +19,10 @@ jobs:
         include:
           - os: windows-latest
             platform: windows
+            qt_arch: win64_msvc2022_64
           - os: ubuntu-22.04
             platform: linux
+            qt_arch: gcc_64
           - os: macos-15-intel
             platform: macos
             architecture: x86_64
@@ -65,35 +67,19 @@ jobs:
           }
 
       - name: Install Qt 6
-        if: matrix.platform == 'windows' || matrix.platform == 'macos'
-        uses: jurplel/install-qt-action@v3
+        if: matrix.platform == 'windows' || matrix.platform == 'linux' || matrix.platform == 'macos'
+        uses: jurplel/install-qt-action@v4
         with:
-          version: '6.6.*'
-          arch: ${{ matrix.platform == 'windows' && 'win64_msvc2019_64' || matrix.qt_arch }}
-
-      - name: Set up vcpkg
-        if: matrix.platform == 'windows' || matrix.platform == 'linux'
-        uses: lukka/run-vcpkg@v11
-        with:
-          vcpkgDirectory: ${{ github.workspace }}/vcpkg
-          vcpkgGitCommitId: '0b88aacde46a853151730fbe7d0b7ee45f4b6864'
-
-      - name: Install System Dependencies (Linux)
-        if: matrix.platform == 'linux'
-        run: |
-          sudo apt-get update
-          # vcpkg builds Qt Base from source and forces its XCB backend on.
-          # Install development packages, not only their runtime libraries.
-          sudo apt-get install -y \
-            autoconf autoconf-archive automake bison curl flex libtool tar unzip zip \
-            '^libxcb.*-dev' \
-            libegl1-mesa-dev libgl1-mesa-dev libglu1-mesa-dev \
-            libx11-xcb-dev libxi-dev libxkbcommon-dev \
-            libxkbcommon-x11-dev libxrender-dev
+          version: '6.10.2'
+          arch: ${{ matrix.qt_arch }}
+          archives: qtbase qttools
+          install-deps: ${{ matrix.platform == 'linux' }}
 
       - name: Run Unified Release Builder
         env:
-          VCPKG_ROOT: ${{ github.workspace }}/vcpkg
+          # MSVC setup exposes its own vcpkg installation. Release CI uses
+          # the prebuilt Qt SDK above instead of configuring through vcpkg.
+          LZY_USE_VCPKG: '0'
           LZY_RELEASE_ARCH: ${{ matrix.architecture }}
         shell: bash
         run: |
