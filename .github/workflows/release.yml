@@ -22,7 +22,7 @@ jobs:
             qt_arch: win64_msvc2022_64
           - os: ubuntu-22.04
             platform: linux
-            qt_arch: gcc_64
+            qt_arch: linux_gcc_64
           - os: macos-15-intel
             platform: macos
             architecture: x86_64

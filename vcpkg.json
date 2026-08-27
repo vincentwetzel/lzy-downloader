@@ -1,6 +1,6 @@
 {
   "name": "lzydownloader",
-  "version-string": "1.2.35",
+  "version-string": "1.2.36",
   "description": "Qt desktop video, audio, playlist, and gallery downloader powered by yt-dlp and gallery-dl.",
   "homepage": "https://github.com/vincentwetzel/lzy-downloader",
   "license": "GPL-3.0-or-later",

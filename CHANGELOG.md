@@ -9,6 +9,12 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## [Unreleased]
 
+## [1.2.36] - 2026-08-27
+
+- **Linux release CI:** Use aqtinstall's current `linux_gcc_64` host
+  architecture for the Qt 6.10.2 SDK. The older `gcc_64` alias resolves to the
+  unavailable `qt_base` package and prevents Ubuntu release jobs from starting.
+
 ## [1.2.35] - 2026-08-27
 
 - **Release CI reliability:** Restore the Python 3.11 environment after Qt

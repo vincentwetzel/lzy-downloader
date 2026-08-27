@@ -190,7 +190,7 @@ Before building a release, keep all release metadata in sync:
 - Windows GitHub Actions installs NSIS before packaging; local NSIS setup is
   only relevant to explicitly requested packaging diagnostics.
 - Windows and Linux GitHub Actions install the pinned prebuilt Qt 6.10.2 SDK
-  (`win64_msvc2022_64` and `gcc_64`) instead of compiling Qt through vcpkg;
+  (`win64_msvc2022_64` and `linux_gcc_64`) instead of compiling Qt through vcpkg;
   macOS uses the matching `clang_64` SDK.
 - Python dependencies are installed after Qt setup with the restored Python
   3.11 interpreter because `install-qt-action` manages an internal Python

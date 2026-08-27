@@ -76,7 +76,7 @@ not automatically use an image merely because it exists in the repository.
 3. **Qt 6**
    - Required for building the application. Release CI installs the pinned
      prebuilt Qt 6.10.2 desktop SDK with `jurplel/install-qt-action`, using
-     `win64_msvc2022_64` on Windows, `gcc_64` on Linux, and `clang_64` on macOS.
+     `win64_msvc2022_64` on Windows, `linux_gcc_64` on Linux, and `clang_64` on macOS.
    - Qt setup runs before Python dependency setup because the Qt action manages
      its own interpreter internally. The workflow restores Python 3.11 and
      installs `yt-dlp` and `gallery-dl` with `python -m pip` afterward.
@@ -160,8 +160,9 @@ Windows and Linux release jobs install the same pinned prebuilt Qt 6.10.2 SDK
 model used by macOS. This removes the source Qt build that previously consumed
 most of the Windows job, avoids duplicate Debug dependency builds, and keeps
 the release toolchain independent of vcpkg's removed `x-gha` cache backend.
-The workflow leaves aqtinstall's archive selection at its platform default;
-the filtered `qtbase` request is not available in the Qt 6.10.2 Linux metadata.
+Linux uses aqtinstall's explicit `linux_gcc_64` host architecture. This matches
+the current Qt Linux repository metadata and avoids the obsolete `gcc_64` alias
+being resolved as the unavailable `qt_base` package.
 
 On each runner, the workflow:
 - Deletes the existing `build-release/` directory to avoid stale DLL mismatches
