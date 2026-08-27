@@ -192,6 +192,9 @@ Before building a release, keep all release metadata in sync:
 - Windows and Linux GitHub Actions install the pinned prebuilt Qt 6.10.2 SDK
   (`win64_msvc2022_64` and `gcc_64`) instead of compiling Qt through vcpkg;
   macOS uses the matching `clang_64` SDK.
+- Python dependencies are installed after Qt setup with the restored Python
+  3.11 interpreter because `install-qt-action` manages an internal Python
+  environment while installing the SDK.
 - macOS CI builds separate Intel (`macos-15-intel`) and Apple Silicon (`macos-15`) app bundles from Qt's universal `clang_64` archive, deploys Qt with `macdeployqt`, and packages `LzyDownloader-X.Y.Z-macos-x86_64.dmg` plus `LzyDownloader-X.Y.Z-macos-arm64.dmg`.
 - Release automation installs yt-dlp from its prerelease/nightly channel (`pip install --pre --upgrade yt-dlp`) so extractor/runtime changes are exercised before packaging.
 - Linux AppImage packaging uses qmake from the same prebuilt Qt SDK that built

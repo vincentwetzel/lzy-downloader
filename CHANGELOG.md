@@ -9,6 +9,15 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## [Unreleased]
 
+## [1.2.35] - 2026-08-27
+
+- **Release CI reliability:** Restore the Python 3.11 environment after Qt
+  installation so extractor refresh uses the same interpreter that received
+  `yt-dlp` and `gallery-dl`.
+- **Linux release CI:** Let aqtinstall select the platform's default Qt base
+  archives; the filtered `qtbase` name was not available in the Qt 6.10.2
+  Linux metadata.
+
 ## [1.2.34] - 2026-08-27
 
 - **Release build performance:** Windows and Linux release jobs now use the

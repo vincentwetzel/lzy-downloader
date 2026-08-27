@@ -41,18 +41,6 @@ jobs:
           submodules: recursive
           fetch-depth: 0
 
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: '3.11'
-
-      - name: Install Python Dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install --upgrade gallery-dl
-          # Use yt-dlp's prerelease channel so release builds exercise the current nightly extractor/runtime.
-          pip install --pre --upgrade yt-dlp
-
       - name: Set up MSVC (Windows)
         if: matrix.platform == 'windows'
         uses: ilammy/msvc-dev-cmd@v1
@@ -72,8 +60,22 @@ jobs:
         with:
           version: '6.10.2'
           arch: ${{ matrix.qt_arch }}
-          archives: qtbase qttools
           install-deps: ${{ matrix.platform == 'linux' }}
+
+      # install-qt-action uses its own Python setup internally. Restore the
+      # release interpreter before installing packages used by build_release.py.
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Install Python Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --upgrade gallery-dl
+          # Use yt-dlp's prerelease channel so release builds exercise the current nightly extractor/runtime.
+          python -m pip install --pre --upgrade yt-dlp
+          python -c "import gallery_dl, yt_dlp; print('gallery-dl and yt-dlp imports OK')"
 
       - name: Run Unified Release Builder
         env:
