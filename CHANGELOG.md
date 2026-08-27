@@ -9,6 +9,8 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## [Unreleased]
 
+## [1.2.33] - 2026-08-27
+
 - **Deno updates:** WinGet-managed Deno updates now use the official stable
   installer when WinGet's catalog has not published the newest release yet,
   while WinGet remains available for initial installation. The Windows
