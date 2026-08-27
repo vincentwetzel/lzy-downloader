@@ -50,10 +50,17 @@ def hide_unused_linux_sql_drivers(qmake_bin, log):
         return []
 
     hidden = []
+    hidden_dir = driver_dir.parent / ".lzy-disabled-sqldrivers"
+    try:
+        hidden_dir.mkdir(exist_ok=True)
+    except OSError as error:
+        log(f"Warning: Could not prepare temporary Qt SQL driver directory: {error}", YELLOW)
+        return []
+
     for driver in sorted(driver_dir.glob("libqsql*.so")):
         if driver.name == "libqsqlite.so":
             continue
-        hidden_driver = driver.with_name(f"{driver.name}.lzy-disabled")
+        hidden_driver = hidden_dir / driver.name
         try:
             driver.rename(hidden_driver)
         except OSError as error:
@@ -67,16 +74,28 @@ def hide_unused_linux_sql_drivers(qmake_bin, log):
             + ", ".join(original.name for original, _ in hidden),
             GREEN,
         )
+    elif hidden_dir.exists():
+        try:
+            hidden_dir.rmdir()
+        except OSError:
+            pass
     return hidden
 
 
 def restore_linux_sql_drivers(hidden, log):
     """Restore Qt SQL drivers after linuxdeploy has finished scanning them."""
+    hidden_dirs = set()
     for original, hidden_driver in hidden:
         try:
             hidden_driver.rename(original)
+            hidden_dirs.add(hidden_driver.parent)
         except OSError as error:
             log(f"Warning: Could not restore Qt SQL driver {original.name}: {error}", YELLOW)
+    for hidden_dir in hidden_dirs:
+        try:
+            hidden_dir.rmdir()
+        except OSError:
+            pass
 
 
 def package_linux(app_version, build_dir, log, run_command):

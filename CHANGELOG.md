@@ -9,6 +9,13 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## [Unreleased]
 
+## [1.2.38] - 2026-08-27
+
+- **Linux release packaging:** Move unused Qt SQL drivers outside the
+  linuxdeploy scan directory during AppImage creation. The previous filename
+  workaround still allowed linuxdeploy to inspect those ELF files and fail on
+  unavailable Mimer or Oracle client libraries.
+
 ## [1.2.37] - 2026-08-27
 
 - **Linux release packaging:** Exclude Qt's unused Mimer, MySQL, and other
