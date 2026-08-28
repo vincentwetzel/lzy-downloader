@@ -9,6 +9,8 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## [Unreleased]
 
+## [1.2.40] - 2026-08-27
+
 - **Startup updates:** Defer binary update actions and the tool checklist until
   the application update decision is resolved, suppressing binary update UI
   while the application installer is being downloaded or launched.
