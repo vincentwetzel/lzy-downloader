@@ -9,6 +9,12 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## [Unreleased]
 
+- **Startup updates:** Defer binary update actions and the tool checklist until
+  the application update decision is resolved, suppressing binary update UI
+  while the application installer is being downloaded or launched.
+- **Startup recovery:** Complete startup checks when yt-dlp is missing or its
+  version probe fails, so the required-tools checklist can be shown.
+
 ## [1.2.39] - 2026-08-27
 
 - **Tool setup:** Consolidated missing-tool and external-binary update prompts

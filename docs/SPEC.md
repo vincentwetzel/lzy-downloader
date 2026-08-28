@@ -201,7 +201,10 @@ only the sections relevant to the change.
   notices into one **Set Up Required Tools** checklist. It labels each row as a
   new installation or existing-binary upgrade and offers **Update All** for the
   supported automatic actions; manual-only updates remain visible and actionable
-  in that same checklist.
+  in that same checklist. Startup completion must not depend on a successful
+  binary version probe: bundled extractor metadata is initialized after every
+  terminal updater result, including missing-tool and probe-failure results, so
+  the checklist can be shown and the Start tab can recover from its waiting state.
   Windows FFmpeg/FFprobe replacements stage beside the destination and retry
   transient locks while preserving the old executable on failure.
 - Windows deployment includes required Qt image plugins, SQLite, OpenSSL, and

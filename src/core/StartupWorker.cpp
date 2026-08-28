@@ -132,7 +132,7 @@ static void resolveAndValidateBinaries(ConfigManager *configManager, StartupWork
 void StartupWorker::start() {
     qInfo() << "[StartupWorker::start] >>> STARTUP CHECK SEQUENCE INITIATED <<<";
 
-    auto handleFinished = [this](const QString &binaryName, Updater::UpdateStatus status, const QString &message, bool onlyCheck, BaseBinaryUpdater* updater, bool *checkDoneFlag, const std::function<void()>& onSuccessExtra = nullptr) {
+    auto handleFinished = [this](const QString &binaryName, Updater::UpdateStatus status, const QString &message, bool onlyCheck, BaseBinaryUpdater* updater, bool *checkDoneFlag, const std::function<void()>& onCheckSettled = nullptr) {
         if (status == Updater::UpdateStatus::UpdateAvailable || status == Updater::UpdateStatus::UpToDate) {
             bool available = (status == Updater::UpdateStatus::UpdateAvailable);
             m_configManager->set(QStringLiteral("Binaries"), QStringLiteral("%1_update_available").arg(binaryName), available);
@@ -165,12 +165,16 @@ void StartupWorker::start() {
                     qInfo() << message;
                 }
             }
-            if (onSuccessExtra) {
-                onSuccessExtra();
-            }
         } else {
             qWarning() << QStringLiteral("%1 auto-update failed:").arg(binaryName) << message;
             emit binaryUpdateRequired(binaryName, tr("Update check or auto-update failed: %1").arg(message));
+        }
+        // Extractor metadata is bundled with the application and does not
+        // depend on the binary update result. Complete that startup branch
+        // even when yt-dlp is missing or its version probe fails; otherwise
+        // the overall startup barrier can never emit finished().
+        if (onCheckSettled) {
+            onCheckSettled();
         }
         if (checkDoneFlag) {
             *checkDoneFlag = true;
@@ -186,7 +190,7 @@ void StartupWorker::start() {
         const std::function<QString(const QString&)> &parser,
         bool onlyCheck,
         bool *checkDoneFlag,
-        const std::function<void()>& onSuccessExtra = nullptr)
+        const std::function<void()>& onCheckSettled = nullptr)
     {
         if (!updater) {
             updater = std::make_unique<BaseBinaryUpdater>(name, repo, m_configManager);
@@ -199,8 +203,8 @@ void StartupWorker::start() {
             } else if (name == QStringLiteral("gallery-dl")) {
                 connect(updater.get(), &BaseBinaryUpdater::versionFetched, this, &StartupWorker::galleryDlVersionFetched);
             }
-            connect(updater.get(), &BaseBinaryUpdater::updateFinished, this, [this, name, onlyCheck, ptr = updater.get(), checkDoneFlag, onSuccessExtra, handleFinished](Updater::UpdateStatus status, const QString &message) {
-                handleFinished(name, status, message, onlyCheck, ptr, checkDoneFlag, onSuccessExtra);
+            connect(updater.get(), &BaseBinaryUpdater::updateFinished, this, [this, name, onlyCheck, ptr = updater.get(), checkDoneFlag, onCheckSettled, handleFinished](Updater::UpdateStatus status, const QString &message) {
+                handleFinished(name, status, message, onlyCheck, ptr, checkDoneFlag, onCheckSettled);
             });
         }
     };

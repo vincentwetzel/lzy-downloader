@@ -154,21 +154,37 @@ void MainWindow::connectAppUpdaterSignals()
                 msgBox.exec();
 
                 if (msgBox.clickedButton() == updateNowButton) {
+                    m_appUpdateInstalling = true;
+                    m_appUpdateCheckPending = false;
                     statusBar()->showMessage(tr("Downloading update..."));
                     m_appUpdater->downloadAndInstall(downloadUrl);
                 } else if (msgBox.clickedButton() == viewReleaseButton) {
                     QDesktopServices::openUrl(QUrl(QStringLiteral("%1/releases/latest").arg(QLatin1String(GITHUB_PROJECT_URL))));
+                    m_appUpdateCheckPending = false;
+                    releaseDeferredStartupBinaryUpdates();
+                    showStartupBinarySetupIfReady();
+                } else {
+                    m_appUpdateCheckPending = false;
+                    releaseDeferredStartupBinaryUpdates();
+                    showStartupBinarySetupIfReady();
                 }
             });
 
     connect(m_appUpdater, &AppUpdater::noUpdateAvailable, this, [this]() {
         m_silentUpdateCheck = false;
+        m_appUpdateCheckPending = false;
+        releaseDeferredStartupBinaryUpdates();
+        showStartupBinarySetupIfReady();
         qInfo() << "No app update available. Current version:" << APP_VERSION_STRING;
     });
 
     connect(m_appUpdater, &AppUpdater::updateCheckFailed, this, [this](const QString &error) {
         const bool wasSilent = m_silentUpdateCheck;
         m_silentUpdateCheck = false;
+        m_appUpdateInstalling = false;
+        m_appUpdateCheckPending = false;
+        releaseDeferredStartupBinaryUpdates();
+        showStartupBinarySetupIfReady();
         qWarning() << "App update check failed:" << error;
         if (!wasSilent && !m_nonInteractiveLaunch) {
             QMessageBox::warning(this, tr("Update Check Failed"), error);
@@ -203,6 +219,7 @@ void MainWindow::connectAppUpdaterSignals()
 
 void MainWindow::scheduleInitialSetup()
 {
+    m_appUpdateCheckPending = !m_nonInteractiveLaunch;
     QTimer::singleShot(0, this, [this]() {
         const bool isNonInteractive = m_nonInteractiveLaunch;
 
@@ -555,6 +572,18 @@ void MainWindow::connectStartupWorkerSignals()
             }
         }
 
+        // Give the application update decision priority over binary updates.
+        // Keep the warning, but defer automatic replacement and the checklist
+        // until the application update check has resolved.
+        if (m_appUpdateCheckPending || m_appUpdateInstalling) {
+            const bool updateAvailable = m_configManager->get(
+                QStringLiteral("Binaries"), QStringLiteral("%1_update_available").arg(binaryName), false).toBool();
+            if (updateAvailable) {
+                m_startupUpdateDetails.insert(binaryName, details);
+            }
+            return;
+        }
+
         bool automaticUpdateStarted = false;
         if (m_configManager->get(QStringLiteral("Binaries"), QStringLiteral("setup_completed"), false).toBool() &&
             m_configManager->get(QStringLiteral("Binaries"), QStringLiteral("%1_update_available").arg(binaryName), false).toBool() &&
@@ -579,22 +608,62 @@ void MainWindow::connectStartupWorkerSignals()
             return;
         }
 
-        QStringList attention = m_startupMissingBinaries;
-        for (auto it = m_startupUpdateDetails.cbegin(); it != m_startupUpdateDetails.cend(); ++it) {
-            if (!attention.contains(it.key())) {
-                attention.append(it.key());
-            }
-        }
-        if (!attention.isEmpty()) {
-            showMissingBinariesDialog(attention, m_startupUpdateDetails);
-        } else if (!m_configManager->get(QStringLiteral("Binaries"), QStringLiteral("setup_completed"), false).toBool()) {
-            m_configManager->set(QStringLiteral("Binaries"), QStringLiteral("setup_completed"), true);
-            m_configManager->save();
-        }
+        m_startupChecksFinished = true;
+        showStartupBinarySetupIfReady();
     });
     connect(m_startupWorker, &StartupWorker::ytDlpVersionFetched, this, &MainWindow::setYtDlpVersion);
-    connect(m_startupWorker, &StartupWorker::galleryDlVersionFetched, m_advancedSettingsTab, &AdvancedSettingsTab::setGalleryDlVersion);
+    connect(m_startupWorker, &StartupWorker::galleryDlVersionFetched, this, &AdvancedSettingsTab::setGalleryDlVersion);
     connect(m_clipboard, &QClipboard::changed, this, &MainWindow::onClipboardChanged);
+}
+
+void MainWindow::releaseDeferredStartupBinaryUpdates()
+{
+    if (m_appUpdateInstalling || m_startupUpdateDetails.isEmpty() || !m_advancedSettingsTab) {
+        return;
+    }
+
+    auto *binariesPage = m_advancedSettingsTab->findChild<BinariesPage*>();
+    if (!binariesPage) {
+        return;
+    }
+
+    for (auto it = m_startupUpdateDetails.begin(); it != m_startupUpdateDetails.end();) {
+        const QString binaryName = it.key();
+        bool started = false;
+        if (m_configManager->get(QStringLiteral("Binaries"), QStringLiteral("setup_completed"), false).toBool() &&
+            m_configManager->get(QStringLiteral("Binaries"), QStringLiteral("%1_update_available").arg(binaryName), false).toBool()) {
+            started = binariesPage->tryAutomaticUpdate(binaryName);
+        }
+        if (started) {
+            statusBar()->showMessage(tr("Updating app-managed %1 in the background.").arg(binaryName), 8000);
+            it = m_startupUpdateDetails.erase(it);
+        } else {
+            ++it;
+        }
+    }
+}
+
+void MainWindow::showStartupBinarySetupIfReady()
+{
+    if (m_nonInteractiveLaunch || m_appUpdateCheckPending || m_appUpdateInstalling ||
+        !m_startupChecksFinished || m_startupSetupPresented) {
+        return;
+    }
+
+    m_startupSetupPresented = true;
+
+    QStringList attention = m_startupMissingBinaries;
+    for (auto it = m_startupUpdateDetails.cbegin(); it != m_startupUpdateDetails.cend(); ++it) {
+        if (!attention.contains(it.key())) {
+            attention.append(it.key());
+        }
+    }
+    if (!attention.isEmpty()) {
+        showMissingBinariesDialog(attention, m_startupUpdateDetails);
+    } else if (!m_configManager->get(QStringLiteral("Binaries"), QStringLiteral("setup_completed"), false).toBool()) {
+        m_configManager->set(QStringLiteral("Binaries"), QStringLiteral("setup_completed"), true);
+        m_configManager->save();
+    }
 }
 
 void MainWindow::queueDirectCliDownload()

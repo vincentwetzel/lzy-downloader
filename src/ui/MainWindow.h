@@ -76,6 +76,8 @@ private:
     void connectDiscordWebhookSignals();
     void connectStartupWorkerSignals();
     void queueDirectCliDownload();
+    void releaseDeferredStartupBinaryUpdates();
+    void showStartupBinarySetupIfReady();
     void handleClipboardAutoPaste(bool forceEnqueue = false); // Modified to accept forceEnqueue
     bool showMissingBinariesDialog(const QStringList &binaryNames,
                                    const QHash<QString, QString> &updateDetails = {});
@@ -109,6 +111,10 @@ private:
     QString m_pendingUrl;
     QVariantMap m_pendingOptions;
     bool m_silentUpdateCheck;
+    bool m_appUpdateCheckPending;
+    bool m_appUpdateInstalling;
+    bool m_startupChecksFinished;
+    bool m_startupSetupPresented;
     bool m_nonInteractiveLaunch;
     QStringList m_startupMissingBinaries;
     QHash<QString, QString> m_startupUpdateDetails;
