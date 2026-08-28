@@ -9,6 +9,13 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## [Unreleased]
 
+## [1.2.41] - 2026-08-27
+
+- **Release CI:** Fixed the cross-platform build failure caused by routing the
+  gallery-dl startup version signal to the wrong Qt receiver type.
+- **Extractor metadata:** Refreshed the bundled yt-dlp and gallery-dl extractor
+  domain lists for the release build.
+
 ## [1.2.40] - 2026-08-27
 
 - **Startup updates:** Defer binary update actions and the tool checklist until

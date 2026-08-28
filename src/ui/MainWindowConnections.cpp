@@ -612,7 +612,8 @@ void MainWindow::connectStartupWorkerSignals()
         showStartupBinarySetupIfReady();
     });
     connect(m_startupWorker, &StartupWorker::ytDlpVersionFetched, this, &MainWindow::setYtDlpVersion);
-    connect(m_startupWorker, &StartupWorker::galleryDlVersionFetched, this, &AdvancedSettingsTab::setGalleryDlVersion);
+    connect(m_startupWorker, &StartupWorker::galleryDlVersionFetched,
+            m_advancedSettingsTab, &AdvancedSettingsTab::setGalleryDlVersion);
     connect(m_clipboard, &QClipboard::changed, this, &MainWindow::onClipboardChanged);
 }
 
