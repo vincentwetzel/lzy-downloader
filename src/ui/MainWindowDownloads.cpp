@@ -39,6 +39,24 @@ void MainWindow::onLocalApiEnqueueRequested(const QString &url, const QString &t
     onDownloadRequested(url, options);
 }
 
+void MainWindow::onLocalApiEnqueueWithCookieFileRequested(const QString &url, const QString &type,
+                                                          const QString &jobId, bool overrideArchive,
+                                                          const QString &cookieFile)
+{
+    QVariantMap options;
+    options.insert(QStringLiteral("type"), type.isEmpty() ? QStringLiteral("video") : type);
+    if (!jobId.isEmpty()) {
+        options.insert(QStringLiteral("id"), jobId);
+    }
+    if (overrideArchive) {
+        options.insert(QStringLiteral("override_archive"), true);
+    }
+    options.insert(QStringLiteral("cookie_file"), cookieFile);
+    MainWindowHelpers::applyNonInteractiveDownloadDefaults(options);
+
+    onDownloadRequested(url, options);
+}
+
 void MainWindow::onLocalApiCancelRequested(const QString &jobId)
 {
     qInfo() << "[LocalApi] Cancellation requested for job:" << jobId;

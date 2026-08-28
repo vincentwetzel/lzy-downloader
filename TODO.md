@@ -16,6 +16,8 @@ Only unfinished work belongs here; completed work is recorded in
 
 ## Planned
 
+- [ ] Finalize Chrome browser-companion registration: pass the published
+  extension ID to the Windows installer.
 - [ ] Apply the GitHub repository description and recommended topics after
   re-authentication.
 - [ ] Submit verified releases to package directories such as WinGet or Scoop

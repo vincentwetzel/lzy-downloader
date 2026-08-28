@@ -335,6 +335,15 @@ Server/headless/background mode isolates this runtime token under `Server/`, for
 
 The server binds only to `127.0.0.1:8765`. Requests must include `Authorization: Bearer <token>`. Supported endpoints are `POST /enqueue` with a JSON `url` field plus optional `type` (`video`, `audio`, or `gallery`), optional caller-provided `id`, and optional boolean `override_archive` (also accepted under `options`) for intentional re-downloads; authenticated `POST /cancel` with `job_id` for tracked jobs; and `GET /status`. If `id` is omitted, LzyDownloader generates a UUID.
 
+The browser companion adds a bounded `client_id` to scope status and
+cancellation to that browser client. Its enqueue request may contain a JSON
+cookie array; LzyDownloader validates the cookies against the requested URL,
+writes a temporary Netscape-format file, and passes only that file to yt-dlp.
+Cookie paths are removed from queue backups and public status snapshots, then
+deleted when the job reaches a terminal/removal path. Expired owned cookie files
+are swept at startup. This request-scoped authentication does not change the
+saved browser selection in `settings.ini`.
+
 ## Log File Location
 
 Application logs are stored in the same application-local data directory:

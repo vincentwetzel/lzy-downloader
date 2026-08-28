@@ -25,6 +25,21 @@ gallery-dl, FFmpeg, and SQLite. Keep path/process handling portable, preserve
 the `download_archive.db` schema, and use Qt-native `QSettings` INI semantics
 (Python `configparser` compatibility is not required).
 
+## Documentation security
+
+- Never commit personal or machine-specific absolute paths, usernames, home
+  directories, workspace locations, or environment dumps to repository
+  documentation, examples, logs, or release instructions.
+- Use repository-relative paths, environment variables, placeholders such as
+  `<repository-root>`, or commands that discover the current repository (for
+  example `git rev-parse --show-toplevel`).
+- Any path used in a security or release check must be derived at runtime and
+  validated by file names/content, not hardcoded to a developer's machine.
+- Treat paths copied from CI logs or local terminals as sensitive until
+  sanitized. Review `git diff --check` and search changed documentation for
+  drive-letter paths, Unix home-directory patterns, and user-profile paths
+  before committing.
+
 ## Invariants
 
 - Keep GUI work responsive and QWidget access on the GUI thread. Network,
@@ -91,4 +106,5 @@ the `download_archive.db` schema, and use Qt-native `QSettings` INI semantics
 | Workers | `src/core/YtDlpWorker*`, `YtDlpWorkerDiagnostics.cpp`, `YtDlpWorkerTransfers.cpp` |
 | Arguments/live | `src/core/YtDlpArgsBuilder.*`, `YtDlpLiveStatus.h` |
 | UI/binaries | `src/ui/MainWindowUiBuilder.*`, `ActiveDownloadsTab.*`, `DownloadItemWidget.*`, `src/ui/advanced_settings/BinariesPage.*` |
+| Browser companion | `src/integration/BrowserNativeMessagingHost.cpp`, `src/integration/BrowserCookieFile.*`, and the separate browser-extension checkout |
 | Tests/release | `tests/`, `tests/run_headless_tests.py`, `build_release.py`, `.github/workflows/release.yml` |

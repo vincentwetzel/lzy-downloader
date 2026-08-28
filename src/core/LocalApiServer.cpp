@@ -1,4 +1,5 @@
 #include "LocalApiServer.h"
+#include "integration/BrowserCookieFile.h"
 #include <QDir>
 #include <QStandardPaths>
 #include <QUuid>
@@ -8,11 +9,22 @@
 #include <QJsonObject>
 #include <QJsonArray>
 #include <QUrl>
+#include <QUrlQuery>
 #include <QRegularExpression>
 #include <QDebug>
 #include <QCoreApplication>
 #include <chrono>
 #include <QTimer>
+
+namespace {
+
+bool isValidClientId(const QString &clientId)
+{
+    static const QRegularExpression clientIdRe(QStringLiteral("^[A-Za-z0-9._-]{1,128}$"));
+    return clientIdRe.match(clientId).hasMatch() && clientId.toUtf8().size() <= 128;
+}
+
+} // namespace
 
 LocalApiServer::LocalApiServer(ConfigManager *configManager, QObject *parent)
     : QObject(parent), m_configManager(configManager), m_server(new QTcpServer(this))
@@ -98,7 +110,29 @@ void LocalApiServer::generateOrLoadApiKey()
 void LocalApiServer::onDownloadAdded(const QVariantMap &itemData)
 {
     QString id = itemData.value(QStringLiteral("id")).toString();
-    m_activeJobs[id] = itemData;
+    const QVariantMap itemOptions = itemData.value(QStringLiteral("options")).toMap();
+    const QString cookieFile = itemData.value(QStringLiteral("cookie_file")).toString().trimmed().isEmpty()
+        ? itemOptions.value(QStringLiteral("cookie_file")).toString().trimmed()
+        : itemData.value(QStringLiteral("cookie_file")).toString().trimmed();
+    if (!cookieFile.isEmpty() && BrowserCookieFile::isOwnedPath(cookieFile)) {
+        m_jobCookieFiles.insert(id, cookieFile);
+    }
+    QVariantMap publicData = itemData;
+    publicData.remove(QStringLiteral("cookie_file"));
+    QVariantMap options = publicData.value(QStringLiteral("options")).toMap();
+    options.remove(QStringLiteral("cookie_file"));
+    if (!options.isEmpty() || publicData.contains(QStringLiteral("options"))) {
+        publicData.insert(QStringLiteral("options"), options);
+    }
+    m_activeJobs[id] = publicData;
+}
+
+void LocalApiServer::removeOwnedCookieFile(const QString &jobId)
+{
+    const QString cookieFile = m_jobCookieFiles.take(jobId);
+    if (!cookieFile.isEmpty() && !m_jobCookieFiles.values().contains(cookieFile)) {
+        BrowserCookieFile::remove(cookieFile);
+    }
 }
 
 void LocalApiServer::onDownloadProgress(const QString &id, const QVariantMap &progressData)
@@ -118,6 +152,7 @@ void LocalApiServer::onDownloadFinished(const QString &id, bool success, const Q
         jobIt.value().insert(QStringLiteral("status"), success ? QStringLiteral("Complete") : message);
         jobIt.value().insert(QStringLiteral("progress"), success ? 100 : -1);
     }
+    removeOwnedCookieFile(id);
 }
 
 void LocalApiServer::onDownloadCancelled(const QString &id)
@@ -127,11 +162,21 @@ void LocalApiServer::onDownloadCancelled(const QString &id)
         jobIt.value().insert(QStringLiteral("status"), QStringLiteral("Cancelled"));
         jobIt.value().insert(QStringLiteral("progress"), -1);
     }
+    removeOwnedCookieFile(id);
 }
 
 void LocalApiServer::onDownloadRemoved(const QString &id)
 {
     m_activeJobs.remove(id);
+    m_jobClients.remove(id);
+    removeOwnedCookieFile(id);
+}
+
+void LocalApiServer::onNonInteractiveRequestFailed(const QString &id, const QString &, const QString &)
+{
+    m_activeJobs.remove(id);
+    m_jobClients.remove(id);
+    removeOwnedCookieFile(id);
 }
 
 void LocalApiServer::onNewConnection()
@@ -279,14 +324,40 @@ void LocalApiServer::handleRequest(QTcpSocket *socket, const QByteArray &request
             const QJsonObject jsonObj = doc.object();
             const QString targetUrl = jsonObj.value(QStringLiteral("url")).toString().trimmed();
             const QString downloadType = jsonObj.value(QStringLiteral("type")).toString(QStringLiteral("video")); // Default to "video"
+            const bool hasClientId = jsonObj.contains(QStringLiteral("client_id"));
+            const QString clientId = jsonObj.value(QStringLiteral("client_id")).toString().trimmed();
+            const bool hasCookieFile = jsonObj.contains(QStringLiteral("cookie_file"));
+            const QString cookieFile = jsonObj.value(QStringLiteral("cookie_file")).toString().trimmed();
             const bool overrideArchive = jsonObj.value(QStringLiteral("override_archive")).toBool()
                 || jsonObj.value(QStringLiteral("options")).toObject().value(QStringLiteral("override_archive")).toBool();
+            if (hasClientId && !isValidClientId(clientId)) {
+                QJsonObject errObj;
+                errObj[QStringLiteral("error")] = QStringLiteral("Invalid 'client_id' in JSON body.");
+                sendHttpResponse(socket, 400, QStringLiteral("Bad Request"),
+                                 QJsonDocument(errObj).toJson(QJsonDocument::Compact));
+                return;
+            }
+            if (hasCookieFile && !BrowserCookieFile::isOwnedPath(cookieFile)) {
+                QJsonObject errObj;
+                errObj[QStringLiteral("error")] = QStringLiteral("Invalid temporary cookie file.");
+                sendHttpResponse(socket, 400, QStringLiteral("Bad Request"),
+                                 QJsonDocument(errObj).toJson(QJsonDocument::Compact));
+                return;
+            }
             if (!targetUrl.isEmpty()) {
                 QString jobId = jsonObj.value(QStringLiteral("id")).toString().trimmed();
                 if (jobId.isEmpty()) {
                     jobId = QUuid::createUuid().toString(QUuid::WithoutBraces);
                 }
-                emit enqueueRequested(targetUrl, downloadType, jobId, overrideArchive);
+                if (!clientId.isEmpty()) {
+                    m_jobClients.insert(jobId, clientId);
+                }
+                if (!cookieFile.isEmpty()) {
+                    m_jobCookieFiles.insert(jobId, cookieFile);
+                    emit enqueueWithCookieFileRequested(targetUrl, downloadType, jobId, overrideArchive, cookieFile);
+                } else {
+                    emit enqueueRequested(targetUrl, downloadType, jobId, overrideArchive);
+                }
                 QJsonObject successObj;
                 successObj[QStringLiteral("status")] = QStringLiteral("success");
                 successObj[QStringLiteral("message")] = QStringLiteral("Download added to queue.");
@@ -311,6 +382,8 @@ void LocalApiServer::handleRequest(QTcpSocket *socket, const QByteArray &request
         QJsonParseError parseError;
         const QJsonDocument doc = QJsonDocument::fromJson(bodyData, &parseError);
         const QJsonObject jsonObj = doc.isObject() ? doc.object() : QJsonObject();
+        const bool hasClientId = jsonObj.contains(QStringLiteral("client_id"));
+        const QString clientId = jsonObj.value(QStringLiteral("client_id")).toString().trimmed();
         const QString jobId = (jsonObj.value(QStringLiteral("job_id")).toString().isEmpty()
                                    ? jsonObj.value(QStringLiteral("id")).toString()
                                    : jsonObj.value(QStringLiteral("job_id")).toString()).trimmed();
@@ -326,7 +399,16 @@ void LocalApiServer::handleRequest(QTcpSocket *socket, const QByteArray &request
             return;
         }
 
-        if (!m_activeJobs.contains(jobId)) {
+        if (hasClientId && !isValidClientId(clientId)) {
+            QJsonObject errObj;
+            errObj[QStringLiteral("error")] = QStringLiteral("Invalid 'client_id' in JSON body.");
+            sendHttpResponse(socket, 400, QStringLiteral("Bad Request"),
+                             QJsonDocument(errObj).toJson(QJsonDocument::Compact));
+            return;
+        }
+
+        if (!m_activeJobs.contains(jobId)
+            || (!clientId.isEmpty() && m_jobClients.value(jobId) != clientId)) {
             QJsonObject errObj;
             errObj[QStringLiteral("error")] = QStringLiteral("Unknown job_id.");
             errObj[QStringLiteral("job_id")] = jobId;
@@ -343,8 +425,24 @@ void LocalApiServer::handleRequest(QTcpSocket *socket, const QByteArray &request
         sendHttpResponse(socket, 200, QStringLiteral("OK"),
                          QJsonDocument(responseObj).toJson(QJsonDocument::Compact));
     } else if (method == QStringLiteral("GET") && path == QStringLiteral("/status")) {
+        QUrlQuery query;
+        if (queryIndex != -1) {
+            query.setQuery(pathQuery.mid(queryIndex + 1).toString());
+        }
+        const bool hasClientId = query.hasQueryItem(QStringLiteral("client_id"));
+        const QString clientId = query.queryItemValue(QStringLiteral("client_id")).trimmed();
+        if (hasClientId && !isValidClientId(clientId)) {
+            QJsonObject errObj;
+            errObj[QStringLiteral("error")] = QStringLiteral("Invalid client_id query parameter.");
+            sendHttpResponse(socket, 400, QStringLiteral("Bad Request"),
+                             QJsonDocument(errObj).toJson(QJsonDocument::Compact));
+            return;
+        }
         QJsonArray jobsArray;
         for (auto it = m_activeJobs.cbegin(); it != m_activeJobs.cend(); ++it) {
+            if (!clientId.isEmpty() && m_jobClients.value(it.key()) != clientId) {
+                continue;
+            }
             jobsArray.append(QJsonObject::fromVariantMap(it.value()));
         }
         QJsonObject responseObj;

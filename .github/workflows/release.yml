@@ -13,6 +13,8 @@ jobs:
   build:
     name: Build (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    env:
+      LZY_BROWSER_EXTENSION_ID: ${{ vars.LZY_BROWSER_EXTENSION_ID }}
     strategy:
       fail-fast: false
       matrix:

@@ -19,7 +19,8 @@ StartTabUiBuilder::StartTabUiBuilder(ConfigManager *configManager, QObject *pare
     : QObject(parent), m_configManager(configManager),
       m_urlInput(nullptr), m_downloadButton(nullptr), m_downloadTypeCombo(nullptr),
       m_playlistLogicCombo(nullptr), m_maxConcurrentCombo(nullptr), m_rateLimitCombo(nullptr),
-      m_overrideDuplicateCheck(nullptr), m_commandPreview(nullptr), m_openDownloadsFolderButton(nullptr)
+      m_overrideDuplicateCheck(nullptr), m_commandPreview(nullptr), m_openDownloadsFolderButton(nullptr),
+      m_cookieWarningLabel(nullptr)
 {
 }
 
@@ -60,11 +61,23 @@ void StartTabUiBuilder::build(QWidget *parentWidget, QVBoxLayout *mainLayout)
     topLayout->addWidget(m_openDownloadsFolderButton);
     mainLayout->addLayout(topLayout);
 
-    QLabel *cookieWarningLabel = new QLabel(tr("⚠️ Warning: No browser selected for cookies. Video/Audio downloads may fail. We strongly recommend you use Firefox cookies."), parentWidget);
-    cookieWarningLabel->setObjectName(QStringLiteral("cookieWarningLabel"));
-    cookieWarningLabel->setStyleSheet(QStringLiteral("color: #E6A23C; font-weight: bold;"));
-    cookieWarningLabel->setWordWrap(true);
-    mainLayout->addWidget(cookieWarningLabel);
+    m_cookieWarningLabel = new QLabel(
+        tr("⚠️ <b>Browser cookies are not set up yet.</b> Some video/audio downloads may fail.<br>"
+           "Open <a href=\"cookie-settings\">Advanced Settings → Essentials</a>, then under "
+           "<b>Authentication Access</b> choose the browser where you are signed in "
+           "(Firefox is recommended because it can stay open while cookies are checked). "
+           "Chrome-based browsers such as Chrome, Edge, or Brave must be fully closed first; "
+           "LzyDownloader will check the selection automatically."),
+        parentWidget);
+    m_cookieWarningLabel->setObjectName(QStringLiteral("cookieWarningLabel"));
+    m_cookieWarningLabel->setTextFormat(Qt::RichText);
+    m_cookieWarningLabel->setTextInteractionFlags(Qt::TextBrowserInteraction);
+    m_cookieWarningLabel->setFocusPolicy(Qt::TabFocus);
+    m_cookieWarningLabel->setOpenExternalLinks(false);
+    m_cookieWarningLabel->setToolTip(tr("Choose a signed-in browser in Advanced Settings → Essentials → Authentication Access. Firefox can stay open; Chrome-based browsers must be fully closed while cookies are checked."));
+    m_cookieWarningLabel->setStyleSheet(QStringLiteral("color: #E6A23C;"));
+    m_cookieWarningLabel->setWordWrap(true);
+    mainLayout->addWidget(m_cookieWarningLabel);
 
     QHBoxLayout *inputSectionLayout = new QHBoxLayout();
 

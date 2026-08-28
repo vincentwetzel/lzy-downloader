@@ -9,6 +9,12 @@
   !define RELEASE_BUILD_DIR "build-release\Release"
 !endif
 
+; Set this only for a release after the Chrome Web Store extension ID is final.
+; An empty value leaves host registration disabled rather than using a wildcard.
+!ifndef BROWSER_EXTENSION_ID
+  !define BROWSER_EXTENSION_ID ""
+!endif
+
 ;--------------------------------
 ; General Configuration
 Name "LzyDownloader"
@@ -56,6 +62,21 @@ Section "Install"
     ; This includes LzyDownloader.exe, Qt DLLs, plugins, and extractor JSONs
     File /r "${RELEASE_BUILD_DIR}\*.*"
 
+    !if "${BROWSER_EXTENSION_ID}" != ""
+        ; Register the exact production extension origin for the current user.
+        ; The host manifest is generated here so its path matches this install.
+        FileOpen $0 "$INSTDIR\com.lzydownloader.browser.json" w
+        FileWrite $0 '{$\r$\n'
+        FileWrite $0 '  "name": "com.lzydownloader.browser",$\r$\n'
+        FileWrite $0 '  "description": "LzyDownloader local browser companion",$\r$\n'
+        FileWrite $0 '  "path": "$INSTDIR\\LzyDownloaderBrowserHost.exe",$\r$\n'
+        FileWrite $0 '  "type": "stdio",$\r$\n'
+        FileWrite $0 '  "allowed_origins": ["chrome-extension://${BROWSER_EXTENSION_ID}/"]$\r$\n'
+        FileWrite $0 '}$\r$\n'
+        FileClose $0
+        WriteRegStr HKCU "Software\Google\Chrome\NativeMessagingHosts\com.lzydownloader.browser" "" "$INSTDIR\com.lzydownloader.browser.json"
+    !endif
+
     ; Create Start Menu shortcut
     CreateDirectory "$SMPROGRAMS\LzyDownloader"
     CreateShortcut "$SMPROGRAMS\LzyDownloader\LzyDownloader.lnk" "$INSTDIR\LzyDownloader.exe"
@@ -89,6 +110,10 @@ Section "Uninstall"
 
     ; Remove installation directory and files
     RMDir /r "$INSTDIR"
+
+    !if "${BROWSER_EXTENSION_ID}" != ""
+        DeleteRegKey HKCU "Software\Google\Chrome\NativeMessagingHosts\com.lzydownloader.browser"
+    !endif
 
     ; Remove shortcuts
     Delete "$DESKTOP\LzyDownloader.lnk"

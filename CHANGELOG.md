@@ -9,6 +9,14 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## [Unreleased]
 
+- **Chrome browser companion:** Added a bounded native-messaging host with
+  client-scoped status/cancellation and request-scoped, host-validated browser
+  cookies. Cookie credentials stay out of queue backups and public snapshots
+  and are cleaned up after use.
+- **Cookie setup guidance:** The Start Download warning now explains the full
+  browser-cookie setup path and links directly to Advanced Settings →
+  Essentials.
+
 ## [1.2.41] - 2026-08-27
 
 - **Release CI:** Fixed the cross-platform build failure caused by routing the

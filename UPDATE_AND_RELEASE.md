@@ -173,8 +173,10 @@ On each runner, the workflow:
 - Deletes the existing `build-release/` directory to avoid stale DLL mismatches
 - Refreshes both extractor JSON files
 - Configures a Release build with CMake
-- Builds the platform-native `LzyDownloader` executable (and `LzyDownloader.app` on macOS)
-- On Windows, runs `makensis` from `PATH` when available, otherwise the standard NSIS installation path, against `LzyDownloader.nsi` with `/DAPP_VERSION=<version from CMakeLists.txt>` and `/DRELEASE_BUILD_DIR=build-release\Release`
+- Builds the platform-native `LzyDownloader` executable and the Windows
+  `LzyDownloaderBrowserHost` native-messaging host (and `LzyDownloader.app` on
+  macOS)
+- On Windows, runs `makensis` from `PATH` when available, otherwise the standard NSIS installation path, against `LzyDownloader.nsi` with `/DAPP_VERSION=<version from CMakeLists.txt>` and `/DRELEASE_BUILD_DIR=build-release\Release`. If the repository variable `LZY_BROWSER_EXTENSION_ID` is configured with the final 32-character Store ID, the release builder passes it through for exact native-host registration; if unset, registration remains disabled.
 - The Windows installer finish page offers a checked-by-default option to launch `LzyDownloader.exe` after installation
 - On Linux, stages a clean `build-release/AppDir`, caches linuxdeploy and its Qt plugin under `build-release/tooling/`, generates a linuxdeploy desktop file whose `Icon` matches the resized release PNG, and packages `build-release/LzyDownloader-<version>-x86_64.AppImage`
 - On Linux, selects qmake from the Qt SDK that built the executable so
@@ -186,8 +188,16 @@ On each runner, the workflow:
   Platform-service libraries such as D-Bus are excluded from linuxdeploy's ELF
   scan.
 - On macOS, runs `macdeployqt`, converts the release PNG into the bundle's ICNS icon, and emits `LzyDownloader-<version>-macos-x86_64.dmg` or `LzyDownloader-<version>-macos-arm64.dmg` according to the runner architecture.
-- Windows and Linux compile only the `LzyDownloader` target for packaging; the
-  separate headless test targets remain part of optional local/test workflows.
+- Windows and Linux package only the `LzyDownloader` application; the browser
+  host and separate headless test targets remain part of the build graph or
+  optional local/test workflows as applicable.
+- The browser host is included in Windows build output but is not registered by
+  the installer until the production Chrome Web Store extension ID is supplied
+  as release configuration. It must never be registered with a wildcard origin.
+- Verify browser-companion protocol and registration changes against the
+  separate browser-extension checkout before publishing. Local registration is
+  for development only; the installer must receive the final 32-character
+  extension ID through `LZY_BROWSER_EXTENSION_ID`.
 - Qt SDK installation uses the action cache, and Linux release compilation uses
   a persistent ccache keyed by runner/toolchain inputs. Linux also selects Ninja
   when available to reduce build-graph overhead.
@@ -240,6 +250,25 @@ tests rather than Qt's default feature bundle.
 ## Release to GitHub
 
 GitHub Actions automatically builds release assets when a `v*` tag is pushed. The workflow at `.github/workflows/release.yml` runs `python build_release.py` on `windows-latest`, `ubuntu-22.04`, `macos-15-intel` (Intel), and `macos-15` (Apple Silicon), then uploads the Windows installer, Linux AppImage, and both architecture-labelled macOS DMGs to the GitHub Release for that tag. If the matching release-notes file is absent, CI creates a minimal fallback body before publication. Use `workflow_dispatch` to run the matrix as a non-publishing validation; uploads are tag-only.
+
+### Repository directory guard
+
+Run every release command from the C++ checkout, not the separate Discord-bot
+checkout. Do not copy a local absolute path into this guide or into release
+documentation. Before staging files, confirm the directory and repository
+identity using repository-relative checks:
+
+```powershell
+git rev-parse --show-toplevel
+Test-Path .\CMakeLists.txt
+Test-Path .\.github\workflows\release.yml
+```
+
+The first command must print the current repository root, and both `Test-Path`
+commands must return `True`. If `CMakeLists.txt` is missing, stop; do not run
+`git add`, commit, or tag from that directory. The bot has its own Git history
+and may already contain a tag with the same version number; tags must be
+created in this C++ repository.
 
 ### Step 1: Commit Release Inputs
 

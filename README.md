@@ -39,6 +39,7 @@ Common uses include:
 - Saving supported image galleries through gallery-dl
 - Organizing downloaded media into folders and embedding titles, artists, and artwork
 - Running downloads through the optional localhost API or Discord bridge
+- Sending the current browser tab through the optional Chrome browser companion
 
 For remote Discord control, see the companion [LzyDownloader Discord
 Bridge](https://github.com/vincentwetzel/lzy-downloader-discord-bot), a Python
@@ -73,7 +74,7 @@ input are reported as incomplete-transfer failures before metadata embedding.
 - 🎨 **Advanced Settings** — Quality selection, format filtering, SponsorBlock integration, metadata embedding
 - 🎛️ **Runtime Format Selection** — Optionally prompt for specific video/audio qualities on every download, supporting multiple simultaneous format selections for the same media
 - 🔄 **App Updates** — Checks validated GitHub Releases for newer installers, saves unfinished downloads, stops downloader processes, and automatically restarts the app after installation
-- 🔌 **Local API** — Optional localhost API for trusted local integrations such as Discord bots
+- 🔌 **Local API** — Optional localhost API for trusted local integrations such as Discord bots and the browser companion
 - 📊 **Concurrent Downloads** — Queue and manage multiple downloads simultaneously
 - 🌙 **Sleep Prevention** — Prevents system idle sleep while downloads, post-processing, or finalization are active in GUI and non-interactive server/headless/background modes; the display may still turn off normally
 - 📌 **Compact Footer Status** — Download counters and current speed share the footer's first row, with the exit-after-downloads switch at the far right
@@ -84,6 +85,9 @@ input are reported as incomplete-transfer failures before metadata embedding.
 - 🔗 **Useful Quality Warnings** — Low-quality video warnings include the media title and a clickable source link when the URL is complete
 - 🖼️ **Thumbnail Embedding** — Automatic thumbnail download, bounded preview loading, and embedding for videos and audio
 - 🌐 **Browser Cookies** — Use saved cookies from Firefox, Chrome, Edge, or other browsers for age-restricted content; explicit browser-cookie extraction failures may retry once without cookies
+- 🧩 **Chrome Browser Companion** — The optional extension can enqueue the active
+  tab with request-scoped cookies, show only its own jobs, and request
+  cancellation through the installed native-messaging host.
 - 📂 **Smart Sorting** — Automatically organize downloads into subfolders based on uploader, playlist, date, or custom patterns
 - 🛡️ **Duplicate-safe retries** — Equivalent source URLs share a normalized media identity, preventing duplicate queue/retry jobs without adding site-specific downloader behavior
 - 🔁 **Terminal retry recovery** — Explicit API re-downloads can replace matching restored stopped/failed jobs, while genuinely paused downloads remain protected
@@ -256,10 +260,20 @@ Equivalent URLs are deduplicated using normalized media identity across queued, 
 - `POST /enqueue` with JSON body `{"url":"https://...","type":"video","id":"optional-stable-job-id","override_archive":true}` queues a download using non-interactive defaults. `type` is optional and may be `video`, `audio`, or `gallery`; omitted requests default to `video`. `id` is optional; when omitted, the app generates a UUID. `override_archive` is optional and may also be supplied under `options`; it must be explicitly true for an intentional re-download.
 - `POST /cancel` with JSON body `{"job_id":"..."}` requests cancellation of a tracked queued or active job. The endpoint uses the same bearer token and returns `404` for an unknown job ID.
 - `GET /status` returns current tracked jobs, including progress fields when available.
+- Browser-companion requests use a stable local client ID for scoped status and
+  cancellation. Optional browser-session cookies arrive through the native
+  host as a short-lived local cookie file and are never stored in queue backups.
 - Requests are bounded and validated; malformed request lines, oversized payloads, invalid Host headers, or untrusted browser origins are rejected.
 - **Webhook Outbound**: The application automatically emits real-time HTTP POST JSON payloads to `http://127.0.0.1:8766/webhook` whenever download status, progress, speed, or ETA changes. Payloads are throttled to 1.5 seconds, sanitize long or multi-line status strings, preserve terminal completion/cancellation state for local bridge clients, include `parent_id` mapping to track playlist child items, carry `overall_progress` for multi-stream jobs when available, report non-interactive validation/duplicate/missing-binary/runtime/terminal failures with an `error` diagnostic, and clean up bounded network replies through the owning window context.
 
 Automation can also launch `LzyDownloader.exe --background <url>`, `LzyDownloader.exe --server <url>`, or `LzyDownloader.exe --headless <url>` to enqueue a direct URL without showing blocking prompt dialogs. Server/headless/background queue backups, API tokens, and logs are isolated under `Server/`, but user preferences still come from the main `settings.ini`.
+
+The Chrome companion is a separate project and is not enabled by installing the
+desktop application alone. For local development, register its native host with
+the companion project's helper. Release installers register the host only when
+the exact Chrome Web Store extension ID is supplied to the release build; a
+wildcard origin is never accepted. The host supports versioned `ping`, `enqueue`,
+`status`, and `cancel` messages over Chrome's length-prefixed stdio protocol.
 
 Extractor-list refresh scripts are non-interactive and live under `tools/`, so release automation can run `tools/update_yt-dlp_extractors.py` and `tools/update_gallery-dl_extractors.py` without waiting for a final keypress. They write the generated extractor JSON files to the repository root because those files are bundled runtime assets.
 
@@ -351,11 +365,14 @@ LzyDownloader/
 │   │   │   ├── MetadataPage.h/cpp    # Metadata & Thumbnail configuration
 │   │   │   └── ...
 │   │   └── ...
+│   ├── integration/            # Browser companion and request-scoped cookie files
+│   │   ├── BrowserCookieFile.h/cpp
+│   │   └── BrowserNativeMessagingHost.cpp
 │   └── utils/                  # Helper Modules
 │       └── ExtractorJsonParser.h/cpp # Extractor-domain cache loader
 ```
 
-**Note:** External binaries (yt-dlp, ffmpeg, ffprobe, gallery-dl, aria2c, deno) are not bundled with the application. Users must install them separately or configure paths in Advanced Settings.
+**Note:** External binaries (yt-dlp, ffmpeg, ffprobe, gallery-dl, aria2c, deno) are not bundled with the application. Users must install them separately or configure paths in Advanced Settings. The Windows release also builds `LzyDownloaderBrowserHost.exe`; it is registered only for an exact production extension ID.
 
 ## Contributing
 

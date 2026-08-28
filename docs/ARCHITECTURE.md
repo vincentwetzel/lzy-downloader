@@ -85,6 +85,7 @@ replacement. Temp cleanup owns root resolution and guarded UUID-folder removal.
 | `ActiveDownloadsTab.*`, `DownloadItemWidget.*` | Download rows, thumbnails, compact layout, one focused progress bar, actions |
 | `advanced_settings/*`, `MissingBinariesDialog.*` | Settings pages, templates, and consolidated binary setup/provisioning |
 | `LocalApiServer.*` | Authenticated localhost enqueue/status/cancel, aggregate progress, and tracked-job signals |
+| `integration/BrowserNativeMessagingHost.cpp`, `integration/BrowserCookieFile.*` | Bounded Chrome native-messaging bridge and request-scoped cookie-file ownership; starts the validated headless server and relays allowlisted Local API operations |
 | `AppUpdater.*`, `LzyDownloader.nsi` | Release lookup/handoff and Windows silent-install relaunch |
 | `PowerInhibitor.*` | Platform idle-sleep inhibition |
 | `LogManager.*` | Per-run logs and five-file startup retention |

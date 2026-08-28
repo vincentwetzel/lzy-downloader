@@ -17,6 +17,7 @@
 
 class QEvent;
 class QFocusEvent;
+class QLabel;
 class ToggleSwitch;
 class StartTabUiBuilder;
 class StartTabUrlHandler;
@@ -40,6 +41,7 @@ protected:
 signals:
     void downloadRequested(const QString &url, const QVariantMap &options);
     void navigateToExternalBinaries();
+    void navigateToCookieSettings();
     void missingBinariesDetected(const QStringList &missingBinaries);
     void urlInputTextChanged(const QString &text);
 

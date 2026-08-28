@@ -10,6 +10,7 @@
 
 class ConfigManager;
 class ToggleSwitch;
+class QLabel;
 
 class StartTabUiBuilder : public QObject
 {
@@ -28,6 +29,7 @@ public:
     ToggleSwitch* overrideDuplicateCheck() const { return m_overrideDuplicateCheck; }
     QTextEdit* commandPreview() const { return m_commandPreview; }
     QPushButton* openDownloadsFolderButton() const { return m_openDownloadsFolderButton; }
+    QLabel* cookieWarningLabel() const { return m_cookieWarningLabel; }
 private:
     ConfigManager *m_configManager;
     QTextEdit *m_urlInput;
@@ -39,4 +41,5 @@ private:
     ToggleSwitch *m_overrideDuplicateCheck;
     QTextEdit *m_commandPreview;
     QPushButton *m_openDownloadsFolderButton;
+    QLabel *m_cookieWarningLabel;
 };

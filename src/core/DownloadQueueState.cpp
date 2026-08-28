@@ -1,4 +1,5 @@
 #include "DownloadQueueState.h"
+#include "integration/BrowserCookieFile.h"
 #include <QDir>
 #include <QStandardPaths>
 #include <QFile>
@@ -12,6 +13,7 @@
 DownloadQueueState::DownloadQueueState(QObject *parent)
     : QObject(parent)
 {
+    BrowserCookieFile::cleanupExpired();
     QString configDir = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation);
     if (QCoreApplication::arguments().contains(QStringLiteral("--headless")) || QCoreApplication::arguments().contains(QStringLiteral("--server")) || QCoreApplication::arguments().contains(QStringLiteral("--background"))) {
         configDir = QDir(configDir).filePath(QStringLiteral("Server"));
@@ -37,7 +39,14 @@ QJsonArray DownloadQueueState::load()
             QJsonArray validArray;
             for (const QJsonValue &val : arr) {
                 if (val.isObject()) {
-                    validArray.append(val);
+                    QJsonObject item = val.toObject();
+                    QJsonObject options = item.value(QStringLiteral("options")).toObject();
+                    const QString cookieFile = options.take(QStringLiteral("cookie_file")).toString();
+                    if (!cookieFile.isEmpty()) {
+                        BrowserCookieFile::remove(cookieFile);
+                    }
+                    item.insert(QStringLiteral("options"), options);
+                    validArray.append(item);
                 } else {
                     qWarning() << "Skipping invalid non-object element in download queue backup file.";
                 }
@@ -61,7 +70,11 @@ void DownloadQueueState::save(const QList<DownloadItem>& activeItems, const QMap
         QJsonObject obj;
         obj.insert(QStringLiteral("id"), item.id);
         obj.insert(QStringLiteral("url"), item.url);
-        obj.insert(QStringLiteral("options"), QJsonObject::fromVariantMap(item.options));
+        QVariantMap persistedOptions = item.options;
+        // Browser-session cookies are request-scoped credentials. The path is
+        // usable only by the current worker and must never enter a queue backup.
+        persistedOptions.remove(QStringLiteral("cookie_file"));
+        obj.insert(QStringLiteral("options"), QJsonObject::fromVariantMap(persistedOptions));
         obj.insert(QStringLiteral("metadata"), QJsonObject::fromVariantMap(item.metadata));
         obj.insert(QStringLiteral("status"), status);
         obj.insert(QStringLiteral("playlistIndex"), item.playlistIndex);

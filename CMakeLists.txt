@@ -273,6 +273,7 @@ add_library(LzyAppLib STATIC
     src/core/YtDlpWorkerProcess.cpp
     src/core/YtDlpWorkerProgress.cpp
     src/core/YtDlpWorkerTransfers.cpp
+    src/integration/BrowserCookieFile.cpp
     src/core/download_pipeline/Aria2DownloadWorker.cpp
     src/core/download_pipeline/Aria2RpcClient.cpp
     src/core/download_pipeline/FfmpegMuxer.cpp
@@ -371,9 +372,24 @@ target_link_libraries(LzyDownloader PRIVATE
 )
 lzy_add_qt_windows_deploy(LzyDownloader)
 
+# Chrome launches this console executable through its native-messaging
+# manifest. It deliberately contains only the localhost bridge; all download
+# behavior remains owned by LzyDownloader and its Local API.
+add_executable(LzyDownloaderBrowserHost
+    src/integration/BrowserNativeMessagingHost.cpp
+    src/integration/BrowserCookieFile.cpp
+)
+target_link_libraries(LzyDownloaderBrowserHost PRIVATE
+    Qt6::Core
+    Qt6::Network
+)
+lzy_add_qt_windows_deploy(LzyDownloaderBrowserHost)
+add_dependencies(LzyDownloader LzyDownloaderBrowserHost)
+
 if(MSVC)
     target_compile_options(LzyAppLib PRIVATE /FS /MP)
     target_compile_options(LzyDownloader PRIVATE /FS /MP)
+    target_compile_options(LzyDownloaderBrowserHost PRIVATE /FS /MP)
 endif()
 
 add_custom_command(TARGET LzyDownloader POST_BUILD
@@ -418,6 +434,7 @@ lzy_add_test(TestEndToEnd tests/TestEndToEnd.cpp)
 lzy_add_test(TestArchiveManager tests/TestArchiveManager.cpp)
 lzy_add_test(TestConfigManager tests/TestConfigManager.cpp)
 lzy_add_test(TestLocalApiServer tests/TestLocalApiServer.cpp)
+lzy_add_test(TestBrowserCookieFile tests/TestBrowserCookieFile.cpp)
 lzy_add_test(TestUrlValidator tests/TestUrlValidator.cpp)
 lzy_add_test(TestSortingManager tests/TestSortingManager.cpp)
 lzy_add_test(TestUIWidgets tests/TestUIWidgets.cpp)

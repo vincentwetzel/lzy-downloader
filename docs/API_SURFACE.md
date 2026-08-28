@@ -107,6 +107,10 @@ Serves authenticated automation on `127.0.0.1:8765`.
 - `void enqueueRequested(const QString &url, const QString &type,
   const QString &jobId, bool overrideArchive)` fires for an authorized
   valid enqueue. `jobId` is generated when omitted; the override is explicit.
+- `void enqueueWithCookieFileRequested(const QString &url, const QString &type,
+  const QString &jobId, bool overrideArchive, const QString &cookieFile)` is
+  the browser-companion variant; it carries an owned temporary cookie-file path
+  that is never included in public job snapshots.
 - `void cancelRequested(const QString &jobId)` fires for an authorized tracked
   `POST /cancel`.
 - `void onDownloadCancelled(const QString &id)` retains `Cancelled` for
@@ -115,8 +119,38 @@ Serves authenticated automation on `127.0.0.1:8765`.
 - `POST /cancel` accepts `job_id` or compatibility key `id`; it returns 200 for
   an accepted tracked request, 400 for malformed/missing IDs, and 404 for an
   unknown ID. `/enqueue` and `/status` share its authentication and bounds.
+  Browser-companion requests may include a bounded `client_id`; status and
+  cancellation are then restricted to jobs enqueued by that client.
+  Browser-companion enqueue requests may also include a validated temporary
+  `cookie_file`; it is passed to yt-dlp as `--cookies` and removed when the
+  job reaches a terminal/removal path.
   Webhook payloads may include `overall_progress` for multi-stream jobs and
   retain terminal completion/cancellation state for bridge consumers.
+
+### Browser native-messaging host
+
+`LzyDownloaderBrowserHost` is a console target built from
+`src/integration/BrowserNativeMessagingHost.cpp`. Chrome invokes it through
+the `com.lzydownloader.browser` native-messaging manifest. It accepts only the
+versioned `ping`, `enqueue`, `status`, and `cancel` operations, validates
+bounded HTTP(S) URLs and job IDs, and keeps the Local API bearer token inside
+the host. It returns sanitized per-request status rather than forwarding the
+desktop API response wholesale. The host starts
+`LzyDownloader.exe --server --exit-after` only from its own validated
+application directory.
+
+The host manifest must allowlist the exact extension origin. Installer
+registration is intentionally deferred until the production Web Store ID is
+known; local development uses the browser-extension project's registration
+helper.
+
+The host accepts at most a 1 MiB length-prefixed message. `enqueue` accepts only
+HTTP(S) URLs, `video` or `audio` type, a bounded client ID, and an optional JSON
+cookie array. The cookie helper accepts at most 500 entries and creates a
+Netscape cookie file no larger than 900 KiB. Each cookie must match the target
+host and path rules; secure cookies require HTTPS. Generated files are omitted
+from queue backups and status snapshots, then removed on rejection, terminal
+completion/cancellation/removal, or expiry cleanup.
 
 ### [AppUpdater](../src/core/AppUpdater.h)
 

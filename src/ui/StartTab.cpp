@@ -139,6 +139,14 @@ void StartTab::setupUI() {
         });
     }
 
+    if (m_uiBuilder->cookieWarningLabel()) {
+        connect(m_uiBuilder->cookieWarningLabel(), &QLabel::linkActivated, this, [this](const QString &link) {
+            if (link == QStringLiteral("cookie-settings")) {
+                emit navigateToCookieSettings();
+            }
+        });
+    }
+
     setLayout(mainLayout); // Set the layout for the StartTab widget
 }
 

@@ -323,12 +323,22 @@ def main():
         ]
         nsis_path = next((candidate for candidate in nsis_candidates if candidate.is_file()), None)
         if nsis_path is not None:
-            run_command([
+            nsis_args = [
                 str(nsis_path),
                 f"/DAPP_VERSION={app_version}",
                 f"/DRELEASE_BUILD_DIR={build_dir}\\Release",
                 "LzyDownloader.nsi"
-            ])
+            ]
+            browser_extension_id = os.environ.get("LZY_BROWSER_EXTENSION_ID", "").strip()
+            if browser_extension_id:
+                if re.fullmatch(r"[a-p]{32}", browser_extension_id) is None:
+                    log("Error: LZY_BROWSER_EXTENSION_ID must be a 32-character Chrome extension ID using letters a-p.", RED)
+                    sys.exit(1)
+                nsis_args.insert(-1, f"/DBROWSER_EXTENSION_ID={browser_extension_id}")
+                log("Enabling exact Chrome native-host registration for the configured extension ID.", GREEN)
+            else:
+                log("Chrome native-host registration is disabled; LZY_BROWSER_EXTENSION_ID is not configured.", YELLOW)
+            run_command(nsis_args)
             log(f"\n=== Windows Build Success: LzyDownloader-Setup-{app_version}.exe ===", GREEN)
         else:
             log("Error: NSIS compiler not found on PATH or at C:/Program Files (x86)/NSIS/makensis.exe. Packaging aborted.", RED)

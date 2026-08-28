@@ -61,6 +61,11 @@ Read the relevant section only.
 - Keep Local API traffic bearer-authenticated, localhost/origin-checked,
   bounded, and routed through the manager. Use HTTPS and explicit network
   timeouts for remote traffic.
+- Treat browser-companion cookie files as request-scoped credentials: validate
+  URL/domain/path scope and size before writing Netscape format, accept only
+  application-owned temporary paths, omit them from persistence/status, and
+  remove them on terminal, rejection, and expiry paths. Native messaging must
+  use bounded length-prefixed stdio and exact extension-origin allowlists.
 - Preserve explicit binary overrides and resolver ownership tracking. Route
   package-managed updates through their manager; never silently replace a
   standalone external FFmpeg. Keep paired Windows FFmpeg/FFprobe `.exe`

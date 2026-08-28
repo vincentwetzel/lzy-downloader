@@ -16,6 +16,7 @@ private slots:
     void testUnauthorizedAccess();
     void testValidEnqueueRequest();
     void testValidCancelRequest();
+    void testClientScopedStatusAndCancellation();
 
 private:
     LocalApiServer *m_apiServer = nullptr;

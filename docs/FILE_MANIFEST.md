@@ -42,6 +42,10 @@ Public/project guidance is in `README.md`, `CONTRIBUTING.md`, `SECURITY.md`,
 
 - `src/core/`: queue, archive, configuration, workers, finalization, binary
   resolution, API, and platform behavior.
+- `src/integration/BrowserNativeMessagingHost.cpp`: Chrome native-messaging
+  bridge for the local desktop API; built as `LzyDownloaderBrowserHost`.
+- `src/integration/BrowserCookieFile.h/cpp`: validates browser cookie bundles
+  and owns short-lived Netscape-format cookie files.
 - `src/core/download_pipeline/`: FFmpeg pipeline helpers.
 - `src/ui/`: Qt Widgets, tabs, dialogs, and presentation builders.
 - `src/utils/`: logging, discovery, parsing, and platform helpers.
@@ -72,6 +76,7 @@ paths/headless Qt. Main focused files are:
 | Queue/archive/temp/replacement | `TestDownloadQueueManager.cpp`, `TestDownloadQueueState.cpp`, `TestDownloadTempCleanup.cpp`, `TestFileReplacement.cpp` |
 | Worker/tools/power | `TestYtDlpWorker.cpp`, `TestProcessUtils.cpp`, `TestPowerInhibitor.cpp` |
 | UI | `TestUIWidgets.cpp` |
+| Browser companion | `TestBrowserCookieFile.cpp`, `TestLocalApiServer.cpp` |
 
 When adding or moving a major file, update this manifest and
 `docs/ARCHITECTURE.md` together. Keep generated/build paths out of this index.

@@ -5,6 +5,14 @@ optionally read browser cookies for user-authorized downloads. Please treat
 security reports and diagnostic output carefully: never publish cookies, API
 tokens, credentials, or private media URLs.
 
+The Chrome companion sends cookies only for the requested HTTP(S) host. The
+application rejects out-of-scope domains, unsafe cookie fields, secure cookies
+for HTTP URLs, oversized bundles, and paths outside its generated temporary
+cookie directory. Generated files are request-scoped, excluded from queue
+backups and API snapshots, and removed during cleanup or expiry. The native
+host accepts only versioned allowlisted operations and exact extension origins;
+wildcard origins are unsupported.
+
 External binaries may be discovered from package-manager directories, including
 versioned WinGet payloads. Updates must continue through the package manager or
 the tool's own updater; the application must not silently replace an unrelated

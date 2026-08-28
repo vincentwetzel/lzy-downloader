@@ -69,6 +69,10 @@ void MainWindow::setupUI()
         m_uiBuilder->tabWidget()->setCurrentWidget(m_advancedSettingsTab);
         m_advancedSettingsTab->navigateToCategory(QStringLiteral("External Binaries"));
     });
+    connect(m_startTab, &StartTab::navigateToCookieSettings, this, [this]() {
+        m_uiBuilder->tabWidget()->setCurrentWidget(m_advancedSettingsTab);
+        m_advancedSettingsTab->navigateToCategory(QStringLiteral("Authentication Access"));
+    });
     connect(m_startTab, &StartTab::missingBinariesDetected, this, [this](const QStringList &missingBinaries) {
         if (m_nonInteractiveLaunch) {
             qWarning() << "Ignoring missing-binaries dialog request during non-interactive launch:"

@@ -606,9 +606,14 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
     rawArgs << QStringLiteral("--windows-filenames");
 
     // --- Cookies ---
-    QString cookiesBrowser = configManager->get(QStringLiteral("General"), QStringLiteral("cookies_from_browser"), QStringLiteral("None")).toString();
-    if (cookiesBrowser != QLatin1String("None") && !isPlaylistExpansion) {
-        rawArgs << QStringLiteral("--cookies-from-browser") << cookiesBrowser.toLower();
+    const QString requestCookieFile = options.value(QStringLiteral("cookie_file")).toString().trimmed();
+    if (!requestCookieFile.isEmpty()) {
+        rawArgs << QStringLiteral("--cookies") << requestCookieFile;
+    } else {
+        QString cookiesBrowser = configManager->get(QStringLiteral("General"), QStringLiteral("cookies_from_browser"), QStringLiteral("None")).toString();
+        if (cookiesBrowser != QLatin1String("None") && !isPlaylistExpansion) {
+            rawArgs << QStringLiteral("--cookies-from-browser") << cookiesBrowser.toLower();
+        }
     }
 
     // --- Custom ffmpeg path ---

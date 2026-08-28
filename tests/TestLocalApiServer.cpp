@@ -4,6 +4,8 @@
 #include <QNetworkReply>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QJsonArray>
+#include <QUrlQuery>
 #include <QSignalSpy>
 #include <QTimer>
 #include <QEventLoop>
@@ -140,6 +142,73 @@ void TestLocalApiServer::testValidCancelRequest() {
     QCOMPARE(reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt(), 200);
     QCOMPARE(spy.count(), 1);
     QCOMPARE(spy.takeFirst().at(0).toString(), jobId);
+}
+
+void TestLocalApiServer::testClientScopedStatusAndCancellation() {
+    const QString firstJobId = QStringLiteral("scope-job-one");
+    const QString secondJobId = QStringLiteral("scope-job-two");
+    const QString firstClientId = QStringLiteral("browser-client-one");
+    const QString secondClientId = QStringLiteral("browser-client-two");
+    QNetworkAccessManager manager;
+
+    auto enqueue = [&](const QString &jobId, const QString &clientId) {
+        QNetworkRequest request(QUrl(QStringLiteral("http://127.0.0.1:8765/enqueue")));
+        request.setRawHeader(QByteArrayLiteral("Authorization"), QStringLiteral("Bearer %1").arg(m_apiServer->getApiKey()).toUtf8());
+        request.setHeader(QNetworkRequest::ContentTypeHeader, QStringLiteral("application/json"));
+        QJsonObject json;
+        json[QStringLiteral("url")] = QStringLiteral("https://example.com/%1").arg(jobId);
+        json[QStringLiteral("id")] = jobId;
+        json[QStringLiteral("client_id")] = clientId;
+        QNetworkReply *reply = manager.post(request, QJsonDocument(json).toJson(QJsonDocument::Compact));
+        QEventLoop loop;
+        connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+        QTimer::singleShot(3000, &loop, &QEventLoop::quit);
+        loop.exec();
+        const int status = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        reply->deleteLater();
+        QCOMPARE(status, 200);
+
+        QVariantMap itemData;
+        itemData.insert(QStringLiteral("id"), jobId);
+        itemData.insert(QStringLiteral("status"), QStringLiteral("Queued"));
+        itemData.insert(QStringLiteral("progress"), 0);
+        m_apiServer->onDownloadAdded(itemData);
+    };
+
+    enqueue(firstJobId, firstClientId);
+    enqueue(secondJobId, secondClientId);
+
+    QUrl statusUrl(QStringLiteral("http://127.0.0.1:8765/status"));
+    QUrlQuery query;
+    query.addQueryItem(QStringLiteral("client_id"), firstClientId);
+    statusUrl.setQuery(query);
+    QNetworkRequest statusRequest(statusUrl);
+    statusRequest.setRawHeader(QByteArrayLiteral("Authorization"), QStringLiteral("Bearer %1").arg(m_apiServer->getApiKey()).toUtf8());
+    QNetworkReply *statusReply = manager.get(statusRequest);
+    QEventLoop statusLoop;
+    connect(statusReply, &QNetworkReply::finished, &statusLoop, &QEventLoop::quit);
+    QTimer::singleShot(3000, &statusLoop, &QEventLoop::quit);
+    statusLoop.exec();
+    QCOMPARE(statusReply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt(), 200);
+    const QJsonObject statusObject = QJsonDocument::fromJson(statusReply->readAll()).object();
+    const QJsonArray jobs = statusObject.value(QStringLiteral("jobs")).toArray();
+    QCOMPARE(jobs.size(), 1);
+    QCOMPARE(jobs.first().toObject().value(QStringLiteral("id")).toString(), firstJobId);
+    statusReply->deleteLater();
+
+    QNetworkRequest wrongCancel(QUrl(QStringLiteral("http://127.0.0.1:8765/cancel")));
+    wrongCancel.setRawHeader(QByteArrayLiteral("Authorization"), QStringLiteral("Bearer %1").arg(m_apiServer->getApiKey()).toUtf8());
+    wrongCancel.setHeader(QNetworkRequest::ContentTypeHeader, QStringLiteral("application/json"));
+    QJsonObject wrongBody;
+    wrongBody[QStringLiteral("job_id")] = firstJobId;
+    wrongBody[QStringLiteral("client_id")] = secondClientId;
+    QNetworkReply *wrongReply = manager.post(wrongCancel, QJsonDocument(wrongBody).toJson(QJsonDocument::Compact));
+    QEventLoop wrongLoop;
+    connect(wrongReply, &QNetworkReply::finished, &wrongLoop, &QEventLoop::quit);
+    QTimer::singleShot(3000, &wrongLoop, &QEventLoop::quit);
+    wrongLoop.exec();
+    QCOMPARE(wrongReply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt(), 404);
+    wrongReply->deleteLater();
 }
 
 QTEST_GUILESS_MAIN(TestLocalApiServer)

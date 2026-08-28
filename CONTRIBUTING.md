@@ -41,6 +41,10 @@ recorded as failed by the preceding run.
 Keep the GUI responsive, preserve the temporary-download-to-final-file
 lifecycle, and update the maintained documentation when behavior changes.
 Production code belongs under `src/`; tests and fixtures belong under `tests/`.
+The browser companion boundary is split between `src/integration/` and the
+separate browser-extension project: keep native-messaging protocol changes,
+cookie validation, Local API scoping, and extension registration documentation
+synchronized across both repositories.
 
 ## Pull requests
 
