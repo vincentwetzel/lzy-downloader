@@ -132,10 +132,14 @@ Serves authenticated automation on `127.0.0.1:8765`.
 `LzyDownloaderBrowserHost` is a console target built from
 `src/integration/BrowserNativeMessagingHost.cpp`. Chrome invokes it through
 the `com.lzydownloader.browser` native-messaging manifest. It accepts only the
-versioned `ping`, `enqueue`, `status`, and `cancel` operations, validates
+protocol-1 `ping`, `enqueue`, `status`, and `cancel` operations, validates
 bounded HTTP(S) URLs and job IDs, and keeps the Local API bearer token inside
-the host. It returns sanitized per-request status rather than forwarding the
-desktop API response wholesale. The host starts
+the host. Every response contains protocol `1`, the request ID, and either a
+bounded success payload or a stable error code. An unsupported request version
+returns `UNSUPPORTED_PROTOCOL`; the extension must treat any response with a
+different or missing protocol as a protocol failure. The host returns
+sanitized per-request status rather than forwarding the desktop API response
+wholesale. The host starts
 `LzyDownloader.exe --server --exit-after` only from its own validated
 application directory.
 
@@ -146,10 +150,12 @@ helper.
 
 The host accepts at most a 1 MiB length-prefixed message. `enqueue` accepts only
 HTTP(S) URLs, `video` or `audio` type, a bounded client ID, and an optional JSON
-cookie array. The cookie helper accepts at most 500 entries and creates a
-Netscape cookie file no larger than 900 KiB. Each cookie must match the target
-host and path rules; secure cookies require HTTPS. Generated files are omitted
-from queue backups and status snapshots, then removed on rejection, terminal
+cookie array. The cookie helper accepts at most 500 entries, limits each field
+to 4096 bytes, rejects control characters, and creates a Netscape cookie file
+no larger than 900 KiB. Each cookie must match the target host and URL path
+boundary; secure cookies require HTTPS and numeric expirations must be whole
+seconds from zero through 2100-01-01 UTC. Generated files are omitted from
+queue backups and status snapshots, then removed on rejection, terminal
 completion/cancellation/removal, or expiry cleanup.
 
 ### [AppUpdater](../src/core/AppUpdater.h)

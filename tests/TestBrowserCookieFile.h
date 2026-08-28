@@ -9,4 +9,8 @@ private slots:
     void createsScopedNetscapeFile();
     void rejectsCookieOutsideUrlScope();
     void rejectsControlCharacters();
+    void rejectsCookieOutsideUrlPath();
+    void rejectsSecureCookieOnHttp();
+    void rejectsInvalidExpiration();
+    void removesExpiredOwnedFile();
 };

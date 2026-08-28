@@ -337,8 +337,9 @@ The server binds only to `127.0.0.1:8765`. Requests must include `Authorization:
 
 The browser companion adds a bounded `client_id` to scope status and
 cancellation to that browser client. Its enqueue request may contain a JSON
-cookie array; LzyDownloader validates the cookies against the requested URL,
-writes a temporary Netscape-format file, and passes only that file to yt-dlp.
+cookie array; LzyDownloader validates each cookie's host, URL path boundary,
+secure transport, expiration, field size, and control characters, writes a
+temporary Netscape-format file, and passes only that file to yt-dlp.
 Cookie paths are removed from queue backups and public status snapshots, then
 deleted when the job reaches a terminal/removal path. Expired owned cookie files
 are swept at startup. This request-scoped authentication does not change the

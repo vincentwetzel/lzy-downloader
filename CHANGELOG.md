@@ -13,6 +13,9 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
   client-scoped status/cancellation and request-scoped, host-validated browser
   cookies. Cookie credentials stay out of queue backups and public snapshots
   and are cleaned up after use.
+- **Chrome browser companion validation:** Enforce cookie URL path scope in the
+  native host and add extension-side and desktop-side coverage for cookie
+  scope, secure transport, expiration, size limits, redaction, and cleanup.
 - **Cookie setup guidance:** The Start Download warning now explains the full
   browser-cookie setup path and links directly to Advanced Settings →
   Essentials.

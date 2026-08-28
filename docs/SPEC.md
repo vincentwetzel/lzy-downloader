@@ -185,13 +185,17 @@ only the sections relevant to the change.
   requests, sanitized status, queue positions, parent IDs, aggregate
   `overall_progress` when available, and observable terminal
   completion/cancellation states.
-- Browser-companion enqueue requests may carry a validated, request-scoped
-  cookie-file path and client identity. The path is passed only to the worker
-  as `--cookies`, is excluded from queue backups and API status payloads, and
-  is removed on terminal/removal cleanup; status and cancellation are scoped
-  to the client identity. Native messages are length-prefixed and capped at
-  1 MiB; cookie bundles are capped at 500 entries/900 KiB and each cookie must
-  match the requested host and path scope.
+- Browser-companion messages use protocol `1` and bounded, length-prefixed
+  native-messaging frames capped at 1 MiB. The host returns the same protocol
+  version and request ID on every response; unsupported request versions use
+  `UNSUPPORTED_PROTOCOL`. Browser-companion enqueue requests may carry a
+  validated, request-scoped cookie-file path and client identity. The path is
+  passed only to the worker as `--cookies`, is excluded from queue backups and
+  API status payloads, and is removed on terminal/removal cleanup; status and
+  cancellation are scoped to the client identity. Cookie bundles are capped
+  at 500 entries/900 KiB, fields are bounded and control-character-free, each
+  cookie must match the requested host and URL path boundary, secure cookies
+  require HTTPS, and expiration values are bounded whole seconds.
 - `AppUpdater` checks HTTPS releases asynchronously, validates JSON/assets,
   matches OS and macOS CPU architecture, and opens macOS DMGs through Finder.
   Before install launch, save resumable state and terminate child processes.

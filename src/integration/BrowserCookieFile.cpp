@@ -40,6 +40,21 @@ bool cookieAppliesToHost(const QString &domain, const QString &host)
         && (host == normalizedDomain || host.endsWith(QLatin1Char('.') + normalizedDomain));
 }
 
+bool cookieAppliesToPath(const QString &cookiePath, const QString &requestPath)
+{
+    if (!cookiePath.startsWith(QLatin1Char('/'))) {
+        return false;
+    }
+    if (cookiePath == QLatin1String("/")) {
+        return true;
+    }
+    if (!requestPath.startsWith(cookiePath)) {
+        return false;
+    }
+    return cookiePath.endsWith(QLatin1Char('/')) || requestPath.size() == cookiePath.size()
+        || requestPath.at(cookiePath.size()) == QLatin1Char('/');
+}
+
 } // namespace
 
 namespace BrowserCookieFile {
@@ -63,7 +78,7 @@ CreateResult createForUrl(const QJsonArray &cookies, const QUrl &url)
         const QString path = cookie.value(QStringLiteral("path")).toString();
         if (name.isEmpty() || domain.isEmpty() || path.isEmpty() || !safeField(name)
             || !safeField(cookieValue) || !safeField(domain) || !safeField(path)
-            || !path.startsWith(QLatin1Char('/'))
+            || !cookieAppliesToPath(path, url.path().isEmpty() ? QStringLiteral("/") : url.path())
             || !cookieAppliesToHost(domain, url.host().toLower())) {
             return {false, {}, QStringLiteral("A browser cookie was outside the requested URL scope.")};
         }
