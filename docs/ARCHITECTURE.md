@@ -83,7 +83,7 @@ replacement. Temp cleanup owns root resolution and guarded UUID-folder removal.
 | `MainWindow.*`, `MainWindowUiBuilder.*` | Shell, tabs, footer, global actions, startup/external-tool update handoff, webhook wiring |
 | `StartTab.*`, `start_tab/*` | URL submission, clipboard, playlist/runtime selection |
 | `ActiveDownloadsTab.*`, `DownloadItemWidget.*` | Download rows, thumbnails, compact layout, one focused progress bar, actions |
-| `advanced_settings/*`, `InitialBinarySetupDialog.*` | Settings pages, templates, binary setup/provisioning |
+| `advanced_settings/*`, `MissingBinariesDialog.*` | Settings pages, templates, and consolidated binary setup/provisioning |
 | `LocalApiServer.*` | Authenticated localhost enqueue/status/cancel, aggregate progress, and tracked-job signals |
 | `AppUpdater.*`, `LzyDownloader.nsi` | Release lookup/handoff and Windows silent-install relaunch |
 | `PowerInhibitor.*` | Platform idle-sleep inhibition |

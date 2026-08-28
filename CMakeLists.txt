@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 project(LzyDownloader
-    VERSION 1.2.38
+    VERSION 1.2.39
     DESCRIPTION "Qt desktop video, audio, playlist, and gallery downloader powered by yt-dlp and gallery-dl"
     HOMEPAGE_URL "https://github.com/vincentwetzel/lzy-downloader"
     LANGUAGES CXX
@@ -293,7 +293,6 @@ add_library(LzyAppLib STATIC
     src/ui/MainWindowDownloads.cpp
     src/ui/MainWindowUi.cpp
     src/ui/MainWindowUiBuilder.cpp
-    src/ui/InitialBinarySetupDialog.cpp
     src/ui/MissingBinariesDialog.cpp
     src/ui/RuntimeSelectionDialog.cpp
     src/ui/SortingRuleDialog.cpp

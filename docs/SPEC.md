@@ -193,15 +193,15 @@ only the sections relevant to the change.
   install them through External Binaries. Mark **(Recommended)** only install
   options that write to the platform app-data `bin` folder; system/package
   manager alternatives remain explicit and are detected without relocation.
-  App-managed copies can update by cadence; manual/package-managed tools
-  require explicit confirmation. WinGet paths use `winget upgrade`; standalone
-  FFmpeg and aria2c are never silently replaced. Standalone yt-dlp,
-  gallery-dl, and Deno use their own updater when supported. If WinGet has not
-  published the latest Deno release, the update falls back to the official
-  stable app-managed installer. When startup detects an outdated binary and no
-  background update is running, its **Update Now** action invokes the same
-  binary update operation used by External Tools; that page remains the
-  alternate path for choosing another installation method.
+  App-managed copies can update by cadence; detected existing tools are updated
+  in their current locations before a new app-managed copy is considered.
+  WinGet paths use `winget upgrade`; standalone FFmpeg and aria2c are never
+  silently replaced. Standalone yt-dlp, gallery-dl, and Deno use their own
+  updater when supported. Startup consolidates missing-tool and available-update
+  notices into one **Set Up Required Tools** checklist. It labels each row as a
+  new installation or existing-binary upgrade and offers **Update All** for the
+  supported automatic actions; manual-only updates remain visible and actionable
+  in that same checklist.
   Windows FFmpeg/FFprobe replacements stage beside the destination and retry
   transient locks while preserving the old executable on failure.
 - Windows deployment includes required Qt image plugins, SQLite, OpenSSL, and

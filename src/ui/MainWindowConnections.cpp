@@ -541,14 +541,11 @@ void MainWindow::connectStartupWorkerSignals()
     connect(m_startupWorker, &StartupWorker::finished, m_startupThread, &QThread::quit);
     connect(m_startupThread, &QThread::finished, m_startupWorker, &QObject::deleteLater);
     connect(m_startupWorker, &StartupWorker::binariesChecked, this, [this](const QStringList &missingBinaries) {
-        if (!m_nonInteractiveLaunch && !m_configManager->get(QStringLiteral("Binaries"), QStringLiteral("setup_completed"), false).toBool()) {
-            showInitialBinarySetup(missingBinaries);
-        } else if (!missingBinaries.isEmpty() && !m_nonInteractiveLaunch) {
-            showMissingBinariesDialog(missingBinaries);
-        }
+        m_startupMissingBinaries = missingBinaries;
     });
 
-    // Intercept out-of-date or update-failed binaries to direct the user
+    // Collect startup binary notices and show one consolidated setup window
+    // after all checks complete. This avoids stacking one modal per tool.
     connect(m_startupWorker, &StartupWorker::binaryUpdateRequired, this, [this](const QString &binaryName, const QString &details) {
         if (m_nonInteractiveLaunch) return;
 
@@ -571,32 +568,28 @@ void MainWindow::connectStartupWorkerSignals()
                                       : tr("%1: %2").arg(binaryName, details),
                                   8000);
 
-        if (!automaticUpdateStarted) {
-            QMessageBox messageBox(this);
-            messageBox.setWindowTitle(tr("External Tool Update Required"));
-            messageBox.setIcon(QMessageBox::Warning);
-            messageBox.setText(tr("A newer version of %1 is available.").arg(binaryName));
-            messageBox.setInformativeText(tr("%1\n\nClick Update Now to update this executable directly, or open External Binaries for more options.").arg(details));
-            QPushButton *updateButton = messageBox.addButton(tr("Update Now"), QMessageBox::AcceptRole);
-            QPushButton *openButton = messageBox.addButton(tr("Open External Binaries"), QMessageBox::ActionRole);
-            messageBox.addButton(QMessageBox::Close);
-            messageBox.exec();
-            if (messageBox.clickedButton() == updateButton) {
-                bool updateDispatched = false;
-                if (m_advancedSettingsTab) {
-                    if (auto *binariesPage = m_advancedSettingsTab->findChild<BinariesPage*>()) {
-                        binariesPage->updateBinaryFor(binaryName, false);
-                        updateDispatched = true;
-                    }
-                }
-                if (!updateDispatched) {
-                    m_uiBuilder->tabWidget()->setCurrentWidget(m_advancedSettingsTab);
-                    m_advancedSettingsTab->navigateToCategory(QStringLiteral("External Tools"));
-                }
-            } else if (messageBox.clickedButton() == openButton) {
-                m_uiBuilder->tabWidget()->setCurrentWidget(m_advancedSettingsTab);
-                m_advancedSettingsTab->navigateToCategory(QStringLiteral("External Tools"));
+        const bool updateAvailable = m_configManager->get(
+            QStringLiteral("Binaries"), QStringLiteral("%1_update_available").arg(binaryName), false).toBool();
+        if (!automaticUpdateStarted && updateAvailable) {
+            m_startupUpdateDetails.insert(binaryName, details);
+        }
+    });
+    connect(m_startupWorker, &StartupWorker::finished, this, [this]() {
+        if (m_nonInteractiveLaunch) {
+            return;
+        }
+
+        QStringList attention = m_startupMissingBinaries;
+        for (auto it = m_startupUpdateDetails.cbegin(); it != m_startupUpdateDetails.cend(); ++it) {
+            if (!attention.contains(it.key())) {
+                attention.append(it.key());
             }
+        }
+        if (!attention.isEmpty()) {
+            showMissingBinariesDialog(attention, m_startupUpdateDetails);
+        } else if (!m_configManager->get(QStringLiteral("Binaries"), QStringLiteral("setup_completed"), false).toBool()) {
+            m_configManager->set(QStringLiteral("Binaries"), QStringLiteral("setup_completed"), true);
+            m_configManager->save();
         }
     });
     connect(m_startupWorker, &StartupWorker::ytDlpVersionFetched, this, &MainWindow::setYtDlpVersion);

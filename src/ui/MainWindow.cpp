@@ -27,7 +27,7 @@ MainWindow::MainWindow(ExtractorJsonParser *extractorJsonParser, QWidget *parent
       m_clipboard(nullptr), m_startTab(nullptr), m_activeDownloadsTab(nullptr),
       m_advancedSettingsTab(nullptr), m_trayIcon(nullptr), m_trayMenu(nullptr),
       m_silentUpdateCheck(false), m_nonInteractiveLaunch(MainWindowHelpers::hasNonInteractiveLaunchArgument()),
-      m_initialBinarySetupShown(false), m_lastAutoPasteTimestamp(0)
+      m_lastAutoPasteTimestamp(0)
 {
     // Intercept window creation BEFORE it can be shown by main.cpp
     if (m_nonInteractiveLaunch) {

@@ -430,37 +430,11 @@ void BinariesPage::setupRow(QVBoxLayout *layout,
     });
 }
 
-void BinariesPage::updateBinaryFor(const QString &binaryName, bool askForConfirmation)
+void BinariesPage::updateBinaryFor(const QString &binaryName, bool askForConfirmation,
+                                   bool closeWhenFinished)
 {
     const ProcessUtils::FoundBinary foundBinary = ProcessUtils::resolveBinary(binaryName, m_configManager);
     const QString pathLower = foundBinary.path.toLower();
-
-    // The WinGet Deno manifest can lag the upstream stable release. In that
-    // case WinGet reports success as a command invocation but returns a
-    // non-zero "no available upgrade" result. Use the same official,
-    // app-managed installer offered for new Deno installs instead; it also
-    // leaves the newly installed executable selected as the explicit path.
-    const bool isDenoWinGetInstall = binaryName == QStringLiteral("deno") &&
-        (pathLower.contains(QStringLiteral("winget")) || pathLower.contains(QStringLiteral("windowsapps")));
-    if (isDenoWinGetInstall) {
-        if (askForConfirmation) {
-            QMessageBox msgBox(this);
-            msgBox.setWindowTitle(tr("Update %1").arg(displayName(binaryName)));
-            msgBox.setTextFormat(Qt::RichText);
-            msgBox.setText(tr("WinGet has not published the latest Deno release yet.<br><br>"
-                              "Would you like LzyDownloader to download the latest stable Deno release "
-                              "into its app-managed tools folder?"));
-            msgBox.setIcon(QMessageBox::Question);
-            QPushButton *runButton = msgBox.addButton(tr("Download Update"), QMessageBox::AcceptRole);
-            msgBox.addButton(QMessageBox::Cancel);
-            msgBox.exec();
-            if (msgBox.clickedButton() != runButton) {
-                return;
-            }
-        }
-        installRecommendedBinary(binaryName);
-        return;
-    }
 
     QString manager;
     QString updateProgram;
@@ -509,7 +483,7 @@ void BinariesPage::updateBinaryFor(const QString &binaryName, bool askForConfirm
 #ifdef Q_OS_WIN
             if (isFfmpegBinary && isAppManagedPath(foundBinary.path)) {
                 if (!askForConfirmation) {
-                    installRecommendedBinary(binaryName);
+                    installRecommendedBinary(binaryName, closeWhenFinished);
                     return;
                 }
                 QMessageBox msgBox(this);
@@ -530,6 +504,10 @@ void BinariesPage::updateBinaryFor(const QString &binaryName, bool askForConfirm
                 return;
             }
 #endif
+            if (!askForConfirmation) {
+                qWarning() << "A manual update is required for" << binaryName << "at" << foundBinary.path;
+                return;
+            }
             QDesktopServices::openUrl(QUrl(m_manualUrls.value(binaryName)));
             QMessageBox::information(this, tr("Manual Update Required"),
                 tr("The official download page for %1 was opened in your browser.\n\n"
@@ -573,7 +551,59 @@ void BinariesPage::updateBinaryFor(const QString &binaryName, bool askForConfirm
     opts.binaryName = binaryName;
     opts.isAlias = false;
     opts.isUpdate = true;
+    opts.closeWhenFinished = closeWhenFinished;
     runProcessWithLog(opts);
+}
+
+QString BinariesPage::recommendedInstallLabel(const QString &binaryName) const
+{
+    const QList<InstallOption> options = buildInstallOptions(binaryName);
+    if (options.isEmpty()) {
+        return tr("Choose installation method");
+    }
+
+    const InstallOption &option = options.first();
+    return option.extraData.value(QStringLiteral("is_app_managed")).toBool()
+        ? tr("%1 (Recommended)").arg(option.label)
+        : option.label;
+}
+
+bool BinariesPage::canUpdateBinaryAutomatically(const QString &binaryName) const
+{
+    const ProcessUtils::FoundBinary foundBinary = ProcessUtils::resolveBinary(binaryName, m_configManager);
+    if (foundBinary.source == QStringLiteral("Not Found") ||
+        foundBinary.source == QStringLiteral("Invalid Custom")) {
+        return false;
+    }
+
+    const QString pathLower = foundBinary.path.toLower();
+    const bool packageManaged = pathLower.contains(QStringLiteral("scoop")) ||
+        pathLower.contains(QStringLiteral("windowsapps")) ||
+        pathLower.contains(QStringLiteral("winget")) ||
+        pathLower.contains(QStringLiteral("python")) ||
+        pathLower.contains(QStringLiteral("pip")) ||
+        pathLower.contains(QStringLiteral("scripts")) ||
+        pathLower.contains(QStringLiteral("site-packages")) ||
+        pathLower.contains(QStringLiteral("homebrew")) ||
+        pathLower.contains(QStringLiteral("cellar")) ||
+        pathLower.contains(QStringLiteral("linuxbrew")) ||
+        pathLower.contains(QStringLiteral("chocolatey")) ||
+        pathLower.contains(QStringLiteral("choco"));
+    if (packageManaged) {
+        return true;
+    }
+
+    if (binaryName == QStringLiteral("yt-dlp") || binaryName == QStringLiteral("gallery-dl") ||
+        binaryName == QStringLiteral("deno")) {
+        return true;
+    }
+
+#ifdef Q_OS_WIN
+    return (binaryName == QStringLiteral("ffmpeg") || binaryName == QStringLiteral("ffprobe")) &&
+        isAppManagedPath(foundBinary.path);
+#else
+    return false;
+#endif
 }
 
 void BinariesPage::fetchBinaryVersion(const QString &binaryName, const QString &path) {
@@ -769,15 +799,17 @@ void BinariesPage::installBinaryFor(const QString &binaryName) {
     dialog.exec();
 }
 
-void BinariesPage::installRecommendedBinary(const QString &binaryName)
+void BinariesPage::installRecommendedBinary(const QString &binaryName, bool closeWhenFinished)
 {
     const QList<InstallOption> options = buildInstallOptions(binaryName);
     if (options.isEmpty()) {
         qWarning() << "No automatic install option is available for" << binaryName;
-        QMessageBox::warning(this, tr("Automatic Install Unavailable"),
-                             tr("LzyDownloader could not find a supported automatic install method for %1 on this computer. "
-                                "Use the External Tools page to choose a manual installation method.")
-                                 .arg(displayName(binaryName)));
+        if (!closeWhenFinished) {
+            QMessageBox::warning(this, tr("Automatic Install Unavailable"),
+                                 tr("LzyDownloader could not find a supported automatic install method for %1 on this computer. "
+                                    "Use the External Tools page to choose a manual installation method.")
+                                     .arg(displayName(binaryName)));
+        }
         return;
     }
 
@@ -793,6 +825,7 @@ void BinariesPage::installRecommendedBinary(const QString &binaryName)
     opts.followUpProgram = option.extraData.value(QStringLiteral("follow_up_program")).toString();
     opts.followUpArguments = option.extraData.value(QStringLiteral("follow_up_arguments")).toStringList();
     opts.cleanupPath = option.extraData.value(QStringLiteral("cleanup_path")).toString();
+    opts.closeWhenFinished = closeWhenFinished;
     qInfo() << "Running recommended binary installation for" << binaryName << "using" << option.label;
     runProcessWithLog(opts);
 }
@@ -1048,7 +1081,7 @@ void BinariesPage::runProcessWithLog(const ProcessRunOptions &opts) {
             if (opts.binaryName == QStringLiteral("ffmpeg")) this->refreshBinaryStatus(QStringLiteral("ffprobe"));
             else if (opts.binaryName == QStringLiteral("ffprobe")) this->refreshBinaryStatus(QStringLiteral("ffmpeg"));
 
-            if (!opts.isUpdate) {
+            if (!opts.isUpdate && !opts.closeWhenFinished) {
                 const ProcessUtils::FoundBinary refreshedBinary = ProcessUtils::findBinary(opts.binaryName, m_configManager);
                 if (pDialog) {
                     if (refreshedBinary.source == QStringLiteral("Not Found") || refreshedBinary.source == QStringLiteral("Invalid Custom")) {
@@ -1093,12 +1126,15 @@ void BinariesPage::runProcessWithLog(const ProcessRunOptions &opts) {
                     }
                 }
             }
+            if (opts.closeWhenFinished && pDialog) {
+                pDialog->accept();
+            }
         } else {
             outputEdit->moveCursor(QTextCursor::End);
             outputEdit->insertPlainText(tr("\n--- Process failed with exit code %1. ---\n").arg(exitCode));
 
             const QString actionName = opts.isUpdate ? tr("update") : tr("installation");
-            if (pDialog) {
+            if (pDialog && !opts.closeWhenFinished) {
                 if (logText.contains(QStringLiteral("Permission denied"), Qt::CaseInsensitive) || logText.contains(QStringLiteral("Access is denied"), Qt::CaseInsensitive)) {
                     QMessageBox::warning(pDialog, tr("Permission Denied"),
                         tr("The %1 of %2 failed due to insufficient permissions.\n\n"
@@ -1107,6 +1143,9 @@ void BinariesPage::runProcessWithLog(const ProcessRunOptions &opts) {
                 } else {
                     QMessageBox::warning(pDialog, tr("Process Failed"), tr("The %1 of %2 failed. Please check the output log.").arg(actionName, displayName(opts.binaryName)));
                 }
+            }
+            if (opts.closeWhenFinished && pDialog) {
+                pDialog->accept();
             }
         }
     });
@@ -1126,6 +1165,9 @@ void BinariesPage::runProcessWithLog(const ProcessRunOptions &opts) {
         }
         outputEdit->moveCursor(QTextCursor::End);
         outputEdit->insertPlainText(tr("\n--- Process error: %1 ---\n").arg(process->errorString()));
+        if (opts.closeWhenFinished && pDialog) {
+            pDialog->accept();
+        }
     });
 
     outputEdit->insertPlainText(tr("Running command: %1\n\n").arg(fullCommand));

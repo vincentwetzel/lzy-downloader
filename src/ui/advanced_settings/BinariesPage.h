@@ -21,8 +21,11 @@ public:
     explicit BinariesPage(ConfigManager *configManager, QWidget *parent = nullptr);
     void browseBinaryFor(const QString &binaryName);
     void installBinaryFor(const QString &binaryName);
-    void installRecommendedBinary(const QString &binaryName);
-    void updateBinaryFor(const QString &binaryName, bool askForConfirmation = true);
+    void installRecommendedBinary(const QString &binaryName, bool closeWhenFinished = false);
+    void updateBinaryFor(const QString &binaryName, bool askForConfirmation = true,
+                         bool closeWhenFinished = false);
+    [[nodiscard]] QString recommendedInstallLabel(const QString &binaryName) const;
+    [[nodiscard]] bool canUpdateBinaryAutomatically(const QString &binaryName) const;
     bool tryAutomaticUpdate(const QString &binaryName);
     void setBinaryWarning(const QString &binaryName, const QString &details);
     void refreshBinaryStatus(const QString &binaryName);
@@ -59,6 +62,7 @@ private:
         QStringList followUpArguments;
         QString cleanupPath;
         bool isUpdate = false;
+        bool closeWhenFinished = false;
     };
 
     void runProcessWithLog(const ProcessRunOptions &opts);

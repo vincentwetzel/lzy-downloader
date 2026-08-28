@@ -1,5 +1,7 @@
 #include "TestUIWidgets.h"
 #include "core/ConfigManager.h"
+#include "core/ProcessUtils.h"
+#include "ui/MissingBinariesDialog.h"
 #include "ui/advanced_settings/BinariesPage.h"
 #include <QSignalSpy>
 #include <QVariantMap>
@@ -162,6 +164,50 @@ void TestUIWidgets::testDenoAppManagedInstallIsRecommended() {
 
     QVERIFY(dialogWasShown);
     QVERIFY(firstOptionIsRecommended);
+}
+
+void TestUIWidgets::testRequiredToolsDialogDistinguishesExistingUpdates() {
+    ConfigManager *config = getConfigManager();
+    config->set(QStringLiteral("Binaries"), QStringLiteral("yt-dlp_path"), QCoreApplication::applicationFilePath());
+    config->set(QStringLiteral("Binaries"), QStringLiteral("yt-dlp_auto_detected"), false);
+    config->set(QStringLiteral("Binaries"), QStringLiteral("yt-dlp_update_available"), true);
+    config->set(QStringLiteral("Binaries"), QStringLiteral("yt-dlp_latest_version"), QStringLiteral("999.0"));
+    config->save();
+    ProcessUtils::clearCache();
+
+    BinariesPage page(config);
+    MissingBinariesDialog dialog({QStringLiteral("yt-dlp")}, config, &page,
+                                 {{QStringLiteral("yt-dlp"), QStringLiteral("Test update")}});
+
+    bool foundExistingUpdateAction = false;
+    for (QPushButton *button : dialog.findChildren<QPushButton *>()) {
+        if (button->text() == QStringLiteral("Update existing")) {
+            foundExistingUpdateAction = true;
+            break;
+        }
+    }
+    QVERIFY(foundExistingUpdateAction);
+
+    bool foundUpdateAll = false;
+    for (QPushButton *button : dialog.findChildren<QPushButton *>()) {
+        if (button->text() == QStringLiteral("Update All")) {
+            foundUpdateAll = true;
+            break;
+        }
+    }
+    QVERIFY(foundUpdateAll);
+
+    config->remove(QStringLiteral("Binaries"), QStringLiteral("yt-dlp_path"));
+    config->remove(QStringLiteral("Binaries"), QStringLiteral("yt-dlp_auto_detected"));
+    config->remove(QStringLiteral("Binaries"), QStringLiteral("yt-dlp_update_available"));
+    config->remove(QStringLiteral("Binaries"), QStringLiteral("yt-dlp_latest_version"));
+    config->save();
+    ProcessUtils::clearCache();
+
+#ifdef Q_OS_WIN
+    QCOMPARE(page.recommendedInstallLabel(QStringLiteral("deno")),
+             QStringLiteral("PowerShell (Deno stable) (Recommended)"));
+#endif
 }
 
 QTEST_MAIN(TestUIWidgets)

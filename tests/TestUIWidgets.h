@@ -15,6 +15,7 @@ private slots:
     void testDownloadItemWidgetKeepsActionsVisibleWhenNarrow();
     void testBinariesPageUsesNaturalScrollDocument();
     void testDenoAppManagedInstallIsRecommended();
+    void testRequiredToolsDialogDistinguishesExistingUpdates();
 
 private slots:
     void init() {

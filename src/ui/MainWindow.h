@@ -7,6 +7,7 @@
 #include <QLabel>
 #include <QCloseEvent>
 #include <QVariant>
+#include <QHash>
 #include <QStringList>
 #include <QThread> // Include QThread
 #include <QClipboard> // Include QClipboard
@@ -71,13 +72,13 @@ private:
     void setupWindowsDebugConsole();
     void connectAppUpdaterSignals();
     void scheduleInitialSetup();
-    void showInitialBinarySetup(const QStringList &missingBinaries);
     void connectDownloadManagerSignals();
     void connectDiscordWebhookSignals();
     void connectStartupWorkerSignals();
     void queueDirectCliDownload();
     void handleClipboardAutoPaste(bool forceEnqueue = false); // Modified to accept forceEnqueue
-    bool showMissingBinariesDialog(const QStringList &missingBinaries);
+    bool showMissingBinariesDialog(const QStringList &binaryNames,
+                                   const QHash<QString, QString> &updateDetails = {});
 
     ConfigManager *m_configManager;
     ArchiveManager *m_archiveManager;
@@ -109,7 +110,8 @@ private:
     QVariantMap m_pendingOptions;
     bool m_silentUpdateCheck;
     bool m_nonInteractiveLaunch;
-    bool m_initialBinarySetupShown;
+    QStringList m_startupMissingBinaries;
+    QHash<QString, QString> m_startupUpdateDetails;
     QString m_lastAutoPastedUrl; // Track last auto-pasted URL to prevent duplicates
     qint64 m_lastAutoPasteTimestamp; // Timestamp of last auto-paste to enforce cooldown
 };

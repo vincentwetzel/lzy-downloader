@@ -9,6 +9,17 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## [Unreleased]
 
+## [1.2.39] - 2026-08-27
+
+- **Tool setup:** Consolidated missing-tool and external-binary update prompts
+  into one **Set Up Required Tools** checklist. It labels fresh installs versus
+  existing-binary upgrades, keeps the recommended installer visible inline,
+  and provides sequential one-click **Update All** handling without installing
+  a duplicate app-managed copy over a detected external tool.
+- **Tool setup presentation:** Refined the consolidated checklist with clearer
+  status hierarchy, theme-aware contrast, compact sizing, and visible Browse
+  recovery actions after updates complete.
+
 ## [1.2.38] - 2026-08-27
 
 - **Linux release packaging:** Move unused Qt SQL drivers outside the

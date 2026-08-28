@@ -16,6 +16,7 @@ public:
     explicit MissingBinariesDialog(const QStringList &binaryNames,
                                    ConfigManager *configManager,
                                    BinariesPage *binariesPage,
+                                   const QHash<QString, QString> &updateDetails = {},
                                    QWidget *parent = nullptr);
 
     bool allBinariesResolved() const;
@@ -23,17 +24,22 @@ public:
 private:
     struct BinaryRow {
         QLabel *statusLabel = nullptr;
-        QPushButton *installButton = nullptr;
+        QPushButton *actionButton = nullptr;
         QPushButton *browseButton = nullptr;
     };
 
     void refreshStatuses();
+    void runUpdateAll();
+    [[nodiscard]] bool needsAttention(const QString &binaryName) const;
     QStringList unresolvedBinaries() const;
     static QStringList normalizedBinaryList(const QStringList &binaryNames);
 
     QStringList m_binaryNames;
     ConfigManager *m_configManager;
     BinariesPage *m_binariesPage;
+    QHash<QString, QString> m_updateDetails;
     QHash<QString, BinaryRow> m_rows;
-    QPushButton *m_doneButton;
+    QLabel *m_summaryLabel;
+    QPushButton *m_updateAllButton;
+    QPushButton *m_laterButton;
 };

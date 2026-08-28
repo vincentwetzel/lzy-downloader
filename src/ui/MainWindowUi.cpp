@@ -7,7 +7,6 @@
 #include "SortingTab.h"
 #include "ToggleSwitch.h"
 #include "ui/advanced_settings/BinariesPage.h"
-#include "ui/InitialBinarySetupDialog.h"
 #include "ui/MissingBinariesDialog.h"
 
 #include "core/version.h"
@@ -275,9 +274,10 @@ void MainWindow::startStartupChecks()
     m_startupThread->start();
 }
 
-bool MainWindow::showMissingBinariesDialog(const QStringList &missingBinaries)
+bool MainWindow::showMissingBinariesDialog(const QStringList &binaryNames,
+                                           const QHash<QString, QString> &updateDetails)
 {
-    if (missingBinaries.isEmpty()) {
+    if (binaryNames.isEmpty()) {
         return true;
     }
 
@@ -285,11 +285,15 @@ bool MainWindow::showMissingBinariesDialog(const QStringList &missingBinaries)
         ? m_advancedSettingsTab->findChild<BinariesPage*>()
         : nullptr;
 
-    MissingBinariesDialog dialog(missingBinaries, m_configManager, binariesPage, this);
+    MissingBinariesDialog dialog(binaryNames, m_configManager, binariesPage, updateDetails, this);
     const bool accepted = dialog.exec() == QDialog::Accepted;
     const bool resolved = dialog.allBinariesResolved();
 
     if (resolved) {
+        if (!m_configManager->get(QStringLiteral("Binaries"), QStringLiteral("setup_completed"), false).toBool()) {
+            m_configManager->set(QStringLiteral("Binaries"), QStringLiteral("setup_completed"), true);
+            m_configManager->save();
+        }
         ProcessUtils::clearCache();
         if (m_startTab) {
             m_startTab->updateDynamicUI();
@@ -299,61 +303,9 @@ bool MainWindow::showMissingBinariesDialog(const QStringList &missingBinaries)
 
     if (accepted) {
         qWarning() << "Missing binary setup dialog accepted before all binaries resolved:"
-                   << missingBinaries.join(", ");
+                   << binaryNames.join(", ");
     }
     return false;
-}
-
-void MainWindow::showInitialBinarySetup(const QStringList &missingBinaries)
-{
-    if (m_initialBinarySetupShown || m_nonInteractiveLaunch ||
-        m_configManager->get(QStringLiteral("Binaries"), QStringLiteral("setup_completed"), false).toBool()) {
-        return;
-    }
-    m_initialBinarySetupShown = true;
-
-    BinariesPage *binariesPage = m_advancedSettingsTab
-        ? m_advancedSettingsTab->findChild<BinariesPage *>()
-        : nullptr;
-    if (!binariesPage) {
-        qWarning() << "Initial binary setup could not find the External Tools page.";
-        return;
-    }
-
-    InitialBinarySetupDialog dialog(m_configManager, missingBinaries, this);
-    if (dialog.exec() != QDialog::Accepted) {
-        return;
-    }
-
-    m_configManager->set(QStringLiteral("Binaries"), QStringLiteral("prefer_app_managed"), dialog.preferAppManagedBinaries());
-    m_configManager->save();
-    ProcessUtils::clearCache();
-
-    for (const QString &binary : dialog.binariesToInstall()) {
-        qInfo() << "Initial binary setup installing recommended tool:" << binary;
-        binariesPage->installRecommendedBinary(binary);
-    }
-
-    ProcessUtils::clearCache();
-    QStringList unresolved;
-    const QStringList required = {QStringLiteral("yt-dlp"), QStringLiteral("ffmpeg"),
-                                  QStringLiteral("ffprobe"), QStringLiteral("deno")};
-    for (const QString &binary : required) {
-        const ProcessUtils::FoundBinary found = ProcessUtils::resolveBinary(binary, m_configManager);
-        if (found.source == QStringLiteral("Not Found") || found.source == QStringLiteral("Invalid Custom")) {
-            unresolved.append(binary);
-        }
-    }
-    if (unresolved.isEmpty()) {
-        m_configManager->set(QStringLiteral("Binaries"), QStringLiteral("setup_completed"), true);
-        m_configManager->save();
-        if (m_startTab) {
-            m_startTab->updateDynamicUI();
-        }
-    } else {
-        qWarning() << "Initial binary setup left required tools unresolved:" << unresolved;
-        showMissingBinariesDialog(unresolved);
-    }
 }
 
 void MainWindow::onVideoQualityWarning(const QString &title, const QString &url, const QString &message)

@@ -7,6 +7,11 @@ The External Binaries install dialog keeps long package-manager and PowerShell
 command previews wrapped inside a bounded text area so narrow windows do not
 grow wider than the screen.
 
+Startup missing-tool and outdated-binary notices are consolidated into the
+theme-aware **Set Up Required Tools** checklist. It distinguishes new
+app-managed installs from updates in existing locations and provides a single
+**Update All** action for supported automatic operations.
+
 Windows standalone FFmpeg/FFprobe updates stage both executables before bounded
 replacement retries, then persist the local pair as explicit overrides so a
 system-first preference cannot silently switch back to an older package copy.

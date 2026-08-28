@@ -59,7 +59,7 @@ Public/project guidance is in `README.md`, `CONTRIBUTING.md`, `SECURITY.md`,
 | Tools/processes | `src/core/ProcessUtils.*`, `src/core/SmartBinaryResolver.*`, `src/core/BaseBinaryUpdater.*`, `src/core/StartupWorker.*` |
 | API/update/power/logging | `src/core/LocalApiServer.*`, `src/core/AppUpdater.*`, `src/core/PowerInhibitor.*`, `src/utils/LogManager.*` |
 | Main UI | `src/ui/MainWindow.*`, `src/ui/MainWindowUiBuilder.*`, `src/ui/StartTab.*`, `src/ui/ActiveDownloadsTab.*`, `src/ui/DownloadItemWidget.*` |
-| Settings UI | `src/ui/advanced_settings/*`, `src/ui/InitialBinarySetupDialog.*` |
+| Settings UI | `src/ui/advanced_settings/*`, `src/ui/MissingBinariesDialog.*` |
 
 ## Regression-test index
 
