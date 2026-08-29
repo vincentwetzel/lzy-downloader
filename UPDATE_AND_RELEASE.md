@@ -245,7 +245,9 @@ Update those preset paths when using another Qt installation. Qt plugin copying 
 `cmake/deploy_openssl_runtime.cmake` under a per-runtime-directory lock so
 parallel builds do not partially overwrite the deployed plugin tree. The
 vcpkg manifest enables the specific Qt modules required by the application and
-tests rather than Qt's default feature bundle.
+tests rather than Qt's default feature bundle. Keep the JPEG and PNG image
+plugins enabled: Debug and deployed builds use them for Active Downloads and
+Download History thumbnail decoding.
 
 ## Release to GitHub
 

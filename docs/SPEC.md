@@ -52,8 +52,10 @@ only the sections relevant to the change.
   SQLite connections are Qt thread-local. Queue, active, paused, retry, and
   archive checks use shared normalized media identity, not raw URL equality.
 - Startup concurrency is 4; users may increase it to 8 during a session.
-  Playlist audio filenames use zero-padded indices by default and can be
-  disabled with `DownloadOptions/prefix_playlist_indices`.
+  Download-worker admission is coordinated across concurrent GUI and
+  server/headless/background processes, while each process keeps its own
+  queue. Playlist audio filenames use zero-padded indices by default and can
+  be disabled with `DownloadOptions/prefix_playlist_indices`.
 
 ### 2.3 Queue, retry, and replacement
 
@@ -81,8 +83,9 @@ only the sections relevant to the change.
   selected one-based ranges, first item, or cancel.
 - Active Downloads provides stop/resume/clear/folder actions and one row per ID.
   Rows shrink to the viewport, wrap long titles, keep actions visible, and
-  disable horizontal scrolling. Queued thumbnail URLs start bounded async
-  requests immediately; playlist transitions preserve them.
+  disable horizontal scrolling. Newly queued rows are revealed when the
+  request is interactive. Queued thumbnail URLs start bounded async requests
+  immediately; playlist transitions preserve them.
 - Every row has one detailed `ProgressLabelBar` for the active transfer or
   processing stage. Use default palette styling for queued/indeterminate,
   light blue for transfer, teal for processing, and green for completed. Paint

@@ -16,7 +16,9 @@
           "platform": "linux"
         },
         "gui",
+        "jpeg",
         "network",
+        "png",
         "sql-sqlite",
         "testlib",
         "widgets"

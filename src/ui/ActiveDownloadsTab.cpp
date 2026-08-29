@@ -13,6 +13,7 @@
 #include <QDir>
 #include <QApplication>
 #include <QStyle>
+#include <QStyleOption>
 #include "core/ConfigManager.h"
 #include <QPainter>
 #include <chrono>
@@ -23,7 +24,19 @@ static QIcon createColoredIcon(QStyle::StandardPixmap sp, const QColor &color) {
     QPainter painter(&pixmap);
     painter.setCompositionMode(QPainter::CompositionMode_SourceIn);
     painter.fillRect(pixmap.rect(), color);
-    return QIcon(pixmap);
+    QIcon icon;
+    icon.addPixmap(pixmap, QIcon::Normal);
+    // A QIcon containing only a Normal pixmap can become effectively blank
+    // when Qt synthesizes its Disabled state, especially for monochrome
+    // standard icons. Keep toolbar controls recognizable while disabled.
+    QStyleOption styleOption;
+    styleOption.palette = QApplication::palette();
+    const QPixmap disabledPixmap = QApplication::style()->generatedIconPixmap(
+        QIcon::Disabled, pixmap, &styleOption);
+    if (!disabledPixmap.isNull()) {
+        icon.addPixmap(disabledPixmap, QIcon::Disabled);
+    }
+    return icon;
 }
 
 ActiveDownloadsTab::ActiveDownloadsTab(ConfigManager *configManager, QWidget *parent)
@@ -194,23 +207,42 @@ void ActiveDownloadsTab::setupUi() {
     m_downloadsLayout->addStretch(); // Push downloads to the top
 
     // Wrap the downloads container in a QScrollArea
-    QScrollArea *scrollArea = new QScrollArea(this);
-    scrollArea->setWidgetResizable(true);
-    scrollArea->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
-    scrollArea->setFrameShape(QFrame::NoFrame);
+    m_downloadsScrollArea = new QScrollArea(this);
+    m_downloadsScrollArea->setWidgetResizable(true);
+    m_downloadsScrollArea->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    m_downloadsScrollArea->setFrameShape(QFrame::NoFrame);
     // Rows are deliberately shrinkable.  A horizontal scrollbar makes the
     // row actions unreachable when the application is snapped to half a
     // screen, while the title can wrap within the available width.
-    scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    scrollArea->setWidget(m_downloadsContainer);
+    m_downloadsScrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    m_downloadsScrollArea->setWidget(m_downloadsContainer);
 
     // Add widgets to the stacked layout
     m_stackedLayout->addWidget(m_placeholderWidget);
-    m_stackedLayout->addWidget(scrollArea);
+    m_stackedLayout->addWidget(m_downloadsScrollArea);
 
     updatePlaceholderVisibility();
 
     connect(m_cancelAllButton, &QPushButton::clicked, this, &ActiveDownloadsTab::cancelAllDownloads);
+}
+
+void ActiveDownloadsTab::scrollToNewestDownloadItem() {
+    if (m_downloadsLayout->count() < 2) {
+        return;
+    }
+
+    QPointer<QWidget> newestItem = m_downloadsLayout->itemAt(m_downloadsLayout->count() - 2)->widget();
+    if (!newestItem) {
+        return;
+    }
+
+    // Let Qt finish the layout pass before revealing the row. This matters
+    // when the tab was hidden while the item was inserted.
+    QTimer::singleShot(0, this, [this, newestItem]() {
+        if (newestItem && newestItem->parentWidget()) {
+            m_downloadsScrollArea->ensureWidgetVisible(newestItem, 0, 12);
+        }
+    });
 }
 
 void ActiveDownloadsTab::addDownloadItem(const QVariantMap &itemData) {

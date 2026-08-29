@@ -26,6 +26,10 @@ DownloadManager::DownloadManager(ConfigManager *configManager, QObject *parent) 
     m_sleepTimer = new QTimer(this);
     m_sleepTimer->setSingleShot(true);
     connect(m_sleepTimer, &QTimer::timeout, this, &DownloadManager::onSleepTimerTimeout);
+    m_globalCapacityTimer = new QTimer(this);
+    m_globalCapacityTimer->setSingleShot(true);
+    m_globalCapacityTimer->setInterval(1000);
+    connect(m_globalCapacityTimer, &QTimer::timeout, this, &DownloadManager::onGlobalCapacityRetry);
     connect(m_configManager, &ConfigManager::settingChanged, this, &DownloadManager::onConfigSettingChanged);
 
     applyMaxConcurrentSetting(m_configManager->get(QStringLiteral("General"), QStringLiteral("max_threads"), QStringLiteral("4")).toString());
@@ -77,6 +81,9 @@ void DownloadManager::shutdown() {
     if (m_sleepTimer && m_sleepTimer->isActive()) {
         m_sleepTimer->stop();
     }
+    if (m_globalCapacityTimer && m_globalCapacityTimer->isActive()) {
+        m_globalCapacityTimer->stop();
+    }
 
     const QList<QProcess*> descendantProcesses = findChildren<QProcess*>();
     for (QProcess *process : std::as_const(descendantProcesses)) {
@@ -111,7 +118,12 @@ void DownloadManager::shutdown() {
 
 void DownloadManager::adjustActiveDownloadCount(int delta)
 {
+    const int oldActiveDownloadsCount = m_activeDownloadsCount;
     m_activeDownloadsCount = qMax(0, m_activeDownloadsCount + delta);
+
+    if (delta < 0 && oldActiveDownloadsCount > 0) {
+        m_globalDownloadLimiter.release();
+    }
 
     if (m_activeDownloadsCount > 0) {
         if (!m_powerInhibitor.isActive()) {

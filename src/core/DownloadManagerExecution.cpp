@@ -94,6 +94,15 @@ void DownloadManager::proceedWithDownload() {
         return;
     }
 
+    // The GUI and --server mode can be separate processes. Reserve a slot in
+    // the shared limiter before removing an item from this process's queue.
+    if (!m_globalDownloadLimiter.tryAcquire(m_maxConcurrentDownloads)) {
+        if (!m_globalCapacityTimer->isActive()) {
+            m_globalCapacityTimer->start();
+        }
+        return;
+    }
+
     DownloadItem item = m_queueManager->takeNextQueuedDownload();
     adjustActiveDownloadCount(1);
 
@@ -259,6 +268,12 @@ void DownloadManager::applyMaxConcurrentSetting(const QString &maxThreadsStr) {
 }
 
 void DownloadManager::startDownloadsToCapacity() {
+    // QSettings is shared by GUI and server-mode processes, but settingChanged
+    // is an in-process signal. Sync before admission so a setting changed in
+    // the other surface becomes the global limit here as well.
+    m_configManager->save();
+    applyMaxConcurrentSetting(m_configManager->get(QStringLiteral("General"), QStringLiteral("max_threads"), QStringLiteral("4")).toString());
+
     if (m_sleepTimer->isActive()) {
         if (!m_queueManager->hasQueuedDownloads()) {
             m_sleepTimer->stop();
@@ -298,4 +313,9 @@ void DownloadManager::onSleepTimerTimeout() {
     m_sleepTimer->stop();
     qDebug() << "Sleep timer timed out. Attempting to start next download.";
     startNextDownload();
+}
+
+void DownloadManager::onGlobalCapacityRetry()
+{
+    startDownloadsToCapacity();
 }

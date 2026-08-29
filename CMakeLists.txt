@@ -243,6 +243,7 @@ add_library(LzyAppLib STATIC
     src/core/ConfigManager.cpp
     src/core/DownloadFinalizer.cpp
     src/core/FileReplacement.cpp
+    src/core/GlobalDownloadLimiter.cpp
     src/core/DownloadManager.cpp
     src/core/DownloadManagerControls.cpp
     src/core/DownloadManagerEnqueue.cpp
@@ -448,4 +449,5 @@ lzy_add_test(TestDownloadQueueManager tests/TestDownloadQueueManager.cpp)
 lzy_add_test(TestFileReplacement tests/TestFileReplacement.cpp)
 lzy_add_test(TestDownloadTempCleanup tests/TestDownloadTempCleanup.cpp)
 lzy_add_test(TestPowerInhibitor tests/TestPowerInhibitor.cpp)
+lzy_add_test(TestGlobalDownloadLimiter tests/TestGlobalDownloadLimiter.cpp)
 lzy_add_test(TestStartupWorker tests/TestStartupWorker.cpp)

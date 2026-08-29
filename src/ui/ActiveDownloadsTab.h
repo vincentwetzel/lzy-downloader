@@ -2,6 +2,7 @@
 
 #include <QWidget>
 #include <QMap>
+#include <QPointer>
 #include <QVariantMap>
 
 class QVBoxLayout;
@@ -10,6 +11,7 @@ class DownloadItemWidget;
 class ConfigManager;
 class QPushButton;
 class QLabel;
+class QScrollArea;
 
 class ActiveDownloadsTab : public QWidget {
     Q_OBJECT
@@ -19,6 +21,7 @@ public:
 
 public slots:
     void addDownloadItem(const QVariantMap &itemData);
+    void scrollToNewestDownloadItem();
     void updateDownloadProgress(const QString &id, const QVariantMap &progressData);
     void onDownloadFinished(const QString &id, bool success, const QString &message);
     void onDownloadCancelled(const QString &id);
@@ -55,6 +58,7 @@ private:
     QWidget *m_downloadsContainer;
     QVBoxLayout *m_downloadsLayout;
     QWidget *m_placeholderWidget;
+    QPointer<QScrollArea> m_downloadsScrollArea;
     QPushButton *m_pauseResumeAllButton;
     QPushButton *m_cancelAllButton;
     QPushButton *m_clearInactiveButton;

@@ -56,6 +56,7 @@ Public/project guidance is in `README.md`, `CONTRIBUTING.md`, `SECURITY.md`,
 | Area | Paths |
 |---|---|
 | Queue/archive/persistence | `src/core/DownloadManager.*`, `src/core/DownloadQueueManager*.cpp`, `src/core/DownloadQueueState.*`, `src/core/ArchiveManager.*` |
+| Cross-process worker admission | `src/core/GlobalDownloadLimiter.*` |
 | Temp/finalization | `src/core/DownloadFinalizer.*`, `src/core/FileReplacement.*`, `src/core/DownloadTempCleanup.*`, `src/core/DownloadQueueManagerCleanup.cpp` |
 | yt-dlp/gallery pipeline | `src/core/YtDlpWorker.*`, `src/core/YtDlpWorkerDiagnostics.cpp`, `src/core/YtDlpWorkerTransfers.cpp`, `src/core/GalleryDlWorker.*` |
 | Probe/arguments/live state | `src/core/PlaylistExpansionWorker.*`, `src/core/PlaylistExpansionParser.*`, `src/core/YtDlpArgsBuilder.*`, `src/core/YtDlpLiveStatus.h` |
@@ -74,6 +75,7 @@ paths/headless Qt. Main focused files are:
 |---|---|
 | Manager/probe/gallery/playlist | `TestDownloadManager.cpp`, `TestGalleryDlArgsBuilder.cpp`, `TestPlaylistExpansionParser.cpp` |
 | Queue/archive/temp/replacement | `TestDownloadQueueManager.cpp`, `TestDownloadQueueState.cpp`, `TestDownloadTempCleanup.cpp`, `TestFileReplacement.cpp` |
+| Cross-process worker admission | `TestGlobalDownloadLimiter.cpp` |
 | Worker/tools/power | `TestYtDlpWorker.cpp`, `TestProcessUtils.cpp`, `TestPowerInhibitor.cpp` |
 | UI | `TestUIWidgets.cpp` |
 | Browser companion | `TestBrowserCookieFile.cpp`, `TestLocalApiServer.cpp` |

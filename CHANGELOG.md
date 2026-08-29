@@ -9,6 +9,11 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## [Unreleased]
 
+- **Windows Debug image support:** Restore Qt JPEG and PNG plugins to the
+  minimized vcpkg build so Download History and active-download thumbnails
+  decode in local Debug builds. Disabled toolbar icons now remain visible.
+- **Global worker limit:** Coordinate download-worker slots across concurrent
+  GUI and Discord/server-mode processes so `max_threads` is enforced globally.
 - **Chrome browser companion:** Added a bounded native-messaging host with
   client-scoped status/cancellation and request-scoped, host-validated browser
   cookies. Cookie credentials stay out of queue backups and public snapshots

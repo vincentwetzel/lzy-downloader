@@ -41,6 +41,11 @@ Public methods:
   const QString &formatId)` — queue a concrete format.
 - `void shutdown()` — stop workers, flush queue state, and terminate pools.
 
+Worker admission is coordinated by `GlobalDownloadLimiter` across separate
+GUI and server/headless/background processes. A manager retries admission when
+the shared limit is full and releases its reservations on worker completion or
+shutdown; this does not merge the processes' queue state.
+
 Key signals:
 
 - `void downloadAddedToQueue(const QVariantMap &itemData)` fires before

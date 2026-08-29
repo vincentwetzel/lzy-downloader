@@ -10,6 +10,7 @@
 #include <QPainter>
 #include <QApplication>
 #include <QStyle>
+#include <QStyleOption>
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QNetworkRequest>
@@ -33,7 +34,15 @@ static QIcon createColoredIcon(QStyle::StandardPixmap sp, const QColor &color) {
     QPainter painter(&pixmap);
     painter.setCompositionMode(QPainter::CompositionMode_SourceIn);
     painter.fillRect(pixmap.rect(), color);
-    QIcon icon(pixmap);
+    QIcon icon;
+    icon.addPixmap(pixmap, QIcon::Normal);
+    QStyleOption styleOption;
+    styleOption.palette = QApplication::palette();
+    const QPixmap disabledPixmap = QApplication::style()->generatedIconPixmap(
+        QIcon::Disabled, pixmap, &styleOption);
+    if (!disabledPixmap.isNull()) {
+        icon.addPixmap(disabledPixmap, QIcon::Disabled);
+    }
     cache.insert(key, icon);
     return icon;
 }

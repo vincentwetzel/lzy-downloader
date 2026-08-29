@@ -45,7 +45,7 @@ Application-wide settings that control theme, cookie handling, clipboard behavio
 | `auto_paste_mode` | Integer | `0` | Clipboard auto-paste behavior. See [Auto-Paste Modes](#auto-paste-modes) below. |
 | `single_line_preview` | Boolean | `false` | Display the command preview in single-line mode on the Start tab. |
 | `restrict_filenames` | Boolean | `false` | Restrict downloaded filenames to ASCII characters only for maximum compatibility. |
-| `max_threads` | String | `4` | Maximum number of concurrent downloads to start automatically. Users may raise this during a session, but startup clamps persisted values back to `4` to avoid aggressive resume storms. |
+| `max_threads` | String | `4` | Maximum number of concurrent downloads to start automatically across all LzyDownloader surfaces running for the user, including the GUI and Discord/server mode. Users may raise this during a session, but startup clamps persisted values back to `4` to avoid aggressive resume storms. |
 | `playlist_logic` | String | `Ask` | Default playlist handling mode. Options: `Ask`, `Download All (no prompt)`, `Download Single (ignore playlist)`. In `Ask` mode, detected multi-item playlists can be queued entirely, narrowed through the partial range/checkbox selector, reduced to the first item, or cancelled. |
 | `rate_limit` | String | `Unlimited` | Global yt-dlp rate limit preset shown on the Start tab. |
 | `override_archive` | Boolean | `false` | Allow intentional re-downloads that would otherwise be blocked by archive/duplicate detection. A matching restored stopped/failed entry may be replaced; genuinely paused entries remain protected. |

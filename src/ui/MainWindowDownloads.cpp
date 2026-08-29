@@ -179,6 +179,9 @@ void MainWindow::onDownloadRequested(const QString &url, const QVariantMap &opti
     if (fastTrackRe.match(url).hasMatch()) {
         m_downloadManager->enqueueDownload(url, mutableOptions);
         m_uiBuilder->tabWidget()->setCurrentWidget(m_activeDownloadsTab);
+        if (!nonInteractive) {
+            m_activeDownloadsTab->scrollToNewestDownloadItem();
+        }
         return;
     }
 
@@ -213,6 +216,7 @@ void MainWindow::onRuntimeInfoReady(const QVariantMap &info)
         }
         m_downloadManager->enqueueDownload(m_pendingUrl, opts);
         m_uiBuilder->tabWidget()->setCurrentWidget(m_activeDownloadsTab);
+        m_activeDownloadsTab->scrollToNewestDownloadItem();
     }
     m_pendingUrl.clear();
     m_pendingOptions.clear();
@@ -259,6 +263,7 @@ void MainWindow::onDownloadSectionsRequested(const QString &url, const QVariantM
         }
         m_downloadManager->enqueueDownload(url, newOptions);
         m_uiBuilder->tabWidget()->setCurrentWidget(m_activeDownloadsTab);
+        m_activeDownloadsTab->scrollToNewestDownloadItem();
     } else {
         qInfo() << "Download sections selection cancelled by user for" << url;
     }
@@ -269,6 +274,9 @@ void MainWindow::onValidationFinished(bool isValid, const QString &error)
     if (isValid) {
         m_downloadManager->enqueueDownload(m_pendingUrl, m_pendingOptions);
         m_uiBuilder->tabWidget()->setCurrentWidget(m_activeDownloadsTab);
+        if (!m_nonInteractiveLaunch && !MainWindowHelpers::isNonInteractiveRequest(m_pendingOptions)) {
+            m_activeDownloadsTab->scrollToNewestDownloadItem();
+        }
     } else {
         if (m_nonInteractiveLaunch || MainWindowHelpers::isNonInteractiveRequest(m_pendingOptions)) {
             emit nonInteractiveRequestFailed(

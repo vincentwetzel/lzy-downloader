@@ -8,6 +8,7 @@
 #include "ConfigManager.h"
 #include "DownloadItem.h"
 #include "PowerInhibitor.h"
+#include "GlobalDownloadLimiter.h"
 
 class SortingManager;
 class ArchiveManager;
@@ -91,6 +92,7 @@ private slots:
     void onFinalizationComplete(const QString &id, bool success, const QString &message);
     void onQueueCountsChanged(int queued, int paused);
     void onRequestStartNextDownload();
+    void onGlobalCapacityRetry();
 
 private:
     void applyMaxConcurrentSetting(const QString &maxThreadsStr);
@@ -121,6 +123,7 @@ private:
     enum SleepMode { NoSleep, ShortSleep, LongSleep };
     SleepMode m_sleepMode;
     QTimer *m_sleepTimer;
+    QTimer *m_globalCapacityTimer;
 
     int m_queuedDownloadsCount;
     int m_pausedDownloadsCount;
@@ -131,6 +134,7 @@ private:
     bool m_isShuttingDown;
     qint64 m_lastDownloadFinishTime = 0;
     PowerInhibitor m_powerInhibitor;
+    GlobalDownloadLimiter m_globalDownloadLimiter;
 
     DownloadQueueState *m_queueState;
     DownloadQueueManager *m_queueManager;
