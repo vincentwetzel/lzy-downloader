@@ -126,6 +126,25 @@ remuxing, and compact one-bar rows. Also verify quiet native transfers recover
 sizes from `formats`/`.part` data and Discord aggregate progress survives
 video/audio handoff.
 
+### Step 0: Confirm the release checkout
+
+Before running any release, extractor, Git, or packaging command, change into
+the C++ application checkout. Do not run the workflow from the separate
+Discord-bot or browser-extension checkout. Verify the repository using paths
+that must exist in this checkout:
+
+```powershell
+Set-Location '<repository-root>'
+git rev-parse --show-toplevel
+Test-Path .\CMakeLists.txt
+Test-Path .\.github\workflows\release.yml
+```
+
+The first command must identify the C++ repository root and both `Test-Path`
+commands must return `True`. Stop if `CMakeLists.txt` is missing. This check
+must happen before refreshing extractors or running `git add`, `git commit`,
+`git push`, or `git tag`.
+
 ### Step 1: Update Extractor Lists
 
 **IMPORTANT:** Before building a new release, you must refresh the extractor lists to ensure the application can handle the latest website changes.
@@ -253,7 +272,7 @@ Download History thumbnail decoding.
 
 GitHub Actions automatically builds release assets when a `v*` tag is pushed. The workflow at `.github/workflows/release.yml` runs `python build_release.py` on `windows-latest`, `ubuntu-22.04`, `macos-15-intel` (Intel), and `macos-15` (Apple Silicon), then uploads the Windows installer, Linux AppImage, and both architecture-labelled macOS DMGs to the GitHub Release for that tag. If the matching release-notes file is absent, CI creates a minimal fallback body before publication. Use `workflow_dispatch` to run the matrix as a non-publishing validation; uploads are tag-only.
 
-### Repository directory guard
+### Repository directory guard (reference)
 
 Run every release command from the C++ checkout, not the separate Discord-bot
 checkout. Do not copy a local absolute path into this guide or into release

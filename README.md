@@ -181,6 +181,19 @@ Current coverage includes argument construction (including aria2c retry policy),
 
 Before building a release, keep all release metadata in sync:
 
+First open PowerShell in the C++ checkout, not the separate Discord-bot or
+browser-extension checkout, and verify the repository before running release
+commands:
+
+```powershell
+git rev-parse --show-toplevel
+Test-Path .\CMakeLists.txt
+Test-Path .\.github\workflows\release.yml
+```
+
+The first command must identify the C++ repository root and both path checks
+must return `True`.
+
 - `CMakeLists.txt` `project(VERSION x.y.z)` is the app version source of truth.
 - The release builder compares that version with fetched `vX.Y.Z` tags and stops when it is not newer; tag-triggered CI also requires an exact tag/version match. Set `LZY_ALLOW_VERSION_REBUILD=1` only for an intentional rebuild of an existing release.
 - `vcpkg.json` `version-string` must be updated to the same version, and `builtin-baseline` should remain pinned to the intended vcpkg commit.
