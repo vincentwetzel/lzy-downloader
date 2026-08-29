@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIVE.md](docs/CHANGELOG_ARCHIVE.md).
 
-## [Unreleased]
+## [1.2.42] - 2026-08-29
 
 - **Windows Debug image support:** Restore Qt JPEG and PNG plugins to the
   minimized vcpkg build so Download History and active-download thumbnails
@@ -24,6 +24,8 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 - **Cookie setup guidance:** The Start Download warning now explains the full
   browser-cookie setup path and links directly to Advanced Settings →
   Essentials.
+
+## [Unreleased]
 
 ## [1.2.41] - 2026-08-27
 
