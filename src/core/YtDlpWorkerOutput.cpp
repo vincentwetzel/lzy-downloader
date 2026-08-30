@@ -26,11 +26,6 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
     }
 
     m_allOutputLines.append(normalizedLine);
-    // Optimization: Batch-remove to prevent unbounded memory growth while avoiding O(N) array shifts on every single line
-    constexpr qsizetype MAX_LINES = 150;
-    if (m_allOutputLines.size() > MAX_LINES) {
-        m_allOutputLines.remove(0, MAX_LINES - 100); // Keep the last 100 lines
-    }
 
     emit outputReceived(m_id, normalizedLine);
 
@@ -68,10 +63,6 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
         // Always capture error lines for diagnostics, even if they don't match a specific known error type.
         // This guarantees the terminal exit popup has context for unknown yt-dlp failures.
         m_errorLines.append(normalizedLine);
-        constexpr qsizetype MAX_ERROR_LINES = 150;
-        if (m_errorLines.size() > MAX_ERROR_LINES) {
-            m_errorLines.remove(0, MAX_ERROR_LINES - 100);
-        }
 
         auto emitError = [this, normalizedLine](const QString& type, const QString& msg) {
             if (!m_errorEmitted) {
@@ -145,7 +136,7 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
         else if (normalizedLine.contains(QStringLiteral("not currently live"), Qt::CaseInsensitive) ||
                  normalizedLine.contains(QStringLiteral("live event has ended"), Qt::CaseInsensitive)) {
             bool hasApiBlock = false;
-            for (const QString& errLine : std::as_const(m_errorLines)) {
+            for (const QString& errLine : m_errorLines) {
                 if (errLine.contains(QStringLiteral("Unable to download JSON metadata: HTTP Error 40"), Qt::CaseInsensitive)) {
                     hasApiBlock = true;
                     break;
@@ -211,11 +202,6 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
         // Add other WARNING lines to m_errorLines for diagnostics, even if not a specific error type.
         else {
             m_errorLines.append(normalizedLine);
-            // Optimization: Prevent unbounded memory growth if yt-dlp spams warning lines
-            constexpr qsizetype MAX_WARNING_LINES = 150;
-            if (m_errorLines.size() > MAX_WARNING_LINES) {
-                m_errorLines.remove(0, MAX_WARNING_LINES - 100);
-            }
         }
 
         // Parse specific WARNING: lines that should be surfaced as errors/guidance to the user
@@ -603,12 +589,12 @@ bool YtDlpWorker::isBrowserCookieFailureLine(const QString &line) const {
 }
 
 bool YtDlpWorker::hasBrowserCookieFailureDiagnostic() const {
-    for (const QString &line : std::as_const(m_errorLines)) {
+    for (const QString &line : m_errorLines) {
         if (isBrowserCookieFailureLine(line)) {
             return true;
         }
     }
-    for (const QString &line : std::as_const(m_allOutputLines)) {
+    for (const QString &line : m_allOutputLines) {
         if (isBrowserCookieFailureLine(line)) {
             return true;
         }

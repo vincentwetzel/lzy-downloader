@@ -260,6 +260,7 @@ add_library(LzyAppLib STATIC
     src/core/DownloadQueueManagerRecovery.cpp
     src/core/DownloadQueueState.cpp
     src/core/DownloadTempCleanup.cpp
+    src/core/DiagnosticTail.h
     src/core/GalleryDlArgsBuilder.cpp
     src/core/GalleryDlWorker.cpp
     src/core/LocalApiServer.cpp
@@ -277,6 +278,9 @@ add_library(LzyAppLib STATIC
     src/core/YtDlpWorkerDiagnostics.cpp
     src/core/YtDlpWorkerOutput.cpp
     src/core/YtDlpWorkerProcess.cpp
+    src/core/YtDlpWorkerProcessHelpers.h
+    src/core/YtDlpWorkerInfoJson.cpp
+    src/core/YtDlpWorkerProcessOutput.cpp
     src/core/YtDlpWorkerProgress.cpp
     src/core/YtDlpWorkerTransfers.cpp
     src/integration/BrowserCookieFile.cpp
@@ -293,10 +297,13 @@ add_library(LzyAppLib STATIC
     src/ui/AdvancedSettingsTab.cpp
     src/ui/DownloadHistoryTab.cpp
     src/ui/DownloadItemWidget.cpp
+    src/ui/DownloadItemWidgetIcons.h
+    src/ui/DownloadItemWidgetProgress.cpp
     src/ui/DownloadSectionsDialog.cpp
     src/ui/FormatSelectionDialog.cpp
     src/ui/MainWindow.cpp
     src/ui/MainWindowConnections.cpp
+    src/ui/MainWindowDownloadConnections.cpp
     src/ui/MainWindowDiscord.cpp
     src/ui/MainWindowDownloads.cpp
     src/ui/MainWindowUi.cpp
@@ -441,6 +448,13 @@ function(lzy_add_test target_name source_file)
     )
 endfunction()
 
+add_executable(LzyTestFakeYtDlp tests/FakeYtDlp.cpp)
+set_target_properties(LzyTestFakeYtDlp PROPERTIES
+    AUTOMOC OFF
+    AUTOUIC OFF
+    AUTORCC OFF
+)
+
 lzy_add_test(TestYtDlpArgsBuilder tests/TestYtDlpArgsBuilder.cpp)
 lzy_add_test(TestYtDlpWorker tests/TestYtDlpWorker.cpp)
 lzy_add_test(TestEndToEnd tests/TestEndToEnd.cpp)
@@ -463,3 +477,5 @@ lzy_add_test(TestDownloadTempCleanup tests/TestDownloadTempCleanup.cpp)
 lzy_add_test(TestPowerInhibitor tests/TestPowerInhibitor.cpp)
 lzy_add_test(TestGlobalDownloadLimiter tests/TestGlobalDownloadLimiter.cpp)
 lzy_add_test(TestStartupWorker tests/TestStartupWorker.cpp)
+add_dependencies(TestDownloadManager LzyTestFakeYtDlp)
+set_tests_properties(TestDownloadManager PROPERTIES TIMEOUT 75)

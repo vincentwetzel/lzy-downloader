@@ -61,3 +61,19 @@ api_token.txt
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# Test and local development artifacts
+/.test-results/
+/.test-runs/
+/.coverage/
+htmlcov/
+*.gcda
+*.gcno
+*.profraw
+*.profdata
+
+# Local tooling and agent state
+/.agents/
+/.codex/
+/.claude/
+/.cursor/

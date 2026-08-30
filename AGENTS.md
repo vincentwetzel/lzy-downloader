@@ -108,8 +108,8 @@ platform branches with a tested fallback or a documented release prerequisite.
 |---|---|
 | Queue/archive | `src/core/ArchiveManager.cpp`, `DownloadQueueManager*.cpp` |
 | Finalization | `src/core/DownloadFinalizer.*`, `FileReplacement.*`, `DownloadTempCleanup.*` |
-| Workers | `src/core/YtDlpWorker*`, `YtDlpWorkerDiagnostics.cpp`, `YtDlpWorkerTransfers.cpp` |
+| Workers | `src/core/YtDlpWorker.*`, `YtDlpWorkerProcess.cpp`, `YtDlpWorkerProcessOutput.cpp`, `YtDlpWorkerInfoJson.cpp`, `YtDlpWorkerProcessHelpers.h`, `YtDlpWorkerDiagnostics.cpp`, `YtDlpWorkerTransfers.cpp`, `DiagnosticTail.h` |
 | Arguments/live | `src/core/YtDlpArgsBuilder.*`, `YtDlpLiveStatus.h` |
-| UI/binaries | `src/ui/MainWindowUiBuilder.*`, `ActiveDownloadsTab.*`, `DownloadItemWidget.*`, `src/ui/advanced_settings/BinariesPage.*` |
+| UI/binaries | `src/ui/MainWindowUiBuilder.*`, `MainWindowConnections.cpp`, `MainWindowDownloadConnections.cpp`, `ActiveDownloadsTab.*`, `DownloadItemWidget.cpp`, `DownloadItemWidgetProgress.cpp`, `DownloadItemWidgetIcons.h`, `src/ui/advanced_settings/BinariesPage.*` |
 | Browser companion | `src/integration/BrowserNativeMessagingHost.cpp`, `src/integration/BrowserCookieFile.*`, and the separate browser-extension checkout |
 | Tests/release | `tests/`, `tests/run_headless_tests.py`, `build_release.py`, `.github/workflows/release.yml` |

@@ -36,6 +36,7 @@ GalleryDlWorker::GalleryDlWorker(const QString &id, const QStringList &args, Con
 
 void GalleryDlWorker::start()
 {
+    m_diagnosticTail.clear();
     const QString galleryDlPath = resolveExecutablePath(QStringLiteral("gallery-dl"));
     if (galleryDlPath.isEmpty()) {
         (void)DownloadTempCleanup::removeEmptyOwnedDirectory(m_id, outputDirectoryFromArgs(m_args));
@@ -163,13 +164,12 @@ void GalleryDlWorker::onReadyReadStandardError()
     completeData.replace('\r', '\n');
     const QList<QByteArray> lines = completeData.split('\n');
 
-    QStringList stderrLines = m_process->property("fullStderr").toStringList();
     for (const QByteArray &line : lines) {
         const QByteArray trimmed = line.trimmed();
         if (trimmed.isEmpty()) continue;
         QString trimmedLine = QString::fromUtf8(trimmed);
 
-        stderrLines.append(trimmedLine);
+        m_diagnosticTail.append(trimmedLine);
 
         emit outputReceived(m_id, trimmedLine);
 
@@ -201,12 +201,6 @@ void GalleryDlWorker::onReadyReadStandardError()
         }
     }
 
-    // Optimization: Batch-remove to prevent unbounded memory growth while avoiding O(N) array shifts on every single line
-    constexpr qsizetype MAX_LINES = 500;
-    if (stderrLines.size() > MAX_LINES) {
-        stderrLines.remove(0, stderrLines.size() - 400); // Keep the last 400 lines
-    }
-    m_process->setProperty("fullStderr", stderrLines);
 }
 
 void GalleryDlWorker::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatus)
@@ -224,7 +218,10 @@ void GalleryDlWorker::onProcessFinished(int exitCode, QProcess::ExitStatus exitS
     }
     if (!m_errorBuffer.isEmpty()) {
         QString remainder = QString::fromUtf8(m_errorBuffer).trimmed();
-        if (!remainder.isEmpty()) emit outputReceived(m_id, remainder);
+        if (!remainder.isEmpty()) {
+            m_diagnosticTail.append(remainder);
+            emit outputReceived(m_id, remainder);
+        }
         m_errorBuffer.clear();
     }
 
@@ -236,7 +233,7 @@ void GalleryDlWorker::onProcessFinished(int exitCode, QProcess::ExitStatus exitS
     bool partialSuccess = !success && !m_lastFile.isEmpty() && exitStatus == QProcess::NormalExit;
 
     if (!success && !partialSuccess) {
-        QString stderrOutput = m_process->property("fullStderr").toStringList().join(QLatin1Char('\n')).trimmed();
+        const QString stderrOutput = m_diagnosticTail.join(QLatin1Char('\n')).trimmed();
         QString errorMsg = stderrOutput;
         if (exitStatus == QProcess::CrashExit) {
             if (!errorMsg.isEmpty()) errorMsg.append(QStringLiteral("\n"));

@@ -106,7 +106,8 @@ only the sections relevant to the change.
 - `yt-dlp` handles video/audio and `gallery-dl` handles galleries through
   asynchronous `QProcess`. Metadata-only playlist probes are read-only: they
   omit download forcing, cookies, temp-directory creation, and item limits.
-  Transient probe/JSON errors fall back to the normal worker for ordinary URLs;
+  A probe is bounded by a 45-second watchdog. Transient probe/JSON errors,
+  including that timeout, fall back to the normal worker for ordinary URLs;
   explicit playlist-shaped URLs and missing yt-dlp remain terminal failures.
 - Generic positive item-index hints (`img_index`, `slide`, `item`, `index`,
   `playlist_index`) are stripped for probing and applied as one-based

@@ -27,6 +27,12 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## [Unreleased]
 
+- **Worker/UI source split:** Refactored the yt-dlp process, metadata, output,
+  download-row progress, and main-window download wiring into focused source
+  units; added a bounded diagnostic-tail helper and test-only fake yt-dlp.
+- **Playlist probe regression coverage:** Added a real slow-probe smoke test
+  covering the 45-second watchdog, ordinary-URL fallback, and explicit-playlist
+  failure classification.
 - **Cross-platform browser companion:** Package the native-messaging host on
   Linux and macOS, register exact Chrome/Chromium origins for the current user
   on all supported desktop platforms, and use a persistent AppImage wrapper so

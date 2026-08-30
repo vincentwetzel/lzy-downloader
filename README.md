@@ -375,7 +375,10 @@ LzyDownloader/
 │   │   ├── DownloadManager.h/cpp # Queue & Lifecycle Management
 │   │   ├── LocalApiServer.h/cpp  # localhost API for local integrations
 │   │   ├── DownloadFinalizer.h/cpp # File Verification & Moving
-│   │   ├── YtDlpWorker.h/cpp     # QProcess Wrapper & Parsing
+│   │   ├── YtDlpWorker.h/cpp     # Worker lifecycle and shared state
+│   │   ├── YtDlpWorkerProcess.cpp # Process startup/termination
+│   │   ├── YtDlpWorkerProcessOutput.cpp # Process output and progress input
+│   │   ├── YtDlpWorkerInfoJson.cpp # Metadata sidecar loading
 │   │   └── ...
 │   ├── ui/                     # User Interface (Qt Widgets)
 │   │   ├── MainWindow.h/cpp      # Main Window & Signal Hub
@@ -387,6 +390,10 @@ LzyDownloader/
 │   │   │   ├── StartTabUrlHandler.h/cpp # Manages URL input and clipboard
 │   │   │   └── StartTabCommandPreviewUpdater.h/cpp # Updates command preview
 │   │   ├── ActiveDownloadsTab.h/cpp # Progress Tab
+│   │   ├── DownloadItemWidget.cpp # Download row shell/actions
+│   │   ├── DownloadItemWidgetProgress.cpp # Progress-bar rendering
+│   │   ├── MainWindowConnections.cpp # Main-window signal wiring
+│   │   ├── MainWindowDownloadConnections.cpp # Download signal wiring
 │   │   ├── advanced_settings/
 │   │   │   ├── MetadataPage.h/cpp    # Metadata & Thumbnail configuration
 │   │   │   └── ...

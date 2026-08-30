@@ -16,50 +16,9 @@
 #include <chrono>
 #include <utility>
 
-namespace {
-    [[nodiscard]] bool isWaitThumbnail(const QString& thumbnailPath, const QString& id) {
-        if (thumbnailPath.isEmpty()) {
-            return false;
-        }
-        const QStringView view(thumbnailPath);
-        const qsizetype slashIdx = qMax(view.lastIndexOf(QLatin1Char('/')), view.lastIndexOf(QLatin1Char('\\')));
-        const QStringView fileName = (slashIdx != -1) ? view.mid(slashIdx + 1) : view;
-        return fileName.startsWith(id) && fileName.mid(id.length()).startsWith(QStringLiteral("_wait_thumbnail"));
-    }
+#include "YtDlpWorkerProcessHelpers.h"
 
-    void safeRemoveFile(const QString& filePath, const QString& description, int retries = 3) {
-        if (filePath.isEmpty()) return;
-        if (QFile::remove(filePath)) {
-            qDebug() << "Cleaned up" << description << "file:" << filePath;
-        } else if (QFile::exists(filePath)) {
-            qWarning() << "Failed to clean up" << description << "file:" << filePath;
-            if (retries > 0) {
-                QTimer::singleShot(100, [filePath, description, retries]() {
-                    safeRemoveFile(filePath, description, retries - 1);
-                });
-            } else {
-                qWarning() << "Failed to clean up" << description << "file:" << filePath << "after bounded retries.";
-            }
-        }
-    }
-
-    void cleanupWaitThumbnail(QString& thumbnailPath, const QString& id) {
-        if (isWaitThumbnail(thumbnailPath, id)) {
-            safeRemoveFile(thumbnailPath, QStringLiteral("orphaned wait thumbnail"));
-            thumbnailPath.clear();
-        }
-    }
-
-    [[nodiscard]] QJsonObject parseJsonData(const QByteArray& jsonData, QString* errorStr = nullptr) {
-        QJsonParseError parseError;
-        const QJsonDocument doc = QJsonDocument::fromJson(jsonData, &parseError);
-        if (parseError.error == QJsonParseError::NoError && doc.isObject()) {
-            return doc.object();
-        }
-        if (errorStr) *errorStr = parseError.errorString();
-        return {};
-    }
-}
+using namespace YtDlpWorkerProcessHelpers;
 
 void YtDlpWorker::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatus) {
     if (m_finishEmitted) {
@@ -111,8 +70,9 @@ void YtDlpWorker::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatu
         }
         if (!m_allOutputLines.isEmpty()) {
             constexpr qsizetype MAX_FALLBACK_LOG_LINES = 50; // Log up to 50 lines of context on any failure
+            const QStringList outputLines = m_allOutputLines.lines();
             qWarning().noquote() << "[YtDlpWorker] Last diagnostic output (no specific errors captured):"
-                                 << m_allOutputLines.mid(qMax(qsizetype(0), m_allOutputLines.size() - MAX_FALLBACK_LOG_LINES)).join(QLatin1Char('\n'));
+                                 << outputLines.mid(qMax(qsizetype(0), outputLines.size() - MAX_FALLBACK_LOG_LINES)).join(QLatin1Char('\n'));
         }
     }
     // Add specific logging for "completed with warnings" scenarios
@@ -218,7 +178,7 @@ void YtDlpWorker::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatu
 
     if (recoveredFromPostProcessorFailure) {
         message = tr("Download completed, but thumbnail/post-processing reported a warning.");
-        appendErrorPreview(m_errorLines);
+        appendErrorPreview(m_errorLines.lines());
         postprocessorWarning = message;
         exitCodeWarning = tr("yt-dlp exited with non-zero code %1 after producing final media.").arg(exitCode);
         qWarning() << "yt-dlp exited with code" << exitCode
@@ -335,7 +295,7 @@ void YtDlpWorker::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatu
         }
 
         if (!m_errorLines.isEmpty()) {
-            appendErrorPreview(m_errorLines);
+            appendErrorPreview(m_errorLines.lines());
         } else {
             // Fallback: Use the last few lines of general output if no ERROR: lines were captured
             constexpr qsizetype MAX_FALLBACK_LINES = 5;
@@ -379,7 +339,6 @@ void YtDlpWorker::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatu
 
     emit finished(m_id, success, message, m_finalFilename, m_originalDownloadedFilename, metadata);
 }
-
 bool YtDlpWorker::retryWithoutBrowserCookiesIfCookieExtractionFailed() {
     if (m_retriedWithoutBrowserCookies) {
         return false;
@@ -437,219 +396,5 @@ void YtDlpWorker::onProcessError(QProcess::ProcessError error) {
         (void)DownloadTempCleanup::removeEmptyOwnedDirectory(m_id, DownloadTempCleanup::pathForId(tempRoot, m_id));
 
         emit finished(m_id, false, message, QString(), QString(), QVariantMap());
-    }
-}
-
-void YtDlpWorker::onReadyReadStandardOutput() {
-    if (!m_process) {
-        return;
-    }
-    const QByteArray data = m_process->readAllStandardOutput();
-    parseStandardOutput(data);
-}
-
-void YtDlpWorker::onReadyReadStandardError() {
-    if (!m_process) {
-        return;
-    }
-    const QByteArray data = m_process->readAllStandardError();
-    parseStandardError(data);
-}
-
-void YtDlpWorker::parseProcessBuffer(QByteArray &buffer, const QByteArray &newData) {
-    buffer.append(newData);
-
-    const qsizetype lastDelimiter = qMax(buffer.lastIndexOf('\n'), buffer.lastIndexOf('\r'));
-    if (lastDelimiter == -1) {
-        return;
-    }
-
-    qsizetype start = 0;
-    for (qsizetype i = 0; i <= lastDelimiter; ++i) {
-        const char c = buffer.at(i);
-        if (c == '\n' || c == '\r') {
-            if (i > start) {
-                const QByteArrayView chunk(buffer.constData() + start, i - start);
-                const QString trimmedLine = QString::fromUtf8(chunk).trimmed();
-                if (!trimmedLine.isEmpty()) {
-                    handleOutputLine(trimmedLine);
-                }
-            }
-            start = i + 1;
-        }
-    }
-
-    buffer.remove(0, lastDelimiter + 1);
-}
-
-void YtDlpWorker::parseStandardOutput(const QByteArray &output) {
-    parseProcessBuffer(m_outputBuffer, output);
-}
-
-void YtDlpWorker::parseStandardError(const QByteArray &output) {
-    parseProcessBuffer(m_errorBuffer, output);
-}
-
-void YtDlpWorker::readInfoJsonWithRetry() {
-    qDebug() << "readInfoJsonWithRetry: Attempting to read info.json. Path:" << m_infoJsonPath << "Retry:" << m_infoJsonRetryCount;
-
-    if (m_infoJsonPath.isEmpty()) {
-        qDebug() << "readInfoJsonWithRetry: No info.json path set.";
-        return;
-    }
-
-    auto scheduleRetry = [this](const QString& reason) {
-        qWarning().noquote() << "readInfoJsonWithRetry:" << reason;
-        constexpr int MAX_JSON_RETRIES = 5;
-        constexpr auto JSON_RETRY_INTERVAL = std::chrono::milliseconds(500);
-        if (m_infoJsonRetryCount < MAX_JSON_RETRIES) {
-            m_infoJsonRetryCount++;
-            QTimer::singleShot(JSON_RETRY_INTERVAL, this, &YtDlpWorker::readInfoJsonWithRetry);
-            qDebug() << "readInfoJsonWithRetry: Retrying in 500ms. Attempt:" << m_infoJsonRetryCount;
-        } else {
-            qWarning() << "readInfoJsonWithRetry: Max retries reached for info.json.";
-            m_infoJsonPath.clear(); // Give up
-        }
-    };
-
-    QFile jsonFile(m_infoJsonPath);
-    if (!jsonFile.open(QIODevice::ReadOnly)) {
-        bool foundFallback = false;
-        if (m_configManager) {
-            const QString tempDir = DownloadTempCleanup::resolveRoot(m_configManager);
-            if (!tempDir.isEmpty()) {
-                QDir uuidDir(QDir(tempDir).filePath(m_id));
-                if (uuidDir.exists()) {
-                    const QStringList infoFiles = uuidDir.entryList({QStringLiteral("*.info.json")}, QDir::Files);
-                    if (!infoFiles.isEmpty()) {
-                        m_infoJsonPath = uuidDir.absoluteFilePath(infoFiles.first());
-                        jsonFile.setFileName(m_infoJsonPath);
-                        if (jsonFile.open(QIODevice::ReadOnly)) {
-                            foundFallback = true;
-                            qDebug() << "readInfoJsonWithRetry: Found info.json via directory scan fallback:" << m_infoJsonPath;
-                        }
-                    }
-                }
-            }
-        }
-
-        if (!foundFallback) {
-            scheduleRetry(QStringLiteral("Could not open info.json file at: %1 Error: %2").arg(m_infoJsonPath, jsonFile.errorString()));
-            return;
-        }
-    }
-
-    const QByteArray jsonData = jsonFile.readAll();
-    qDebug() << "readInfoJsonWithRetry: Successfully opened and read info.json. Data size:" << jsonData.size();
-    jsonFile.close();
-
-    QString parseErrorStr;
-    const QJsonObject obj = parseJsonData(jsonData, &parseErrorStr);
-    if (obj.isEmpty()) {
-        scheduleRetry(QStringLiteral("Failed to parse info.json as JSON or it's not an object. Error: %1").arg(parseErrorStr));
-        return;
-    }
-
-    // If we successfully parsed the file, we don't need to retry anymore.
-    m_infoJsonRetryCount = 0;
-
-    QVariantMap updateData;
-
-    // Store the full metadata for use in onProcessFinished.
-    // Important: only replace inferred transfer ordering when info.json actually
-    // provides requested_downloads. Some yt-dlp runs omit that field entirely,
-    // and clearing our earlier stderr-derived mapping causes audio handoff labels
-    // to briefly switch correctly and then regress back to "video".
-    m_fullMetadata = obj.toVariantMap();
-    const QVariantList requestedDownloads = m_fullMetadata.value(QStringLiteral("requested_downloads")).toList();
-    if (!requestedDownloads.isEmpty()) {
-        m_requestedTransferStatuses.clear();
-        m_requestedTransferFormatIds.clear();
-        m_requestedTransferSizes.clear();
-    }
-    for (const QVariant &requestedDownload : std::as_const(requestedDownloads)) {
-        const QVariantMap requestMap = requestedDownload.toMap();
-        const QString vcodec = requestMap.value(QStringLiteral("vcodec")).toString();
-        const QString acodec = requestMap.value(QStringLiteral("acodec")).toString();
-        const QString formatId = requestMap.value(QStringLiteral("format_id")).toString().trimmed();
-
-        const bool hasVideo = !vcodec.isEmpty() && vcodec != QStringLiteral("none");
-        const bool hasAudio = !acodec.isEmpty() && acodec != QStringLiteral("none");
-
-        if (hasVideo || hasAudio) {
-            QString status = tr("Downloading media stream...");
-            if (hasVideo && !hasAudio) {
-                status = tr("Downloading video stream...");
-            } else if (hasAudio && !hasVideo) {
-                status = tr("Downloading audio stream...");
-            }
-            m_requestedTransferStatuses.append(status);
-            m_requestedTransferFormatIds.append(formatId);
-            m_requestedTransferSizes.append(inferPrimaryStreamSizeBytes(requestMap));
-        }
-    }
-    if (requestedDownloads.isEmpty()) {
-        for (qsizetype i = 0; i < m_requestedTransferFormatIds.size() && i < m_requestedTransferSizes.size(); ++i) {
-            if (m_requestedTransferSizes.at(i) <= 0.0) {
-                m_requestedTransferSizes[i] = inferPrimaryStreamSizeFromMetadata(m_requestedTransferFormatIds.at(i));
-            }
-        }
-        qDebug() << "[YtDlpWorker] info.json did not provide requested_downloads; preserving previously inferred transfer order:"
-                 << m_requestedTransferFormatIds << m_requestedTransferStatuses;
-    }
-    qDebug() << "[YtDlpWorker] requested transfer statuses:" << m_requestedTransferStatuses;
-    qDebug() << "[YtDlpWorker] requested transfer format IDs:" << m_requestedTransferFormatIds;
-    qDebug() << "[YtDlpWorker] requested transfer sizes:" << m_requestedTransferSizes;
-
-    if (m_videoTitle.isEmpty()) {
-        if (const QJsonValue titleVal = obj.value(QStringLiteral("title")); titleVal.isString()) {
-            m_videoTitle = titleVal.toString();
-            updateData.insert(QStringLiteral("title"), m_videoTitle);
-            qDebug() << "Extracted title from info.json:" << m_videoTitle;
-        }
-    }
-
-    if (const QJsonValue durationVal = obj.value(QStringLiteral("duration")); durationVal.isDouble()) {
-        updateData.insert(QStringLiteral("duration"), durationVal.toDouble());
-    } else if (const QJsonValue durationStrVal = obj.value(QStringLiteral("duration_string")); durationStrVal.isString()) {
-        updateData.insert(QStringLiteral("duration_string"), durationStrVal.toString());
-    }
-
-    if (obj.contains(QStringLiteral("live_status"))) {
-        const QString liveStatus = obj.value(QStringLiteral("live_status")).toString();
-        if (liveStatus == QStringLiteral("was_live") || liveStatus == QStringLiteral("not_live") || liveStatus == QStringLiteral("post_live")) {
-            updateData.insert(QStringLiteral("is_live"), false);
-        } else if (liveStatus == QStringLiteral("is_live") || liveStatus == QStringLiteral("is_upcoming")) {
-            updateData.insert(QStringLiteral("is_live"), true);
-        }
-    } else if (const QJsonValue isLiveVal = obj.value(QStringLiteral("is_live")); isLiveVal.isBool()) {
-        updateData.insert(QStringLiteral("is_live"), isLiveVal.toBool());
-        qDebug() << "Extracted is_live from info.json (fallback):" << isLiveVal.toBool();
-    }
-
-    // Extract thumbnail path if available from the info.json
-    if (const QJsonValue thumbnailsVal = obj.value(QStringLiteral("thumbnails")); (m_thumbnailPath.isEmpty() || isWaitThumbnail(m_thumbnailPath, m_id)) && thumbnailsVal.isArray()) {
-        const QJsonArray thumbnails = thumbnailsVal.toArray();
-        // yt-dlp adds a "filepath" key to the thumbnail entry it downloaded.
-        for (const QJsonValue &thumbValue : std::as_const(thumbnails)) {
-            if (thumbValue.isObject()) {
-                const QJsonObject thumbObj = thumbValue.toObject();
-                const QJsonValue filepathVal = thumbObj.value(QStringLiteral("filepath"));
-                if (filepathVal.isString()) {
-                    const QString newThumb = QDir::fromNativeSeparators(filepathVal.toString());
-                    if (newThumb != m_thumbnailPath) {
-                        cleanupWaitThumbnail(m_thumbnailPath, m_id);
-                        m_thumbnailPath = newThumb;
-                    }
-                    updateData.insert(QStringLiteral("thumbnail_path"), m_thumbnailPath);
-                    qDebug() << "Extracted thumbnail path from info.json:" << m_thumbnailPath;
-                    break; // Found it
-                }
-            }
-        }
-    }
-
-    if (!updateData.isEmpty()) {
-        emit progressUpdated(m_id, updateData);
     }
 }

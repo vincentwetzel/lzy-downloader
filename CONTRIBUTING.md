@@ -38,6 +38,11 @@ CMake cache, so direct-Qt and vcpkg-toolchain configurations use their
 corresponding integration mode. Use `--suspects` to rerun only the tests
 recorded as failed by the preceding run.
 
+The `TestDownloadManager` coverage includes a slow-probe smoke test. It takes
+up to the 45-second playlist watchdog and verifies that ordinary URLs fall
+back to the downloader while explicit playlist URLs fail without starting a
+direct-download worker.
+
 Keep the GUI responsive, preserve the temporary-download-to-final-file
 lifecycle, and update the maintained documentation when behavior changes.
 Production code belongs under `src/`; tests and fixtures belong under `tests/`.

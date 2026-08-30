@@ -41,6 +41,10 @@ release details here only when changing build or packaging behavior.
 
 Release smoke tests should also verify that a stale manually managed yt-dlp
 executable produces an exact installed/latest update prompt.
+The headless `TestDownloadManager` smoke test also runs a real slow probe
+through the 45-second playlist watchdog: an ordinary URL must fall back to the
+normal downloader, while an explicit playlist URL must remain terminal. Run it
+with the normal headless suite before publishing a release.
 
 ## Public repository discoverability
 
@@ -349,6 +353,7 @@ If the workflow is unavailable, navigate to https://github.com/vincentwetzel/lzy
 - [ ] GitHub Actions rebuilt the platform artifacts from the current `CMakeLists.txt` version (the tag workflow runs `python build_release.py`); artifacts were not manually renamed
 - [ ] Tag-triggered GitHub Actions release matrix completed successfully
 - [ ] Headless Qt tests passed when run as an explicitly requested validation (local test execution is not required for the tag workflow)
+- [ ] Slow playlist-probe smoke test passed: ordinary URLs download through the fallback and explicit playlist URLs fail without a direct-download start
 - [ ] NSIS installer tested (install/uninstall preserves `%LOCALAPPDATA%\LzyDownloader\settings.ini`, `download_archive.db`, `downloads_backup.json`, and log files)
 - [ ] NSIS installer finish-page launch option starts `LzyDownloader.exe` when left checked and does not start it when cleared
 - [ ] Clean Windows install tested for HTTPS update checks (Qt TLS backend loads with `libcrypto-3-x64.dll` and `libssl-3-x64.dll` beside `LzyDownloader.exe`)

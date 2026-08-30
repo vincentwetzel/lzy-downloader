@@ -111,7 +111,7 @@ bool YtDlpWorker::hasFatalDownloadDiagnostic() const
     const auto matches = [](const QString &line) {
         return fatalDownloadRegex().match(line).hasMatch();
     };
-    return anyDiagnosticMatches(m_errorLines, matches) || anyDiagnosticMatches(m_allOutputLines, [this](const QString &line) {
+    return anyDiagnosticMatches(m_errorLines.lines(), matches) || anyDiagnosticMatches(m_allOutputLines.lines(), [this](const QString &line) {
         return isIncompleteMediaDiagnosticLine(line);
     });
 }
@@ -121,7 +121,7 @@ bool YtDlpWorker::hasIncompleteMediaDiagnostic() const
     const auto matches = [this](const QString &line) {
         return isIncompleteMediaDiagnosticLine(line);
     };
-    return anyDiagnosticMatches(m_errorLines, matches) || anyDiagnosticMatches(m_allOutputLines, matches);
+    return anyDiagnosticMatches(m_errorLines.lines(), matches) || anyDiagnosticMatches(m_allOutputLines.lines(), matches);
 }
 
 bool YtDlpWorker::retryWithoutAria2cIfTransientFailure(const QString &diagnostic)

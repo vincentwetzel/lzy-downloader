@@ -3,18 +3,12 @@
 Only unfinished work belongs here; completed work is recorded in
 `CHANGELOG.md` or the historical archive.
 
-## In progress
-
-- [ ] Release smoke-test ordinary-download fallback with a slow playlist probe
-  and an explicit playlist URL.
-- [ ] Split C++ files at or above the 500-line context limit, currently
-  `BinariesPage.cpp`, `DownloadItemWidget.cpp`, `MainWindowConnections.cpp`,
-  `YtDlpWorkerProcess.cpp`, and `ProcessUtils.cpp` (move version parsing/probing
-  into a focused helper).
-- [ ] Evaluate a reusable capped diagnostic-tail helper for `YtDlpWorker` and
-  other workers.
-
 ## Planned
+
+- [ ] Split the remaining oversized C++ files, starting with
+  `src/ui/advanced_settings/BinariesPage.cpp`, `src/core/ProcessUtils.cpp`,
+  and `src/core/YtDlpWorkerOutput.cpp`; keep each production source file below
+  500 lines.
 
 - [ ] Finalize Chrome browser-companion registration: pass the published
   extension ID to each platform release configuration and verify first-launch

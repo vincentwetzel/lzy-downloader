@@ -44,10 +44,8 @@ YtDlpWorker::YtDlpWorker(const QString &id, const QStringList &args, ConfigManag
             QByteArray errData = m_process->peek(m_process->bytesAvailable());
             m_process->setCurrentReadChannel(oldChannel);
 
-            QString currentErr = QString::fromUtf8(errData);
-            QString accumulated = m_process->property("accumulated_stderr").toString();
-            accumulated += currentErr;
-            m_process->setProperty("accumulated_stderr", accumulated);
+            m_accumulatedStderr.appendText(QString::fromUtf8(errData));
+            m_process->setProperty("accumulated_stderr", m_accumulatedStderr.join(QLatin1Char('\n')));
         }
     });
 
@@ -95,6 +93,7 @@ YtDlpWorker::YtDlpWorker(const QString &id, const QStringList &args, ConfigManag
             if (shouldRetry) {
                 if (removeCookies) m_process->setProperty("cookie_retry_attempted", true);
                 if (removeWaitForVideo) m_process->setProperty("wait_retry_attempted", true);
+                m_accumulatedStderr.clear();
                 m_process->setProperty("accumulated_stderr", QString()); // Reset for next run
 
                 if (removeCookies) {
@@ -156,6 +155,7 @@ void YtDlpWorker::start() {
     m_infoJsonRetryCount = 0;
     m_outputBuffer.clear();
     m_errorBuffer.clear();
+    m_accumulatedStderr.clear();
     m_allOutputLines.clear();
     m_errorLines.clear();
     m_fullMetadata.clear();

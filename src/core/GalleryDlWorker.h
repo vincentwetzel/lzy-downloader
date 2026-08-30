@@ -5,6 +5,8 @@
 #include <QStringList>
 #include <QVariantMap>
 
+#include "core/DiagnosticTail.h"
+
 class ConfigManager;
 
 class GalleryDlWorker : public QObject
@@ -36,4 +38,5 @@ private:
     QString m_lastFile;
     QByteArray m_outputBuffer;
     QByteArray m_errorBuffer;
+    DiagnosticTail m_diagnosticTail{400, 64 * 1024};
 };

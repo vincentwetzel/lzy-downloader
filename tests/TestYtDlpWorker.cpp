@@ -1,6 +1,7 @@
 #include "BaseTest.h"
 #include "core/YtDlpWorker.h"
 #include "core/ConfigManager.h"
+#include "core/DiagnosticTail.h"
 
 #include <QtTest/QtTest>
 #include <QDir>
@@ -63,6 +64,7 @@ private slots:
     void testLivestreamWaitParsing();
     void testIncompleteMediaDiagnosticClassification();
     void testDiskSpaceFailureClassification();
+    void testDiagnosticTailRetainsBoundedNewestLines();
 };
 
 void TestYtDlpWorker::init() {
@@ -295,6 +297,26 @@ void TestYtDlpWorker::testAria2RecoveryRejectsUnrelatedFailuresAndRetriesOnce() 
     QVERIFY(worker.callRetryWithoutAria2c(QStringLiteral("ERROR: aria2c exited with code 6")));
     QVERIFY(!worker.arguments().contains(QStringLiteral("--external-downloader")));
     QVERIFY(!worker.callRetryWithoutAria2c(QStringLiteral("ERROR: aria2c exited with code 29")));
+}
+
+void TestYtDlpWorker::testDiagnosticTailRetainsBoundedNewestLines() {
+    DiagnosticTail tail(3, 100);
+    tail.append(QStringLiteral("first"));
+    tail.append(QStringLiteral("second"));
+    tail.append(QStringLiteral("third"));
+    tail.append(QStringLiteral("fourth"));
+
+    QCOMPARE(tail.lines(), QStringList({QStringLiteral("second"), QStringLiteral("third"), QStringLiteral("fourth")}));
+
+    DiagnosticTail characterCappedTail(10, 10);
+    characterCappedTail.append(QStringLiteral("12345"));
+    characterCappedTail.append(QStringLiteral("67890"));
+    characterCappedTail.append(QStringLiteral("newest"));
+    QCOMPARE(characterCappedTail.lines(), QStringList({QStringLiteral("newest")}));
+
+    DiagnosticTail textTail(3, 100);
+    textTail.appendText(QStringLiteral("one\ntwo\nthree\nfour"));
+    QCOMPARE(textTail.lines(), QStringList({QStringLiteral("two"), QStringLiteral("three"), QStringLiteral("four")}));
 }
 
 void TestYtDlpWorker::testOverallProgressPayloadForDiscord() {

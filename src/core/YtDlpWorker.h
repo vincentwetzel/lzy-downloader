@@ -6,6 +6,8 @@
 #include <QProcess>
 #include <QElapsedTimer>
 
+#include "core/DiagnosticTail.h"
+
 class ConfigManager;
 class QTimer;
 
@@ -91,13 +93,14 @@ protected: // Changed from private for testing
     bool m_finishEmitted;
     QByteArray m_outputBuffer;
     QByteArray m_errorBuffer; // New member for stderr buffering
-    QStringList m_allOutputLines; // Stores all output lines for post-processing
+    DiagnosticTail m_accumulatedStderr;
+    DiagnosticTail m_allOutputLines;
 
     QString m_infoJsonPath; // Path to info.json file that needs to be read (Corrected from m_pendingInfoJsonPath)
     int m_infoJsonRetryCount;      // Retry counter for reading info.json
     QVariantMap m_fullMetadata;    // Stores the full metadata parsed from info.json
     bool m_errorEmitted;           // Tracks if a specific error has been emitted
-    QStringList m_errorLines;      // Stores ERROR: lines from stderr
+    DiagnosticTail m_errorLines;
     bool m_promptDelayActive{false};
     bool m_retriedWithoutBrowserCookies = false;
     bool m_retriedWithoutAria2c = false;
