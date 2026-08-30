@@ -25,7 +25,7 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
   browser-cookie setup path and links directly to Advanced Settings →
   Essentials.
 
-## [Unreleased]
+## [1.2.43] - 2026-08-30
 
 - **UI polish:** Refined the Active Downloads empty state and required-tools
   setup dialog with clearer hierarchy, improved spacing, larger action targets,
@@ -48,6 +48,8 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 - **Cross-platform process handling:** Keep worker/helper process groups
   terminable on POSIX systems and normalize internal Qt paths independently of
   native display separators.
+
+## [Unreleased]
 
 ## [1.2.41] - 2026-08-27
 
