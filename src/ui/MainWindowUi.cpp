@@ -361,17 +361,18 @@ void MainWindow::applyTheme(const QString &themeName)
         darkPalette.setColor(QPalette::Window, QColor(53, 53, 53));
         darkPalette.setColor(QPalette::WindowText, Qt::white);
         darkPalette.setColor(QPalette::Base, QColor(25, 25, 25));
-        darkPalette.setColor(QPalette::AlternateBase, QColor(53, 53, 53));
+        darkPalette.setColor(QPalette::AlternateBase, QColor(58, 58, 58));
         darkPalette.setColor(QPalette::ToolTipBase, Qt::white);
         darkPalette.setColor(QPalette::ToolTipText, Qt::white);
         darkPalette.setColor(QPalette::Text, Qt::white);
-        darkPalette.setColor(QPalette::Button, QColor(53, 53, 53));
+        darkPalette.setColor(QPalette::PlaceholderText, QColor(185, 185, 185));
+        darkPalette.setColor(QPalette::Button, QColor(58, 58, 58));
         darkPalette.setColor(QPalette::ButtonText, Qt::white);
         darkPalette.setColor(QPalette::BrightText, Qt::red);
         darkPalette.setColor(QPalette::Link, QColor(42, 130, 218));
         darkPalette.setColor(QPalette::Highlight, QColor(42, 130, 218));
         darkPalette.setColor(QPalette::HighlightedText, Qt::black);
-        darkPalette.setColor(QPalette::Mid, QColor(40, 40, 40));
+        darkPalette.setColor(QPalette::Mid, QColor(75, 75, 75));
         qApp->setPalette(darkPalette);
     } else {
         QPalette lightPalette(QColor(240, 240, 240));
@@ -381,6 +382,7 @@ void MainWindow::applyTheme(const QString &themeName)
         lightPalette.setColor(QPalette::ToolTipBase, Qt::white);
         lightPalette.setColor(QPalette::ToolTipText, Qt::black);
         lightPalette.setColor(QPalette::Text, Qt::black);
+        lightPalette.setColor(QPalette::PlaceholderText, QColor(90, 90, 90));
         lightPalette.setColor(QPalette::ButtonText, Qt::black);
         lightPalette.setColor(QPalette::BrightText, Qt::red);
         lightPalette.setColor(QPalette::Link, QColor(42, 130, 218));

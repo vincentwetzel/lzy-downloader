@@ -27,6 +27,14 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## [Unreleased]
 
+- **UI polish:** Refined the Active Downloads empty state and required-tools
+  setup dialog with clearer hierarchy, improved spacing, larger action targets,
+  palette-aware contrast, and better narrow-window readability. Tool status
+  summaries now use concise singular/plural wording while retaining actionable
+  existing-binary paths and manual-update guidance.
+- **Worker diagnostics:** Standardized multi-line diagnostic assembly with
+  Qt-native string literals without changing the captured error or warning
+  content.
 - **Worker/UI source split:** Refactored the yt-dlp process, metadata, output,
   download-row progress, and main-window download wiring into focused source
   units; added a bounded diagnostic-tail helper and test-only fake yt-dlp.

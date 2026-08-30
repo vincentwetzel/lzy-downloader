@@ -183,14 +183,29 @@ void ActiveDownloadsTab::setupUi() {
     iconFont.setPointSize(48);
     iconLabel->setFont(iconFont);
 
-    QLabel *textLabel = new QLabel(tr("No active downloads.\nAdd a URL in the Start Download tab to begin."), this);
-    textLabel->setAlignment(Qt::AlignCenter);
-    textLabel->setStyleSheet(QStringLiteral("color: palette(shadow); font-size: 14px;"));
+    QLabel *emptyStateTitle = new QLabel(tr("No active downloads"), this);
+    emptyStateTitle->setObjectName(QStringLiteral("emptyStateTitle"));
+    emptyStateTitle->setAlignment(Qt::AlignCenter);
+    QFont titleFont = emptyStateTitle->font();
+    titleFont.setPointSize(16);
+    titleFont.setWeight(QFont::DemiBold);
+    emptyStateTitle->setFont(titleFont);
+    emptyStateTitle->setStyleSheet(QStringLiteral("color: palette(text);"));
+
+    QLabel *emptyStateHint = new QLabel(tr("Add a URL in the Start Download tab to begin."), this);
+    emptyStateHint->setObjectName(QStringLiteral("emptyStateHint"));
+    emptyStateHint->setAlignment(Qt::AlignCenter);
+    QFont hintFont = emptyStateHint->font();
+    hintFont.setPointSize(13);
+    emptyStateHint->setFont(hintFont);
+    emptyStateHint->setStyleSheet(QStringLiteral("color: palette(placeholder-text);"));
 
     placeholderLayout->addStretch();
     placeholderLayout->addWidget(iconLabel);
-    placeholderLayout->addSpacing(10);
-    placeholderLayout->addWidget(textLabel);
+    placeholderLayout->addSpacing(12);
+    placeholderLayout->addWidget(emptyStateTitle);
+    placeholderLayout->addSpacing(4);
+    placeholderLayout->addWidget(emptyStateHint);
     placeholderLayout->addStretch();
 
     // Setup Downloads Container (Page 1)

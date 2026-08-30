@@ -45,7 +45,7 @@ YtDlpWorker::YtDlpWorker(const QString &id, const QStringList &args, ConfigManag
             m_process->setCurrentReadChannel(oldChannel);
 
             m_accumulatedStderr.appendText(QString::fromUtf8(errData));
-            m_process->setProperty("accumulated_stderr", m_accumulatedStderr.join(QLatin1Char('\n')));
+            m_process->setProperty("accumulated_stderr", m_accumulatedStderr.join(QStringLiteral("\n")));
         }
     });
 

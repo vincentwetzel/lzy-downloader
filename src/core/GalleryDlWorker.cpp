@@ -233,7 +233,7 @@ void GalleryDlWorker::onProcessFinished(int exitCode, QProcess::ExitStatus exitS
     bool partialSuccess = !success && !m_lastFile.isEmpty() && exitStatus == QProcess::NormalExit;
 
     if (!success && !partialSuccess) {
-        const QString stderrOutput = m_diagnosticTail.join(QLatin1Char('\n')).trimmed();
+        const QString stderrOutput = m_diagnosticTail.join(QStringLiteral("\n")).trimmed();
         QString errorMsg = stderrOutput;
         if (exitStatus == QProcess::CrashExit) {
             if (!errorMsg.isEmpty()) errorMsg.append(QStringLiteral("\n"));
