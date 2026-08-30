@@ -88,7 +88,7 @@ replacement. Temp cleanup owns root resolution and guarded UUID-folder removal.
 | `ActiveDownloadsTab.*`, `DownloadItemWidget.*` | Download rows, thumbnails, compact layout, one focused progress bar, actions, and newest-row visibility |
 | `advanced_settings/*`, `MissingBinariesDialog.*` | Settings pages, templates, and consolidated binary setup/provisioning |
 | `LocalApiServer.*` | Authenticated localhost enqueue/status/cancel, aggregate progress, and tracked-job signals |
-| `integration/BrowserNativeMessagingHost.cpp`, `integration/BrowserCookieFile.*` | Bounded Chrome native-messaging bridge and request-scoped cookie-file ownership; starts the validated headless server and relays allowlisted Local API operations |
+| `integration/BrowserNativeMessagingHost.cpp`, `integration/BrowserNativeHostRegistration.*`, `integration/BrowserCookieFile.*` | Bounded cross-platform Chrome native-messaging bridge and registration, plus request-scoped cookie-file ownership; starts the validated headless server and relays allowlisted Local API operations |
 | `AppUpdater.*`, `LzyDownloader.nsi` | Release lookup/handoff and Windows silent-install relaunch |
 | `PowerInhibitor.*` | Platform idle-sleep inhibition |
 | `LogManager.*` | Per-run logs and five-file startup retention |
@@ -99,7 +99,8 @@ replacement. Temp cleanup owns root resolution and guarded UUID-folder removal.
 with Qt's `minimal` platform plugin. `tests/run_headless_tests.py` owns
 build-before-CTest execution,
 timestamped output, summaries, and the failed-test cache. `CMakeLists.txt`
-owns the build graph; `CMakePresets.json` owns supported local paths;
+owns the build graph; `CMakePresets.json` owns supported local configure
+presets;
 `cmake/deploy_openssl_runtime.cmake` owns guarded Windows Qt/OpenSSL runtime
 deployment;
 `build_release.py` owns native build/version checks, while
@@ -121,6 +122,7 @@ idle sleep while active, without preventing normal display power-off.
 Windows keeps required Qt plugins, SQLite, OpenSSL, Qt runtime, and MinGW
 compiler runtime DLLs beside the executable. The deployment helper is also
 used for test executables so headless runs do not depend on the developer shell.
-Linux packaging selects qmake from the Qt SDK used for the release build and
-deploys its dynamic Qt/SQLite runtime. macOS packaging creates architecture-labelled bundles/DMGs and
-uses Finder for DMG handoff.
+Linux packaging selects qmake from the Qt SDK used for the release build,
+deploys its dynamic Qt/SQLite runtime, and includes the browser host in the
+AppImage. macOS packaging creates architecture-labelled bundles/DMGs and
+places the browser host inside the app bundle before creating the DMG.

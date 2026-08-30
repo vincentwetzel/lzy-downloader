@@ -205,6 +205,7 @@ void DownloadManager::fetchInfoForSections(const QString &url, const QVariantMap
         }
     });
 
+    ProcessUtils::setProcessEnvironment(*process);
     process->start(ytDlpPath, args);
 
     QTimer *watchdog = new QTimer(process);
@@ -289,6 +290,7 @@ void DownloadManager::fetchFormatsForSelection(const QString &url, const QVarian
         }
     });
 
+    ProcessUtils::setProcessEnvironment(*process);
     process->start(ytDlpPath, args);
 
     QTimer *watchdog = new QTimer(process);

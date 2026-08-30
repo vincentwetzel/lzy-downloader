@@ -9,8 +9,8 @@ downloader, and gallery downloader** powered by [yt-dlp](https://github.com/yt-d
 Qt 6 GUI for downloading supported online media URLs, extracting audio, saving
 playlists, embedding metadata and thumbnails, and managing concurrent downloads.
 
-The primary target is Windows, with native Linux and macOS release packaging
-also available. LzyDownloader is built in C++20 and is designed as a practical
+Windows, Linux, and macOS are first-class supported desktop targets, with
+native release packaging for each. LzyDownloader is built in C++20 and is designed as a practical
 yt-dlp GUI for people who want queue management, resumable downloads, quality
 controls, and clear progress diagnostics without working at a command prompt.
 
@@ -85,9 +85,10 @@ input are reported as incomplete-transfer failures before metadata embedding.
 - 🔗 **Useful Quality Warnings** — Low-quality video warnings include the media title and a clickable source link when the URL is complete
 - 🖼️ **Thumbnail Embedding** — Automatic thumbnail download, bounded preview loading, and embedding for videos and audio
 - 🌐 **Browser Cookies** — Use saved cookies from Firefox, Chrome, Edge, or other browsers for age-restricted content; explicit browser-cookie extraction failures may retry once without cookies
-- 🧩 **Chrome Browser Companion** — The optional extension can enqueue the active
+- 🧩 **Cross-platform Chrome Browser Companion** — The optional extension can enqueue the active
   tab with request-scoped cookies, show only its own jobs, and request
-  cancellation through the installed native-messaging host.
+  cancellation through the installed native-messaging host on Windows, Linux,
+  and macOS.
 - 📂 **Smart Sorting** — Automatically organize downloads into subfolders based on uploader, playlist, date, or custom patterns
 - 🛡️ **Duplicate-safe retries** — Equivalent source URLs share a normalized media identity, preventing duplicate queue/retry jobs without adding site-specific downloader behavior
 - 🔁 **Terminal retry recovery** — Explicit API re-downloads can replace matching restored stopped/failed jobs, while genuinely paused downloads remain protected
@@ -115,11 +116,11 @@ matching release manifest.
 
 ### From Source
 
-Requires CMake, a C++20 compatible compiler, and Qt 6. The checked-in Windows
-presets use the supported Qt MinGW/Ninja toolchain; the build deploys the Qt
-platform/runtime and MinGW runtime DLLs needed by the executable and tests.
+Requires CMake, a C++20 compatible compiler, Qt 6, and Ninja. The checked-in
+presets provide OS-neutral build-type and generator settings; release builds
+deploy the Qt platform/runtime and the platform's required runtime libraries.
 
-The repository includes a `vcpkg.json` manifest for source builds with a pinned `builtin-baseline` for reproducible dependency resolution. The manifest enables only the Qt modules used by the application and tests (`concurrent`, `gui`, `network`, `sql-sqlite`, `testlib`, and `widgets`), the Qt JPEG/PNG image plugins used by thumbnails and history, plus Qt D-Bus on Linux for idle-sleep inhibition. On Windows, the checked-in `CMakePresets.json` expects vcpkg at `E:/vcpkg/scripts/buildsystems/vcpkg.cmake`, Qt's MinGW toolchain under `C:/Qt/Tools/mingw1310_64/bin`, and Ninja under `C:/Qt/Tools/Ninja`. If these paths differ on your machine, adjust the preset or pass equivalent compiler, generator, and toolchain settings when configuring.
+The repository includes a `vcpkg.json` manifest for source builds with a pinned `builtin-baseline` for reproducible dependency resolution. The manifest enables only the Qt modules used by the application and tests (`concurrent`, `gui`, `network`, `sql-sqlite`, `testlib`, and `widgets`), the Qt JPEG/PNG image plugins used by thumbnails and history, plus Qt D-Bus on Linux for idle-sleep inhibition. The checked-in `CMakePresets.json` files are OS-neutral Ninja convenience presets; make Qt discoverable through the platform package manager or `CMAKE_PREFIX_PATH`, and provide `VCPKG_ROOT` plus `-DCMAKE_TOOLCHAIN_FILE` when using vcpkg.
 
 ```bash
 # Clone the repo
@@ -134,14 +135,15 @@ cmake --build build --config Release
 Example manual configure command:
 
 ```bash
-cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=E:/vcpkg/scripts/buildsystems/vcpkg.cmake
+cmake -B build -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake"
 cmake --build build --config Release
 ```
 
-For local Windows debugging, use the checked-in `debug` preset. It writes to
-`build-debug` and uses the same MinGW/Ninja toolchain as the release preset;
-the local Qt installation supplies the host Qt tools while vcpkg supplies the
-target libraries.
+For local debugging on a supported desktop OS, use the checked-in `debug`
+preset. It writes to `build-debug` and uses Ninja; provide the platform's Qt
+location through `CMAKE_PREFIX_PATH` and pass the vcpkg toolchain explicitly if
+you use vcpkg.
 
 The VS Code task `CMake: Configure Debug` runs
 `tools/configure_debug.ps1`, which checks for incomplete compiler metadata and
@@ -247,7 +249,14 @@ When playlist handling is set to `Ask`, detected playlists can be queued entirel
 
 ## Configuration
 
-All settings are saved to `%LOCALAPPDATA%\LzyDownloader\settings.ini` on Windows and persist between sessions. GUI and `--server`/`--headless`/`--background` launches share this same preferences file, so folders, binary paths, templates, cookies, codecs, and related choices stay in sync. The app uses a Qt-native `QSettings` INI layout. Download history is shared through `download_archive.db`.
+All settings are saved to the application-local data directory and persist
+between sessions: `%LOCALAPPDATA%\LzyDownloader` on Windows,
+`$XDG_DATA_HOME/LzyDownloader` (or `~/.local/share/LzyDownloader`) on Linux,
+and `~/Library/Application Support/LzyDownloader` on macOS. GUI and
+`--server`/`--headless`/`--background` launches share this same preferences
+file, so folders, binary paths, templates, cookies, codecs, and related
+choices stay in sync. The app uses a Qt-native `QSettings` INI layout.
+Download history is shared through `download_archive.db`.
 
 - **Output folder** — Where completed downloads are saved
 - **Temporary folder** — Where downloads are cached during progress
@@ -263,7 +272,7 @@ All settings are saved to `%LOCALAPPDATA%\LzyDownloader\settings.ini` on Windows
 - **Shared concurrency** - The `max_threads` worker limit is coordinated across GUI and server/headless/background processes for the same user
 - **Playlist audio filenames** - Playlist audio downloads are prefixed with zero-padded indices by default; change `Download Options -> Prefix playlist indices` to disable this behavior
 - **Local API** - Enable a localhost-only API server from Advanced Settings -> Configuration
-- **Binary management** - Choose app-managed-first or system-first resolution and configure launch, daily, or weekly automatic updates for app-managed tools in Advanced Settings -> External Tools. Options marked **(Recommended)** install a private copy in the platform app-data `bin` folder (on Windows, `%LOCALAPPDATA%\\LzyDownloader\\bin`); package-manager choices remain explicit alternatives and update through their manager. Explicit Browse selections and completed local installs remain selected regardless of preference. Windows FFmpeg updates install and retain both `ffmpeg.exe` and `ffprobe.exe` together. If startup finds missing or outdated tools, one **Set Up Required Tools** checklist distinguishes fresh installs from existing-binary upgrades and offers **Update All** for supported automatic actions.
+- **Binary management** - Choose app-managed-first or system-first resolution and configure launch, daily, or weekly automatic updates for app-managed tools in Advanced Settings -> External Tools. Options marked **(Recommended)** install a private copy in the platform app-data `bin` folder; package-manager choices remain explicit alternatives and update through their manager. Explicit Browse selections and completed local installs remain selected regardless of preference. Windows FFmpeg updates install and retain both `ffmpeg.exe` and `ffprobe.exe` together. If startup finds missing or outdated tools, one **Set Up Required Tools** checklist distinguishes fresh installs from existing-binary upgrades and offers **Update All** for supported automatic actions.
 
 ### Local API
 
@@ -280,14 +289,18 @@ Equivalent URLs are deduplicated using normalized media identity across queued, 
 - Requests are bounded and validated; malformed request lines, oversized payloads, invalid Host headers, or untrusted browser origins are rejected.
 - **Webhook Outbound**: The application automatically emits real-time HTTP POST JSON payloads to `http://127.0.0.1:8766/webhook` whenever download status, progress, speed, or ETA changes. Payloads are throttled to 1.5 seconds, sanitize long or multi-line status strings, preserve terminal completion/cancellation state for local bridge clients, include `parent_id` mapping to track playlist child items, carry `overall_progress` for multi-stream jobs when available, report non-interactive validation/duplicate/missing-binary/runtime/terminal failures with an `error` diagnostic, and clean up bounded network replies through the owning window context.
 
-Automation can also launch `LzyDownloader.exe --background <url>`, `LzyDownloader.exe --server <url>`, or `LzyDownloader.exe --headless <url>` to enqueue a direct URL without showing blocking prompt dialogs. Server/headless/background queue backups, API tokens, and logs are isolated under `Server/`, but user preferences still come from the main `settings.ini`.
+Automation can also launch the platform-native executable (`LzyDownloader.exe`
+on Windows) with `--background <url>`, `--server <url>`, or `--headless <url>`
+to enqueue a direct URL without showing blocking prompt dialogs.
+Server/headless/background queue backups, API tokens, and logs are isolated
+under `Server/`, but user preferences still come from the main `settings.ini`.
 
-The Chrome companion is a separate project and is not enabled by installing the
-desktop application alone. For local development, register its native host with
-the companion project's helper. Release installers register the host only when
-the exact Chrome Web Store extension ID is supplied to the release build; a
-wildcard origin is never accepted. The host supports versioned `ping`, `enqueue`,
-`status`, and `cancel` messages over Chrome's length-prefixed stdio protocol.
+The Chrome companion is a separate project. Local development requires
+registering its native host with the companion project's cross-platform helper.
+Release packages register the host on first launch only when the exact Chrome
+Web Store extension ID is supplied to the release build; a wildcard origin is
+never accepted. The host supports versioned `ping`, `enqueue`, `status`, and
+`cancel` messages over Chrome's length-prefixed stdio protocol.
 
 Extractor-list refresh scripts are non-interactive and live under `tools/`, so release automation can run `tools/update_yt-dlp_extractors.py` and `tools/update_gallery-dl_extractors.py` without waiting for a final keypress. They write the generated extractor JSON files to the repository root because those files are bundled runtime assets.
 
@@ -318,10 +331,9 @@ result remains ordered in music players and file browsers.
 
 ### Is LzyDownloader available for Windows, Linux, and macOS?
 
-Windows is the primary desktop target and has an installer. Native Linux
-AppImage and macOS DMG packages are produced by the release workflow when those
-platform builds are published. Building from source requires CMake, Qt 6, and
-a C++20 compiler.
+Yes. The release workflow produces a Windows installer, a Linux AppImage, and
+architecture-labelled macOS DMGs when those platform builds are published.
+Building from source requires CMake, Qt 6, Ninja, and a C++20 compiler.
 
 ### Does it require yt-dlp and FFmpeg?
 
@@ -381,12 +393,13 @@ LzyDownloader/
 │   │   └── ...
 │   ├── integration/            # Browser companion and request-scoped cookie files
 │   │   ├── BrowserCookieFile.h/cpp
+│   │   ├── BrowserNativeHostRegistration.h/cpp
 │   │   └── BrowserNativeMessagingHost.cpp
 │   └── utils/                  # Helper Modules
 │       └── ExtractorJsonParser.h/cpp # Extractor-domain cache loader
 ```
 
-**Note:** External binaries (yt-dlp, ffmpeg, ffprobe, gallery-dl, aria2c, deno) are not bundled with the application. Users must install them separately or configure paths in Advanced Settings. The Windows release also builds `LzyDownloaderBrowserHost.exe`; it is registered only for an exact production extension ID.
+**Note:** External binaries (yt-dlp, ffmpeg, ffprobe, gallery-dl, aria2c, deno) are not bundled with the application. Users must install them separately or configure paths in Advanced Settings. Releases also package `LzyDownloaderBrowserHost`; when `LZY_BROWSER_EXTENSION_ID` supplies the exact production extension ID, the desktop app registers the host for the current user on its supported platform.
 
 ## Contributing
 

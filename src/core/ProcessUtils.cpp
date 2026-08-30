@@ -21,6 +21,7 @@
 #else
 #include <signal.h>
 #include <sys/types.h>
+#include <unistd.h>
 #endif
 #include <vector>
 
@@ -721,6 +722,14 @@ void setProcessEnvironment(QProcess &process) {
     }
     process.setProcessEnvironment(env);
 
+#ifndef Q_OS_WIN
+    // Keep each helper and its descendants in a private process group so
+    // cancellation cannot leave ffmpeg/aria2c running after yt-dlp exits.
+    process.setChildProcessModifier([]() {
+        ::setpgid(0, 0);
+    });
+#endif
+
 #ifdef Q_OS_WIN
     if (!process.property("_lzy_shutdown_job_connected").toBool()) {
         process.setProperty("_lzy_shutdown_job_connected", true);
@@ -779,8 +788,24 @@ void terminateProcessTree(QProcess *process, int gracefulTimeoutMs) {
     process->kill();
     process->waitForFinished(500); // Wait for the process to be fully reaped and transition to NotRunning state
 #else
-    Q_UNUSED(gracefulTimeoutMs)
-    process->kill();
+    // QProcess::kill() only targets the immediate child on POSIX. Processes
+    // prepared by setProcessEnvironment() are group leaders, so signal the
+    // whole group first and then force-kill any process that did not exit.
+    bool hasPrivateProcessGroup = false;
+    if (pid > 0) {
+        hasPrivateProcessGroup = (::getpgid(static_cast<pid_t>(pid)) == static_cast<pid_t>(pid));
+    }
+
+    if (hasPrivateProcessGroup) {
+        ::kill(-static_cast<pid_t>(pid), SIGTERM);
+        if (!process->waitForFinished(gracefulTimeoutMs > 0 ? gracefulTimeoutMs : 2000)) {
+            ::kill(-static_cast<pid_t>(pid), SIGKILL);
+        }
+    }
+
+    if (process->state() != QProcess::NotRunning) {
+        process->kill();
+    }
     process->waitForFinished(500); // Wait for the process to be fully reaped and transition to NotRunning state
 #endif
 }
@@ -810,7 +835,12 @@ void sendGracefulInterrupt(qint64 pid) {
         }
     }
 #else
-    kill(static_cast<pid_t>(pid), SIGINT);
+    const pid_t processId = static_cast<pid_t>(pid);
+    if (::getpgid(processId) == processId) {
+        ::kill(-processId, SIGINT);
+    } else {
+        ::kill(processId, SIGINT);
+    }
 #endif
 }
 

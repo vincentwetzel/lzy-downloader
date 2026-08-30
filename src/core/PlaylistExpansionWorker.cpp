@@ -50,6 +50,7 @@ PlaylistExpansionWorker::PlaylistExpansionWorker(const QString &url, ConfigManag
     , m_configManager(configManager)
     , m_process(new QProcess(this))
 {
+    ProcessUtils::setProcessEnvironment(*m_process);
     connect(m_process, &QProcess::finished, this, &PlaylistExpansionWorker::onProcessFinished);
     connect(m_process, &QProcess::errorOccurred, this, [this](QProcess::ProcessError error) {
         if (error == QProcess::FailedToStart) {

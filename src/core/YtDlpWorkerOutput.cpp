@@ -288,7 +288,7 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
                                     if (!data.isEmpty()) {
                                         if (file.write(data) == data.size()) {
                                             file.close();
-                                            m_thumbnailPath = QDir::toNativeSeparators(newThumbPath);
+                                            m_thumbnailPath = QDir::fromNativeSeparators(newThumbPath);
                                             qDebug() << "[YtDlpWorker] Pre-wait thumbnail downloaded to:" << m_thumbnailPath;
 
                                             QVariantMap pd;
@@ -458,7 +458,7 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
                 originalPath.truncate(extIndex + 1);
                 originalPath.append(format);
             }
-            m_thumbnailPath = QDir::toNativeSeparators(originalPath);
+            m_thumbnailPath = QDir::fromNativeSeparators(originalPath);
             QVariantMap updateData;
             updateData.insert(QStringLiteral("thumbnail_path"), m_thumbnailPath);
             qDebug() << "[LOG] YtDlpWorker: Found converted thumbnail path for" << m_id << ":" << m_thumbnailPath;
@@ -481,7 +481,7 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
             static const QRegularExpression infoJsonRegex(QStringLiteral("\\[info\\] (?:Writing video metadata as JSON to|Video metadata is already present in|Video description metadata is already present in):\\s*(.*\\.info\\.json)"));
             const QRegularExpressionMatch infoJsonMatch = infoJsonRegex.match(normalizedLine);
             if (infoJsonMatch.hasMatch()) {
-                m_infoJsonPath = QDir::toNativeSeparators(infoJsonMatch.captured(1).trimmed());
+                m_infoJsonPath = QDir::fromNativeSeparators(infoJsonMatch.captured(1).trimmed());
                 qDebug() << "Detected info.json path and initiating retry mechanism:" << m_infoJsonPath;
                 m_infoJsonRetryCount = 0; // Reset retry count for a new file
                 readInfoJsonWithRetry(); // Start the retry mechanism
@@ -493,7 +493,7 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
             static const QRegularExpression rawThumbnailRegex(QStringLiteral("\\[info\\] (?:Writing video thumbnail.* to|Video thumbnail.* is already present in):\\s+(.+)$"));
             const QRegularExpressionMatch rawThumbnailMatch = rawThumbnailRegex.match(normalizedLine);
             if (rawThumbnailMatch.hasMatch()) {
-                m_thumbnailPath = QDir::toNativeSeparators(rawThumbnailMatch.captured(1).trimmed());
+                m_thumbnailPath = QDir::fromNativeSeparators(rawThumbnailMatch.captured(1).trimmed());
                 QVariantMap updateData;
                 updateData.insert(QStringLiteral("thumbnail_path"), m_thumbnailPath);
                 qDebug() << "[LOG] YtDlpWorker: Found raw thumbnail path for" << m_id << ":" << m_thumbnailPath;

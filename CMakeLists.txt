@@ -5,6 +5,11 @@ project(LzyDownloader
     HOMEPAGE_URL "https://github.com/vincentwetzel/lzy-downloader"
     LANGUAGES CXX
 )
+
+set(LZY_BROWSER_EXTENSION_ID "" CACHE STRING "Published Chrome extension ID for native-host registration")
+if(LZY_BROWSER_EXTENSION_ID AND NOT LZY_BROWSER_EXTENSION_ID MATCHES "^[a-p]{32}$")
+    message(FATAL_ERROR "LZY_BROWSER_EXTENSION_ID must be a 32-character Chrome extension ID using letters a-p")
+endif()
 enable_testing()
 
 set(_qt_search_prefixes "")
@@ -275,6 +280,7 @@ add_library(LzyAppLib STATIC
     src/core/YtDlpWorkerProgress.cpp
     src/core/YtDlpWorkerTransfers.cpp
     src/integration/BrowserCookieFile.cpp
+    src/integration/BrowserNativeHostRegistration.cpp
     src/core/download_pipeline/Aria2DownloadWorker.cpp
     src/core/download_pipeline/Aria2RpcClient.cpp
     src/core/download_pipeline/FfmpegMuxer.cpp
@@ -334,6 +340,12 @@ target_link_libraries(LzyAppLib PRIVATE
     Qt6::Sql
     Qt6::Concurrent
 )
+
+if(LZY_BROWSER_EXTENSION_ID)
+    target_compile_definitions(LzyAppLib PRIVATE
+        LZY_BROWSER_EXTENSION_ID=${LZY_BROWSER_EXTENSION_ID}
+    )
+endif()
 
 if(UNIX AND NOT APPLE)
     target_link_libraries(LzyAppLib PRIVATE Qt6::DBus)

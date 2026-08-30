@@ -6,6 +6,7 @@
 
 #include <QColor>
 #include <QFileInfo>
+#include <QFrame>
 #include <QGridLayout>
 #include <QGroupBox>
 #include <QHBoxLayout>
@@ -47,38 +48,44 @@ MissingBinariesDialog::MissingBinariesDialog(const QStringList &binaryNames,
       m_laterButton(nullptr)
 {
     setWindowTitle(tr("Set Up Required Tools"));
-    setMinimumWidth(880);
+    setMinimumWidth(760);
     setModal(true);
     setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
 
     const QPalette dialogPalette = palette();
-    const QColor panelColor = dialogPalette.color(QPalette::Base);
+    const QColor panelColor = dialogPalette.color(QPalette::AlternateBase);
     const QColor borderColor = dialogPalette.color(QPalette::Mid);
     const QColor mutedColor = dialogPalette.color(QPalette::PlaceholderText);
+    const QColor headingColor = dialogPalette.color(QPalette::Text);
     const QColor accentColor = dialogPalette.color(QPalette::Highlight);
     const QColor accentTextColor = dialogPalette.color(QPalette::HighlightedText);
     const QColor accentHoverColor = accentColor.lighter(115);
     setStyleSheet(QStringLiteral(
-        "QGroupBox { background: %1; border: 1px solid %2; border-radius: 6px; "
-        "margin-top: 12px; padding-top: 10px; }"
-        "QGroupBox::title { subcontrol-origin: margin; left: 12px; padding: 0 6px; "
-        "font-weight: 600; }"
+        "QGroupBox { background: %1; border: 1px solid %2; border-radius: 8px; "
+        "margin-top: 14px; padding-top: 12px; }"
+        "QGroupBox::title { subcontrol-origin: margin; left: 14px; padding: 0 7px; "
+        "color: %4; font-weight: 600; }"
+        "QLabel#setupTitle { color: %4; font-size: 16px; font-weight: 600; }"
         "QLabel#setupIntro, QLabel#setupSummary { color: %3; }"
-        "QLabel#columnHeader { color: %3; font-weight: 600; }"
-        "QPushButton#primaryActionButton { background: %4; color: %5; border: 0; "
-        "border-radius: 4px; padding: 6px 12px; font-weight: 600; }"
-        "QPushButton#primaryActionButton:hover { background: %6; }"
+        "QLabel#columnHeader { color: %3; font-size: 11px; font-weight: 600; }"
+        "QPushButton#primaryActionButton { background: %5; color: %6; border: 0; "
+        "border-radius: 5px; padding: 7px 14px; font-weight: 600; }"
+        "QPushButton#primaryActionButton:hover { background: %7; }"
         "QPushButton#primaryActionButton:disabled { background: %2; color: %3; }"
-        "QPushButton#secondaryActionButton { padding: 6px 14px; }")
-        .arg(panelColor.name(), borderColor.name(), mutedColor.name(), accentColor.name(),
-             accentTextColor.name(), accentHoverColor.name()));
+        "QPushButton#secondaryActionButton { padding: 7px 14px; }"
+        "QLabel#setupSummary { padding-top: 2px; }")
+        .arg(panelColor.name(), borderColor.name(), mutedColor.name(), headingColor.name(),
+             accentColor.name(), accentTextColor.name(), accentHoverColor.name()));
 
     auto *mainLayout = new QVBoxLayout(this);
-    mainLayout->setContentsMargins(20, 18, 20, 16);
-    mainLayout->setSpacing(12);
+    mainLayout->setContentsMargins(24, 20, 24, 18);
+    mainLayout->setSpacing(14);
+    auto *titleLabel = new QLabel(tr("Prepare your download tools"), this);
+    titleLabel->setObjectName(QStringLiteral("setupTitle"));
+    mainLayout->addWidget(titleLabel);
     auto *introLabel = new QLabel(
-        tr("LzyDownloader needs attention for the tools below. Missing tools will be installed "
-           "using the displayed recommended method; detected tools are updated in their existing locations."),
+        tr("The following tools need attention. Missing tools will be installed using the "
+           "recommended method, while detected tools are updated in place."),
         this);
     introLabel->setObjectName(QStringLiteral("setupIntro"));
     introLabel->setWordWrap(true);
@@ -86,14 +93,14 @@ MissingBinariesDialog::MissingBinariesDialog(const QStringList &binaryNames,
     introLabel->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Minimum);
     mainLayout->addWidget(introLabel);
 
-    auto *toolsGroup = new QGroupBox(tr("Tools needing attention"), this);
+    auto *toolsGroup = new QGroupBox(tr("Required tools"), this);
     toolsGroup->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
     auto *grid = new QGridLayout(toolsGroup);
-    grid->setContentsMargins(14, 18, 14, 14);
-    grid->setHorizontalSpacing(14);
-    grid->setVerticalSpacing(8);
-    grid->setColumnMinimumWidth(0, 80);
-    grid->setColumnMinimumWidth(2, 340);
+    grid->setContentsMargins(16, 20, 16, 16);
+    grid->setHorizontalSpacing(16);
+    grid->setVerticalSpacing(10);
+    grid->setColumnMinimumWidth(0, 96);
+    grid->setColumnMinimumWidth(2, 280);
     grid->setColumnStretch(1, 1);
 
     auto *toolHeader = new QLabel(tr("Tool"), toolsGroup);
@@ -109,6 +116,8 @@ MissingBinariesDialog::MissingBinariesDialog(const QStringList &binaryNames,
     int row = 1;
     for (const QString &binaryName : m_binaryNames) {
         auto *nameLabel = new QLabel(binaryName, toolsGroup);
+        nameLabel->setStyleSheet(QStringLiteral("font-weight: 600;"));
+        nameLabel->setAlignment(Qt::AlignTop | Qt::AlignLeft);
         auto *statusLabel = new QLabel(tr("Checking..."), toolsGroup);
         statusLabel->setWordWrap(true);
         statusLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
@@ -118,17 +127,19 @@ MissingBinariesDialog::MissingBinariesDialog(const QStringList &binaryNames,
 
         auto *actionButton = new QPushButton(toolsGroup);
         actionButton->setObjectName(QStringLiteral("primaryActionButton"));
-        actionButton->setMinimumWidth(260);
-        actionButton->setMinimumHeight(30);
+        actionButton->setMinimumWidth(160);
+        actionButton->setMinimumHeight(34);
         actionButton->setEnabled(m_binariesPage != nullptr);
         auto *browseButton = new QPushButton(tr("Browse..."), toolsGroup);
         browseButton->setObjectName(QStringLiteral("secondaryActionButton"));
-        browseButton->setMinimumHeight(30);
+        browseButton->setMinimumHeight(34);
         browseButton->setToolTip(tr("Select an existing %1 executable from disk.").arg(binaryName));
         browseButton->setEnabled(m_binariesPage != nullptr);
 
         auto *actionsLayout = new QHBoxLayout();
         actionsLayout->setContentsMargins(0, 0, 0, 0);
+        actionsLayout->setSpacing(8);
+        actionsLayout->setStretch(0, 1);
         actionsLayout->addWidget(actionButton);
         actionsLayout->addWidget(browseButton);
         auto *actionsWidget = new QWidget(toolsGroup);
@@ -162,6 +173,12 @@ MissingBinariesDialog::MissingBinariesDialog(const QStringList &binaryNames,
     }
     mainLayout->addWidget(toolsGroup);
 
+    auto *separator = new QFrame(this);
+    separator->setFrameShape(QFrame::HLine);
+    separator->setFrameShadow(QFrame::Plain);
+    separator->setStyleSheet(QStringLiteral("color: palette(mid);"));
+    mainLayout->addWidget(separator);
+
     m_summaryLabel = new QLabel(this);
     m_summaryLabel->setObjectName(QStringLiteral("setupSummary"));
     m_summaryLabel->setWordWrap(true);
@@ -170,12 +187,15 @@ MissingBinariesDialog::MissingBinariesDialog(const QStringList &binaryNames,
     mainLayout->addWidget(m_summaryLabel);
 
     auto *buttonsLayout = new QHBoxLayout();
+    buttonsLayout->setSpacing(10);
     m_laterButton = new QPushButton(tr("Later"), this);
     m_laterButton->setObjectName(QStringLiteral("secondaryActionButton"));
     m_updateAllButton = new QPushButton(tr("Update All"), this);
     m_updateAllButton->setObjectName(QStringLiteral("primaryActionButton"));
     m_laterButton->setToolTip(tr("Close setup for now."));
     m_updateAllButton->setToolTip(tr("Install missing tools and update detected tools that can be updated automatically."));
+    m_laterButton->setMinimumHeight(34);
+    m_updateAllButton->setMinimumHeight(34);
     buttonsLayout->addWidget(m_laterButton);
     buttonsLayout->addStretch();
     buttonsLayout->addWidget(m_updateAllButton);

@@ -1,6 +1,7 @@
 #include "src/ui/MainWindow.h"
 #include "src/utils/LogManager.h"
 #include "src/utils/ExtractorJsonParser.h"
+#include "src/integration/BrowserNativeHostRegistration.h"
 #include <QApplication>
 #include <QCoreApplication>
 #include <QDir>
@@ -53,6 +54,8 @@ int main(int argc, char *argv[]) {
     libraryPaths.prepend(a.applicationDirPath());
     libraryPaths.prepend(QDir(a.applicationDirPath()).filePath(QStringLiteral("plugins")));
     QApplication::setLibraryPaths(libraryPaths);
+
+    BrowserNativeHostRegistration::registerHostIfConfigured();
 
     LogManager::installHandler();
 

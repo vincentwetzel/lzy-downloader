@@ -75,6 +75,7 @@ Section "Install"
         FileWrite $0 '}$\r$\n'
         FileClose $0
         WriteRegStr HKCU "Software\Google\Chrome\NativeMessagingHosts\com.lzydownloader.browser" "" "$INSTDIR\com.lzydownloader.browser.json"
+        WriteRegStr HKCU "Software\Chromium\NativeMessagingHosts\com.lzydownloader.browser" "" "$INSTDIR\com.lzydownloader.browser.json"
     !endif
 
     ; Create Start Menu shortcut
@@ -113,6 +114,7 @@ Section "Uninstall"
 
     !if "${BROWSER_EXTENSION_ID}" != ""
         DeleteRegKey HKCU "Software\Google\Chrome\NativeMessagingHosts\com.lzydownloader.browser"
+        DeleteRegKey HKCU "Software\Chromium\NativeMessagingHosts\com.lzydownloader.browser"
     !endif
 
     ; Remove shortcuts

@@ -44,6 +44,8 @@ Public/project guidance is in `README.md`, `CONTRIBUTING.md`, `SECURITY.md`,
   resolution, API, and platform behavior.
 - `src/integration/BrowserNativeMessagingHost.cpp`: Chrome native-messaging
   bridge for the local desktop API; built as `LzyDownloaderBrowserHost`.
+- `src/integration/BrowserNativeHostRegistration.*`: Cross-platform
+  Chrome/Chromium native-host registration and Linux AppImage wrapper setup.
 - `src/integration/BrowserCookieFile.h/cpp`: validates browser cookie bundles
   and owns short-lived Netscape-format cookie files.
 - `src/core/download_pipeline/`: FFmpeg pipeline helpers.

@@ -636,7 +636,7 @@ void YtDlpWorker::readInfoJsonWithRetry() {
                 const QJsonObject thumbObj = thumbValue.toObject();
                 const QJsonValue filepathVal = thumbObj.value(QStringLiteral("filepath"));
                 if (filepathVal.isString()) {
-                    const QString newThumb = QDir::toNativeSeparators(filepathVal.toString());
+                    const QString newThumb = QDir::fromNativeSeparators(filepathVal.toString());
                     if (newThumb != m_thumbnailPath) {
                         cleanupWaitThumbnail(m_thumbnailPath, m_id);
                         m_thumbnailPath = newThumb;

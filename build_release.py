@@ -9,7 +9,7 @@ import re
 import shutil
 from pathlib import Path
 
-from tools.release_packaging import package_linux
+from tools.release_packaging import find_browser_host, package_linux
 
 # ANSI Colors
 CYAN = "\033[36m"
@@ -230,6 +230,11 @@ def main():
     log(f"Detected Application Version: {app_version}", GREEN)
     validate_release_version(app_version)
 
+    browser_extension_id = os.environ.get("LZY_BROWSER_EXTENSION_ID", "").strip()
+    if browser_extension_id and re.fullmatch(r"[a-p]{32}", browser_extension_id) is None:
+        log("Error: LZY_BROWSER_EXTENSION_ID must be a 32-character Chrome extension ID using letters a-p.", RED)
+        sys.exit(1)
+
     build_dir = Path("build-release").resolve()
 
     # 2. Clean old release build cache
@@ -245,14 +250,17 @@ def main():
     # 4. Configure CMake
     log("\n[2/4] Configuring CMake (Release)...", YELLOW)
     cmake_args = ["cmake", "-B", str(build_dir), "-DCMAKE_BUILD_TYPE=Release"]
+    if browser_extension_id:
+        cmake_args.append(f"-DLZY_BROWSER_EXTENSION_ID:STRING={browser_extension_id}")
 
     use_vcpkg = os.environ.get("LZY_USE_VCPKG", "1").strip().lower() not in {
         "0", "false", "no", "off"
     }
+    vcpkg_configured = False
     if target_platform in ("windows", "linux") and use_vcpkg:
-        vcpkg_root = os.environ.get("VCPKG_ROOT", "E:/vcpkg")
-        toolchain = Path(vcpkg_root) / "scripts/buildsystems/vcpkg.cmake"
-        if toolchain.exists():
+        vcpkg_root = os.environ.get("VCPKG_ROOT", "").strip()
+        toolchain = (Path(vcpkg_root) / "scripts/buildsystems/vcpkg.cmake") if vcpkg_root else None
+        if toolchain is not None and toolchain.exists():
             cmake_args.append(f"-DCMAKE_TOOLCHAIN_FILE={toolchain.as_posix()}")
             release_triplet = {
                 "windows": "x64-windows-release",
@@ -263,9 +271,10 @@ def main():
                 f"-DVCPKG_TARGET_TRIPLET={release_triplet}",
                 f"-DVCPKG_OVERLAY_TRIPLETS={overlay_triplets.as_posix()}",
             ])
+            vcpkg_configured = True
         else:
-            log("vcpkg was requested but its toolchain was not found; using configured Qt.", YELLOW)
-    elif target_platform in ("windows", "linux"):
+            log("vcpkg was requested but VCPKG_ROOT does not point to a usable toolchain; using configured Qt.", YELLOW)
+    if target_platform in ("windows", "linux") and not vcpkg_configured:
         qt_prefix = find_configured_qt_prefix()
         if qt_prefix is not None:
             cmake_args.append(f"-DCMAKE_PREFIX_PATH={qt_prefix.as_posix()}")
@@ -329,11 +338,7 @@ def main():
                 f"/DRELEASE_BUILD_DIR={build_dir}\\Release",
                 "LzyDownloader.nsi"
             ]
-            browser_extension_id = os.environ.get("LZY_BROWSER_EXTENSION_ID", "").strip()
             if browser_extension_id:
-                if re.fullmatch(r"[a-p]{32}", browser_extension_id) is None:
-                    log("Error: LZY_BROWSER_EXTENSION_ID must be a 32-character Chrome extension ID using letters a-p.", RED)
-                    sys.exit(1)
                 nsis_args.insert(-1, f"/DBROWSER_EXTENSION_ID={browser_extension_id}")
                 log("Enabling exact Chrome native-host registration for the configured extension ID.", GREEN)
             else:
@@ -356,6 +361,14 @@ def main():
             log("Error: Could not locate the compiled LzyDownloader.app bundle", RED)
             sys.exit(1)
         app_bundle = app_candidates[0]
+
+        built_host = find_browser_host(build_dir)
+        if built_host is None:
+            log("Error: Could not locate compiled LzyDownloaderBrowserHost executable", RED)
+            sys.exit(1)
+        bundled_host = app_bundle / "Contents" / "MacOS" / "LzyDownloaderBrowserHost"
+        shutil.copy2(built_host, bundled_host)
+        bundled_host.chmod(bundled_host.stat().st_mode | 0o111)
 
         macdeployqt = find_qt_tool("macdeployqt")
         if macdeployqt is None:

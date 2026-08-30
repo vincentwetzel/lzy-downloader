@@ -144,14 +144,17 @@ bounded success payload or a stable error code. An unsupported request version
 returns `UNSUPPORTED_PROTOCOL`; the extension must treat any response with a
 different or missing protocol as a protocol failure. The host returns
 sanitized per-request status rather than forwarding the desktop API response
-wholesale. The host starts
-`LzyDownloader.exe --server --exit-after` only from its own validated
-application directory.
+wholesale. The host starts the platform-native LzyDownloader executable with
+`--server --exit-after` only from its own validated application directory.
 
-The host manifest must allowlist the exact extension origin. Installer
-registration is intentionally deferred until the production Web Store ID is
-known; local development uses the browser-extension project's registration
-helper.
+The host manifest must allowlist the exact extension origin. When the desktop
+build receives the final `LZY_BROWSER_EXTENSION_ID`, the application registers
+the host for the current user on Windows (Chrome/Chromium registry), macOS
+(Chrome/Chromium application support), and Linux (Chrome/Chromium XDG
+configuration). Linux AppImage launches create a persistent wrapper so the
+manifest never points at a temporary AppImage mount. Builds without the exact
+production ID leave registration disabled; local development uses the browser-
+extension project's cross-platform registration helper.
 
 The host accepts at most a 1 MiB length-prefixed message. `enqueue` accepts only
 HTTP(S) URLs, `video` or `audio` type, a bounded client ID, and an optional JSON

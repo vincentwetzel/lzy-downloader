@@ -30,6 +30,23 @@ def find_vcpkg_qmake(build_dir):
     )
 
 
+def find_browser_host(build_dir):
+    """Locate the native-messaging host produced with the desktop target."""
+    candidates = [
+        build_dir / "LzyDownloaderBrowserHost",
+        build_dir / "Release" / "LzyDownloaderBrowserHost",
+        build_dir / "LzyDownloaderBrowserHost.exe",
+        build_dir / "Release" / "LzyDownloaderBrowserHost.exe",
+    ]
+    candidates.extend(build_dir.glob("**/LzyDownloaderBrowserHost"))
+    candidates.extend(build_dir.glob("**/LzyDownloaderBrowserHost.exe"))
+    return next(
+        (candidate for candidate in candidates
+         if candidate.is_file() and (os.name == "nt" or os.access(candidate, os.X_OK))),
+        None,
+    )
+
+
 def hide_unused_linux_sql_drivers(qmake_bin, log):
     """Temporarily hide Qt SQL drivers that this SQLite-only app cannot use."""
     if not qmake_bin:
@@ -121,6 +138,11 @@ def package_linux(app_version, build_dir, log, run_command):
         else:
             log("Error: Could not locate compiled LzyDownloader executable", RED)
             sys.exit(1)
+
+    built_host = find_browser_host(build_dir)
+    if built_host is None:
+        log("Error: Could not locate compiled LzyDownloaderBrowserHost executable", RED)
+        sys.exit(1)
 
     tooling_dir = build_dir / "tooling"
     tooling_dir.mkdir(parents=True, exist_ok=True)
@@ -217,6 +239,7 @@ def package_linux(app_version, build_dir, log, run_command):
         str(ld_path.resolve()),
         "--appdir", str(appdir),
         "-e", str(built_exe),
+        "-e", str(built_host),
         "-d", str(linux_desktop),
         "-i", str(resized_icon),
         "--exclude-library", "libdbus-1.so.3",

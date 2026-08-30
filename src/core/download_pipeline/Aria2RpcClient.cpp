@@ -3,6 +3,7 @@
 #include <QNetworkRequest>
 #include <QUuid>
 #include <QDebug>
+#include "core/ProcessUtils.h"
 
 Aria2RpcClient::Aria2RpcClient(QObject* parent)
     : QObject(parent), 
@@ -10,6 +11,7 @@ Aria2RpcClient::Aria2RpcClient(QObject* parent)
       m_netManager(new QNetworkAccessManager(this)),
       m_statTimer(new QTimer(this))
 {
+    ProcessUtils::setProcessEnvironment(*m_process);
     // Default local RPC URL for aria2
     m_rpcUrl = QUrl(QStringLiteral("http://127.0.0.1:6800/jsonrpc"));
 
@@ -57,10 +59,7 @@ bool Aria2RpcClient::startDaemon(const QString& aria2ExecutablePath, const QStri
 void Aria2RpcClient::stopDaemon() {
     m_statTimer->stop();
     if (m_process->state() == QProcess::Running) {
-        m_process->terminate();
-        if (!m_process->waitForFinished(3000)) {
-            m_process->kill();
-        }
+        ProcessUtils::terminateProcessTree(m_process, 3000);
     }
 }
 

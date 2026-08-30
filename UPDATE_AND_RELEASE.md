@@ -192,10 +192,10 @@ On each runner, the workflow:
 - Deletes the existing `build-release/` directory to avoid stale DLL mismatches
 - Refreshes both extractor JSON files
 - Configures a Release build with CMake
-- Builds the platform-native `LzyDownloader` executable and the Windows
+- Builds the platform-native `LzyDownloader` executable and
   `LzyDownloaderBrowserHost` native-messaging host (and `LzyDownloader.app` on
   macOS)
-- On Windows, runs `makensis` from `PATH` when available, otherwise the standard NSIS installation path, against `LzyDownloader.nsi` with `/DAPP_VERSION=<version from CMakeLists.txt>` and `/DRELEASE_BUILD_DIR=build-release\Release`. If the repository variable `LZY_BROWSER_EXTENSION_ID` is configured with the final 32-character Store ID, the release builder passes it through for exact native-host registration; if unset, registration remains disabled.
+- On Windows, runs `makensis` from `PATH` when available, otherwise the standard NSIS installation path, against `LzyDownloader.nsi` with `/DAPP_VERSION=<version from CMakeLists.txt>` and `/DRELEASE_BUILD_DIR=build-release\Release`. If the repository variable `LZY_BROWSER_EXTENSION_ID` is configured with the final 32-character Store ID, the release builder passes it into the desktop build and installer for exact native-host registration; if unset, production registration remains disabled.
 - The Windows installer finish page offers a checked-by-default option to launch `LzyDownloader.exe` after installation
 - On Linux, stages a clean `build-release/AppDir`, caches linuxdeploy and its Qt plugin under `build-release/tooling/`, generates a linuxdeploy desktop file whose `Icon` matches the resized release PNG, and packages `build-release/LzyDownloader-<version>-x86_64.AppImage`
 - On Linux, selects qmake from the Qt SDK that built the executable so
@@ -207,12 +207,12 @@ On each runner, the workflow:
   Platform-service libraries such as D-Bus are excluded from linuxdeploy's ELF
   scan.
 - On macOS, runs `macdeployqt`, converts the release PNG into the bundle's ICNS icon, and emits `LzyDownloader-<version>-macos-x86_64.dmg` or `LzyDownloader-<version>-macos-arm64.dmg` according to the runner architecture.
-- Windows and Linux package only the `LzyDownloader` application; the browser
-  host and separate headless test targets remain part of the build graph or
-  optional local/test workflows as applicable.
-- The browser host is included in Windows build output but is not registered by
-  the installer until the production Chrome Web Store extension ID is supplied
-  as release configuration. It must never be registered with a wildcard origin.
+- Linux packages the browser host into the AppImage; macOS places it inside the
+  application bundle. When the installed application first launches, it
+  registers Chrome/Chromium native messaging for the current user on that OS.
+- The browser host is registered only when the production Chrome Web Store
+  extension ID is supplied as release configuration. It must never be
+  registered with a wildcard origin.
 - Verify browser-companion protocol and registration changes against the
   separate browser-extension checkout before publishing. Local registration is
   for development only; the installer must receive the final 32-character
@@ -346,7 +346,7 @@ If the workflow is unavailable, navigate to https://github.com/vincentwetzel/lzy
 - [ ] SHA-256 manifest is attached for each release build job
 - [ ] `release-notes/` exists in the checkout and the file name matches the pushed tag
 - [ ] Active documentation matches the release behavior, including the README, API, architecture, settings, specification, manifest, coding standards, and release guides
-- [ ] GitHub Actions rebuilt the installer from the current `CMakeLists.txt` version (the tag workflow runs `python build_release.py`); artifacts were not manually renamed
+- [ ] GitHub Actions rebuilt the platform artifacts from the current `CMakeLists.txt` version (the tag workflow runs `python build_release.py`); artifacts were not manually renamed
 - [ ] Tag-triggered GitHub Actions release matrix completed successfully
 - [ ] Headless Qt tests passed when run as an explicitly requested validation (local test execution is not required for the tag workflow)
 - [ ] NSIS installer tested (install/uninstall preserves `%LOCALAPPDATA%\LzyDownloader\settings.ini`, `download_archive.db`, `downloads_backup.json`, and log files)
@@ -356,38 +356,38 @@ If the workflow is unavailable, navigate to https://github.com/vincentwetzel/lzy
 - [ ] Silent application update verified to relaunch the freshly installed `LzyDownloader.exe` after NSIS completes
 - [ ] Intel and Apple Silicon DMGs mount and launch with deployed Qt plugins and the SQLite driver
 - [ ] macOS updater selects only the matching architecture DMG and opens it in Finder for installation
-- [ ] Timestamped logging verified (`%LOCALAPPDATA%\LzyDownloader\LzyDownloader_YYYY-MM-dd_HH-mm-ss.log`)
+- [ ] Timestamped logging verified under each platform's application-local data root
 - [ ] Log retention verified (startup cleanup keeps only the 5 most recent logs)
 - [ ] Temporary-root reconciliation verified (orphan UUID folders are removed asynchronously while stopped/failed IDs, symlinks, non-UUID folders, and the shared root are preserved)
 - [ ] aria2c recovery verified (transient exit codes or a missing expected temporary media output fall back once to native yt-dlp, stale `.info.json` sidecars are removed, and `.part` files remain)
-- [ ] GitHub release published with installer asset
+- [ ] GitHub release published with Windows installer, Linux AppImage, and both macOS DMG assets
 - [ ] Tag `vX.X.X` pushed and the `Build and Release` GitHub Actions workflow attached Windows, Linux, Intel macOS, and Apple Silicon macOS assets
+- [ ] Browser companion registration verified with the exact production extension ID on Windows, Linux, and macOS; Linux AppImage registration uses a persistent wrapper
 
-## Application Data Locations (Windows)
+## Application Data Locations
 
-The application stores user data in standard Windows directories:
+The application stores user data below the platform-specific
+`QStandardPaths::AppLocalDataLocation` root:
 
-| File | Location |
-|------|----------|
-| Settings | `%LOCALAPPDATA%\LzyDownloader\settings.ini` |
-| Archive | `%LOCALAPPDATA%\LzyDownloader\download_archive.db` |
-| Queue Backup | `%LOCALAPPDATA%\LzyDownloader\downloads_backup.json` |
-| Local API token | `%LOCALAPPDATA%\LzyDownloader\api_token.txt` (`Server\api_token.txt` for server/headless/background runtime) |
+| Platform | Application-local data root |
+|------|------|
+| Windows | `%LOCALAPPDATA%\LzyDownloader` |
+| Linux | `$XDG_DATA_HOME/LzyDownloader` or `~/.local/share/LzyDownloader` |
+| macOS | `~/Library/Application Support/LzyDownloader` |
+
+| File | Relative path below the root |
+|------|------|
+| Settings | `settings.ini` |
+| Archive | `download_archive.db` |
+| Queue Backup | `downloads_backup.json` |
+| Local API token | `api_token.txt` |
+| Logs | `LzyDownloader_YYYY-MM-dd_HH-mm-ss.log` |
 
 The Local API also accepts `override_archive: true` on intentional automation re-downloads; verify the Discord bridge and C++ executable are updated together so this confirmation reaches the queue manager.
-| Logs | `%LOCALAPPDATA%\LzyDownloader\LzyDownloader_YYYY-MM-dd_HH-mm-ss.log` (one new file per run; oldest logs deleted after the most recent 5) |
 
-Server/headless/background mode still reads user preferences from `%LOCALAPPDATA%\LzyDownloader\settings.ini`, but isolates runtime queue backups, API tokens, and logs under `%LOCALAPPDATA%\LzyDownloader\Server\`.
+Server/headless/background mode still reads user preferences from the shared
+`settings.ini`, but isolates runtime queue backups, API tokens, and logs under
+the root's `Server/` subfolder. Each launch creates a fresh timestamped log;
+startup cleanup keeps only the five most recent logs.
 
 **Important:** The NSIS installer must NOT overwrite `settings.ini`, `download_archive.db`, `downloads_backup.json`, `api_token.txt`, or log files. These are stored in user data directories, not the installation directory.
-
-### Application Data Locations (Linux)
-
-On Linux, user configuration, databases, and downloads follow the XDG Base Directory specification:
-
-| File | Location |
-|------|----------|
-| Settings | `~/.local/share/LzyDownloader/settings.ini` |
-| Archive | `~/.local/share/LzyDownloader/download_archive.db` |
-| Queue Backup | `~/.local/share/LzyDownloader/downloads_backup.json` |
-| Logs | `~/.local/share/LzyDownloader/LzyDownloader_YYYY-MM-dd_HH-mm-ss.log` |

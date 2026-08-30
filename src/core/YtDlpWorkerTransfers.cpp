@@ -12,7 +12,10 @@
 
 void YtDlpWorker::updateTransferTarget(const QString &path) {
     const QString previousTarget = m_currentTransferTarget;
-    m_currentTransferTarget = QDir::toNativeSeparators(path);
+    // Keep paths in Qt's canonical forward-slash form while they are stored
+    // and passed between worker components. Convert to native separators only
+    // at presentation or OS-specific API boundaries.
+    m_currentTransferTarget = QDir::fromNativeSeparators(path);
     m_currentTransferIsAuxiliary = isAuxiliaryTransferTarget(m_currentTransferTarget);
     if (m_currentTransferTarget != previousTarget) {
         m_lastPolledTransferBytes = -1;

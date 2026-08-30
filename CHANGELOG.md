@@ -27,6 +27,14 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## [Unreleased]
 
+- **Cross-platform browser companion:** Package the native-messaging host on
+  Linux and macOS, register exact Chrome/Chromium origins for the current user
+  on all supported desktop platforms, and use a persistent AppImage wrapper so
+  Linux registrations do not point into a temporary mount.
+- **Cross-platform process handling:** Keep worker/helper process groups
+  terminable on POSIX systems and normalize internal Qt paths independently of
+  native display separators.
+
 ## [1.2.41] - 2026-08-27
 
 - **Release CI:** Fixed the cross-platform build failure caused by routing the

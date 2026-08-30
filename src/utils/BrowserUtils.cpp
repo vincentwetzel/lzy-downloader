@@ -1,57 +1,95 @@
 #include "BrowserUtils.h"
-#include <QFile>
 #include <QDir>
+#include <QFile>
 #include <QStandardPaths>
-#include <QProcess>
 
 namespace BrowserUtils {
 
 QStringList getInstalledBrowsers() {
     QStringList browsers;
 
-    // Common paths on Windows
-    // Note: This is a basic check. A more robust check would query the registry.
-
-    QString programFiles = qgetenv("ProgramFiles");
-    QString programFilesX86 = qgetenv("ProgramFiles(x86)");
-    QString localAppData = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation);
-
-    auto checkBrowser = [&](const QString& browserId, const QStringList& paths) {
+    auto checkBrowser = [&](const QString &browserId,
+                            const QStringList &paths,
+                            const QStringList &executables) {
         for (const QString& path : paths) {
-            if (QFile::exists(path)) {
+            if (!path.isEmpty() && QFile::exists(path)) {
                 browsers << browserId;
-                break;
+                return;
+            }
+        }
+
+        for (const QString &executable : executables) {
+            if (!QStandardPaths::findExecutable(executable).isEmpty()) {
+                browsers << browserId;
+                return;
             }
         }
     };
 
+#ifdef Q_OS_WIN
+    const QString programFiles = qEnvironmentVariable("ProgramFiles");
+    const QString programFilesX86 = qEnvironmentVariable("ProgramFiles(x86)");
+    const QString localAppData = qEnvironmentVariable("LOCALAPPDATA");
+
+    const auto under = [](const QString &root, const QString &relative) {
+        return root.isEmpty() ? QString{} : QDir(root).filePath(relative);
+    };
+
     checkBrowser("chrome", {
-        QDir(programFiles).filePath("Google/Chrome/Application/chrome.exe"),
-        QDir(programFilesX86).filePath("Google/Chrome/Application/chrome.exe")
-    });
+                     under(programFiles, "Google/Chrome/Application/chrome.exe"),
+                     under(programFilesX86, "Google/Chrome/Application/chrome.exe")
+                 }, {"chrome.exe", "google-chrome.exe"});
 
     checkBrowser("firefox", {
-        QDir(programFiles).filePath("Mozilla Firefox/firefox.exe"),
-        QDir(programFilesX86).filePath("Mozilla Firefox/firefox.exe")
-    });
+                     under(programFiles, "Mozilla Firefox/firefox.exe"),
+                     under(programFilesX86, "Mozilla Firefox/firefox.exe")
+                 }, {"firefox.exe"});
 
     checkBrowser("edge", {
-        QDir(programFiles).filePath("Microsoft/Edge/Application/msedge.exe"),
-        QDir(programFilesX86).filePath("Microsoft/Edge/Application/msedge.exe")
-    });
+                     under(programFiles, "Microsoft/Edge/Application/msedge.exe"),
+                     under(programFilesX86, "Microsoft/Edge/Application/msedge.exe")
+                 }, {"msedge.exe"});
 
     checkBrowser("opera", {
-        QDir(localAppData).filePath("Programs/Opera/launcher.exe")
-    });
+                     under(localAppData, "Programs/Opera/launcher.exe")
+                 }, {"opera.exe"});
 
     checkBrowser("brave", {
-        QDir(programFiles).filePath("BraveSoftware/Brave-Browser/Application/brave.exe"),
-        QDir(programFilesX86).filePath("BraveSoftware/Brave-Browser/Application/brave.exe")
-    });
+                     under(programFiles, "BraveSoftware/Brave-Browser/Application/brave.exe"),
+                     under(programFilesX86, "BraveSoftware/Brave-Browser/Application/brave.exe")
+                 }, {"brave.exe"});
 
     checkBrowser("vivaldi", {
-        QDir(localAppData).filePath("Vivaldi/Application/vivaldi.exe")
-    });
+                     under(localAppData, "Vivaldi/Application/vivaldi.exe")
+                 }, {"vivaldi.exe"});
+#elif defined(Q_OS_MACOS)
+    const QString userApplications = QDir::home().filePath("Applications");
+    const auto appExecutable = [&](const QString &application,
+                                   const QString &executable) {
+        return QStringList{
+            QDir("/Applications").filePath(application + ".app/Contents/MacOS/" + executable),
+            QDir(userApplications).filePath(application + ".app/Contents/MacOS/" + executable)
+        };
+    };
+
+    checkBrowser("chrome", appExecutable("Google Chrome", "Google Chrome"),
+                 {"google-chrome"});
+    checkBrowser("firefox", appExecutable("Firefox", "firefox"), {"firefox"});
+    checkBrowser("edge", appExecutable("Microsoft Edge", "Microsoft Edge"),
+                 {"microsoft-edge"});
+    checkBrowser("opera", appExecutable("Opera", "launcher"), {"opera"});
+    checkBrowser("brave", appExecutable("Brave Browser", "Brave Browser"),
+                 {"brave-browser"});
+    checkBrowser("vivaldi", appExecutable("Vivaldi", "Vivaldi"), {"vivaldi"});
+#else
+    checkBrowser("chrome", {},
+                 {"google-chrome", "google-chrome-stable", "chromium", "chromium-browser"});
+    checkBrowser("firefox", {}, {"firefox"});
+    checkBrowser("edge", {}, {"microsoft-edge", "microsoft-edge-stable"});
+    checkBrowser("opera", {}, {"opera"});
+    checkBrowser("brave", {}, {"brave-browser", "brave"});
+    checkBrowser("vivaldi", {}, {"vivaldi", "vivaldi-stable"});
+#endif
 
     return browsers;
 }

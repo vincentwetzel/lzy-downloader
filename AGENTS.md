@@ -25,6 +25,11 @@ gallery-dl, FFmpeg, and SQLite. Keep path/process handling portable, preserve
 the `download_archive.db` schema, and use Qt-native `QSettings` INI semantics
 (Python `configparser` compatibility is not required).
 
+Windows, Linux, and macOS are first-class supported platforms. Every runtime,
+packaging, browser-integration, and documentation change must preserve all
+three platforms; OS-specific behavior must be isolated behind explicit
+platform branches with a tested fallback or a documented release prerequisite.
+
 ## Documentation security
 
 - Never commit personal or machine-specific absolute paths, usernames, home
