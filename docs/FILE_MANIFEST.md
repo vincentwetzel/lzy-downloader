@@ -19,7 +19,8 @@ tasks to the smallest useful reference.
 | `cmake/deploy_openssl_runtime.cmake` | Windows Qt/OpenSSL/plugin deployment |
 | `tools/` | Extractor refresh, shared parsing, and checksum helpers |
 | `tools/configure_debug.ps1` | Debug configure recovery in `build-debug` |
-| `.github/workflows/release.yml` | Release CI matrix and prerequisites |
+| `.github/workflows/tests.yml` | Reusable full headless test workflow for PRs, branches, and releases |
+| `.github/workflows/release.yml` | Release CI matrix, artifact collection, and gated publication |
 | `tests/run_headless_tests.py` | Build-before-CTest runner and `--suspects` cache |
 | `extractors_yt-dlp.json`, `extractors_gallery-dl.json` | Bundled extractor data |
 

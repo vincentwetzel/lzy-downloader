@@ -115,6 +115,8 @@ protected: // Changed from private for testing
     double m_lastPrimaryProgress = -1.0;
     double m_lastPrimaryTotalBytes = 0.0;
     QTimer *m_progressPollTimer = nullptr;
+    bool m_transferProgressPollActive = false;
+    quint64 m_transferProgressPollGeneration = 0;
     qint64 m_lastPolledTransferBytes = -1;
     double m_lastPolledProgress = -1.0;
     QElapsedTimer m_fileProgressClock;

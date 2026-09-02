@@ -13,6 +13,7 @@ private slots:
     void testEquivalentSourceUrlsAreDeduplicated();
     void testRetryDoesNotEnqueueEquivalentActiveItem();
     void testExplicitRedownloadRemovesTerminalPausedItem();
+    void testRestoredRetryPreservesPlaylistIndex();
 };
 
 void TestDownloadQueueManager::testEquivalentSourceUrlsAreDeduplicated()
@@ -94,6 +95,40 @@ void TestDownloadQueueManager::testExplicitRedownloadRemovesTerminalPausedItem()
     });
     QVERIFY(!manager.removeTerminalPausedDuplicate(candidate, nullptr));
     QCOMPARE(manager.pausedDownloadsCount(), 1);
+}
+
+void TestDownloadQueueManager::testRestoredRetryPreservesPlaylistIndex()
+{
+    DownloadQueueState state;
+    DownloadQueueManager manager(getConfigManager(), getArchiveManager(), &state);
+
+    const QString id = QStringLiteral("restored-playlist-item");
+    const QString url = QStringLiteral("https://www.youtube.com/watch?v=restored-playlist-item");
+    const QVariantMap options = {
+        {QStringLiteral("type"), QStringLiteral("audio")},
+        {QStringLiteral("playlist_index"), 5},
+        {QStringLiteral("is_stopped"), true}
+    };
+
+    QSignalSpy addedSpy(&manager, &DownloadQueueManager::downloadAddedToQueue);
+    manager.processResumeDownloadsSelection(QJsonArray{
+        QJsonObject{
+            {QStringLiteral("id"), id},
+            {QStringLiteral("url"), url},
+            {QStringLiteral("options"), QJsonObject::fromVariantMap(options)},
+            {QStringLiteral("playlistIndex"), 5},
+            {QStringLiteral("status"), QStringLiteral("stopped")}
+        }
+    });
+
+    QCOMPARE(addedSpy.count(), 1);
+    const QVariantMap restoredUiData = addedSpy.first().at(0).toMap();
+    QCOMPARE(restoredUiData.value(QStringLiteral("playlistIndex")).toInt(), 5);
+
+    manager.retryDownload(restoredUiData, {});
+    const DownloadItem retried = manager.takeNextQueuedDownload();
+    QCOMPARE(retried.id, id);
+    QCOMPARE(retried.playlistIndex, 5);
 }
 
 QTEST_GUILESS_MAIN(TestDownloadQueueManager)

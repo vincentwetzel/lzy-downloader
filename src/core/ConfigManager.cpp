@@ -110,6 +110,15 @@ void ConfigManager::commonInitialization() {
         m_settings->sync();
     }
 
+    const QString playlistLogic = m_settings->value(QStringLiteral("General/playlist_logic"), QStringLiteral("Ask")).toString();
+    if (playlistLogic != QStringLiteral("Ask")
+            && playlistLogic != QStringLiteral("Download All (no prompt)")
+            && playlistLogic != QStringLiteral("Download Single (ignore playlist)")) {
+        qWarning() << "Discarding invalid playlist logic setting:" << playlistLogic;
+        m_settings->setValue(QStringLiteral("General/playlist_logic"), QStringLiteral("Ask"));
+        m_settings->sync();
+    }
+
     // Always reset 'exit_after' to false on startup
     if (m_settings->value(QStringLiteral("General/exit_after"), false).toBool()) {
         m_settings->setValue(QStringLiteral("General/exit_after"), false);
@@ -253,32 +262,45 @@ QVariant ConfigManager::get(const QString &section, const QString &key, const QV
     // which in turn can have a fallback to the function's default parameter.
     QVariant appDefault = getDefault(section, key);
     QVariant finalFallback = appDefault.isValid() ? appDefault : defaultValue;
+    const QMutexLocker locker(&m_settingsMutex);
     return m_settings->value(QStringLiteral("%1/%2").arg(section, key), finalFallback);
 }
 
 bool ConfigManager::set(const QString &section, const QString &key, const QVariant &value) {
     const QString fullKey = QStringLiteral("%1/%2").arg(section, key);
-    if (m_settings->contains(fullKey) && m_settings->value(fullKey) == value) {
-        return true;
+    {
+        const QMutexLocker locker(&m_settingsMutex);
+        if (m_settings->contains(fullKey) && m_settings->value(fullKey) == value) {
+            return true;
+        }
+        m_settings->setValue(fullKey, value);
     }
-    m_settings->setValue(fullKey, value);
     emit settingChanged(section, key, value);
     return true;
 }
 
 void ConfigManager::remove(const QString &section, const QString &key) {
     const QString fullKey = QStringLiteral("%1/%2").arg(section, key);
-    if (m_settings->contains(fullKey)) {
-        m_settings->remove(fullKey);
+    bool removed = false;
+    {
+        const QMutexLocker locker(&m_settingsMutex);
+        if (m_settings->contains(fullKey)) {
+            m_settings->remove(fullKey);
+            removed = true;
+        }
+    }
+    if (removed) {
         emit settingChanged(section, key, QVariant());
     }
 }
 
 void ConfigManager::save() {
+    const QMutexLocker locker(&m_settingsMutex);
     m_settings->sync();
 }
 
 QString ConfigManager::getConfigDir() const {
+    const QMutexLocker locker(&m_settingsMutex);
     return QFileInfo(m_settings->fileName()).absolutePath();
 }
 

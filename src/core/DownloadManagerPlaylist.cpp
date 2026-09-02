@@ -284,6 +284,16 @@ void DownloadManager::onPlaylistExpanded(const QString &originalUrl, const QList
         }
     }
 
+    // Non-interactive playlist modes do not emit the UI selection prompt.
+    // The expansion still returns all entries so that metadata and thumbnails
+    // are available; reduce the result here for the explicit single-item
+    // policy before replacing the placeholder.
+    if (itemsToProcess.size() > 1
+            && options.value(QStringLiteral("playlist_logic")).toString()
+                == QStringLiteral("Download Single (ignore playlist)")) {
+        itemsToProcess = QList<QVariantMap>{itemsToProcess.first()};
+    }
+
     emit playlistExpansionFinished(originalUrl, itemsToProcess.count());
 
     // If this was a single video (no expansion needed), update the existing UI item

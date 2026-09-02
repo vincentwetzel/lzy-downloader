@@ -51,6 +51,24 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## [Unreleased]
 
+- **Playlist Logic:** Carry the Start tab’s selected playlist policy into each
+  request, honor the persisted default for manager callers, and apply
+  single-item handling to expanded playlists. Added UI, configuration, and
+  argument regression coverage.
+- **Resume filenames:** Preserve playlist indices when restoring stopped or
+  failed audio items so resumed files keep their configured filename prefix.
+- **Responsiveness:** Run yt-dlp/gallery-dl, metadata embedding, finalization,
+  thumbnail loading, and history-cache copies off the GUI thread. Coalesce
+  high-frequency row progress while retaining the newest state.
+- **Progress recovery:** Poll owned `.part` files asynchronously with
+  generation checks so stale filesystem results cannot update an exited or
+  cancelled transfer.
+- **Configuration safety:** Serialize shared `QSettings` access and validate
+  persisted playlist policies against stable internal values.
+- **Release CI:** Centralize the full headless test suite in a reusable workflow
+  for branches, pull requests, and releases; publish release assets only after
+  the test gate and every platform build succeed.
+
 ## [1.2.41] - 2026-08-27
 
 - **Release CI:** Fixed the cross-platform build failure caused by routing the

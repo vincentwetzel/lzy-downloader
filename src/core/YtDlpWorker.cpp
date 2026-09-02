@@ -171,6 +171,8 @@ void YtDlpWorker::start() {
     m_lastPolledTransferBytes = -1;
     m_lastPolledProgress = -1.0;
     m_fileProgressClock.invalidate();
+    ++m_transferProgressPollGeneration;
+    m_transferProgressPollActive = false;
 
     const ProcessUtils::FoundBinary ytDlpBinary = ProcessUtils::findBinary(QStringLiteral("yt-dlp"), m_configManager);
     if (ytDlpBinary.source == QStringLiteral("Not Found") || ytDlpBinary.path.isEmpty()) {
@@ -255,6 +257,8 @@ void YtDlpWorker::killProcess() {
     if (m_progressPollTimer) {
         m_progressPollTimer->stop();
     }
+    ++m_transferProgressPollGeneration;
+    m_transferProgressPollActive = false;
     if (m_process && m_process->state() != QProcess::NotRunning) {
         disconnect(m_process, &QProcess::readyReadStandardOutput, this, &YtDlpWorker::onReadyReadStandardOutput);
         disconnect(m_process, &QProcess::readyReadStandardError, this, &YtDlpWorker::onReadyReadStandardError);

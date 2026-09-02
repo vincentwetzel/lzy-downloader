@@ -66,30 +66,16 @@ void DownloadManager::cancelDownload(const QString &id) {
         updateTotalSpeed();
 
         m_lastDownloadFinishTime = QDateTime::currentMSecsSinceEpoch();
-
-        YtDlpWorker *ytDlpWorker = qobject_cast<YtDlpWorker*>(worker);
-        if (ytDlpWorker) {
-            ytDlpWorker->killProcess();
-        } else {
-            GalleryDlWorker *galleryDlWorker = qobject_cast<GalleryDlWorker*>(worker);
-            if (galleryDlWorker) {
-                galleryDlWorker->killProcess();
-            }
-        }
-
         worker->disconnect(this);
-        
-        // Ensure all child processes belonging to this worker are forcefully killed
-        const QList<QProcess*> processes = worker->findChildren<QProcess*>();
-        for (QProcess *p : processes) {
-            if (p->state() != QProcess::NotRunning) {
-                p->disconnect();
-                ProcessUtils::terminateProcessTree(p);
-                p->kill();
-            }
+
+        if (auto *ytDlpWorker = qobject_cast<YtDlpWorker*>(worker)) {
+            stopWorker(ytDlpWorker);
+        } else if (auto *galleryDlWorker = qobject_cast<GalleryDlWorker*>(worker)) {
+            stopWorker(galleryDlWorker);
+        } else {
+            qWarning() << "Cannot stop unknown download worker:" << id;
         }
 
-        worker->deleteLater();
         adjustActiveDownloadCount(-1);
         
         item.options[QStringLiteral("is_stopped")] = true;
@@ -108,16 +94,7 @@ void DownloadManager::cancelDownload(const QString &id) {
         
         embedder->disconnect(this);
         
-        const QList<QProcess*> processes = embedder->findChildren<QProcess*>();
-        for (QProcess *p : processes) {
-            if (p->state() != QProcess::NotRunning) {
-                ProcessUtils::terminateProcessTree(p);
-                p->kill();
-            }
-        }
-
-        // Deleting the embedder will kill any active QProcess internally
-        embedder->deleteLater();
+        stopEmbedder(embedder);
         
         item.options[QStringLiteral("is_stopped")] = true;
         m_queueManager->m_pausedItems[id] = item;
@@ -162,21 +139,11 @@ void DownloadManager::restartDownloadWithOptions(const QVariantMap &itemData) {
         // Disconnect signals to prevent onWorkerFinished from being called with an error
         worker->disconnect(this);
         
-        YtDlpWorker *ytDlpWorker = qobject_cast<YtDlpWorker*>(worker);
-        if (ytDlpWorker) {
-            ytDlpWorker->killProcess();
+        if (auto *ytDlpWorker = qobject_cast<YtDlpWorker*>(worker)) {
+            stopWorker(ytDlpWorker);
+        } else if (auto *galleryDlWorker = qobject_cast<GalleryDlWorker*>(worker)) {
+            stopWorker(galleryDlWorker);
         }
-        
-        const QList<QProcess*> processes = worker->findChildren<QProcess*>();
-        for (QProcess *p : processes) {
-            if (p->state() != QProcess::NotRunning) {
-                p->disconnect();
-                ProcessUtils::terminateProcessTree(p);
-                p->kill();
-            }
-        }
-
-        worker->deleteLater();
     }
 
     // 2. The item is still in m_activeItems. We will reuse it.
@@ -221,29 +188,16 @@ void DownloadManager::pauseDownload(const QString &id) {
         updateTotalSpeed();
 
         m_lastDownloadFinishTime = QDateTime::currentMSecsSinceEpoch();
-
-        YtDlpWorker *ytDlpWorker = qobject_cast<YtDlpWorker*>(worker);
-        if (ytDlpWorker) {
-            ytDlpWorker->killProcess();
-        } else {
-            GalleryDlWorker *galleryDlWorker = qobject_cast<GalleryDlWorker*>(worker);
-            if (galleryDlWorker) {
-                galleryDlWorker->killProcess();
-            }
-        }
-        
         worker->disconnect(this);
-        
-        const QList<QProcess*> processes = worker->findChildren<QProcess*>();
-        for (QProcess *p : processes) {
-            if (p->state() != QProcess::NotRunning) {
-                p->disconnect();
-                ProcessUtils::terminateProcessTree(p);
-                p->kill();
-            }
-        }
 
-        worker->deleteLater();
+        if (auto *ytDlpWorker = qobject_cast<YtDlpWorker*>(worker)) {
+            stopWorker(ytDlpWorker);
+        } else if (auto *galleryDlWorker = qobject_cast<GalleryDlWorker*>(worker)) {
+            stopWorker(galleryDlWorker);
+        } else {
+            qWarning() << "Cannot stop unknown download worker:" << id;
+        }
+        
         adjustActiveDownloadCount(-1);
         qDebug() << "Paused active download:" << id;
         emit downloadPaused(id);
@@ -288,7 +242,7 @@ void DownloadManager::finishDownload(const QString &id) {
             progressData[QStringLiteral("status")] = tr("Finishing stream & finalizing...");
             emit downloadProgress(id, progressData);
             
-            ytDlpWorker->finishGracefully();
+            QMetaObject::invokeMethod(ytDlpWorker, &YtDlpWorker::finishGracefully, Qt::QueuedConnection);
         }
     }
 }

@@ -22,8 +22,10 @@ finalization.
 Public methods:
 
 - `void enqueueDownload(const QString &url, const QVariantMap &options)` — queue
-  a URL and, when configured, start
-  asynchronous playlist expansion.
+  a URL and, when configured, start asynchronous playlist expansion. The
+  optional `playlist_logic` request value (`Ask`, `Download All (no prompt)`,
+  or `Download Single (ignore playlist)`) overrides `General/playlist_logic`;
+  invalid values use `Ask`, while non-interactive requests force all items.
 - `void cancelDownload(const QString &id)`, `pauseDownload(const QString &id)`,
   `unpauseDownload(const QString &id)` — control a queued or active item.
 - `void restartDownloadWithOptions(const QVariantMap &itemData)`,
@@ -45,6 +47,12 @@ Worker admission is coordinated by `GlobalDownloadLimiter` across separate
 GUI and server/headless/background processes. A manager retries admission when
 the shared limit is full and releases its reservations on worker completion or
 shutdown; this does not merge the processes' queue state.
+
+yt-dlp/gallery-dl workers own their `QProcess` in dedicated `QThread` event
+loops. Metadata embedding and finalization likewise run off the GUI thread;
+their signals marshal only immutable progress/state back to the manager. GUI
+rows coalesce high-frequency progress to a bounded repaint rate, while API and
+webhook consumers continue to receive backend progress independently.
 
 Key signals:
 
@@ -82,6 +90,8 @@ Wraps Qt `QSettings` for `settings.ini`.
   const QString &key)`, and `save()` read/write settings.
 - `void resetToDefaults()` restores defaults while preserving required user paths.
 - `settingChanged(section, key, value)` and `settingsReset()` report changes.
+- Reads, writes, synchronization, and config-directory lookup are serialized so
+  workers may safely consume shared settings without concurrent `QSettings` use.
 - `DownloadOptions/prefix_playlist_indices` defaults to `true`; invalid values
   are replaced with the canonical default.
 
@@ -101,6 +111,21 @@ Owns SQLite `download_archive.db` access and archive duplicate checks.
 moves/copies verified output while retaining the previous destination until
 success, then restores it on failure. Empty, missing, or identical paths must
 not delete unrelated files.
+
+### [DownloadFinalizer](../src/core/DownloadFinalizer.h)
+
+- `void finalize(const QString &id, DownloadItem item)` verifies stable output,
+  applies sorting and playlist filename policy, performs destination
+  replacement, updates the archive, and emits asynchronous progress/completion
+  signals. Filesystem work is kept off the GUI thread.
+
+### [MetadataEmbedder](../src/core/MetadataEmbedder.h)
+
+- `void processFile(const QString &filePath, int trackNumber,
+  bool normalizeContainerTimestamps)` performs the FFmpeg metadata/artwork
+  rewrite asynchronously and emits `finished(bool, error)`.
+- `void cancel()` terminates its active FFmpeg process and cancels the current
+  stage; callers must invoke it through the embedder's worker-thread event loop.
 
 ### [LocalApiServer](../src/core/LocalApiServer.h)
 

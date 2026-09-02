@@ -56,6 +56,15 @@ void MetadataEmbedder::setThumbnailPath(const QString &thumbnailPath) {
     m_thumbnailPath = thumbnailPath.trimmed();
 }
 
+void MetadataEmbedder::cancel()
+{
+    if (m_process && m_process->state() != QProcess::NotRunning) {
+        ProcessUtils::terminateProcessTree(m_process);
+        m_process->kill();
+    }
+    m_stage = Stage::Idle;
+}
+
 void MetadataEmbedder::processFile(const QString &filePath, int trackNumber, bool normalizeContainerTimestamps) {
     m_originalFilePath = filePath;
     QFileInfo fileInfo(filePath);

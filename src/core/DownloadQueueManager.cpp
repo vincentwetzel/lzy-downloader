@@ -389,6 +389,11 @@ void DownloadQueueManager::retryDownload(const QVariantMap &itemData, const QMap
     item.url = itemData.value(QStringLiteral("url")).toString();
     item.options = itemData.value(QStringLiteral("options")).toMap();
     item.playlistIndex = itemData.value(QStringLiteral("playlistIndex"), -1).toInt();
+    if (item.playlistIndex < 0) {
+        // Compatibility with older UI/state payloads that retained the
+        // builder's option copy but not the top-level playlist index.
+        item.playlistIndex = item.options.value(QStringLiteral("playlist_index"), -1).toInt();
+    }
 
     m_pausedItems.remove(item.id);
     item.options.remove(QStringLiteral("is_stopped"));
@@ -438,6 +443,9 @@ void DownloadQueueManager::processResumeDownloadsSelection(const QJsonArray &arr
         uiData.insert(QStringLiteral("status"), (status == QStringLiteral("paused")) ? tr("Paused") : tr("Queued"));
         uiData.insert(QStringLiteral("progress"), 0);
         uiData.insert(QStringLiteral("options"), item.options);
+        // Restored stopped items are retried from this UI-owned payload. Keep
+        // the index available so finalization can preserve playlist prefixes.
+        uiData.insert(QStringLiteral("playlistIndex"), item.playlistIndex);
 
         const QString initialTitle = item.options.value(QStringLiteral("initial_title")).toString().trimmed();
         if (!initialTitle.isEmpty()) {

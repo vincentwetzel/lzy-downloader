@@ -2,6 +2,7 @@
 #include "DownloadFinalizer.h"
 #include "DownloadQueueManager.h"
 #include "MetadataEmbedder.h"
+#include <QThread>
 #include <QDebug>
 #include <QDir>
 #include <QFile>
@@ -133,11 +134,10 @@ void DownloadManager::applyAudioPlaylistAlbumMetadata(DownloadItem &item) const 
 void DownloadManager::onWorkerFinished(const QString &id, bool success, const QString &message, const QString &finalFilename, const QString &originalDownloadedFilename, const QVariantMap &metadata) {
     if (!m_activeWorkers.contains(id)) return;
 
-    QObject *workerObj = m_activeWorkers.take(id);
+    m_activeWorkers.remove(id);
     DownloadItem &item = m_activeItems[id];
     m_workerSpeeds.remove(id);
     updateTotalSpeed();
-    workerObj->deleteLater();
 
     m_lastDownloadFinishTime = QDateTime::currentMSecsSinceEpoch();
 
@@ -219,7 +219,10 @@ void DownloadManager::onWorkerFinished(const QString &id, bool success, const QS
     const bool needsSectionNormalization = shouldNormalizeSectionContainer(item);
     const QString thumbnailPath = item.metadata.value(QStringLiteral("thumbnail_path")).toString();
     const bool wantsEmbed = m_configManager->get(QStringLiteral("Metadata"), QStringLiteral("embed_thumbnail"), true).toBool();
-    const bool hasAbandonedThumb = wantsEmbed && !thumbnailPath.isEmpty() && QFile::exists(thumbnailPath);
+    // The embedder validates the thumbnail from its worker thread. Do not
+    // probe mapped/removable paths here, while handling the GUI-thread finish
+    // signal.
+    const bool hasAbandonedThumb = wantsEmbed && !thumbnailPath.isEmpty();
 
     if (needsTrackEmbedding || needsSectionNormalization || hasAbandonedThumb) {
         QVariantMap progressData;
@@ -228,7 +231,9 @@ void DownloadManager::onWorkerFinished(const QString &id, bool success, const QS
             : (hasAbandonedThumb && !needsTrackEmbedding ? tr("Embedding thumbnail...") : tr("Embedding metadata...")));
         emit downloadProgress(id, progressData);
 
-        MetadataEmbedder *embedder = new MetadataEmbedder(m_configManager, this);
+        QThread *embedderThread = new QThread(this);
+        embedderThread->setObjectName(QStringLiteral("metadata-embedder-%1").arg(id));
+        MetadataEmbedder *embedder = new MetadataEmbedder(m_configManager);
         m_activeEmbedders[id] = embedder;
         connect(embedder, &MetadataEmbedder::finished, this, [this, id](bool s, const QString &e){
             onMetadataEmbedded(id, s, e);
@@ -248,7 +253,15 @@ void DownloadManager::onWorkerFinished(const QString &id, bool success, const QS
         if (!extraMetadata.isEmpty()) {
             embedder->setExtraMetadata(extraMetadata);
         }
-        embedder->processFile(item.tempFilePath, needsTrackEmbedding ? item.playlistIndex : 0, needsSectionNormalization);
+        const QString filePath = item.tempFilePath;
+        const int trackNumber = needsTrackEmbedding ? item.playlistIndex : 0;
+        embedder->moveToThread(embedderThread);
+        connect(embedderThread, &QThread::started, embedder, [embedder, filePath, trackNumber, needsSectionNormalization]() {
+            embedder->processFile(filePath, trackNumber, needsSectionNormalization);
+        }, Qt::QueuedConnection);
+        connect(embedderThread, &QThread::finished, embedder, &QObject::deleteLater);
+        connect(embedderThread, &QThread::finished, embedderThread, &QObject::deleteLater);
+        embedderThread->start();
     } else {
         m_finalizer->finalize(id, item);
     }
@@ -258,11 +271,10 @@ void DownloadManager::onWorkerFinished(const QString &id, bool success, const QS
 void DownloadManager::onGalleryDlWorkerFinished(const QString &id, bool success, const QString &message, const QString &finalFilename, const QVariantMap &metadata) {
     if (!m_activeWorkers.contains(id)) return;
 
-    QObject *workerObj = m_activeWorkers.take(id);
+    m_activeWorkers.remove(id);
     DownloadItem &item = m_activeItems[id];
     m_workerSpeeds.remove(id);
     updateTotalSpeed();
-    workerObj->deleteLater();
 
     m_lastDownloadFinishTime = QDateTime::currentMSecsSinceEpoch();
 
@@ -315,7 +327,7 @@ void DownloadManager::onMetadataEmbedded(const QString &id, bool success, const 
     if (!m_activeEmbedders.contains(id)) return;
 
     MetadataEmbedder *embedder = qobject_cast<MetadataEmbedder*>(m_activeEmbedders.take(id));
-    embedder->deleteLater();
+    stopEmbedder(embedder);
 
     DownloadItem &item = m_activeItems[id];
 

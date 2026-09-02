@@ -66,6 +66,12 @@ int main(int argc, char **argv)
         return 2;
     }
 
+    if (url.find("thread-regression") != std::string::npos) {
+        // Keep the worker alive long enough for the manager test to inspect
+        // its dedicated thread while output processing is active.
+        std::this_thread::sleep_for(std::chrono::seconds(2));
+    }
+
     const std::string id = "ordinary-fallback";
     const std::string extension = "webm";
     std::string outputPath = outputTemplate;

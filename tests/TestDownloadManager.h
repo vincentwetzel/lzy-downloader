@@ -13,7 +13,18 @@ class TestableDownloadManager : public DownloadManager {
     Q_OBJECT
 public:
     explicit TestableDownloadManager(ConfigManager *configManager, QObject *parent = nullptr)
-        : DownloadManager(configManager, parent) {}
+        : DownloadManager(configManager, parent), m_configManager(configManager) {}
+
+    void emitPlaylistExpansion(const QString &url, const QVariantMap &options,
+                               const QList<QVariantMap> &items) {
+        auto *worker = new PlaylistExpansionWorker(url, m_configManager, this);
+        worker->setProperty("options", options);
+        QObject::connect(worker,
+                         SIGNAL(expansionFinished(QString,QList<QVariantMap>,QString)),
+                         this,
+                         SLOT(onPlaylistExpanded(QString,QList<QVariantMap>,QString)));
+        emit worker->expansionFinished(url, items, QString());
+    }
 
     void callOnPlaylistExpanded(const QString &originalUrl, const QList<QVariantMap> &expandedItems, const QString &error) {
         // Invoke the private slot through Qt's meta-object so this test stays
@@ -25,6 +36,9 @@ public:
             Q_ARG(QList<QVariantMap>, expandedItems),
             Q_ARG(QString, error)));
     }
+
+private:
+    ConfigManager *m_configManager;
 };
 
 class TestDownloadManager : public BaseTest {
@@ -36,8 +50,13 @@ private slots:
 
     void testTransientPlaylistProbeFallback();
     void testExplicitPlaylistFailureClassification();
+    void testEnqueueUsesPersistedPlaylistLogic();
+    void testSinglePlaylistSettingQueuesOnlyFirstItem();
     void testNonInteractiveDuplicateUsesFailureSignal();
     void testSlowProbeFallbackAndExplicitPlaylistSmoke();
+    void testDownloadWorkerUsesDedicatedThread();
+    void testMetadataEmbedderRunsOffGuiThread();
+    void testFinalizationDoesNotBlockGuiThread();
 
 private:
     DownloadManager *m_manager = nullptr;

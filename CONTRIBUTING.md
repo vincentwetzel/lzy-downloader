@@ -26,7 +26,8 @@ For Windows debug configuration, use `cmake --preset debug` and the
 parallel debug build tree.
 
 Before submitting a pull request, run the focused tests relevant to your
-change. The full headless test workflow is:
+change. The full headless test workflow is also run by the reusable GitHub
+Actions workflow on pull requests and the main branches:
 
 ```powershell
 python tests/run_headless_tests.py --build-dir build --config Release
@@ -37,6 +38,9 @@ Visual Studio builds it derives vcpkg manifest/MSBuild properties from the
 CMake cache, so direct-Qt and vcpkg-toolchain configurations use their
 corresponding integration mode. Use `--suspects` to rerun only the tests
 recorded as failed by the preceding run.
+
+Tagged releases call the same workflow as a required gate before the
+cross-platform packaging matrix and publish job.
 
 The `TestDownloadManager` coverage includes a slow-probe smoke test. It takes
 up to the 45-second playlist watchdog and verifies that ordinary URLs fall

@@ -30,6 +30,11 @@ only the sections relevant to the change.
 
 - Network, filesystem scans, long database work, and external processes run
   asynchronously/off the GUI thread. All QWidget access stays on the GUI thread.
+- yt-dlp/gallery-dl processes, metadata embedding, finalization, and thumbnail
+  file I/O are owned by worker threads. High-frequency progress is reduced to
+  the newest state at a bounded UI update rate; API/webhook progress remains
+  independent of QWidget repaint work. Stale asynchronous thumbnail and file
+  snapshots must not overwrite a newer row state.
 - Download flow is: per-download temporary directory -> stable-file check ->
   completed destination. Terminal failure removes only the guarded owned UUID
   folder; stopped downloads retain partials for resume. Startup asynchronously
@@ -67,6 +72,11 @@ only the sections relevant to the change.
   enqueueing. `override_archive=true` may replace only a matching restored
   stopped/failed entry; genuinely paused entries remain protected. Discord/API
   rejection paths preserve the caller job ID and terminal diagnostic.
+- Playlist handling uses the request's `playlist_logic` value when present and
+  otherwise the persisted `General/playlist_logic` default. Valid values are
+  `Ask`, `Download All (no prompt)`, and `Download Single (ignore playlist)`;
+  invalid values fall back to `Ask`. Non-interactive requests force the
+  all-items policy and never open a playlist prompt.
 - Intentional re-download replacement is centralized in
   `FileReplacement::moveReplacing()`: retain the old destination until a
   verified new output moves/copies successfully, and restore it on failure.
@@ -141,8 +151,10 @@ only the sections relevant to the change.
   status, and active-stream labels. Prefer format IDs, announced formats,
   `FILE:`/URL metadata, and matching `formats` sizes over ambiguous extensions.
 - If `info.json` lacks `requested_downloads`, recover the active stream total
-  from matching formats and bounded polling of its owned `.part` file. Do not
-  invent totals for auxiliary files or unknown-size livestreams; auxiliary
+  from matching formats and bounded asynchronous polling of its owned `.part`
+  file. Polling is generation-checked so cancellation, process exit, or a new
+  transfer target cannot apply stale results. Do not invent totals for
+  auxiliary files or unknown-size livestreams; auxiliary
   thumbnails/subtitles/metadata must not replace main-media progress.
 - Buffer process bytes until complete UTF-8 lines and retain a bounded
   diagnostic tail. A final path is not proof of valid media. Missing fragments,
@@ -166,6 +178,11 @@ only the sections relevant to the change.
 - If yt-dlp leaves a tracked thumbnail sidecar, the existing FFmpeg rewrite
   adds it as a second input mapped as `attached_pic` before cleanup. Missing
   sidecars do not block ordinary metadata embedding.
+- Metadata embedding and final destination verification/replacement run off the
+  GUI thread. A thumbnail path is a candidate until the worker validates it;
+  missing or unreadable artwork does not block finalization. Stopping a job
+  cancels its active post-processing worker without probing child QObjects from
+  the GUI thread.
 - SponsorBlock and section cuts normalize audio timestamps rather than copying
   packets from the pre-cut timeline. Bound FFmpeg resources and use background
   priority where supported. Verify stability before final move; use Qt file APIs,
@@ -244,6 +261,10 @@ only the sections relevant to the change.
   validates with `python -m pip install --pre --upgrade yt-dlp`; these tools are
   not bundled runtime dependencies. Windows CI installs NSIS; child commands
   retain the invoking terminal. The final executable is `LzyDownloader.exe`.
+- The reusable `.github/workflows/tests.yml` workflow runs the full headless
+  suite on pull requests and `main`/`master` branches. Tag releases call that same
+  workflow before the platform build matrix; a separate publish job runs only
+  after every test and release build job succeeds.
 - Register tests with `lzy_add_test(...)`; keep them isolated from user files
   and use `QT_QPA_PLATFORM=minimal`. Required coverage includes argument
   builders, playlist/probe fallback, progress and recovery boundaries,

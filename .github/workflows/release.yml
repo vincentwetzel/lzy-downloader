@@ -7,11 +7,16 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
+  test:
+    name: Full headless test suite
+    uses: ./.github/workflows/tests.yml
+
   build:
     name: Build (${{ matrix.os }})
+    needs: test
     runs-on: ${{ matrix.os }}
     env:
       LZY_BROWSER_EXTENSION_ID: ${{ vars.LZY_BROWSER_EXTENSION_ID }}
@@ -114,6 +119,43 @@ jobs:
         run: |
           python build_release.py
 
+      - name: Generate Release Checksums
+        shell: bash
+        run: |
+          python tools/generate_release_checksums.py \
+            --output "SHA256SUMS-${{ matrix.platform }}-${{ matrix.architecture || 'x86_64' }}.txt"
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-assets-${{ matrix.platform }}-${{ matrix.architecture || 'x86_64' }}
+          if-no-files-found: error
+          path: |
+            LzyDownloader-Setup-*.exe
+            build-release/LzyDownloader-*-x86_64.AppImage
+            LzyDownloader-*-macos-x86_64.dmg
+            LzyDownloader-*-macos-arm64.dmg
+            SHA256SUMS-*.txt
+
+  publish:
+    name: Publish GitHub Release
+    needs: build
+    if: ${{ startsWith(github.ref, 'refs/tags/') && needs.build.result == 'success' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v5
+
+      - name: Download Build Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: release-assets-*
+          merge-multiple: true
+          path: release-assets
+
       - name: Prepare Release Notes
         shell: bash
         run: |
@@ -123,22 +165,15 @@ jobs:
             printf '# LzyDownloader %s\n\nAutomated release build for %s.\n' "$GITHUB_REF_NAME" "$GITHUB_REF_NAME" > "$notes_path"
           fi
 
-      - name: Generate Release Checksums
-        shell: bash
-        run: |
-          python tools/generate_release_checksums.py \
-            --output "SHA256SUMS-${{ matrix.platform }}-${{ matrix.architecture || 'x86_64' }}.txt"
-
-      - name: Upload Release Assets
-        if: startsWith(github.ref, 'refs/tags/')
+      - name: Publish Release Assets
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            LzyDownloader-Setup-*.exe
-            build-release/LzyDownloader-*-x86_64.AppImage
-            LzyDownloader-*-macos-x86_64.dmg
-            LzyDownloader-*-macos-arm64.dmg
-            SHA256SUMS-*.txt
+            release-assets/LzyDownloader-Setup-*.exe
+            release-assets/LzyDownloader-*-x86_64.AppImage
+            release-assets/LzyDownloader-*-macos-x86_64.dmg
+            release-assets/LzyDownloader-*-macos-arm64.dmg
+            release-assets/SHA256SUMS-*.txt
           body_path: release-notes/${{ github.ref_name }}.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

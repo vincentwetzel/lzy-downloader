@@ -1,5 +1,6 @@
 # LzyDownloader — Free Video Downloader and yt-dlp GUI
 
+[![C++ Tests](https://github.com/vincentwetzel/lzy-downloader/actions/workflows/tests.yml/badge.svg)](https://github.com/vincentwetzel/lzy-downloader/actions/workflows/tests.yml)
 [![Build and Release](https://github.com/vincentwetzel/lzy-downloader/actions/workflows/release.yml/badge.svg)](https://github.com/vincentwetzel/lzy-downloader/actions/workflows/release.yml)
 [![Latest Release](https://img.shields.io/github/v/release/vincentwetzel/lzy-downloader?display_name=tag)](https://github.com/vincentwetzel/lzy-downloader/releases/latest)
 
@@ -93,6 +94,7 @@ input are reported as incomplete-transfer failures before metadata embedding.
 - 🛡️ **Duplicate-safe retries** — Equivalent source URLs share a normalized media identity, preventing duplicate queue/retry jobs without adding site-specific downloader behavior
 - 🔁 **Terminal retry recovery** — Explicit API re-downloads can replace matching restored stopped/failed jobs, while genuinely paused downloads remain protected
 - 📈 **Transfer progress recovery** — Native downloads recover stream sizes from yt-dlp format metadata and bounded `.part`-file polling keeps progress moving when yt-dlp temporarily emits no progress line
+- ⚡ **Responsive processing** — Downloader workers, metadata embedding, finalization, thumbnail loading, and history-cache copies stay off the GUI thread; row rendering coalesces high-frequency progress updates
 - 📊 **Single-bar progress display** — Active download rows keep progress focused on the current transfer or processing stage without a secondary aggregate bar
 - 🤖 **Stable Discord progress** — The bridge uses backend aggregate progress for multi-stream jobs so Discord percentages do not reset during video/audio handoff
 - 🧱 **Safe destination replacement** — Intentional re-downloads preserve the existing completed file until the verified replacement is in place; failed replacements leave the old file recoverable
@@ -202,7 +204,8 @@ must return `True`.
 - GitHub Actions is the normal release packaging path: push a synchronized
   release commit, then its matching `vX.Y.Z` tag. The workflow runs
   `build_release.py` on the Windows, Linux, Intel macOS, and Apple Silicon
-  runners. Local `build_release.py` runs are optional diagnostics only.
+  runners only after the full headless C++ test suite passes. Local
+  `build_release.py` runs are optional diagnostics only.
 - The release builder remains native-only: GitHub Actions selects the platform
   runner and packaging path for each artifact. Its `--target` options are for
   explicitly requested local diagnostics, not the normal release procedure.
@@ -223,7 +226,7 @@ must return `True`.
   by `install-qt-action` between compatible GitHub Actions runs; Ninja is used
   when available for the Linux compilation graph.
 - If a tag-matched `release-notes/<tag>.md` file is absent, CI creates a minimal fallback release body so GitHub Release publication does not emit a missing-file warning.
-- The workflow also supports `workflow_dispatch` validation runs; release assets are uploaded only when the workflow was started by a `v*` tag.
+- The workflow also supports `workflow_dispatch` validation runs; release assets are uploaded only when the workflow was started by a `v*` tag and every test and platform build job passed.
 - Each tag release includes a platform-specific `SHA256SUMS-*.txt` manifest beside the packaged installer, AppImage, or DMG.
 - Local Linux source builds that choose vcpkg still need the development
   packages required by that vcpkg revision; they are not release-runtime
@@ -232,9 +235,11 @@ must return `True`.
 - `CHANGELOG.md` must move `[Unreleased]` notes under the dated release version.
 - The normal release workflow is metadata preparation followed by pushing the
   release commit and matching `v*` tag. Pushing the tag starts
-  `.github/workflows/release.yml`, which builds the Windows installer, Linux
-  AppImage, and Intel/Apple-Silicon macOS DMGs and attaches them to the GitHub
-  Release; local packaging is optional diagnostics only.
+  `.github/workflows/release.yml`, which first runs the full headless C++ test
+  suite, then builds the Windows installer, Linux AppImage, and
+  Intel/Apple-Silicon macOS DMGs. A final job attaches them to the GitHub
+  Release only after all builds pass; local packaging is optional diagnostics
+  only.
 
 ## Usage
 

@@ -10,8 +10,10 @@ class TestUIWidgets : public BaseTest {
 
 private slots:
     void testProgressLabelBarFilling();
+    void testStartTabCarriesPlaylistLogicIntoRequest();
     void testDownloadItemWidgetFinishedState();
     void testDownloadItemWidgetUsesAggregateProgressAcrossStreams();
+    void testDownloadItemWidgetCoalescesHighFrequencyProgress();
     void testDownloadItemWidgetKeepsActionsVisibleWhenNarrow();
     void testBinariesPageUsesNaturalScrollDocument();
     void testDenoAppManagedInstallIsRecommended();

@@ -72,7 +72,7 @@ void StartTabCommandPreviewUpdater::updateCommandPreview()
     }
 
     options.insert(QStringLiteral("type"), downloadType);
-    options.insert(QStringLiteral("playlist_logic"), m_uiBuilder->playlistLogicCombo()->currentText());
+    options.insert(QStringLiteral("playlist_logic"), m_uiBuilder->playlistLogicCombo()->currentData());
 
     if (!m_ytDlpArgsBuilder) {
         qCritical() << "CRITICAL ERROR: m_ytDlpArgsBuilder is null in updateCommandPreview!";

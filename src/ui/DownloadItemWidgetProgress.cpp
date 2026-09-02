@@ -21,6 +21,7 @@
 #include <QStandardPaths>
 #include <QMap>
 #include <QPair>
+#include <QTimer>
 #include <QtMath>
 
 using DownloadItemWidgetIcons::createColoredIcon;
@@ -68,6 +69,14 @@ void DownloadItemWidget::setupUi() {
     m_progressBar->setMinimumWidth(0);
     m_progressBar->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
     m_progressBar->setToolTip(tr("Progress for the currently active stream or processing stage."));
+
+    // yt-dlp can emit progress much faster than a QWidget row can repaint.
+    // Keep only the newest values and render at a bounded rate so download
+    // output cannot starve the GUI event loop.
+    m_progressUpdateTimer = new QTimer(this);
+    m_progressUpdateTimer->setSingleShot(true);
+    m_progressUpdateTimer->setInterval(100);
+    connect(m_progressUpdateTimer, &QTimer::timeout, this, &DownloadItemWidget::applyPendingProgress);
 
     m_clearButton = new QPushButton(QStringLiteral("X"), this);
     m_clearButton->setToolTip(tr("Clear this download from the queue."));
@@ -184,6 +193,27 @@ void DownloadItemWidget::updateProgress(const QVariantMap &progressData) {
     if (m_isFinished) {
         return; // Ignore delayed progress signals if already finished
     }
+
+    for (auto it = progressData.constBegin(); it != progressData.constEnd(); ++it) {
+        m_pendingProgressData.insert(it.key(), it.value());
+    }
+    if (m_progressUpdateTimer && !m_progressUpdateTimer->isActive()) {
+        m_progressUpdateTimer->start();
+    }
+}
+
+void DownloadItemWidget::applyPendingProgress() {
+    if (m_isFinished) {
+        m_pendingProgressData.clear();
+        return;
+    }
+
+    const QVariantMap progressData = m_pendingProgressData;
+    m_pendingProgressData.clear();
+    applyProgressData(progressData);
+}
+
+void DownloadItemWidget::applyProgressData(const QVariantMap &progressData) {
 
     if (progressData.contains(QStringLiteral("title"))) {
         const QString title = progressData[QStringLiteral("title")].toString().trimmed();
@@ -316,4 +346,3 @@ void DownloadItemWidget::updateProgress(const QVariantMap &progressData) {
         setThumbnail(progressData[QStringLiteral("thumbnail_path")].toString());
     }
 }
-

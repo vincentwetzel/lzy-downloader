@@ -21,8 +21,11 @@
 #include <QDateTime>
 #include <QDesktopServices>
 #include <QDir>
+#include <QFile>
 #include <QFileInfo>
 #include <QFileDialog>
+#include <QFutureWatcher>
+#include <QHash>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QMessageBox>
@@ -37,6 +40,8 @@
 #include <QThread>
 #include <QTimer>
 #include <QUrl>
+#include <QSet>
+#include <QtConcurrent/QtConcurrentRun>
 #include <chrono>
 
 void MainWindow::connectDownloadManagerSignals()
@@ -53,18 +58,56 @@ void MainWindow::connectDownloadManagerSignals()
 
     // Download History tracking
     QSharedPointer<QMap<QString, HistoryItemData>> historyStates = QSharedPointer<QMap<QString, HistoryItemData>>::create();
+    QSharedPointer<QHash<QString, QString>> cachedThumbnailPaths = QSharedPointer<QHash<QString, QString>>::create();
+    QSharedPointer<QSet<QString>> thumbnailCopyAttempts = QSharedPointer<QSet<QString>>::create();
 
-    auto cacheThumbnail = [this](const QString &id, const QString &originalPath) -> QString {
+    auto cacheThumbnail = [this, historyStates, cachedThumbnailPaths, thumbnailCopyAttempts](const QString &id, const QString &originalPath) -> QString {
         if (originalPath.isEmpty() || originalPath.startsWith(QStringLiteral("http://")) || originalPath.startsWith(QStringLiteral("https://"))) {
             return originalPath;
         }
-        QString cacheDir = QDir(m_configManager->getConfigDir()).filePath(QStringLiteral("thumbnails"));
-        QDir().mkpath(cacheDir);
-        QString cachedPath = QDir(cacheDir).filePath(QStringLiteral("%1_%2").arg(id, QFileInfo(originalPath).fileName()));
-        if (!QFile::exists(cachedPath) && QFile::exists(originalPath)) {
-            QFile::copy(originalPath, cachedPath);
+        const QString cacheKey = id + QLatin1Char('\0') + originalPath;
+        if (cachedThumbnailPaths->contains(cacheKey)) {
+            return cachedThumbnailPaths->value(cacheKey);
         }
-        return QFile::exists(cachedPath) ? cachedPath : originalPath;
+        if (thumbnailCopyAttempts->contains(cacheKey)) {
+            return originalPath;
+        }
+
+        const QString cacheDir = QDir(m_configManager->getConfigDir()).filePath(QStringLiteral("thumbnails"));
+        const QString cachedPath = QDir(cacheDir).filePath(QStringLiteral("%1_%2").arg(id, QFileInfo(originalPath).fileName()));
+        thumbnailCopyAttempts->insert(cacheKey);
+
+        // Copying from the download drive is deliberately off the GUI thread.
+        auto *watcher = new QFutureWatcher<bool>(this);
+        connect(watcher, &QFutureWatcher<bool>::finished, this,
+                [this, watcher, id, cachedPath, cacheKey, historyStates, cachedThumbnailPaths]() {
+            const bool copied = watcher->result();
+            watcher->deleteLater();
+            if (!copied) {
+                return;
+            }
+
+            cachedThumbnailPaths->insert(cacheKey, cachedPath);
+            if (!historyStates->contains(id)) {
+                return;
+            }
+            (*historyStates)[id].thumbnailPath = cachedPath;
+            if (m_activeDownloadsTab) {
+                m_activeDownloadsTab->updateDownloadProgress(id, {
+                    {QStringLiteral("thumbnail_path"), cachedPath}
+                });
+            }
+        });
+        watcher->setFuture(QtConcurrent::run([cacheDir, originalPath, cachedPath]() {
+            if (QFile::exists(cachedPath)) {
+                return true;
+            }
+            if (!QDir().mkpath(cacheDir) || !QFile::exists(originalPath)) {
+                return false;
+            }
+            return QFile::copy(originalPath, cachedPath);
+        }));
+        return originalPath;
     };
 
     connect(m_downloadManager, &DownloadManager::downloadAddedToQueue, this, [this, historyStates, cacheThumbnail](const QVariantMap &itemData) {
@@ -450,5 +493,3 @@ void MainWindow::queueDirectCliDownload()
         });
     }
 }
-
-

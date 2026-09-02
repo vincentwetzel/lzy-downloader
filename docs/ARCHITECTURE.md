@@ -26,8 +26,10 @@ StartTab / LocalApiServer / CLI
 ```
 
 All network, filesystem, database, and child-process work is asynchronous or
-off the GUI thread. Workers communicate through signals and queued calls; the
-UI is touched only on the GUI thread.
+off the GUI thread. Download and metadata workers own their child processes in
+dedicated thread event loops; finalization and thumbnail file operations use
+worker callbacks. Workers communicate through signals and queued calls, and
+the UI is touched only on the GUI thread.
 
 ### Startup and modes
 
@@ -42,8 +44,9 @@ releases power inhibition. Non-interactive exit flushes terminal state before
 
 ### Queue and media flow
 
-`DownloadManager` registers a row immediately, then expands a playlist or
-starts a worker. `DownloadQueueManager` owns ordering, local concurrency,
+`DownloadManager` registers a row immediately, resolves request-versus-persisted
+playlist policy, then expands a playlist or starts a dedicated worker thread.
+`DownloadQueueManager` owns ordering, local concurrency,
 duplicate identity, retry/resume snapshots, and restored-item recovery;
 `GlobalDownloadLimiter` coordinates worker-slot admission across separate
 GUI/server processes. Non-interactive
@@ -66,7 +69,7 @@ replacement. Temp cleanup owns root resolution and guarded UUID-folder removal.
 | `DownloadQueueState.*` | Atomic `downloads_backup.json` save/load/restore |
 | `DownloadQueueManagerCleanup.cpp`, `DownloadTempCleanup.*` | Async orphan reconciliation and guarded temp cleanup |
 | `FileReplacement.*` | Verified destination replacement and rollback |
-| `DownloadManager.*`, `DownloadManagerWorkers.cpp` | Scheduling, worker lifecycle, terminal classification, power, video quality warnings |
+| `DownloadManager.*`, `DownloadManagerWorkers.cpp` | Scheduling, dedicated worker-thread lifecycle, terminal classification, power, video quality warnings |
 | `DownloadManagerPlaylist.cpp`, `PlaylistExpansionWorker.*`, `PlaylistExpansionParser.*` | Read-only probing, item selection, placeholders, thumbnails, playlist metadata, fallback |
 | `YtDlpArgsBuilder.*` | Settings/options to yt-dlp/aria2c arguments and replay-safe live classification |
 | `DiagnosticTail.h`, `YtDlpWorker.*`, `YtDlpWorkerProcess.cpp`, `YtDlpWorkerProcessOutput.cpp`, `YtDlpWorkerInfoJson.cpp`, `YtDlpWorkerProcessHelpers.h` | Async yt-dlp process, bounded diagnostics, output/progress parsing, metadata loading, cookies, livestream wait, aria2c recovery |
@@ -74,8 +77,8 @@ replacement. Temp cleanup owns root resolution and guarded UUID-folder removal.
 | `YtDlpWorkerTransfers.cpp` | Transfer-stage inference, including combined-source audio |
 | `YtDlpLiveStatus.h` | Explicit premiere/upcoming diagnostic mapping |
 | `GalleryDlWorker.*` | gallery-dl process and gallery output handling |
-| `DownloadFinalizer.*` | Background verification, sorting, replacement, terminal cleanup |
-| `MetadataEmbedder.*` | Metadata/thumbnail rewrite and tracked `attached_pic` remux |
+| `DownloadFinalizer.*` | Background verification, sorting, replacement, terminal cleanup, archive update |
+| `MetadataEmbedder.*` | Worker-thread metadata/thumbnail rewrite, cancellation, and tracked `attached_pic` remux |
 | `download_pipeline/FfmpegMuxer.*` | Async FFmpeg muxing and progress |
 | `ProcessUtils.*`, `SmartBinaryResolver.*` | Process trees, environments, binary discovery, and ownership tracking |
 
@@ -106,12 +109,16 @@ deployment;
 `build_release.py` owns native build/version checks, while
 `tools/release_packaging.py` owns Linux AppImage packaging; and
 `triplets/*.cmake` owns optional release-only settings for local vcpkg builds;
-`.github/workflows/release.yml` owns CI prerequisites, matrix, and publication.
+`.github/workflows/tests.yml` owns the reusable full-suite CI job, while
+`.github/workflows/release.yml` owns release prerequisites, the platform matrix,
+artifact collection, and publication gating.
 
 ## Concurrency and deployment
 
 Use worker threads, asynchronous `QProcess`/network APIs, or queued callbacks
-for long operations. Mutexes use RAII and are not held while emitting signals.
+for long operations. Coalesce high-frequency progress before QWidget updates,
+but keep backend/API progress delivery independent. Mutexes use RAII and are
+not held while emitting signals.
 External processes have bounded watchdogs, UTF-8 line buffering, bounded
 diagnostics, and process-tree cleanup. Qt SQL connections stay within their
 creating thread. `GlobalDownloadLimiter` uses a short-lived lock and removes

@@ -85,9 +85,10 @@ void StartTabDownloadActions::onDownloadButtonClicked() {
         return;
     }
 
-    m_configManager->set("General", "playlist_logic", m_uiBuilder->playlistLogicCombo()->currentText());
-    m_configManager->set("General", "max_threads", m_uiBuilder->maxConcurrentCombo()->currentText());
-    m_configManager->set("General", "rate_limit", m_uiBuilder->rateLimitCombo()->currentText());
+    const QString playlistLogic = m_uiBuilder->playlistLogicCombo()->currentData().toString();
+    m_configManager->set(QStringLiteral("General"), QStringLiteral("playlist_logic"), playlistLogic);
+    m_configManager->set(QStringLiteral("General"), QStringLiteral("max_threads"), m_uiBuilder->maxConcurrentCombo()->currentText());
+    m_configManager->set(QStringLiteral("General"), QStringLiteral("rate_limit"), m_uiBuilder->rateLimitCombo()->currentText());
     m_configManager->set("General", "override_archive", m_uiBuilder->overrideDuplicateCheck()->isChecked());
     m_configManager->save();
 
@@ -105,6 +106,10 @@ void StartTabDownloadActions::onDownloadButtonClicked() {
 
     QVariantMap options;
     options["type"] = type;
+    // Carry the selected per-request behavior through the MainWindow and
+    // DownloadManager pipeline. Persisting the setting alone is too late for
+    // this enqueue request and used to make every request behave as Ask.
+    options[QStringLiteral("playlist_logic")] = playlistLogic;
 
     for (const QString &singleUrl : urls) {
         QUrl url(singleUrl);

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QObject>
+#include <QMutex>
 #include <QVariant>
 
 class QSettings;
@@ -115,4 +116,5 @@ private:
 
     QSettings *m_settings;
     QMap<QString, QMap<QString, QVariant>> m_defaultSettings;
+    mutable QMutex m_settingsMutex;
 };

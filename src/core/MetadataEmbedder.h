@@ -20,6 +20,7 @@ public:
     void setThumbnailPath(const QString &thumbnailPath);
     void setExtraMetadata(const QVariantMap &metadata);
     void processFile(const QString &filePath, int trackNumber, bool normalizeContainerTimestamps);
+    void cancel();
 
 signals:
     void finished(bool success, const QString &error);

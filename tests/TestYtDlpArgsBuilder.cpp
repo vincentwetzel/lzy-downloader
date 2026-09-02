@@ -44,6 +44,31 @@ void TestYtDlpArgsBuilder::testBasicVideoArguments() {
     QVERIFY(args.contains(QStringLiteral("mp4")));
 }
 
+void TestYtDlpArgsBuilder::testPlaylistLogicArguments() {
+    ConfigManager *mockConfig = getConfigManager();
+    mockConfig->set(QStringLiteral("Video"), QStringLiteral("video_quality"), QStringLiteral("best"));
+    mockConfig->set(QStringLiteral("Video"), QStringLiteral("video_extension"), QStringLiteral("mp4"));
+
+    YtDlpArgsBuilder builder;
+    QVariantMap options;
+    options.insert(QStringLiteral("type"), QStringLiteral("video"));
+
+    options.insert(QStringLiteral("playlist_logic"), QStringLiteral("Download All (no prompt)"));
+    QStringList args = builder.build(mockConfig, TEST_URL, options);
+    QVERIFY(args.contains(QStringLiteral("--yes-playlist")));
+    QVERIFY(!args.contains(QStringLiteral("--no-playlist")));
+
+    options.insert(QStringLiteral("playlist_logic"), QStringLiteral("Download Single (ignore playlist)"));
+    args = builder.build(mockConfig, TEST_URL, options);
+    QVERIFY(args.contains(QStringLiteral("--no-playlist")));
+    QVERIFY(!args.contains(QStringLiteral("--yes-playlist")));
+
+    options.insert(QStringLiteral("playlist_logic"), QStringLiteral("Ask"));
+    args = builder.build(mockConfig, TEST_URL, options);
+    QVERIFY(!args.contains(QStringLiteral("--yes-playlist")));
+    QVERIFY(!args.contains(QStringLiteral("--no-playlist")));
+}
+
 void TestYtDlpArgsBuilder::testSponsorBlockArguments() {
     ConfigManager *mockConfig = getConfigManager();
     mockConfig->set(QStringLiteral("General"), QStringLiteral("sponsorblock"), true); // Enable SponsorBlock

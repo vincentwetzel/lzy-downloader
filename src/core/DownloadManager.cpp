@@ -5,12 +5,14 @@
 #include "SortingManager.h"
 #include "DownloadFinalizer.h"
 #include "GalleryDlWorker.h"
+#include "MetadataEmbedder.h"
 #include "core/ProcessUtils.h"
 #include "YtDlpWorker.h"
 #include "PowerInhibitor.h"
 #include <QDebug>
 #include <QMetaObject>
 #include <QProcess>
+#include <QThread>
 #include <QTimer>
 
 DownloadManager::DownloadManager(ConfigManager *configManager, QObject *parent) : QObject(parent),
@@ -65,6 +67,36 @@ DownloadManager::~DownloadManager() {
     shutdown();
 }
 
+void DownloadManager::stopWorker(QObject *worker)
+{
+    if (!worker) {
+        return;
+    }
+
+    QMetaObject::invokeMethod(worker, [worker]() {
+        if (auto *ytDlpWorker = qobject_cast<YtDlpWorker *>(worker)) {
+            ytDlpWorker->killProcess();
+        } else if (auto *galleryDlWorker = qobject_cast<GalleryDlWorker *>(worker)) {
+            galleryDlWorker->killProcess();
+        }
+        QThread::currentThread()->quit();
+    }, Qt::QueuedConnection);
+}
+
+void DownloadManager::stopEmbedder(QObject *embedder)
+{
+    if (!embedder) {
+        return;
+    }
+
+    QMetaObject::invokeMethod(embedder, [embedder]() {
+        if (auto *metadataEmbedder = qobject_cast<MetadataEmbedder *>(embedder)) {
+            metadataEmbedder->cancel();
+        }
+        QThread::currentThread()->quit();
+    }, Qt::QueuedConnection);
+}
+
 void DownloadManager::shutdown() {
     if (m_isShuttingDown) {
         return;
@@ -93,13 +125,12 @@ void DownloadManager::shutdown() {
 
     for (QObject *worker : std::as_const(m_activeWorkers)) {
         if (worker) {
-            if (auto *ytDlpWorker = qobject_cast<YtDlpWorker*>(worker)) {
-                ytDlpWorker->killProcess();
-            } else if (auto *galleryDlWorker = qobject_cast<GalleryDlWorker*>(worker)) {
-                galleryDlWorker->killProcess();
-            }
             worker->disconnect(this);
-            worker->deleteLater();
+            if (auto *ytDlpWorker = qobject_cast<YtDlpWorker*>(worker)) {
+                stopWorker(ytDlpWorker);
+            } else if (auto *galleryDlWorker = qobject_cast<GalleryDlWorker*>(worker)) {
+                stopWorker(galleryDlWorker);
+            }
         }
     }
     m_activeWorkers.clear();
@@ -107,7 +138,7 @@ void DownloadManager::shutdown() {
     for (QObject *embedder : std::as_const(m_activeEmbedders)) {
         if (embedder) {
             embedder->disconnect(this);
-            embedder->deleteLater();
+            stopEmbedder(embedder);
         }
     }
     m_activeEmbedders.clear();

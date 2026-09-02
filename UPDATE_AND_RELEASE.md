@@ -118,9 +118,9 @@ This project uses GitHub Actions as the normal release build environment. A
 release-preparation task updates metadata, refreshes extractor lists, writes
 the changelog and matching release notes, and prepares the commit/tag commands.
 Do not run `build_release.py` locally as part of the normal release workflow;
-the pushed `vX.Y.Z` tag starts the matrix build on GitHub Actions. Local builds
-and headless tests are optional diagnostics only and should be run only when
-explicitly requested.
+the pushed `vX.Y.Z` tag starts the full-test gate and release matrix on GitHub
+Actions. Local builds and headless tests remain useful diagnostics, but they do
+not replace the required release workflow checks.
 
 Before preparing a release, review `CHANGELOG.md` and the maintained docs against the
 implementation. Use `docs/SPEC.md` as the smoke-test contract, especially for
@@ -181,8 +181,9 @@ check. To intentionally rebuild an existing release, set
 
 Push the synchronized release commit and then its matching annotated tag as
 described in [Release to GitHub](#release-to-github). The tag-triggered
-workflow invokes `build_release.py` on GitHub-hosted Windows, Linux, Intel
-macOS, and Apple Silicon macOS runners.
+workflow first runs the full reusable headless test suite, then invokes
+`build_release.py` on GitHub-hosted Windows, Linux, Intel macOS, and Apple
+Silicon macOS runners.
 
 Windows and Linux release jobs install the same pinned prebuilt Qt 6.10.2 SDK
 model used by macOS. This removes the source Qt build that previously consumed
@@ -228,8 +229,8 @@ On each runner, the workflow:
 ### Optional local validation
 
 Local packaging is not required for a release. If a local build or test run is
-specifically requested, use the repository tools below; their results do not
-replace the tag-triggered GitHub Actions build.
+specifically requested, use the repository tools below; local results do not
+replace the tag-triggered GitHub Actions test gate and release build.
 
 To run the Qt suite locally:
 
@@ -274,7 +275,15 @@ Download History thumbnail decoding.
 
 ## Release to GitHub
 
-GitHub Actions automatically builds release assets when a `v*` tag is pushed. The workflow at `.github/workflows/release.yml` runs `python build_release.py` on `windows-latest`, `ubuntu-22.04`, `macos-15-intel` (Intel), and `macos-15` (Apple Silicon), then uploads the Windows installer, Linux AppImage, and both architecture-labelled macOS DMGs to the GitHub Release for that tag. If the matching release-notes file is absent, CI creates a minimal fallback body before publication. Use `workflow_dispatch` to run the matrix as a non-publishing validation; uploads are tag-only.
+GitHub Actions runs the full headless C++ test suite before building release
+assets when a `v*` tag is pushed. The workflow at
+`.github/workflows/release.yml` then runs `python build_release.py` on
+`windows-latest`, `ubuntu-22.04`, `macos-15-intel` (Intel), and `macos-15`
+(Apple Silicon). A final publish job uploads the Windows installer, Linux
+AppImage, and both architecture-labelled macOS DMGs only when the test and all
+platform build jobs succeed. If the matching release-notes file is absent, CI
+creates a minimal fallback body before publication. Use `workflow_dispatch` to
+run the test gate and matrix as a non-publishing validation.
 
 ### Repository directory guard (reference)
 
@@ -300,7 +309,7 @@ created in this C++ repository.
 Before tagging, commit the synchronized release inputs:
 
 ```powershell
-git add CMakeLists.txt vcpkg.json CHANGELOG.md README.md UPDATE_AND_RELEASE.md docs/ AGENTS.md TODO.md .github/workflows/release.yml build_release.py tools/ triplets/ LzyDownloader.nsi src/ui/LzyDownloader.desktop extractors_yt-dlp.json extractors_gallery-dl.json release-notes/vX.Y.Z.md
+git add CMakeLists.txt vcpkg.json CHANGELOG.md README.md UPDATE_AND_RELEASE.md docs/ AGENTS.md TODO.md .github/workflows/ build_release.py tools/ triplets/ LzyDownloader.nsi src/ui/LzyDownloader.desktop extractors_yt-dlp.json extractors_gallery-dl.json release-notes/vX.Y.Z.md
 git commit -m "Release vX.X.X"
 git push origin HEAD
 ```
@@ -316,7 +325,9 @@ git tag -a vX.X.X -m "Release version X.X.X"
 git push origin vX.X.X
 ```
 
-Pushing the tag starts the `Build and Release` workflow. Watch the Actions run until both matrix jobs complete, then verify the GitHub Release contains:
+Pushing the tag starts the `Build and Release` workflow. Watch the full test
+gate, all four platform build jobs, and the final publish job complete, then
+verify the GitHub Release contains:
 
 - `LzyDownloader-Setup-X.X.X.exe`
 - `LzyDownloader-X.X.X-x86_64.AppImage`
@@ -351,8 +362,8 @@ If the workflow is unavailable, navigate to https://github.com/vincentwetzel/lzy
 - [ ] `release-notes/` exists in the checkout and the file name matches the pushed tag
 - [ ] Active documentation matches the release behavior, including the README, API, architecture, settings, specification, manifest, coding standards, and release guides
 - [ ] GitHub Actions rebuilt the platform artifacts from the current `CMakeLists.txt` version (the tag workflow runs `python build_release.py`); artifacts were not manually renamed
-- [ ] Tag-triggered GitHub Actions release matrix completed successfully
-- [ ] Headless Qt tests passed when run as an explicitly requested validation (local test execution is not required for the tag workflow)
+- [ ] Tag-triggered GitHub Actions full headless test gate completed successfully
+- [ ] Tag-triggered GitHub Actions release matrix and final publish job completed successfully
 - [ ] Slow playlist-probe smoke test passed: ordinary URLs download through the fallback and explicit playlist URLs fail without a direct-download start
 - [ ] NSIS installer tested (install/uninstall preserves `%LOCALAPPDATA%\LzyDownloader\settings.ini`, `download_archive.db`, `downloads_backup.json`, and log files)
 - [ ] NSIS installer finish-page launch option starts `LzyDownloader.exe` when left checked and does not start it when cleared

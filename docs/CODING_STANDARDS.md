@@ -43,6 +43,28 @@ Read the relevant section only.
 - Never block the GUI thread with network, filesystem, database, or process
   work. Use signals/slots, worker threads, `QtConcurrent`, asynchronous
   `QProcess`, or queued calls; keep QWidget access on the GUI thread.
+- Treat progress signals as an untrusted high-frequency input. Coalesce or
+  throttle GUI rendering to a bounded rate, retain the newest state, and keep
+  backend/API progress delivery separate from expensive QWidget repaint work.
+- Keep high-volume child-process stdout/stderr parsing and progress aggregation
+  off the GUI thread; create and own the QProcess in a dedicated worker thread,
+  control it through queued calls, and bound delivery so stale progress work
+  cannot accumulate. Never inspect or terminate a worker's child QObjects from
+  the GUI thread.
+- Keep FFmpeg/metadata post-processing, final file replacement, cleanup, and
+  archive writes off the GUI thread. Avoid `BlockingQueuedConnection` from
+  filesystem workers into the GUI; snapshot immutable settings or use an
+  asynchronous callback so a slow drive or stalled event loop cannot deadlock
+  completion.
+- Never decode, scale, copy, or existence-check user media/thumbnail paths on
+  the GUI thread. This includes mapped, removable, UNC, and slow local drives;
+  perform the I/O in a worker and marshal only the finished image/state back to
+  the GUI thread. A Windows Event 1002 is an application hang diagnostic, not
+  proof of a native crash, so preserve enough logging and dump-capture support
+  to distinguish event-loop starvation from an access violation.
+- Shared `ConfigManager` instances may be read by worker threads, but all
+  `QSettings` reads, writes, synchronization, and file-location queries must
+  pass through the manager's serialized access boundary.
 - Protect locks with RAII lockers and use `QPointer` for externally owned
   QObjects. Give child processes bounded watchdogs, UTF-8 byte-line parsing
   (including a final partial line), and process-tree cleanup.

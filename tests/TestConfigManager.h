@@ -12,9 +12,11 @@ private slots:
     void cleanup();
 
     void testDefaultValues();
+    void testInvalidPlaylistLogicFallsBackToAsk();
     void testSetAndGet();
     void testLegacyCleanup();
     void testResetToDefaults();
+    void testConcurrentReadsAndWrites();
 
 private:
     ConfigManager *m_configManager = nullptr;

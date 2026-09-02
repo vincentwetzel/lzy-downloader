@@ -8,6 +8,7 @@
 
 class QLabel;
 class QPushButton;
+class QTimer;
 
 // Custom progress bar that paints the percentage text centered on the bar
 class ProgressLabelBar : public QProgressBar {
@@ -73,6 +74,7 @@ signals:
     void finishRequested(const QString &id);
 
 private slots:
+    void applyPendingProgress();
     void onCancelClicked();
     void onRetryClicked();
     void onOpenContainingFolderClicked();
@@ -83,6 +85,7 @@ private slots:
 
 private:
     void setupUi();
+    void applyProgressData(const QVariantMap &progressData);
     void setThumbnail(const QString &imagePath);
     [[nodiscard]] bool hasAssociatedTemporaryFiles() const;
 
@@ -104,6 +107,8 @@ private:
     bool m_isPaused = false;
     double m_lastDisplayedProgress = -1.0;
     QString m_currentThumbnailPath;
+    QTimer *m_progressUpdateTimer = nullptr;
+    QVariantMap m_pendingProgressData;
 
 public:
     void setPaused(bool paused);

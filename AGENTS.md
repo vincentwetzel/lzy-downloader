@@ -112,4 +112,4 @@ platform branches with a tested fallback or a documented release prerequisite.
 | Arguments/live | `src/core/YtDlpArgsBuilder.*`, `YtDlpLiveStatus.h` |
 | UI/binaries | `src/ui/MainWindowUiBuilder.*`, `MainWindowConnections.cpp`, `MainWindowDownloadConnections.cpp`, `ActiveDownloadsTab.*`, `DownloadItemWidget.cpp`, `DownloadItemWidgetProgress.cpp`, `DownloadItemWidgetIcons.h`, `src/ui/advanced_settings/BinariesPage.*` |
 | Browser companion | `src/integration/BrowserNativeMessagingHost.cpp`, `src/integration/BrowserCookieFile.*`, and the separate browser-extension checkout |
-| Tests/release | `tests/`, `tests/run_headless_tests.py`, `build_release.py`, `.github/workflows/release.yml` |
+| Tests/release | `tests/`, `tests/run_headless_tests.py`, `build_release.py`, `.github/workflows/tests.yml`, `.github/workflows/release.yml` |

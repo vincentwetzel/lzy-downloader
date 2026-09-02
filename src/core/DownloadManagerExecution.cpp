@@ -13,6 +13,7 @@
 #include <QJsonObject>
 #include <QCryptographicHash>
 #include <QRegularExpression>
+#include <QThread>
 #include <QTimer>
 #include <QUrl>
 #include <QUrlQuery>
@@ -128,7 +129,14 @@ void DownloadManager::startDownloadItem(DownloadItem item, bool alreadyCountedAc
         GalleryDlArgsBuilder argsBuilder(m_configManager);
         const QStringList args = argsBuilder.build(item.url, item.options);
 
-        GalleryDlWorker *worker = new GalleryDlWorker(item.id, args, m_configManager, this);
+        QThread *workerThread = new QThread(this);
+        workerThread->setObjectName(QStringLiteral("gallery-download-%1").arg(item.id));
+        GalleryDlWorker *worker = new GalleryDlWorker(item.id, args, m_configManager, nullptr);
+        worker->moveToThread(workerThread);
+        connect(workerThread, &QThread::started, worker, &GalleryDlWorker::start, Qt::QueuedConnection);
+        connect(worker, &GalleryDlWorker::finished, workerThread, &QThread::quit, Qt::DirectConnection);
+        connect(workerThread, &QThread::finished, worker, &QObject::deleteLater);
+        connect(workerThread, &QThread::finished, workerThread, &QObject::deleteLater);
         m_activeWorkers.insert(item.id, worker);
         m_activeItems.insert(item.id, item);
 
@@ -137,14 +145,21 @@ void DownloadManager::startDownloadItem(DownloadItem item, bool alreadyCountedAc
         connect(worker, &GalleryDlWorker::outputReceived, this, &DownloadManager::onWorkerOutputReceived);
 
         emit downloadStarted(item.id);
-        worker->start();
+        workerThread->start();
     } else {
         item.options.insert(QStringLiteral("id"), item.id);
         item.options.insert(QStringLiteral("playlist_index"), item.playlistIndex);
         YtDlpArgsBuilder argsBuilder;
         const QStringList args = argsBuilder.build(m_configManager, item.url, item.options);
 
-        YtDlpWorker *worker = new YtDlpWorker(item.id, args, m_configManager, this);
+        QThread *workerThread = new QThread(this);
+        workerThread->setObjectName(QStringLiteral("yt-dlp-download-%1").arg(item.id));
+        YtDlpWorker *worker = new YtDlpWorker(item.id, args, m_configManager, nullptr);
+        worker->moveToThread(workerThread);
+        connect(workerThread, &QThread::started, worker, &YtDlpWorker::start, Qt::QueuedConnection);
+        connect(worker, &YtDlpWorker::finished, workerThread, &QThread::quit, Qt::DirectConnection);
+        connect(workerThread, &QThread::finished, worker, &QObject::deleteLater);
+        connect(workerThread, &QThread::finished, workerThread, &QObject::deleteLater);
         m_activeWorkers.insert(item.id, worker);
         m_activeItems.insert(item.id, item);
 
@@ -154,7 +169,7 @@ void DownloadManager::startDownloadItem(DownloadItem item, bool alreadyCountedAc
         connect(worker, &YtDlpWorker::ytDlpErrorDetected, this, &DownloadManager::onYtDlpErrorDetected);
 
         emit downloadStarted(item.id);
-        worker->start();
+        workerThread->start();
     }
     emitDownloadStats();
 }

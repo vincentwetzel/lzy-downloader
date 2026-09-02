@@ -10,6 +10,10 @@
 #include <QPixmap>
 #include <QPainter>
 #include <QApplication>
+#include <QCoreApplication>
+#include <QImage>
+#include <QMetaObject>
+#include <QPointer>
 #include <QStyle>
 #include <QStyleOption>
 #include <QNetworkAccessManager>
@@ -17,11 +21,14 @@
 #include <QNetworkRequest>
 #include <QUrl>
 #include <QPropertyAnimation>
+#include <QThread>
+#include <QTimer>
 #include <QSettings>
 #include <QStandardPaths>
 #include <QMap>
 #include <QPair>
 #include <QtMath>
+#include <utility>
 
 using DownloadItemWidgetIcons::createColoredIcon;
 
@@ -69,21 +76,37 @@ void DownloadItemWidget::setThumbnail(const QString &imagePath) {
         return;
     }
 
-    QFileInfo fileInfo(imagePath);
-    if (!fileInfo.exists()) {
-        return;
-    }
-
-    QPixmap pixmap(imagePath);
-    if (pixmap.isNull()) {
-        return;
-    }
-
     m_currentThumbnailPath = imagePath;
 
-    // Scale the pixmap to fit the label while maintaining aspect ratio
-    QPixmap scaled = pixmap.scaled(m_thumbnailLabel->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation);
-    m_thumbnailLabel->setPixmap(scaled);
+    // Local thumbnails may live on the same slow/removable/network drive as
+    // the download. Loading them synchronously here blocks the GUI thread.
+    const QSize thumbnailSize = m_thumbnailLabel->size();
+    QPointer<DownloadItemWidget> self(this);
+    QCoreApplication *application = QCoreApplication::instance();
+    QThread *thread = QThread::create([self, application, imagePath, thumbnailSize]() {
+        QImage image(imagePath);
+        const bool loaded = !image.isNull();
+        QImage scaled;
+        if (loaded) {
+            scaled = image.scaled(thumbnailSize, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+        }
+
+        if (!application) {
+            return;
+        }
+        QMetaObject::invokeMethod(application, [self, imagePath, loaded, scaled = std::move(scaled)]() mutable {
+            if (!self || self->m_currentThumbnailPath != imagePath) {
+                return;
+            }
+            if (!loaded) {
+                self->m_currentThumbnailPath.clear();
+                return;
+            }
+            self->m_thumbnailLabel->setPixmap(QPixmap::fromImage(std::move(scaled)));
+        }, Qt::QueuedConnection);
+    });
+    connect(thread, &QThread::finished, thread, &QObject::deleteLater);
+    thread->start();
 }
 
 void DownloadItemWidget::setFinalPath(const QString &path) {
@@ -92,6 +115,10 @@ void DownloadItemWidget::setFinalPath(const QString &path) {
 }
 
 void DownloadItemWidget::setFinished(bool success, const QString &message) {
+    if (m_progressUpdateTimer) {
+        m_progressUpdateTimer->stop();
+    }
+    m_pendingProgressData.clear();
     m_cancelButton->hide();
     m_finishButton->hide();
     m_moveUpButton->hide();
@@ -134,6 +161,10 @@ void DownloadItemWidget::setFinished(bool success, const QString &message) {
 }
 
 void DownloadItemWidget::setCancelled() {
+    if (m_progressUpdateTimer) {
+        m_progressUpdateTimer->stop();
+    }
+    m_pendingProgressData.clear();
     m_cancelButton->hide();
     m_finishButton->hide();
     m_moveUpButton->hide();
@@ -193,6 +224,10 @@ void DownloadItemWidget::onRetryClicked() {
     m_isSuccessful = false;
     m_isPaused = false;
     m_lastDisplayedProgress = -1.0;
+    m_pendingProgressData.clear();
+    if (m_progressUpdateTimer) {
+        m_progressUpdateTimer->stop();
+    }
 
     // Restore normal buttons
     m_retryButton->hide();

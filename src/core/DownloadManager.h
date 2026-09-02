@@ -109,6 +109,8 @@ private:
     QString effectivePlaylistTitle(const DownloadItem &item) const;
     void applyAudioPlaylistAlbumMetadata(DownloadItem &item) const;
     void adjustActiveDownloadCount(int delta);
+    void stopWorker(QObject *worker);
+    void stopEmbedder(QObject *embedder);
 
     ConfigManager *m_configManager;
     SortingManager *m_sortingManager;

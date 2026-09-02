@@ -1,6 +1,7 @@
 #include "TestUIWidgets.h"
 #include "core/ConfigManager.h"
 #include "core/ProcessUtils.h"
+#include "ui/StartTab.h"
 #include "ui/MissingBinariesDialog.h"
 #include "ui/advanced_settings/BinariesPage.h"
 #include <QSignalSpy>
@@ -12,6 +13,37 @@
 #include <QComboBox>
 #include <QDialog>
 #include <QTimer>
+
+void TestUIWidgets::testStartTabCarriesPlaylistLogicIntoRequest() {
+    ConfigManager *config = getConfigManager();
+    StartTab startTab(config, nullptr);
+
+    QComboBox *playlistLogicCombo = nullptr;
+    for (QComboBox *combo : startTab.findChildren<QComboBox *>()) {
+        if (combo->findData(QStringLiteral("Download All (no prompt)")) >= 0) {
+            playlistLogicCombo = combo;
+            break;
+        }
+    }
+    QVERIFY(playlistLogicCombo != nullptr);
+    const int allIndex = playlistLogicCombo->findData(QStringLiteral("Download All (no prompt)"));
+    QVERIFY(allIndex >= 0);
+    playlistLogicCombo->setCurrentIndex(allIndex);
+
+    QTextEdit *urlInput = startTab.findChild<QTextEdit *>();
+    QVERIFY(urlInput != nullptr);
+    urlInput->setPlainText(QStringLiteral("https://media.example.test/playlist?id=regression"));
+
+    QSignalSpy requestSpy(&startTab, &StartTab::downloadRequested);
+    startTab.onDownloadButtonClicked();
+
+    QCOMPARE(requestSpy.count(), 1);
+    const QVariantMap options = requestSpy.at(0).at(1).toMap();
+    QCOMPARE(options.value(QStringLiteral("playlist_logic")).toString(),
+             QStringLiteral("Download All (no prompt)"));
+    QCOMPARE(config->get(QStringLiteral("General"), QStringLiteral("playlist_logic")).toString(),
+             QStringLiteral("Download All (no prompt)"));
+}
 
 void TestUIWidgets::testProgressLabelBarFilling() {
     ProgressLabelBar progressBar;
@@ -98,6 +130,27 @@ void TestUIWidgets::testDownloadItemWidgetUsesAggregateProgressAcrossStreams() {
         {QStringLiteral("status"), QStringLiteral("Downloading video stream...")}
     });
     QTRY_COMPARE(progressBar->value(), 91);
+}
+
+void TestUIWidgets::testDownloadItemWidgetCoalescesHighFrequencyProgress()
+{
+    QVariantMap itemData;
+    itemData[QStringLiteral("id")] = QStringLiteral("progress-coalescing");
+    DownloadItemWidget widget(itemData);
+    ProgressLabelBar *progressBar = widget.findChild<ProgressLabelBar *>();
+    QVERIFY(progressBar != nullptr);
+
+    for (int progress = 1; progress <= 500; ++progress) {
+        widget.updateProgress({
+            {QStringLiteral("progress"), qMin(progress, 100)},
+            {QStringLiteral("status"), QStringLiteral("Downloading...")}
+        });
+    }
+
+    // Rendering is timer-coalesced; the synchronous signal burst must not
+    // repaint the QWidget 500 times or apply stale intermediate values.
+    QCOMPARE(progressBar->value(), 0);
+    QTRY_VERIFY_WITH_TIMEOUT(progressBar->progressText().startsWith(QStringLiteral("100%")), 2000);
 }
 
 void TestUIWidgets::testDownloadItemWidgetKeepsActionsVisibleWhenNarrow() {

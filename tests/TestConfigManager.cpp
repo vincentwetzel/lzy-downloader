@@ -1,5 +1,9 @@
 #include "TestConfigManager.h"
+#include <QDir>
 #include <QSignalSpy>
+#include <QSettings>
+#include <QThread>
+#include <atomic>
 
 void TestConfigManager::init() {
     BaseTest::init();
@@ -21,6 +25,18 @@ void TestConfigManager::testDefaultValues() {
     QCOMPARE(m_configManager->get(QStringLiteral("General"), QStringLiteral("max_threads")).toString(), QStringLiteral("4"));
     QCOMPARE(m_configManager->get(QStringLiteral("General"), QStringLiteral("sponsorblock")).toBool(), false);
     QCOMPARE(m_configManager->get(QStringLiteral("Metadata"), QStringLiteral("embed_thumbnail")).toBool(), true);
+}
+
+void TestConfigManager::testInvalidPlaylistLogicFallsBackToAsk() {
+    const QString settingsPath = QDir(getTempDir()).filePath(QStringLiteral("invalid_playlist_logic.ini"));
+    {
+        QSettings settings(settingsPath, QSettings::IniFormat);
+        settings.setValue(QStringLiteral("General/playlist_logic"), QStringLiteral("legacy-value"));
+        settings.sync();
+    }
+
+    ConfigManager manager(settingsPath, true, nullptr);
+    QCOMPARE(manager.get(QStringLiteral("General"), QStringLiteral("playlist_logic")).toString(), QStringLiteral("Ask"));
 }
 
 void TestConfigManager::testSetAndGet() {
@@ -83,6 +99,32 @@ void TestConfigManager::testResetToDefaults() {
     
     // Max threads should be back to 4
     QCOMPARE(m_configManager->get(QStringLiteral("General"), QStringLiteral("max_threads")).toString(), QStringLiteral("4"));
+}
+
+void TestConfigManager::testConcurrentReadsAndWrites()
+{
+    std::atomic_bool allReadsValid{true};
+    QList<QThread *> threads;
+    for (int threadIndex = 0; threadIndex < 4; ++threadIndex) {
+        QThread *thread = QThread::create([this, threadIndex, &allReadsValid]() {
+            for (int iteration = 0; iteration < 250; ++iteration) {
+                m_configManager->set(QStringLiteral("Concurrent"), QStringLiteral("value"), threadIndex * 1000 + iteration);
+                if (!m_configManager->get(QStringLiteral("Concurrent"), QStringLiteral("value")).isValid()) {
+                    allReadsValid.store(false);
+                }
+            }
+        });
+        threads.append(thread);
+        thread->start();
+    }
+
+    for (QThread *thread : threads) {
+        QVERIFY(thread->wait(10000));
+        delete thread;
+    }
+
+    QVERIFY(allReadsValid.load());
+    QVERIFY(m_configManager->get(QStringLiteral("Concurrent"), QStringLiteral("value")).isValid());
 }
 
 QTEST_GUILESS_MAIN(TestConfigManager)

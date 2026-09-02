@@ -19,6 +19,23 @@ bool isNonInteractiveRequest(const QVariantMap &options)
 
 void DownloadManager::enqueueDownload(const QString &url, const QVariantMap &options) {
     QVariantMap effectiveOptions = options;
+
+    // Resolve the Start-tab default at enqueue time so callers that do not
+    // construct per-request options still honor the persisted setting. Keep
+    // the values constrained to the combo's stable item-data values; display
+    // text may be translated and must never become a behavior key.
+    static const QStringList playlistLogicValues = {
+        QStringLiteral("Ask"),
+        QStringLiteral("Download All (no prompt)"),
+        QStringLiteral("Download Single (ignore playlist)")
+    };
+    QString playlistLogic = effectiveOptions.value(QStringLiteral("playlist_logic"),
+                                                    m_configManager->get(QStringLiteral("General"), QStringLiteral("playlist_logic"), QStringLiteral("Ask"))).toString();
+    if (!playlistLogicValues.contains(playlistLogic)) {
+        playlistLogic = QStringLiteral("Ask");
+    }
+    effectiveOptions.insert(QStringLiteral("playlist_logic"), playlistLogic);
+
     if (isNonInteractiveRequest(effectiveOptions)) {
         effectiveOptions.insert(QStringLiteral("override_archive"), true);
         effectiveOptions.insert(QStringLiteral("playlist_logic"), QStringLiteral("Download All (no prompt)"));
