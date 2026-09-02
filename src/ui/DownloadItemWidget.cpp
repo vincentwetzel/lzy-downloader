@@ -139,13 +139,7 @@ void DownloadItemWidget::setFinished(bool success, const QString &message) {
         m_progressBar->setProgressText(tr("Failed"));
 
         if (QPushButton *clearTempButton = findChild<QPushButton*>(QStringLiteral("clearTempButton"))) {
-            if (hasAssociatedTemporaryFiles()) {
-                clearTempButton->show();
-                clearTempButton->setEnabled(true);
-                clearTempButton->setText(tr("Clear Temp"));
-            } else {
-                clearTempButton->hide();
-            }
+            requestAssociatedTemporaryFilesCheck();
         }
     } else {
         m_statusLabel->setStyleSheet(QString());
@@ -187,13 +181,7 @@ void DownloadItemWidget::setCancelled() {
     m_progressBar->setProgressText(tr("Cancelled"));
 
     if (QPushButton *clearTempButton = findChild<QPushButton*>(QStringLiteral("clearTempButton"))) {
-        if (hasAssociatedTemporaryFiles()) {
-            clearTempButton->show();
-            clearTempButton->setEnabled(true);
-            clearTempButton->setText(tr("Clear Temp"));
-        } else {
-            clearTempButton->hide();
-        }
+        requestAssociatedTemporaryFilesCheck();
     }
 }
 
@@ -225,6 +213,7 @@ void DownloadItemWidget::onRetryClicked() {
     m_isPaused = false;
     m_lastDisplayedProgress = -1.0;
     m_pendingProgressData.clear();
+    ++m_tempFilesCheckGeneration;
     if (m_progressUpdateTimer) {
         m_progressUpdateTimer->stop();
     }
@@ -299,8 +288,9 @@ void DownloadItemWidget::showPausingFeedback(bool pausing)
     }
 }
 
-bool DownloadItemWidget::hasAssociatedTemporaryFiles() const {
-    const QString id = getId();
+namespace {
+bool hasAssociatedTemporaryFiles(const QVariantMap &itemData) {
+    const QString id = itemData.value(QStringLiteral("id")).toString();
     if (id.isEmpty()) {
         return false;
     }
@@ -323,7 +313,7 @@ bool DownloadItemWidget::hasAssociatedTemporaryFiles() const {
     }
 
     // 2. Fallback to check tempFilePath if populated
-    const QString tempPath = m_itemData.value(QStringLiteral("tempFilePath")).toString();
+    const QString tempPath = itemData.value(QStringLiteral("tempFilePath")).toString();
     if (!tempPath.isEmpty()) {
         QFileInfo info(tempPath);
         if (info.exists()) {
@@ -344,7 +334,7 @@ bool DownloadItemWidget::hasAssociatedTemporaryFiles() const {
     }
 
     // 3. Fallback to check originalDownloadedFilePath if populated
-    const QString origPath = m_itemData.value(QStringLiteral("originalDownloadedFilePath")).toString();
+    const QString origPath = itemData.value(QStringLiteral("originalDownloadedFilePath")).toString();
     if (!origPath.isEmpty()) {
         QFileInfo info(origPath);
         if (info.exists()) {
@@ -365,7 +355,7 @@ bool DownloadItemWidget::hasAssociatedTemporaryFiles() const {
     }
 
     // 4. Fallback to check cleanup_candidates if populated
-    const QStringList cleanupCandidates = m_itemData.value(QStringLiteral("cleanup_candidates")).toStringList();
+    const QStringList cleanupCandidates = itemData.value(QStringLiteral("cleanup_candidates")).toStringList();
     for (const QString &candidate : cleanupCandidates) {
         if (!candidate.isEmpty()) {
             QFileInfo info(candidate);
@@ -381,4 +371,33 @@ bool DownloadItemWidget::hasAssociatedTemporaryFiles() const {
     }
 
     return false;
+}
+}
+
+void DownloadItemWidget::requestAssociatedTemporaryFilesCheck()
+{
+    const quint64 generation = ++m_tempFilesCheckGeneration;
+    const QVariantMap itemData = m_itemData;
+    QPointer<DownloadItemWidget> self(this);
+    QCoreApplication *application = QCoreApplication::instance();
+    QThread *thread = QThread::create([self, application, itemData, generation]() {
+        const bool hasFiles = hasAssociatedTemporaryFiles(itemData);
+        if (!application) {
+            return;
+        }
+        QMetaObject::invokeMethod(application, [self, hasFiles, generation]() {
+            if (!self || !self->m_isFinished || generation != self->m_tempFilesCheckGeneration) {
+                return;
+            }
+            if (QPushButton *clearTempButton = self->findChild<QPushButton *>(QStringLiteral("clearTempButton"))) {
+                clearTempButton->setVisible(hasFiles);
+                clearTempButton->setEnabled(hasFiles);
+                if (hasFiles) {
+                    clearTempButton->setText(self->tr("Clear Temp"));
+                }
+            }
+        }, Qt::QueuedConnection);
+    });
+    QObject::connect(thread, &QThread::finished, thread, &QObject::deleteLater);
+    thread->start();
 }

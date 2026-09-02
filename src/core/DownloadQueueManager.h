@@ -4,6 +4,7 @@
 #include <QQueue>
 #include <QMap>
 #include <QUuid>
+#include <QFutureWatcher>
 #include "DownloadItem.h"
 #include "ConfigManager.h"
 #include "ArchiveManager.h"
@@ -42,6 +43,7 @@ public:
     void processResumeDownloadsSelection(const QJsonArray &arr);
 
     void saveQueueState(const QMap<QString, DownloadItem> &activeItems);
+    void saveQueueStateAsync(const QMap<QString, DownloadItem> &activeItems);
     void cleanupOrphanedTempDirectories();
     DownloadItem takeNextQueuedDownload();
     bool hasQueuedDownloads() const;
@@ -72,6 +74,15 @@ private:
     QQueue<DownloadItem> m_downloadQueue;
     QMap<QString, DownloadItem> m_pausedItems;
     bool m_tempCleanupInProgress = false;
+    QFutureWatcher<void> *m_queueSaveWatcher = nullptr;
+    bool m_hasPendingQueueSave = false;
+    QString m_pendingQueueSavePath;
+    QList<DownloadItem> m_pendingActiveItems;
+    QMap<QString, DownloadItem> m_pendingPausedItems;
+    QQueue<DownloadItem> m_pendingDownloadQueue;
 
     void emitQueueCountsChanged();
+    void startQueueStateSave(const QString &backupPath, const QList<DownloadItem> &activeItems,
+                             const QMap<QString, DownloadItem> &pausedItems,
+                             const QQueue<DownloadItem> &downloadQueue);
 };

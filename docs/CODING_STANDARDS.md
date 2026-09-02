@@ -56,6 +56,10 @@ Read the relevant section only.
   filesystem workers into the GUI; snapshot immutable settings or use an
   asynchronous callback so a slow drive or stalled event loop cannot deadlock
   completion.
+- Queue-backup writes triggered by progress, completion, pause, or cancellation
+  must snapshot state on the GUI thread and use one coalescing background
+  writer; never start concurrent atomic replacements for the same backup.
+  Synchronous persistence is reserved for an orderly shutdown flush.
 - Never decode, scale, copy, or existence-check user media/thumbnail paths on
   the GUI thread. This includes mapped, removable, UNC, and slow local drives;
   perform the I/O in a worker and marshal only the finished image/state back to

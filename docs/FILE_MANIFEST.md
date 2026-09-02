@@ -16,7 +16,8 @@ tasks to the smallest useful reference.
 | `tools/release_packaging.py` | Linux AppImage staging and Qt runtime deployment |
 | `triplets/*.cmake` | Optional release-only vcpkg dependency triplets for local/source builds |
 | `LzyDownloader.nsi` | Windows installer and silent relaunch |
-| `cmake/deploy_openssl_runtime.cmake` | Windows Qt/OpenSSL/plugin deployment |
+| `cmake/deploy_openssl_runtime.cmake` | Locked vcpkg Qt/OpenSSL/plugin deployment |
+| `cmake/deploy_qt_runtime.cmake` | Direct-Qt `windeployqt` deployment and explicit Qt DLL/plugin fallback |
 | `tools/` | Extractor refresh, shared parsing, and checksum helpers |
 | `tools/configure_debug.ps1` | Debug configure recovery in `build-debug` |
 | `.github/workflows/tests.yml` | Reusable full headless test workflow for PRs, branches, and releases |
@@ -66,7 +67,7 @@ Public/project guidance is in `README.md`, `CONTRIBUTING.md`, `SECURITY.md`,
 | Metadata/FFmpeg | `src/core/MetadataEmbedder.*`, `src/core/download_pipeline/FfmpegMuxer.*` |
 | Tools/processes | `src/core/ProcessUtils.*`, `src/core/SmartBinaryResolver.*`, `src/core/BaseBinaryUpdater.*`, `src/core/StartupWorker.*` |
 | API/update/power/logging | `src/core/LocalApiServer.*`, `src/core/AppUpdater.*`, `src/core/PowerInhibitor.*`, `src/utils/LogManager.*` |
-| Main UI | `src/ui/MainWindow.*`, `src/ui/MainWindowConnections.cpp`, `src/ui/MainWindowDownloadConnections.cpp`, `src/ui/MainWindowUiBuilder.*`, `src/ui/StartTab.*`, `src/ui/ActiveDownloadsTab.*`, `src/ui/DownloadItemWidget.cpp`, `src/ui/DownloadItemWidgetProgress.cpp`, `src/ui/DownloadItemWidgetIcons.h` |
+| Main UI | `src/ui/MainWindow.*`, `src/ui/MainWindowConnections.cpp`, `src/ui/MainWindowDownloadConnections.cpp`, `src/ui/MainWindowUiBuilder.*`, `src/ui/StartTab.*`, `src/ui/ActiveDownloadsTab.*`, `src/ui/DownloadItemWidget.cpp`, `src/ui/DownloadItemWidgetProgress.cpp`, `src/ui/DownloadItemWidgetIcons.h`, `src/ui/DownloadHistoryTab.*` |
 | Settings UI | `src/ui/advanced_settings/*`, `src/ui/MissingBinariesDialog.*` |
 
 ## Regression-test index
@@ -80,7 +81,7 @@ paths/headless Qt. Main focused files are:
 | Queue/archive/temp/replacement | `TestDownloadQueueManager.cpp`, `TestDownloadQueueState.cpp`, `TestDownloadTempCleanup.cpp`, `TestFileReplacement.cpp` |
 | Cross-process worker admission | `TestGlobalDownloadLimiter.cpp` |
 | Worker/tools/power | `TestYtDlpWorker.cpp`, `TestProcessUtils.cpp`, `TestPowerInhibitor.cpp` |
-| UI | `TestUIWidgets.cpp` |
+| UI | `TestUIWidgets.cpp`, `TestDownloadManager.cpp` (completion-save responsiveness) |
 | Browser companion | `TestBrowserCookieFile.cpp`, `TestLocalApiServer.cpp` |
 
 When adding or moving a major file, update this manifest and

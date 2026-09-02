@@ -41,7 +41,8 @@ Public methods:
   tracks selected by the playlist dialog.
 - `void resumeDownloadWithFormat(const QString &url, const QVariantMap &options,
   const QString &formatId)` — queue a concrete format.
-- `void shutdown()` — stop workers, flush queue state, and terminate pools.
+- `void shutdown()` — stop admission and workers, disconnect queued worker
+  starts, wait for owned threads, flush queue state, and terminate pools.
 
 Worker admission is coordinated by `GlobalDownloadLimiter` across separate
 GUI and server/headless/background processes. A manager retries admission when
@@ -71,6 +72,36 @@ Key signals:
   and terminal download failures for non-interactive requests without opening
   a modal dialog.
 - `void queueFinished()` fires when active and queued work is complete.
+
+### [DownloadQueueManager](../src/core/DownloadQueueManager.h)
+
+Owns queue ordering, duplicate/retry state, restored items, and resumable queue
+backup persistence.
+
+- `void saveQueueStateAsync(const QMap<QString, DownloadItem> &activeItems)` —
+  snapshot active, paused, and queued items on the manager thread and submit
+  one coalescing background atomic write. If a write is active, only the newest
+  snapshot is retained.
+- `void saveQueueState(const QMap<QString, DownloadItem> &activeItems)` —
+  synchronously wait for any background write and persist the final snapshot;
+  callers reserve this for orderly shutdown.
+
+`DownloadQueueState::saveToPath()` is the worker-safe path-based serializer.
+It does not access manager-owned mutable state and preserves the existing JSON
+backup schema.
+
+The synchronous `saveQueueState()` path is also used by update handoff and
+application shutdown, after worker admission has stopped. It must not be used
+from progress or completion callbacks because a slow filesystem would block
+the manager thread.
+
+### [DownloadHistoryTab](../src/ui/DownloadHistoryTab.h)
+
+Owns the `download_history.json` display cache and history-row presentation.
+`addHistoryItem()` and `clearHistory()` coalesce atomic background saves;
+destruction waits for the active save and writes any pending snapshot. Local
+thumbnail decoding is performed off the GUI thread and returned through a
+guarded queued callback.
 
 ### [PowerInhibitor](../src/core/PowerInhibitor.h)
 

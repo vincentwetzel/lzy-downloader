@@ -319,12 +319,14 @@ void DownloadFinalizer::finalize(const QString &id, DownloadItem item) {
 
         QString finalDir;
         bool sortingOk = false;
-        QMetaObject::invokeMethod(QCoreApplication::instance(), [&finalDir, &sortingOk, sortingManager, meta = item.metadata, opts = item.options]() {
-            if (sortingManager) {
-                finalDir = QDir(sortingManager->getSortedDirectory(meta, opts)).absolutePath();
-                sortingOk = true;
-            }
-        }, Qt::BlockingQueuedConnection);
+        // SortingManager only evaluates the immutable metadata/options snapshot
+        // and ConfigManager provides its own lock for QSettings access. Resolve
+        // the directory here so a busy GUI cannot block finalization waiting for
+        // a BlockingQueuedConnection.
+        if (sortingManager) {
+            finalDir = QDir(sortingManager->getSortedDirectory(item.metadata, item.options)).absolutePath();
+            sortingOk = true;
+        }
         if (!sortingOk || finalDir.isEmpty()) {
             finalDir = fileInfo.absolutePath(); // fallback if sorting manager is dead
         }
@@ -477,13 +479,16 @@ void DownloadFinalizer::finalize(const QString &id, DownloadItem item) {
             cleanupTerminalTempDirectory();
         }
 
-        QMetaObject::invokeMethod(QCoreApplication::instance(), [self, id, success, message, finalPath, archiveManager, url = item.url]() {
-            // Execute archive insertion on the main thread to prevent leaking thread-local SQLite connections
-            // from one-off QThread::create workers.
-            if (success && archiveManager) {
-                archiveManager->addToArchive(url);
-            }
+        if (success && archiveManager) {
+            // SQLite connections are thread-local. Record the completed URL on
+            // this worker and close that connection before the one-shot thread
+            // exits; keeping this off the GUI thread avoids database lock stalls
+            // during bursts of simultaneous finalizations.
+            archiveManager->addToArchive(item.url);
+            archiveManager->closeDatabase();
+        }
 
+        QMetaObject::invokeMethod(QCoreApplication::instance(), [self, id, success, message, finalPath]() {
             if (!self) return;
             if (success) {
                 emit self->finalPathReady(id, finalPath);

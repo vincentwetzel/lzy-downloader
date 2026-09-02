@@ -158,12 +158,15 @@ if(WIN32)
         endif()
 
         if(NOT DEFINED VCPKG_INSTALLED_DIR AND WINDEPLOYQT_EXECUTABLE)
+            get_filename_component(_qt_prefix "${Qt6_DIR}/../../.." ABSOLUTE)
             add_custom_command(TARGET ${target_name} POST_BUILD
-                COMMAND "${WINDEPLOYQT_EXECUTABLE}"
-                    --no-translations
-                    --no-compiler-runtime
-                    "$<$<CONFIG:Debug>:--debug>$<$<NOT:$<CONFIG:Debug>>:--release>"
-                    "$<TARGET_FILE:${target_name}>"
+                COMMAND "${CMAKE_COMMAND}"
+                    -DWINDEPLOYQT_EXECUTABLE=${WINDEPLOYQT_EXECUTABLE}
+                    -DTARGET_FILE=$<TARGET_FILE:${target_name}>
+                    -DTARGET_FILE_DIR=$<TARGET_FILE_DIR:${target_name}>
+                    -DQT_PREFIX=${_qt_prefix}
+                    -DDEPLOY_MODE=$<$<CONFIG:Debug>:--debug>$<$<NOT:$<CONFIG:Debug>>:--release>
+                    -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/deploy_qt_runtime.cmake"
                 COMMENT "Deploying Qt runtime plugins for ${target_name}"
                 VERBATIM
             )
@@ -479,3 +482,4 @@ lzy_add_test(TestGlobalDownloadLimiter tests/TestGlobalDownloadLimiter.cpp)
 lzy_add_test(TestStartupWorker tests/TestStartupWorker.cpp)
 add_dependencies(TestDownloadManager LzyTestFakeYtDlp)
 set_tests_properties(TestDownloadManager PROPERTIES TIMEOUT 75)
+set_tests_properties(TestEndToEnd PROPERTIES TIMEOUT 75)

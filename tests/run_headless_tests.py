@@ -76,9 +76,9 @@ def cmake_build_command(build_dir: Path, config: str):
             r"^VCPKG_MANIFEST_MODE:[^=]*=ON$", cache, re.MULTILINE | re.IGNORECASE
         ))
         if uses_vcpkg_toolchain or manifest_mode:
-            command.extend(["--", "/p:VcpkgEnableManifest=true"])
+            command.extend(["--", "/m:1", "/p:VcpkgEnableManifest=true"])
         else:
-            command.extend(["--", "/p:VcpkgEnabled=false"])
+            command.extend(["--", "/m:1", "/p:VcpkgEnabled=false"])
     return command
 
 
@@ -173,7 +173,9 @@ def main() -> int:
         return build_code
 
     env = os.environ.copy()
-    env["QT_QPA_PLATFORM"] = "offscreen"
+    # Windows test targets deploy qminimal; qoffscreen is not consistently
+    # shipped by the Qt packages used by this project.
+    env["QT_QPA_PLATFORM"] = "minimal"
     env["QT_DEBUG_PLUGINS"] = "0"
     list_code, list_output = run_command(["ctest", "-N", "-C", args.config], build_dir, env)
     if list_code != 0:

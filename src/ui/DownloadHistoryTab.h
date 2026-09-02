@@ -3,6 +3,7 @@
 #include <QWidget>
 #include <QString>
 #include <QList>
+#include <QFutureWatcher>
 
 class QVBoxLayout;
 class QScrollArea;
@@ -22,6 +23,7 @@ class DownloadHistoryTab : public QWidget {
     Q_OBJECT
 public:
     explicit DownloadHistoryTab(QWidget *parent = nullptr);
+    ~DownloadHistoryTab() override;
 
     void loadHistory(const QString &filePath);
     void saveHistory() const;
@@ -31,10 +33,17 @@ public slots:
     void clearHistory();
 
 private:
+    void saveHistoryAsync();
+    void startHistorySave(const QString &path, const QList<HistoryItemData> &items);
+
     QScrollArea *m_scrollArea;
     QWidget *m_scrollWidget;
     QVBoxLayout *m_listLayout;
 
     QString m_historyFilePath;
     QList<HistoryItemData> m_historyItems;
+    QFutureWatcher<void> *m_historySaveWatcher = nullptr;
+    bool m_hasPendingHistorySave = false;
+    QString m_pendingHistoryPath;
+    QList<HistoryItemData> m_pendingHistoryItems;
 };

@@ -83,9 +83,10 @@ void DownloadManager::onPlaylistDetected(const QString &url, int itemCount, cons
         } else {
             qInfo() << "Non-interactive playlist detected; queueing all items without prompting:" << url << "count:" << itemCount;
         }
-        QMetaObject::invokeMethod(this, [this, url, storedOptions, expandedItems]() {
-            processPlaylistSelection(url, QStringLiteral("Download All"), storedOptions, expandedItems);
-        }, Qt::QueuedConnection);
+        // This callback already runs on the manager's thread. Process it now
+        // while the placeholder is still present; deferring it lets queue
+        // admission consume the placeholder and causes a replacement ID.
+        processPlaylistSelection(url, QStringLiteral("Download All"), storedOptions, expandedItems);
         return;
     }
 
@@ -96,6 +97,10 @@ void DownloadManager::onPlaylistDetected(const QString &url, int itemCount, cons
 }
 
 void DownloadManager::processPlaylistSelection(const QString &url, const QString &action, const QVariantMap &options, const QList<QVariantMap> &expandedItems) {
+    if (m_isShuttingDown) {
+        return;
+    }
+
     const QString queueId = options.value(QStringLiteral("playlist_placeholder_id")).toString();
     QVariantMap queueOptions = options;
     queueOptions.remove(QStringLiteral("playlist_placeholder_id"));
@@ -218,6 +223,28 @@ void DownloadManager::onPlaylistExpanded(const QString &originalUrl, const QList
         expander->deleteLater();
     }
 
+    // The timeout/error path can be delivered after the expander has already
+    // scheduled itself for deletion. Recover the placeholder from the queue
+    // so a direct-download fallback keeps the row's identity and does not
+    // leave a late replacement worker behind.
+    if (queueId.isEmpty()) {
+        for (auto it = m_queueManager->m_pendingExpansions.cbegin();
+             it != m_queueManager->m_pendingExpansions.cend(); ++it) {
+            if (it.value() == originalUrl) {
+                queueId = it.key();
+                break;
+            }
+        }
+    }
+    if (options.isEmpty() && !queueId.isEmpty()) {
+        for (const DownloadItem &item : std::as_const(m_queueManager->m_downloadQueue)) {
+            if (item.id == queueId) {
+                options = item.options;
+                break;
+            }
+        }
+    }
+
     QList<QVariantMap> itemsToProcess = expandedItems;
 
     if (!error.isEmpty()) {
@@ -295,6 +322,15 @@ void DownloadManager::onPlaylistExpanded(const QString &originalUrl, const QList
     }
 
     emit playlistExpansionFinished(originalUrl, itemsToProcess.count());
+
+    // A caller may provide already-expanded playlist items without creating a
+    // queue placeholder (for example, the playlist-policy UI path). Apply the
+    // selected policy for that multi-item input. Single-item error probes are
+    // intentionally left observational and must not start a download.
+    if (queueId.isEmpty() && expandedItems.size() > 1) {
+        processPlaylistSelection(originalUrl, QStringLiteral("Download All"), options, itemsToProcess);
+        return;
+    }
 
     // If this was a single video (no expansion needed), update the existing UI item
     if (itemsToProcess.size() == 1 && !queueId.isEmpty()) {

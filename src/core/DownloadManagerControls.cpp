@@ -109,7 +109,7 @@ void DownloadManager::cancelDownload(const QString &id) {
     if (cancelled) {
         emitDownloadStats();
         QMetaObject::invokeMethod(this, [this]() {
-            m_queueManager->saveQueueState(m_activeItems);
+            m_queueManager->saveQueueStateAsync(m_activeItems);
             startNextDownload();
         }, Qt::QueuedConnection);
     }
@@ -223,7 +223,7 @@ void DownloadManager::pauseDownload(const QString &id) {
     if (paused) {
         emitDownloadStats();
         QMetaObject::invokeMethod(this, [this]() {
-            m_queueManager->saveQueueState(m_activeItems);
+            m_queueManager->saveQueueStateAsync(m_activeItems);
             startNextDownload();
         }, Qt::QueuedConnection);
     }

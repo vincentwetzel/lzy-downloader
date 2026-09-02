@@ -14,7 +14,8 @@ void TestBrowserCookieFile::createsScopedNetscapeFile()
     cookie[QStringLiteral("domain")] = QStringLiteral(".example.test");
     cookie[QStringLiteral("path")] = QStringLiteral("/");
     cookie[QStringLiteral("secure")] = true;
-    cookie[QStringLiteral("expiration")] = 4102440000.0;
+    cookie[QStringLiteral("expiration")] =
+        static_cast<double>(QDateTime::currentDateTimeUtc().addYears(10).toSecsSinceEpoch());
 
     const BrowserCookieFile::CreateResult result = BrowserCookieFile::createForUrl(
         QJsonArray{cookie}, QUrl(QStringLiteral("https://media.example.test/watch")));
@@ -114,9 +115,12 @@ void TestBrowserCookieFile::removesExpiredOwnedFile()
     const BrowserCookieFile::CreateResult result = BrowserCookieFile::createForUrl(
         QJsonArray{cookie}, QUrl(QStringLiteral("https://example.test/watch")));
     QVERIFY2(result.success, qPrintable(result.error));
-    QVERIFY(QFile::setFileTime(result.path,
-                               QDateTime::currentDateTimeUtc().addDays(-2),
-                               QFileDevice::FileModificationTime));
+    QFile cookieFile(result.path);
+    QVERIFY(cookieFile.open(QIODevice::ReadWrite));
+    QVERIFY(cookieFile.setFileTime(
+        QDateTime::currentDateTimeUtc().addDays(-2),
+        QFileDevice::FileModificationTime));
+    cookieFile.close();
 
     BrowserCookieFile::cleanupExpired();
     QVERIFY(!QFile::exists(result.path));

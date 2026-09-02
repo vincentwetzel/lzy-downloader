@@ -126,6 +126,11 @@ void DownloadManager::shutdown() {
     for (QObject *worker : std::as_const(m_activeWorkers)) {
         if (worker) {
             worker->disconnect(this);
+            if (QThread *workerThread = worker->thread()) {
+                // A queued QThread::started handler can otherwise launch the
+                // process after shutdown has begun.
+                QObject::disconnect(workerThread, &QThread::started, worker, nullptr);
+            }
             if (auto *ytDlpWorker = qobject_cast<YtDlpWorker*>(worker)) {
                 stopWorker(ytDlpWorker);
             } else if (auto *galleryDlWorker = qobject_cast<GalleryDlWorker*>(worker)) {
@@ -143,6 +148,20 @@ void DownloadManager::shutdown() {
     }
     m_activeEmbedders.clear();
     m_pendingSponsorBlockPreflights.clear();
+
+    // Worker and metadata threads are children of this manager. Ensure their
+    // event loops have exited before QObject destruction; otherwise a timed
+    // test or headless shutdown can destroy a live QThread and abort.
+    const QList<QThread *> workerThreads = findChildren<QThread *>();
+    for (QThread *thread : workerThreads) {
+        if (thread && thread != QThread::currentThread() && thread->isRunning()) {
+            if (!thread->wait(5000)) {
+                qWarning() << "DownloadManager shutdown: forcing worker thread exit:" << thread->objectName();
+                thread->quit();
+                thread->wait(1000);
+            }
+        }
+    }
 
     m_workerSpeeds.clear();
 }
@@ -181,7 +200,7 @@ void DownloadManager::onQueueCountsChanged(int queued, int paused) {
     // Save queue state to disk, preserving active items
     QMetaObject::invokeMethod(this, [this]() {
         if (m_queueManager) {
-            m_queueManager->saveQueueState(m_activeItems);
+            m_queueManager->saveQueueStateAsync(m_activeItems);
         }
     }, Qt::QueuedConnection);
 

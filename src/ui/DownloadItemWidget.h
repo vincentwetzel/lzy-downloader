@@ -87,7 +87,7 @@ private:
     void setupUi();
     void applyProgressData(const QVariantMap &progressData);
     void setThumbnail(const QString &imagePath);
-    [[nodiscard]] bool hasAssociatedTemporaryFiles() const;
+    void requestAssociatedTemporaryFilesCheck();
 
     QVariantMap m_itemData;
     QLabel *m_thumbnailLabel;
@@ -109,6 +109,7 @@ private:
     QString m_currentThumbnailPath;
     QTimer *m_progressUpdateTimer = nullptr;
     QVariantMap m_pendingProgressData;
+    quint64 m_tempFilesCheckGeneration = 0;
 
 public:
     void setPaused(bool paused);

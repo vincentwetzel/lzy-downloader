@@ -51,6 +51,22 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## [Unreleased]
 
+- **Persistence responsiveness:** Queue-backup and Download History JSON writes
+  now snapshot immutable state and run through coalescing background writers;
+  orderly shutdown waits for the writer and flushes the final queue snapshot.
+  Finalization records successful media in SQLite from its worker-thread-local
+  connection instead of blocking the GUI during archive bursts.
+- **Shutdown safety:** Prevent queued worker starts after shutdown begins, wait
+  for owned worker threads, and make startup completion emission idempotent for
+  clean headless and timed-test teardown.
+- **Playlist fallback identity:** Process non-interactive playlist selections
+  while their placeholder exists and recover placeholder options after delayed
+  probe errors so ordinary-URL fallback preserves the original row/job ID.
+- **Responsive UI cleanup:** Move history thumbnail decoding and failed/cancelled
+  row temporary-file checks off the GUI thread with guarded generation checks.
+- **Windows test deployment:** Add a direct-Qt `windeployqt` fallback helper,
+  deploy `qminimal`, serialize Visual Studio test builds, and use a bounded
+  loopback end-to-end fixture timeout.
 - **Playlist Logic:** Carry the Start tab’s selected playlist policy into each
   request, honor the persisted default for manager callers, and apply
   single-item handling to expanded playlists. Added UI, configuration, and

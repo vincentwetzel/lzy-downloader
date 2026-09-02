@@ -37,6 +37,13 @@ public:
             Q_ARG(QString, error)));
     }
 
+    void callOnFinalizationComplete(const QString &id, bool success, const QString &message) {
+        const int idx = metaObject()->indexOfSlot("onFinalizationComplete(QString,bool,QString)");
+        QVERIFY2(idx >= 0, "DownloadManager::onFinalizationComplete was not registered as a slot");
+        QVERIFY(metaObject()->method(idx).invoke(this,
+            Q_ARG(QString, id), Q_ARG(bool, success), Q_ARG(QString, message)));
+    }
+
 private:
     ConfigManager *m_configManager;
 };
@@ -57,6 +64,7 @@ private slots:
     void testDownloadWorkerUsesDedicatedThread();
     void testMetadataEmbedderRunsOffGuiThread();
     void testFinalizationDoesNotBlockGuiThread();
+    void testCompletionStateSaveDoesNotBlockGuiThread();
 
 private:
     DownloadManager *m_manager = nullptr;

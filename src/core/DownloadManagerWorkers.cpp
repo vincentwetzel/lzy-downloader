@@ -151,7 +151,7 @@ void DownloadManager::onWorkerFinished(const QString &id, bool success, const QS
         m_errorDownloadsCount++;
         emit downloadFinished(id, false, message); // This will trigger emitDownloadStats()
         emitDownloadStats();
-        m_queueManager->saveQueueState(m_activeItems);
+        m_queueManager->saveQueueStateAsync(m_activeItems);
         QMetaObject::invokeMethod(this, [this]() {
             startNextDownload();
         }, Qt::QueuedConnection);
@@ -288,7 +288,7 @@ void DownloadManager::onGalleryDlWorkerFinished(const QString &id, bool success,
         m_errorDownloadsCount++;
         emit downloadFinished(id, false, message); // This will trigger emitDownloadStats()
         emitDownloadStats();
-        m_queueManager->saveQueueState(m_activeItems);
+        m_queueManager->saveQueueStateAsync(m_activeItems);
         QMetaObject::invokeMethod(this, [this]() {
             startNextDownload();
         }, Qt::QueuedConnection);
@@ -342,7 +342,7 @@ void DownloadManager::onMetadataEmbedded(const QString &id, bool success, const 
         m_errorDownloadsCount++;
         emit downloadFinished(id, false, tr("Metadata embedding failed: %1").arg(error)); // This will trigger emitDownloadStats()
         emitDownloadStats();
-        m_queueManager->saveQueueState(m_activeItems);
+        m_queueManager->saveQueueStateAsync(m_activeItems);
         QMetaObject::invokeMethod(this, [this]() {
             startNextDownload();
         }, Qt::QueuedConnection);
@@ -372,7 +372,7 @@ void DownloadManager::onFinalizationComplete(const QString &id, bool success, co
 
      // CRITICAL: Synchronously flush state immediately so headless exits do not terminate
     // with a pending state save sitting in the event loop queue.
-    m_queueManager->saveQueueState(m_activeItems);
+        m_queueManager->saveQueueStateAsync(m_activeItems);
 
     QMetaObject::invokeMethod(this, [this]() {
         startNextDownload();
@@ -391,7 +391,7 @@ void DownloadManager::onItemCleared(const QString &id, bool wasSuccessful, bool 
     }
     
     QMetaObject::invokeMethod(this, [this]() {
-        if (m_queueManager) m_queueManager->saveQueueState(m_activeItems);
+        if (m_queueManager) m_queueManager->saveQueueStateAsync(m_activeItems);
         startNextDownload();
     }, Qt::QueuedConnection);
 }

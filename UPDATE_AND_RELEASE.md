@@ -128,7 +128,8 @@ playlist fallback, cookie/aria2c recovery, media diagnostics, normalized
 duplicate identity, replacement safety, audio-aware progress, thumbnail
 remuxing, and compact one-bar rows. Also verify quiet native transfers recover
 sizes from `formats`/`.part` data and Discord aggregate progress survives
-video/audio handoff.
+video/audio handoff, and queue/history snapshots remain responsive while the
+latest state is flushed during shutdown.
 
 ### Step 0: Confirm the release checkout
 
@@ -241,7 +242,8 @@ python .\tests\run_headless_tests.py --build-dir build --config Release
 The helper builds before CTest and stops on compilation failure, then runs
 headless tests with Qt's `minimal` platform plugin in parallel with timestamped
 output and a final summary. Windows test targets receive the platform and Qt
-runtime DLLs through the same guarded deployment helper used by the application.
+runtime DLLs through the appropriate CMake deployment helper used by the
+application.
 It stores failed names in `build/.lzy-test-suspects.json`; use `--suspects` to rerun
 that cache. Test locations and coverage are indexed in
 `docs/FILE_MANIFEST.md` and `docs/SPEC.md`.
@@ -256,18 +258,18 @@ python .\build_release.py
 Do not manually rename generated installers. Manual CMake/NSIS commands are
 only for diagnosing a packaging problem and are not the release procedure.
 
-`CMakeLists.txt` already runs `windeployqt`, re-copies the resolved Qt runtime
-DLLs from the configured Qt installation, deploys the OpenSSL runtime DLLs
-(`libcrypto-3-x64.dll`, `libssl-3-x64.dll`) when available, and copies the
-MinGW runtime DLLs when using the MinGW toolchain. Keep the deployed
-compression/runtime dependencies that Qt ships with, including `zlib1.dll`,
-because `Qt6Network.dll` depends on them on Windows.
-
 For Windows development builds, the checked-in `release` and `debug` presets
 explicitly select the repository's expected Qt MinGW and Ninja locations.
-Update those preset paths when using another Qt installation. Qt plugin copying is performed by
-`cmake/deploy_openssl_runtime.cmake` under a per-runtime-directory lock so
-parallel builds do not partially overwrite the deployed plugin tree. The
+Update those preset paths when using another Qt installation. Vcpkg builds
+use `cmake/deploy_openssl_runtime.cmake` under a per-runtime-directory lock so
+parallel builds do not partially overwrite the deployed Qt/OpenSSL plugin
+tree. Direct-Qt builds use `cmake/deploy_qt_runtime.cmake`, which wraps
+`windeployqt`, re-copies the configured Qt DLLs, and explicitly copies plugins
+when the dependency scan is incomplete. Both paths deploy the OpenSSL runtime
+DLLs (`libcrypto-3-x64.dll`, `libssl-3-x64.dll`) when available, and MinGW
+builds copy the compiler runtime DLLs. Keep the deployed compression/runtime
+dependencies that Qt ships with, including `zlib1.dll`, because
+`Qt6Network.dll` depends on them on Windows. The
 vcpkg manifest enables the specific Qt modules required by the application and
 tests rather than Qt's default feature bundle. Keep the JPEG and PNG image
 plugins enabled: Debug and deployed builds use them for Active Downloads and
@@ -365,10 +367,10 @@ If the workflow is unavailable, navigate to https://github.com/vincentwetzel/lzy
 - [ ] Tag-triggered GitHub Actions full headless test gate completed successfully
 - [ ] Tag-triggered GitHub Actions release matrix and final publish job completed successfully
 - [ ] Slow playlist-probe smoke test passed: ordinary URLs download through the fallback and explicit playlist URLs fail without a direct-download start
-- [ ] NSIS installer tested (install/uninstall preserves `%LOCALAPPDATA%\LzyDownloader\settings.ini`, `download_archive.db`, `downloads_backup.json`, and log files)
+- [ ] NSIS installer tested (install/uninstall preserves `%LOCALAPPDATA%\LzyDownloader\settings.ini`, `download_archive.db`, `downloads_backup.json`, `download_history.json`, and log files)
 - [ ] NSIS installer finish-page launch option starts `LzyDownloader.exe` when left checked and does not start it when cleared
 - [ ] Clean Windows install tested for HTTPS update checks (Qt TLS backend loads with `libcrypto-3-x64.dll` and `libssl-3-x64.dll` beside `LzyDownloader.exe`)
-- [ ] Application update tested with active and queued downloads; queue state is saved and downloader/helper processes are stopped before installer launch
+- [ ] Application update tested with active and queued downloads; queue/history state is saved and downloader/helper processes are stopped before installer launch
 - [ ] Silent application update verified to relaunch the freshly installed `LzyDownloader.exe` after NSIS completes
 - [ ] Intel and Apple Silicon DMGs mount and launch with deployed Qt plugins and the SQLite driver
 - [ ] macOS updater selects only the matching architecture DMG and opens it in Finder for installation
@@ -379,6 +381,7 @@ If the workflow is unavailable, navigate to https://github.com/vincentwetzel/lzy
 - [ ] GitHub release published with Windows installer, Linux AppImage, and both macOS DMG assets
 - [ ] Tag `vX.X.X` pushed and the `Build and Release` GitHub Actions workflow attached Windows, Linux, Intel macOS, and Apple Silicon macOS assets
 - [ ] Browser companion registration verified with the exact production extension ID on Windows, Linux, and macOS; Linux AppImage registration uses a persistent wrapper
+- [ ] Queue and Download History persistence verified on a slow filesystem: normal progress/completion remains responsive, writes coalesce to the newest snapshot, and orderly shutdown flushes the final queue state without a live worker thread
 
 ## Application Data Locations
 
@@ -396,6 +399,7 @@ The application stores user data below the platform-specific
 | Settings | `settings.ini` |
 | Archive | `download_archive.db` |
 | Queue Backup | `downloads_backup.json` |
+| Download History cache | `download_history.json` |
 | Local API token | `api_token.txt` |
 | Logs | `LzyDownloader_YYYY-MM-dd_HH-mm-ss.log` |
 
@@ -406,4 +410,7 @@ Server/headless/background mode still reads user preferences from the shared
 the root's `Server/` subfolder. Each launch creates a fresh timestamped log;
 startup cleanup keeps only the five most recent logs.
 
-**Important:** The NSIS installer must NOT overwrite `settings.ini`, `download_archive.db`, `downloads_backup.json`, `api_token.txt`, or log files. These are stored in user data directories, not the installation directory.
+**Important:** The NSIS installer must NOT overwrite `settings.ini`,
+`download_archive.db`, `downloads_backup.json`, `download_history.json`,
+`api_token.txt`, or log files. These are stored in user data directories, not
+the installation directory.

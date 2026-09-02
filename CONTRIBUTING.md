@@ -49,6 +49,10 @@ direct-download worker.
 
 Keep the GUI responsive, preserve the temporary-download-to-final-file
 lifecycle, and update the maintained documentation when behavior changes.
+Queue and history persistence must snapshot on the GUI thread and write through
+their coalescing background writers; only orderly shutdown may use the
+synchronous queue-state flush. Regression tests should cover both responsiveness
+and shutdown ordering when touching these paths.
 Production code belongs under `src/`; tests and fixtures belong under `tests/`.
 The browser companion boundary is split between `src/integration/` and the
 separate browser-extension project: keep native-messaging protocol changes,

@@ -11,6 +11,7 @@
 #include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QProcess>
+#include <QStandardPaths>
 #include <QThread>
 #include <QTimer>
 #include <QUuid>
@@ -23,6 +24,12 @@ void TestDownloadManager::init() {
 
 void TestDownloadManager::cleanup() {
     ProcessUtils::clearCache();
+    // DownloadQueueState intentionally persists active/stopped items across
+    // application restarts. Each test creates a fresh manager, so remove the
+    // shared test backup after the manager under test has been destroyed to
+    // prevent a prior test's item from being restored into the next one.
+    QFile::remove(QDir(QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation))
+                      .filePath(QStringLiteral("downloads_backup.json")));
     BaseTest::cleanup();
 }
 
@@ -363,6 +370,24 @@ void TestDownloadManager::testFinalizationDoesNotBlockGuiThread()
     QVERIFY(heartbeatCount > 0);
     QVERIFY(completionSpy.first().at(1).toBool());
     QVERIFY(QFileInfo::exists(QDir(destination).filePath(QStringLiteral("finalization-test.webm"))));
+}
+
+void TestDownloadManager::testCompletionStateSaveDoesNotBlockGuiThread()
+{
+    TestableDownloadManager manager(getConfigManager(), this);
+
+    int heartbeatCount = 0;
+    QTimer heartbeat;
+    heartbeat.setInterval(10);
+    connect(&heartbeat, &QTimer::timeout, this, [&heartbeatCount]() { ++heartbeatCount; });
+    heartbeat.start();
+
+    QElapsedTimer callTimer;
+    callTimer.start();
+    manager.callOnFinalizationComplete(QStringLiteral("completion-save-regression"), false,
+                                       QStringLiteral("synthetic finalization failure"));
+    QVERIFY(callTimer.elapsed() < 1000);
+    QTRY_VERIFY_WITH_TIMEOUT(heartbeatCount > 0, 1000);
 }
 
 QTEST_MAIN(TestDownloadManager)

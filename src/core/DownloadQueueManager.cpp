@@ -14,9 +14,11 @@
 #include <QStandardPaths>
 #include <QThread>
 #include <QTimer>
+#include <QtConcurrent/QtConcurrentRun>
 
 #include <algorithm>
 #include <array>
+#include <utility>
 
 namespace {
 QString normalizeCleanupStem(QString fileName)
@@ -140,9 +142,26 @@ void collectCleanupPath(QStringList &paths, const QString &path)
 DownloadQueueManager::DownloadQueueManager(ConfigManager *configManager, ArchiveManager *archiveManager, DownloadQueueState *queueState, QObject *parent)
     : QObject(parent), m_configManager(configManager), m_archiveManager(archiveManager), m_queueState(queueState) {
     connect(m_queueState, &DownloadQueueState::resumeDownloadsRequested, this, &DownloadQueueManager::processResumeDownloadsSelection);
+    m_queueSaveWatcher = new QFutureWatcher<void>(this);
+    connect(m_queueSaveWatcher, &QFutureWatcher<void>::finished, this, [this]() {
+        if (!m_hasPendingQueueSave) {
+            return;
+        }
+
+        const QString backupPath = m_pendingQueueSavePath;
+        const QList<DownloadItem> activeItems = std::move(m_pendingActiveItems);
+        const QMap<QString, DownloadItem> pausedItems = std::move(m_pendingPausedItems);
+        const QQueue<DownloadItem> downloadQueue = std::move(m_pendingDownloadQueue);
+        m_pendingQueueSavePath.clear();
+        m_hasPendingQueueSave = false;
+        startQueueStateSave(backupPath, activeItems, pausedItems, downloadQueue);
+    });
 }
 
 DownloadQueueManager::~DownloadQueueManager() {
+    if (m_queueSaveWatcher && m_queueSaveWatcher->isRunning()) {
+        m_queueSaveWatcher->waitForFinished();
+    }
 }
 
 DownloadQueueManager::DuplicateStatus DownloadQueueManager::getDuplicateStatus(const QString &url, const QMap<QString, DownloadItem> &activeItems) const {
@@ -420,7 +439,47 @@ void DownloadQueueManager::resumeDownload(const QVariantMap &itemData, const QMa
 }
 
 void DownloadQueueManager::saveQueueState(const QMap<QString, DownloadItem> &activeItems) {
+    // This synchronous variant is reserved for shutdown.  Wait for the
+    // background writer first so the final snapshot cannot race an older
+    // QSaveFile commit.
+    if (m_queueSaveWatcher && m_queueSaveWatcher->isRunning()) {
+        m_queueSaveWatcher->waitForFinished();
+    }
+    m_hasPendingQueueSave = false;
     m_queueState->save(activeItems.values(), m_pausedItems, m_downloadQueue);
+}
+
+void DownloadQueueManager::saveQueueStateAsync(const QMap<QString, DownloadItem> &activeItems)
+{
+    if (!m_queueState || !m_queueSaveWatcher) {
+        return;
+    }
+
+    const QString backupPath = m_queueState->backupPath();
+    const QList<DownloadItem> activeSnapshot = activeItems.values();
+    const QMap<QString, DownloadItem> pausedSnapshot = m_pausedItems;
+    const QQueue<DownloadItem> queueSnapshot = m_downloadQueue;
+
+    if (m_queueSaveWatcher->isRunning()) {
+        m_pendingQueueSavePath = backupPath;
+        m_pendingActiveItems = activeSnapshot;
+        m_pendingPausedItems = pausedSnapshot;
+        m_pendingDownloadQueue = queueSnapshot;
+        m_hasPendingQueueSave = true;
+        return;
+    }
+
+    startQueueStateSave(backupPath, activeSnapshot, pausedSnapshot, queueSnapshot);
+}
+
+void DownloadQueueManager::startQueueStateSave(const QString &backupPath,
+                                                const QList<DownloadItem> &activeItems,
+                                                const QMap<QString, DownloadItem> &pausedItems,
+                                                const QQueue<DownloadItem> &downloadQueue)
+{
+    m_queueSaveWatcher->setFuture(QtConcurrent::run([backupPath, activeItems, pausedItems, downloadQueue]() {
+        DownloadQueueState::saveToPath(backupPath, activeItems, pausedItems, downloadQueue);
+    }));
 }
 
 void DownloadQueueManager::processResumeDownloadsSelection(const QJsonArray &arr) {

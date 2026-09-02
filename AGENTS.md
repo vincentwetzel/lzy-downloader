@@ -71,7 +71,9 @@ platform branches with a tested fallback or a documented release prerequisite.
 - Show queue rows/thumbnails immediately. Keep compact rows/action controls
   visible with no horizontal scroll; render one detailed `ProgressLabelBar`.
   Preserve audio artist fallback, thumbnail `attached_pic` remuxing, bounded
-  cuts, deferred queue saves, and terminal state before non-interactive quit.
+  cuts, coalesced asynchronous queue/history saves, and terminal state before
+  non-interactive quit. Shutdown must stop admission, prevent queued worker
+  starts, wait for owned worker threads, and flush the latest queue snapshot.
 - Local API is localhost-only, bearer-authenticated, bounded, and
   non-interactive; route cancellation through the manager. Validation,
   duplicate, binary, runtime, and terminal failures must remain observable to

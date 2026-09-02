@@ -94,7 +94,7 @@ input are reported as incomplete-transfer failures before metadata embedding.
 - 🛡️ **Duplicate-safe retries** — Equivalent source URLs share a normalized media identity, preventing duplicate queue/retry jobs without adding site-specific downloader behavior
 - 🔁 **Terminal retry recovery** — Explicit API re-downloads can replace matching restored stopped/failed jobs, while genuinely paused downloads remain protected
 - 📈 **Transfer progress recovery** — Native downloads recover stream sizes from yt-dlp format metadata and bounded `.part`-file polling keeps progress moving when yt-dlp temporarily emits no progress line
-- ⚡ **Responsive processing** — Downloader workers, metadata embedding, finalization, thumbnail loading, and history-cache copies stay off the GUI thread; row rendering coalesces high-frequency progress updates
+- ⚡ **Responsive processing** — Downloader workers, metadata embedding, finalization, thumbnail loading, temporary-file checks, and history/queue-backup writes stay off the GUI thread; row rendering coalesces high-frequency progress updates
 - 📊 **Single-bar progress display** — Active download rows keep progress focused on the current transfer or processing stage without a secondary aggregate bar
 - 🤖 **Stable Discord progress** — The bridge uses backend aggregate progress for multi-stream jobs so Discord percentages do not reset during video/audio handoff
 - 🧱 **Safe destination replacement** — Intentional re-downloads preserve the existing completed file until the verified replacement is in place; failed replacements leave the old file recoverable
@@ -161,17 +161,19 @@ compiler`, the generated `build-debug` directory contains stale or incomplete
 compiler metadata. Run `cmake --fresh --preset debug` once (or use the VS Code
 task **CMake: Fresh Configure Debug**), then run the normal build command again.
 
-Windows builds copy Qt runtime plugins and runtime DLLs through a guarded
-post-build CMake helper. This keeps deployment safe when multiple build
-processes target the same runtime directory. MinGW builds also expose the
-compiler's sibling `bin` directory to compiler subprocesses, and Qt's optional
+Windows builds copy Qt runtime plugins and runtime DLLs through a post-build
+CMake deployment helper. Vcpkg builds use the locked plugin/OpenSSL helper;
+direct-Qt builds wrap `windeployqt` and add explicit Qt DLL/plugin fallback
+copies when its dependency scan is incomplete. This keeps local application
+and test binaries self-contained. MinGW builds also expose the compiler's
+sibling `bin` directory to compiler subprocesses, and Qt's optional
 compiler-predefines probe is disabled
 because it is not needed by this project and can fail when MinGW is launched
 through libuv-based tooling.
 
 ### Testing
 
-Qt test sources and fixtures live in the top-level `tests/` directory. Test executables are registered through CMake and can be run with CTest. The current suite includes argument builders, playlist parsing and fallback, download-manager behavior, worker progress/recovery, persistence, cross-process worker-slot admission, API, sorting, UI, URL, and end-to-end coverage. For headless Windows/CI runs, the helper builds before testing (and stops before test execution on a build failure), timestamps streamed output, runs CTest in parallel, prints a final summary, and stores failed tests in the build tree. On Visual Studio builds it forwards the vcpkg setting from the CMake cache: manifest configurations enable manifest mode, while direct-Qt configurations disable the vcpkg MSBuild integration so it does not emit the misleading manifest-disabled diagnostic:
+Qt test sources and fixtures live in the top-level `tests/` directory. Test executables are registered through CMake and can be run with CTest. The current suite includes argument builders, playlist parsing and fallback, download-manager behavior, worker progress/recovery, persistence, cross-process worker-slot admission, API, sorting, UI, URL, and end-to-end coverage. For headless Windows/CI runs, the helper builds before testing (and stops before test execution on a build failure), timestamps streamed output, runs CTest in parallel, prints a final summary, and stores failed tests in the build tree. Visual Studio builds use a single MSBuild project worker during this build step to avoid concurrent vcpkg writes, while CTest still runs the independent tests in parallel. The runner also selects Qt's `minimal` platform and derives vcpkg integration from the CMake cache:
 
 ```bash
 python tests/run_headless_tests.py --build-dir build --config Release
@@ -179,7 +181,7 @@ python tests/run_headless_tests.py --build-dir build --config Release
 
 Use `python tests/run_headless_tests.py --build-dir build --config Release --suspects` to rerun only tests recorded as failing by the previous run. The default cache is `build/.lzy-test-suspects.json`.
 
-Current coverage includes argument construction (including aria2c retry policy), progress parsing, browser-cookie recovery, queue-backup status/field persistence and malformed-entry filtering, protected temporary-directory root fallback and ownership cleanup, negative aria2c recovery boundaries, archive normalization, configuration defaults/reset cleanup, Local API auth/enqueue behavior, process binary-resolution caching and explicit/WinGet discovery, URL validation, sorting sanitization, playlist range selection, the single-bar download widget and compact External Binaries scroll layout, and a local end-to-end download fixture.
+Current coverage includes argument construction (including aria2c retry policy), progress parsing and asynchronous size recovery, browser-cookie recovery, queue-backup status/field persistence and malformed-entry filtering, coalesced completion saves, protected temporary-directory root fallback and ownership cleanup, negative aria2c recovery boundaries, archive normalization, configuration defaults/reset cleanup, Local API auth/enqueue behavior, process binary-resolution caching and explicit/WinGet discovery, URL validation, sorting sanitization, playlist range selection, the single-bar download widget and compact External Binaries scroll layout, and a local end-to-end download fixture.
 
 ### Release Checklist
 
@@ -261,7 +263,11 @@ and `~/Library/Application Support/LzyDownloader` on macOS. GUI and
 `--server`/`--headless`/`--background` launches share this same preferences
 file, so folders, binary paths, templates, cookies, codecs, and related
 choices stay in sync. The app uses a Qt-native `QSettings` INI layout.
-Download history is shared through `download_archive.db`.
+The archive database (`download_archive.db`) tracks duplicate-safe completed
+media, while the Download History tab keeps its display cache in
+`download_history.json`. Routine queue-backup and history-cache writes are
+atomic and coalesced in the background; orderly shutdown waits for the final
+queue snapshot before exit.
 
 - **Output folder** — Where completed downloads are saved
 - **Temporary folder** — Where downloads are cached during progress
@@ -375,8 +381,8 @@ LzyDownloader/
 ├── src/
 │   ├── core/                   # Core Business Logic
 │   │   ├── ConfigManager.h/cpp   # Settings persistence (INI)
-│   │   ├── ArchiveManager.h/cpp  # Download history (SQLite)
-│   │   ├── DownloadQueueState.h/cpp # Manages persistence of download queue state
+│   │   ├── ArchiveManager.h/cpp  # Duplicate archive (SQLite)
+│   │   ├── DownloadQueueState.h/cpp # Atomic persistence of download queue state
 │   │   ├── DownloadManager.h/cpp # Queue & Lifecycle Management
 │   │   ├── LocalApiServer.h/cpp  # localhost API for local integrations
 │   │   ├── DownloadFinalizer.h/cpp # File Verification & Moving
@@ -395,6 +401,7 @@ LzyDownloader/
 │   │   │   ├── StartTabUrlHandler.h/cpp # Manages URL input and clipboard
 │   │   │   └── StartTabCommandPreviewUpdater.h/cpp # Updates command preview
 │   │   ├── ActiveDownloadsTab.h/cpp # Progress Tab
+│   │   ├── DownloadHistoryTab.h/cpp # Download History cache and rows
 │   │   ├── DownloadItemWidget.cpp # Download row shell/actions
 │   │   ├── DownloadItemWidgetProgress.cpp # Progress-bar rendering
 │   │   ├── MainWindowConnections.cpp # Main-window signal wiring

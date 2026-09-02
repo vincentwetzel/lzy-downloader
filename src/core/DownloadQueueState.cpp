@@ -64,6 +64,13 @@ QJsonArray DownloadQueueState::load()
 
 void DownloadQueueState::save(const QList<DownloadItem>& activeItems, const QMap<QString, DownloadItem>& pausedItems, const QQueue<DownloadItem>& downloadQueue)
 {
+    saveToPath(m_backupPath, activeItems, pausedItems, downloadQueue);
+}
+
+void DownloadQueueState::saveToPath(const QString &backupPath, const QList<DownloadItem> &activeItems,
+                                    const QMap<QString, DownloadItem> &pausedItems,
+                                    const QQueue<DownloadItem> &downloadQueue)
+{
     QJsonArray queueArray;
 
     auto appendItem = [&queueArray](const DownloadItem &item, const QString &status) {
@@ -96,9 +103,9 @@ void DownloadQueueState::save(const QList<DownloadItem>& activeItems, const QMap
     }
 
     if (queueArray.isEmpty()) {
-        QFile::remove(m_backupPath);
+        QFile::remove(backupPath);
     } else {
-        QSaveFile file(m_backupPath);
+        QSaveFile file(backupPath);
         if (file.open(QIODevice::WriteOnly)) {
             file.write(QJsonDocument(queueArray).toJson(QJsonDocument::Compact));
             if (!file.commit()) {

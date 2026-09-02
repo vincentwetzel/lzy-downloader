@@ -27,9 +27,10 @@ StartTab / LocalApiServer / CLI
 
 All network, filesystem, database, and child-process work is asynchronous or
 off the GUI thread. Download and metadata workers own their child processes in
-dedicated thread event loops; finalization and thumbnail file operations use
-worker callbacks. Workers communicate through signals and queued calls, and
-the UI is touched only on the GUI thread.
+dedicated thread event loops; finalization, thumbnail file operations, and
+history/queue persistence use worker callbacks or coalescing writers. Workers
+communicate through signals and queued calls, and the UI is touched only on the
+GUI thread.
 
 ### Startup and modes
 
@@ -37,22 +38,28 @@ the UI is touched only on the GUI thread.
 GUI, `--server`, `--headless`, and `--background` share preferences but use
 separate runtime markers and `Server/` runtime state where applicable. A
 second GUI launch forwards a direct URL through `QLocalSocket`.
+`StartupWorker` emits its completion signal once after all tool and extractor
+checks reach a terminal result, including probe failures.
 
-Shutdown stops downloader/helper process trees, flushes resumable state, and
-releases power inhibition. Non-interactive exit flushes terminal state before
-`QCoreApplication::quit()`.
+Shutdown stops admission, prevents queued worker starts, stops downloader/helper
+process trees, waits for owned worker threads and persistence writers, flushes
+the latest resumable state, and releases power inhibition. Non-interactive exit
+flushes terminal state before `QCoreApplication::quit()`.
 
 ### Queue and media flow
 
 `DownloadManager` registers a row immediately, resolves request-versus-persisted
 playlist policy, then expands a playlist or starts a dedicated worker thread.
-`DownloadQueueManager` owns ordering, local concurrency,
-duplicate identity, retry/resume snapshots, and restored-item recovery;
+`DownloadQueueManager` owns ordering, local concurrency, duplicate identity,
+retry/resume snapshots, restored-item recovery, and the single coalescing
+background writer for `downloads_backup.json`;
 `GlobalDownloadLimiter` coordinates worker-slot admission across separate
 GUI/server processes. Non-interactive
 validation, duplicate, binary, runtime, and terminal errors are emitted as
 `nonInteractiveRequestFailed` for bridge/webhook consumers rather than shown in
-modal dialogs. `ArchiveManager` owns normalized identity and SQLite history.
+modal dialogs. `ArchiveManager` owns normalized identity and the
+schema-compatible SQLite completed-media archive; it is distinct from the
+Download History display cache.
 `DownloadFinalizer` verifies, sorts, embeds metadata, and moves/copies output.
 `FileReplacement` protects an existing destination during intentional
 replacement. Temp cleanup owns root resolution and guarded UUID-folder removal.
@@ -62,14 +69,14 @@ replacement. Temp cleanup owns root resolution and guarded UUID-folder removal.
 | Component | Owns |
 |---|---|
 | `ConfigManager.*` | Validated Qt `QSettings`, defaults, reset, change signals |
-| `ArchiveManager.*` | Schema-compatible SQLite history and media identity |
-| `DownloadQueueManager.*` | Ordering, concurrency, duplicate checks, retry/resume |
+| `ArchiveManager.*` | Schema-compatible SQLite completed-media archive and media identity |
+| `DownloadQueueManager.*` | Ordering, concurrency, duplicate checks, retry/resume, and coalesced queue-backup writes |
 | `GlobalDownloadLimiter.*` | Locked per-user process registry for cross-process worker-slot admission and stale-holder cleanup |
 | `DownloadQueueManagerRecovery.cpp` | Restored stopped/failed replacement recovery |
-| `DownloadQueueState.*` | Atomic `downloads_backup.json` save/load/restore |
+| `DownloadQueueState.*` | Atomic `downloads_backup.json` save/load/restore, including path-based worker saves |
 | `DownloadQueueManagerCleanup.cpp`, `DownloadTempCleanup.*` | Async orphan reconciliation and guarded temp cleanup |
 | `FileReplacement.*` | Verified destination replacement and rollback |
-| `DownloadManager.*`, `DownloadManagerWorkers.cpp` | Scheduling, dedicated worker-thread lifecycle, terminal classification, power, video quality warnings |
+| `DownloadManager.*`, `DownloadManagerWorkers.cpp` | Scheduling, shutdown/worker-thread lifecycle, terminal classification, power, video quality warnings |
 | `DownloadManagerPlaylist.cpp`, `PlaylistExpansionWorker.*`, `PlaylistExpansionParser.*` | Read-only probing, item selection, placeholders, thumbnails, playlist metadata, fallback |
 | `YtDlpArgsBuilder.*` | Settings/options to yt-dlp/aria2c arguments and replay-safe live classification |
 | `DiagnosticTail.h`, `YtDlpWorker.*`, `YtDlpWorkerProcess.cpp`, `YtDlpWorkerProcessOutput.cpp`, `YtDlpWorkerInfoJson.cpp`, `YtDlpWorkerProcessHelpers.h` | Async yt-dlp process, bounded diagnostics, output/progress parsing, metadata loading, cookies, livestream wait, aria2c recovery |
@@ -77,7 +84,7 @@ replacement. Temp cleanup owns root resolution and guarded UUID-folder removal.
 | `YtDlpWorkerTransfers.cpp` | Transfer-stage inference, including combined-source audio |
 | `YtDlpLiveStatus.h` | Explicit premiere/upcoming diagnostic mapping |
 | `GalleryDlWorker.*` | gallery-dl process and gallery output handling |
-| `DownloadFinalizer.*` | Background verification, sorting, replacement, terminal cleanup, archive update |
+| `DownloadFinalizer.*` | Background verification, sorting, replacement, terminal cleanup, and worker-thread archive update |
 | `MetadataEmbedder.*` | Worker-thread metadata/thumbnail rewrite, cancellation, and tracked `attached_pic` remux |
 | `download_pipeline/FfmpegMuxer.*` | Async FFmpeg muxing and progress |
 | `ProcessUtils.*`, `SmartBinaryResolver.*` | Process trees, environments, binary discovery, and ownership tracking |
@@ -88,7 +95,8 @@ replacement. Temp cleanup owns root resolution and guarded UUID-folder removal.
 |---|---|
 | `MainWindow.*`, `MainWindowConnections.cpp`, `MainWindowDownloadConnections.cpp`, `MainWindowUiBuilder.*` | Shell, tabs, footer, global actions, startup/external-tool update handoff, webhook wiring |
 | `StartTab.*`, `start_tab/*` | URL submission, clipboard, playlist/runtime selection |
-| `ActiveDownloadsTab.*`, `DownloadItemWidget.cpp`, `DownloadItemWidgetProgress.cpp`, `DownloadItemWidgetIcons.h` | Download rows, thumbnails, compact layout, one focused progress bar, actions, and newest-row visibility |
+| `ActiveDownloadsTab.*`, `DownloadItemWidget.cpp`, `DownloadItemWidgetProgress.cpp`, `DownloadItemWidgetIcons.h` | Download rows, thumbnails, async owned-temp checks, compact layout, one focused progress bar, actions, and newest-row visibility |
+| `DownloadHistoryTab.*` | `download_history.json` display cache, atomic coalesced saves, and off-thread local thumbnail decoding |
 | `advanced_settings/*`, `MissingBinariesDialog.*` | Settings pages, templates, and consolidated binary setup/provisioning |
 | `LocalApiServer.*` | Authenticated localhost enqueue/status/cancel, aggregate progress, and tracked-job signals |
 | `integration/BrowserNativeMessagingHost.cpp`, `integration/BrowserNativeHostRegistration.*`, `integration/BrowserCookieFile.*` | Bounded cross-platform Chrome native-messaging bridge and registration, plus request-scoped cookie-file ownership; starts the validated headless server and relays allowlisted Local API operations |
@@ -104,8 +112,9 @@ build-before-CTest execution,
 timestamped output, summaries, and the failed-test cache. `CMakeLists.txt`
 owns the build graph; `CMakePresets.json` owns supported local configure
 presets;
-`cmake/deploy_openssl_runtime.cmake` owns guarded Windows Qt/OpenSSL runtime
-deployment;
+`cmake/deploy_openssl_runtime.cmake` owns locked vcpkg Qt/OpenSSL runtime
+deployment, while `cmake/deploy_qt_runtime.cmake` owns direct-Qt
+`windeployqt` deployment and explicit fallback copies;
 `build_release.py` owns native build/version checks, while
 `tools/release_packaging.py` owns Linux AppImage packaging; and
 `triplets/*.cmake` owns optional release-only settings for local vcpkg builds;
@@ -123,8 +132,10 @@ External processes have bounded watchdogs, UTF-8 line buffering, bounded
 diagnostics, and process-tree cleanup. Qt SQL connections stay within their
 creating thread. `GlobalDownloadLimiter` uses a short-lived lock and removes
 holders whose process is no longer alive; manager shutdown releases the
-process's reservations. GUI and server/headless/background downloads inhibit
-idle sleep while active, without preventing normal display power-off.
+process's reservations. Queue and history writes snapshot immutable state and
+coalesce while a writer is active; shutdown waits for the writer before the
+final synchronous queue flush. GUI and server/headless/background downloads
+inhibit idle sleep while active, without preventing normal display power-off.
 
 Windows keeps required Qt plugins, SQLite, OpenSSL, Qt runtime, and MinGW
 compiler runtime DLLs beside the executable. The deployment helper is also

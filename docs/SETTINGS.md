@@ -320,7 +320,14 @@ Active, paused, and stopped downloads are automatically serialized to a JSON fil
 
 When launched with `--server`, `--headless`, or `--background`, queue runtime state is isolated under `Server/`, for example `%LOCALAPPDATA%\LzyDownloader\Server\downloads_backup.json` on Windows.
 
-Stopped and failed entries also retain the latest known temporary file paths needed for resume and cleanup workflows. This allows the Active Downloads tab's `Clear Temp` action to appear only when associated temporary files still exist and to remove tracked partial media, sidecar metadata, thumbnails, and downloader state files even after an app restart. Queue rows can begin a bounded asynchronous thumbnail request immediately when persisted or newly queued metadata contains a remote thumbnail URL; local thumbnail decoding and history-cache copies are also performed off the GUI thread.
+Stopped and failed entries also retain the latest known temporary file paths needed for resume and cleanup workflows. This allows the Active Downloads tab's `Clear Temp` action to appear only when associated temporary files still exist and to remove tracked partial media, sidecar metadata, thumbnails, and downloader state files even after an app restart. Queue rows can begin a bounded asynchronous thumbnail request immediately when persisted or newly queued metadata contains a remote thumbnail URL; local thumbnail decoding, owned-temp checks, queue-backup writes, and history-cache copies are also performed off the GUI thread. Queue and history writes are coalesced so a slow filesystem cannot block progress or start concurrent atomic replacements; shutdown waits for the final queue snapshot.
+
+The Download History tab stores its display cache as `download_history.json` in
+the same application-local data directory. It is included in update/installer
+preservation checks and is separate from
+`download_archive.db`: the archive remains the duplicate-detection database,
+while the JSON cache contains the user-visible title, source, path, timestamp,
+size, duration, and thumbnail references.
 
 On restore, the queue loader validates that each `downloads_backup.json` array entry is an object. Malformed non-object entries are skipped and logged rather than being resumed.
 

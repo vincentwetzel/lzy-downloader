@@ -49,4 +49,5 @@ private:
     bool m_ffmpegCheckDone;
     bool m_denoCheckDone;
     bool m_extractorsCheckDone;
+    bool m_finishedEmitted;
 };

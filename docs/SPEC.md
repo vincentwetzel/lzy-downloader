@@ -40,10 +40,13 @@ only the sections relevant to the change.
   folder; stopped downloads retain partials for resume. Startup asynchronously
   removes only unprotected direct-child UUID folders after queue restoration;
   shared roots, symlinks, non-UUID folders, and stopped/failed IDs are kept.
-- `downloads_backup.json` is written atomically and terminal state is flushed
-  before non-interactive `QCoreApplication::quit()`. GUI and
-  server/headless/background modes use shared preferences but isolate runtime
-  state under `Server/`.
+- `downloads_backup.json` is written atomically. Progress, completion, pause,
+  and cancellation events snapshot queue state on the manager thread and feed
+  one coalescing background writer; the newest snapshot wins and concurrent
+  atomic replacements are not started. Orderly shutdown waits for that writer,
+  performs the final synchronous flush, and only then permits non-interactive
+  `QCoreApplication::quit()`. Download History uses the same off-thread,
+  coalesced write pattern for `download_history.json`.
 
 ### 2.2 Instances, settings, and archive
 
@@ -67,7 +70,7 @@ only the sections relevant to the change.
 - Queue rows are emitted immediately. Video/audio rows start as
   `Checking for playlist...`; gallery rows start as `Queued`; single items
   become `Queued` and playlists replace the placeholder with their entries.
-  Queue persistence is deferred with `Qt::QueuedConnection`.
+  Queue persistence is deferred, coalesced, and written off the GUI thread.
 - Retry/resume compares the candidate with the current active snapshot before
   enqueueing. `override_archive=true` may replace only a matching restored
   stopped/failed entry; genuinely paused entries remain protected. Discord/API
@@ -189,7 +192,9 @@ only the sections relevant to the change.
   with copy/remove fallback across filesystem boundaries and short lock retries.
 - Manual `Clear Temp` uses tracked candidates and literal stem matching for
   media, fragments, `.aria2`/`.ytdl`, metadata, thumbnails, subtitles, and
-  other sidecars. Hide the action when no owned temp files exist.
+  other sidecars. The existence check runs off the GUI thread and is
+  generation-checked before changing the row; hide the action when no owned
+  temp files exist.
 
 ## 6. API, updates, and deployment
 
@@ -241,8 +246,10 @@ only the sections relevant to the change.
   transient locks while preserving the old executable on failure.
 - Windows deployment includes required Qt image plugins, SQLite, OpenSSL, and
   Qt runtime DLLs. MinGW builds also deploy the compiler runtime DLLs needed
-  outside the developer shell. CMake presets, the shared deployment helper,
-  and vcpkg keep builds
+  outside the developer shell. Vcpkg builds use the locked
+  `deploy_openssl_runtime.cmake` helper; direct-Qt builds use
+  `deploy_qt_runtime.cmake` around `windeployqt` with explicit DLL/plugin
+  fallback copying. CMake presets and vcpkg keep builds
   reproducible; no new runtime dependency may be introduced without approval.
 
 ## 7. Release and test requirements
@@ -269,7 +276,8 @@ only the sections relevant to the change.
   and use `QT_QPA_PLATFORM=minimal`. Required coverage includes argument
   builders, playlist/probe fallback, progress and recovery boundaries,
   persistence/cleanup, archive identity, API/power/binary behavior, sorting,
-  UI row layout, and the end-to-end fixture.
+  UI row layout, completion-save responsiveness, startup/shutdown lifecycle,
+  and the end-to-end fixture.
 - `tests/run_headless_tests.py` builds before CTest and stops on build failure;
   it timestamps output, reports pass/fail/not-run totals, keeps CTest exit-code
   failures failed, and stores failed names for `--suspects`. Visual Studio

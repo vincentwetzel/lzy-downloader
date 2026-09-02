@@ -149,7 +149,7 @@ void TestEndToEnd::cleanup() {
 }
 
 void TestEndToEnd::testSingleVideoDownload() {
-    const QString testUrl = QStringLiteral("http://localhost:%1/%2").arg(TEST_SERVER_PORT).arg(TEST_DUMMY_FILE); // Local HTTP server URL
+    const QString testUrl = QStringLiteral("http://127.0.0.1:%1/%2").arg(TEST_SERVER_PORT).arg(TEST_DUMMY_FILE);
     
     // 1. Setup ConfigManager
     ConfigManager *configManager = getConfigManager();
@@ -174,7 +174,8 @@ void TestEndToEnd::testSingleVideoDownload() {
     // 4. Enqueue download
     QVariantMap downloadOptionsMap;
     downloadOptionsMap[QStringLiteral("type")] = QStringLiteral("video");
-    downloadOptionsMap[QStringLiteral("format")] = QStringLiteral("bestvideo[ext=webm]+bestaudio[ext=webm]/best[ext=webm]"); // Force webm for consistent filename
+    // The fixture exposes one small file, not separate audio/video streams.
+    downloadOptionsMap[QStringLiteral("format")] = QStringLiteral("best[ext=webm]/best");
     
     downloadManager.enqueueDownload(testUrl, downloadOptionsMap);
 
@@ -189,7 +190,11 @@ void TestEndToEnd::testSingleVideoDownload() {
 
     // 6. Wait for download to finish
     if (downloadFinishedSpy.isEmpty()) {
-        QVERIFY(downloadFinishedSpy.wait(60000)); // Wait up to 60 seconds for the download to complete
+        QVERIFY2(downloadFinishedSpy.wait(20000),
+                 qPrintable(QStringLiteral("Timed out waiting for download completion. yt-dlp path: %1; server state: %2; manager error count: %3")
+                                .arg(ytDlpPath)
+                                .arg(m_httpServerProcess ? m_httpServerProcess->state() : QProcess::NotRunning)
+                                .arg(downloadFinishedSpy.count())));
     }
 
     // Assert that the downloadFinished signal was emitted exactly once

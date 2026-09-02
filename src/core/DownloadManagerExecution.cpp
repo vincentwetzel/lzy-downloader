@@ -133,7 +133,13 @@ void DownloadManager::startDownloadItem(DownloadItem item, bool alreadyCountedAc
         workerThread->setObjectName(QStringLiteral("gallery-download-%1").arg(item.id));
         GalleryDlWorker *worker = new GalleryDlWorker(item.id, args, m_configManager, nullptr);
         worker->moveToThread(workerThread);
-        connect(workerThread, &QThread::started, worker, &GalleryDlWorker::start, Qt::QueuedConnection);
+        connect(workerThread, &QThread::started, worker, [this, worker]() {
+            if (m_isShuttingDown) {
+                QThread::currentThread()->quit();
+                return;
+            }
+            worker->start();
+        }, Qt::QueuedConnection);
         connect(worker, &GalleryDlWorker::finished, workerThread, &QThread::quit, Qt::DirectConnection);
         connect(workerThread, &QThread::finished, worker, &QObject::deleteLater);
         connect(workerThread, &QThread::finished, workerThread, &QObject::deleteLater);
@@ -156,7 +162,13 @@ void DownloadManager::startDownloadItem(DownloadItem item, bool alreadyCountedAc
         workerThread->setObjectName(QStringLiteral("yt-dlp-download-%1").arg(item.id));
         YtDlpWorker *worker = new YtDlpWorker(item.id, args, m_configManager, nullptr);
         worker->moveToThread(workerThread);
-        connect(workerThread, &QThread::started, worker, &YtDlpWorker::start, Qt::QueuedConnection);
+        connect(workerThread, &QThread::started, worker, [this, worker]() {
+            if (m_isShuttingDown) {
+                QThread::currentThread()->quit();
+                return;
+            }
+            worker->start();
+        }, Qt::QueuedConnection);
         connect(worker, &YtDlpWorker::finished, workerThread, &QThread::quit, Qt::DirectConnection);
         connect(workerThread, &QThread::finished, worker, &QObject::deleteLater);
         connect(workerThread, &QThread::finished, workerThread, &QObject::deleteLater);
@@ -283,6 +295,10 @@ void DownloadManager::applyMaxConcurrentSetting(const QString &maxThreadsStr) {
 }
 
 void DownloadManager::startDownloadsToCapacity() {
+    if (m_isShuttingDown) {
+        return;
+    }
+
     // QSettings is shared by GUI and server-mode processes, but settingChanged
     // is an in-process signal. Sync before admission so a setting changed in
     // the other surface becomes the global limit here as well.

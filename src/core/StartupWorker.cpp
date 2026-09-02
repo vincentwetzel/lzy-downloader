@@ -23,7 +23,8 @@ StartupWorker::StartupWorker(ConfigManager *configManager, ExtractorJsonParser *
       m_galleryDlCheckDone(false),
       m_ffmpegCheckDone(false),
       m_denoCheckDone(false),
-      m_extractorsCheckDone(false)
+      m_extractorsCheckDone(false),
+      m_finishedEmitted(false)
 {
     if (m_extractorJsonParser) {
         connect(m_extractorJsonParser, &ExtractorJsonParser::extractorsReady, this, &StartupWorker::onExtractorsReady);
@@ -274,7 +275,8 @@ void StartupWorker::onExtractorsReady() {
 }
 
 void StartupWorker::checkAllFinished() {
-    if (m_ytDlpCheckDone && m_galleryDlCheckDone && m_extractorsCheckDone && m_ffmpegCheckDone && m_denoCheckDone) {
+    if (!m_finishedEmitted && m_ytDlpCheckDone && m_galleryDlCheckDone && m_extractorsCheckDone && m_ffmpegCheckDone && m_denoCheckDone) {
+        m_finishedEmitted = true;
         qInfo() << QStringLiteral("Startup checks finished.");
         emit finished();
     }

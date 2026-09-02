@@ -22,6 +22,42 @@
 #include <QFile>
 #include <QSaveFile>
 #include <QCoreApplication>
+#include <QMetaObject>
+#include <QPointer>
+#include <QThread>
+#include <QtConcurrent/QtConcurrentRun>
+#include <utility>
+
+namespace {
+void saveHistoryToPath(const QString &path, const QList<HistoryItemData> &items)
+{
+    if (path.isEmpty()) {
+        return;
+    }
+
+    QJsonArray arr;
+    for (const HistoryItemData &data : items) {
+        QJsonObject obj;
+        obj[QStringLiteral("id")] = data.id;
+        obj[QStringLiteral("title")] = data.title;
+        obj[QStringLiteral("url")] = data.url;
+        obj[QStringLiteral("filePath")] = data.filePath;
+        obj[QStringLiteral("timestamp")] = data.timestamp;
+        obj[QStringLiteral("thumbnailPath")] = data.thumbnailPath;
+        obj[QStringLiteral("totalBytes")] = data.totalBytes;
+        obj[QStringLiteral("duration")] = data.duration;
+        arr.append(obj);
+    }
+
+    QSaveFile file(path);
+    if (file.open(QIODevice::WriteOnly)) {
+        file.write(QJsonDocument(arr).toJson());
+        if (!file.commit()) {
+            qWarning() << "Failed to commit download history to" << path;
+        }
+    }
+}
+}
 
 // A widget to represent a single history item
 class DownloadHistoryItemWidget : public QFrame {
@@ -64,15 +100,30 @@ public:
                         thumbnailLabel->setText(tr("No Image"));
                     }
                 });
-            } else if (QFileInfo::exists(data.thumbnailPath)) {
-                QImageReader reader(data.thumbnailPath);
-                reader.setAutoTransform(true);
-                QImage img = reader.read();
-                if (!img.isNull()) {
-                    thumbnailLabel->setPixmap(QPixmap::fromImage(img).scaled(120, 68, Qt::KeepAspectRatio, Qt::SmoothTransformation));
-                } else {
-                    thumbnailLabel->setText(tr("No Image"));
-                }
+            } else if (!data.thumbnailPath.isEmpty()) {
+                const QString thumbnailPath = data.thumbnailPath;
+                QPointer<QLabel> label(thumbnailLabel);
+                QCoreApplication *application = QCoreApplication::instance();
+                QThread *thread = QThread::create([thumbnailPath, label, application]() {
+                    QImageReader reader(thumbnailPath);
+                    reader.setAutoTransform(true);
+                    const QImage image = reader.read();
+                    if (!application) {
+                        return;
+                    }
+                    QMetaObject::invokeMethod(application, [label, image]() {
+                        if (!label) {
+                            return;
+                        }
+                        if (!image.isNull()) {
+                            label->setPixmap(QPixmap::fromImage(image).scaled(120, 68, Qt::KeepAspectRatio, Qt::SmoothTransformation));
+                        } else {
+                            label->setText(QObject::tr("No Image"));
+                        }
+                    }, Qt::QueuedConnection);
+                });
+                QObject::connect(thread, &QThread::finished, thread, &QObject::deleteLater);
+                thread->start();
             } else {
                 thumbnailLabel->setText(tr("No Image"));
             }
@@ -191,6 +242,28 @@ DownloadHistoryTab::DownloadHistoryTab(QWidget *parent) : QWidget(parent) {
     
     m_scrollArea->setWidget(m_scrollWidget);
     mainLayout->addWidget(m_scrollArea);
+
+    m_historySaveWatcher = new QFutureWatcher<void>(this);
+    connect(m_historySaveWatcher, &QFutureWatcher<void>::finished, this, [this]() {
+        if (!m_hasPendingHistorySave) {
+            return;
+        }
+        const QString path = m_pendingHistoryPath;
+        const QList<HistoryItemData> items = std::move(m_pendingHistoryItems);
+        m_pendingHistoryPath.clear();
+        m_hasPendingHistorySave = false;
+        startHistorySave(path, items);
+    });
+}
+
+DownloadHistoryTab::~DownloadHistoryTab()
+{
+    if (m_historySaveWatcher && m_historySaveWatcher->isRunning()) {
+        m_historySaveWatcher->waitForFinished();
+    }
+    if (m_hasPendingHistorySave) {
+        saveHistoryToPath(m_pendingHistoryPath, m_pendingHistoryItems);
+    }
 }
 
 void DownloadHistoryTab::loadHistory(const QString &filePath) {
@@ -265,29 +338,30 @@ void DownloadHistoryTab::loadHistory(const QString &filePath) {
 }
 
 void DownloadHistoryTab::saveHistory() const {
-    if (m_historyFilePath.isEmpty()) return;
-    
-    QJsonArray arr;
-    for (const HistoryItemData &data : m_historyItems) {
-        QJsonObject obj;
-        obj[QStringLiteral("id")] = data.id;
-        obj[QStringLiteral("title")] = data.title;
-        obj[QStringLiteral("url")] = data.url;
-        obj[QStringLiteral("filePath")] = data.filePath;
-        obj[QStringLiteral("timestamp")] = data.timestamp;
-        obj[QStringLiteral("thumbnailPath")] = data.thumbnailPath;
-        obj[QStringLiteral("totalBytes")] = data.totalBytes;
-        obj[QStringLiteral("duration")] = data.duration;
-        arr.append(obj);
+    saveHistoryToPath(m_historyFilePath, m_historyItems);
+}
+
+void DownloadHistoryTab::saveHistoryAsync()
+{
+    if (m_historyFilePath.isEmpty() || !m_historySaveWatcher) {
+        return;
     }
-    
-    QSaveFile file(m_historyFilePath);
-    if (file.open(QIODevice::WriteOnly)) {
-        file.write(QJsonDocument(arr).toJson());
-        if (!file.commit()) {
-            qWarning() << "Failed to commit download history to" << m_historyFilePath;
-        }
+
+    if (m_historySaveWatcher->isRunning()) {
+        m_pendingHistoryPath = m_historyFilePath;
+        m_pendingHistoryItems = m_historyItems;
+        m_hasPendingHistorySave = true;
+        return;
     }
+
+    startHistorySave(m_historyFilePath, m_historyItems);
+}
+
+void DownloadHistoryTab::startHistorySave(const QString &path, const QList<HistoryItemData> &items)
+{
+    m_historySaveWatcher->setFuture(QtConcurrent::run([path, items]() {
+        saveHistoryToPath(path, items);
+    }));
 }
 
 void DownloadHistoryTab::addHistoryItem(const HistoryItemData &data) {
@@ -295,7 +369,7 @@ void DownloadHistoryTab::addHistoryItem(const HistoryItemData &data) {
     if (m_historyItems.size() > 500) {
         m_historyItems.removeLast();
     }
-    saveHistory();
+    saveHistoryAsync();
 
     DownloadHistoryItemWidget *itemWidget = new DownloadHistoryItemWidget(data, m_scrollWidget);
     // Insert at index 0 so newest items appear at the top
@@ -312,7 +386,7 @@ void DownloadHistoryTab::addHistoryItem(const HistoryItemData &data) {
 
 void DownloadHistoryTab::clearHistory() {
     m_historyItems.clear();
-    saveHistory();
+    saveHistoryAsync();
     
     m_scrollWidget->setUpdatesEnabled(false);
     QLayoutItem *item;
