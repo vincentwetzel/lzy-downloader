@@ -7,23 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIVE.md](docs/CHANGELOG_ARCHIVE.md).
 
-## [1.2.42] - 2026-08-29
+## [Unreleased]
 
-- **Windows Debug image support:** Restore Qt JPEG and PNG plugins to the
-  minimized vcpkg build so Download History and active-download thumbnails
-  decode in local Debug builds. Disabled toolbar icons now remain visible.
-- **Global worker limit:** Coordinate download-worker slots across concurrent
-  GUI and Discord/server-mode processes so `max_threads` is enforced globally.
-- **Chrome browser companion:** Added a bounded native-messaging host with
-  client-scoped status/cancellation and request-scoped, host-validated browser
-  cookies. Cookie credentials stay out of queue backups and public snapshots
-  and are cleaned up after use.
-- **Chrome browser companion validation:** Enforce cookie URL path scope in the
-  native host and add extension-side and desktop-side coverage for cookie
-  scope, secure transport, expiration, size limits, redaction, and cleanup.
-- **Cookie setup guidance:** The Start Download warning now explains the full
-  browser-cookie setup path and links directly to Advanced Settings →
-  Essentials.
+## [1.2.44] - 2026-09-02
+
+- **Persistence responsiveness:** Queue-backup and Download History JSON writes
+  now snapshot immutable state and run through coalescing background writers.
+  Orderly shutdown waits for the writer and flushes the final queue snapshot;
+  successful media is recorded in SQLite from a worker-thread-local connection.
+- **Shutdown safety:** Prevent queued worker starts after shutdown begins, wait
+  for owned worker threads, and make startup completion emission idempotent for
+  clean headless and timed-test teardown.
+- **Playlist fallback identity:** Preserve the original row/job ID when ordinary
+  URLs fall back after delayed playlist probes, including non-interactive
+  playlist selections and recovered placeholder options.
+- **Responsive UI cleanup:** Move history thumbnail decoding and failed/cancelled
+  row temporary-file checks off the GUI thread with guarded generation checks.
+- **Worker responsiveness:** Run downloader processes, metadata embedding,
+  finalization, thumbnail loading, and history-cache copies off the GUI thread;
+  coalesce high-frequency row progress while retaining the newest state.
+- **Playlist behavior:** Carry the Start tab's selected playlist policy into each
+  request, honor persisted defaults for manager callers, and apply single-item
+  handling to expanded playlists.
+- **Resume and progress recovery:** Preserve playlist indices for resumed audio
+  filenames and asynchronously recover transfer sizes from owned `.part` files.
+- **Windows test deployment:** Add a direct-Qt `windeployqt` fallback, deploy
+  `qminimal`, serialize Visual Studio test builds, and bound loopback fixture
+  timeouts.
+- **Configuration safety:** Serialize shared `QSettings` access and validate
+  persisted playlist policies against stable internal values.
+- **Release CI:** Centralize the full headless test gate and publish platform
+  assets only after all required release jobs succeed.
+- **Extractor metadata:** Refresh the bundled yt-dlp extractor domain list.
 
 ## [1.2.43] - 2026-08-30
 
@@ -49,41 +64,23 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
   terminable on POSIX systems and normalize internal Qt paths independently of
   native display separators.
 
-## [Unreleased]
+## [1.2.42] - 2026-08-29
 
-- **Persistence responsiveness:** Queue-backup and Download History JSON writes
-  now snapshot immutable state and run through coalescing background writers;
-  orderly shutdown waits for the writer and flushes the final queue snapshot.
-  Finalization records successful media in SQLite from its worker-thread-local
-  connection instead of blocking the GUI during archive bursts.
-- **Shutdown safety:** Prevent queued worker starts after shutdown begins, wait
-  for owned worker threads, and make startup completion emission idempotent for
-  clean headless and timed-test teardown.
-- **Playlist fallback identity:** Process non-interactive playlist selections
-  while their placeholder exists and recover placeholder options after delayed
-  probe errors so ordinary-URL fallback preserves the original row/job ID.
-- **Responsive UI cleanup:** Move history thumbnail decoding and failed/cancelled
-  row temporary-file checks off the GUI thread with guarded generation checks.
-- **Windows test deployment:** Add a direct-Qt `windeployqt` fallback helper,
-  deploy `qminimal`, serialize Visual Studio test builds, and use a bounded
-  loopback end-to-end fixture timeout.
-- **Playlist Logic:** Carry the Start tab’s selected playlist policy into each
-  request, honor the persisted default for manager callers, and apply
-  single-item handling to expanded playlists. Added UI, configuration, and
-  argument regression coverage.
-- **Resume filenames:** Preserve playlist indices when restoring stopped or
-  failed audio items so resumed files keep their configured filename prefix.
-- **Responsiveness:** Run yt-dlp/gallery-dl, metadata embedding, finalization,
-  thumbnail loading, and history-cache copies off the GUI thread. Coalesce
-  high-frequency row progress while retaining the newest state.
-- **Progress recovery:** Poll owned `.part` files asynchronously with
-  generation checks so stale filesystem results cannot update an exited or
-  cancelled transfer.
-- **Configuration safety:** Serialize shared `QSettings` access and validate
-  persisted playlist policies against stable internal values.
-- **Release CI:** Centralize the full headless test suite in a reusable workflow
-  for branches, pull requests, and releases; publish release assets only after
-  the test gate and every platform build succeed.
+- **Windows Debug image support:** Restore Qt JPEG and PNG plugins to the
+  minimized vcpkg build so Download History and active-download thumbnails
+  decode in local Debug builds. Disabled toolbar icons now remain visible.
+- **Global worker limit:** Coordinate download-worker slots across concurrent
+  GUI and Discord/server-mode processes so `max_threads` is enforced globally.
+- **Chrome browser companion:** Added a bounded native-messaging host with
+  client-scoped status/cancellation and request-scoped, host-validated browser
+  cookies. Cookie credentials stay out of queue backups and public snapshots
+  and are cleaned up after use.
+- **Chrome browser companion validation:** Enforce cookie URL path scope in the
+  native host and add extension-side and desktop-side coverage for cookie
+  scope, secure transport, expiration, size limits, redaction, and cleanup.
+- **Cookie setup guidance:** The Start Download warning now explains the full
+  browser-cookie setup path and links directly to Advanced Settings →
+  Essentials.
 
 ## [1.2.41] - 2026-08-27
 
