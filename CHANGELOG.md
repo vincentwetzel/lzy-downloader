@@ -9,6 +9,8 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## [Unreleased]
 
+## [1.2.45] - 2026-09-04
+
 - **Audio post-processing:** Skip redundant FFmpeg metadata rewrites when
   yt-dlp has already embedded the artwork and its tracked thumbnail sidecar
   is no longer available, allowing valid audio files to proceed directly to
