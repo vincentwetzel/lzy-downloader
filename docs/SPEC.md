@@ -179,8 +179,11 @@ only the sections relevant to the change.
   Playlist audio prefixes indices by default and generates `folder.jpg` only
   for explicit full batches, not single or partial selections.
 - If yt-dlp leaves a tracked thumbnail sidecar, the existing FFmpeg rewrite
-  adds it as a second input mapped as `attached_pic` before cleanup. Missing
-  sidecars do not block ordinary metadata embedding.
+  adds it as a second input mapped as `attached_pic` before cleanup. The
+  metadata worker validates that candidate off the GUI thread; if native
+  yt-dlp post-processing already consumed it, the worker skips a redundant
+  rewrite when no track tag, extra metadata, or container normalization is
+  pending. Missing or unreadable sidecars do not block finalization.
 - Metadata embedding and final destination verification/replacement run off the
   GUI thread. A thumbnail path is a candidate until the worker validates it;
   missing or unreadable artwork does not block finalization. Stopping a job

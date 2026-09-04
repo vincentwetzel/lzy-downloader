@@ -69,9 +69,11 @@ void MetadataEmbedder::processFile(const QString &filePath, int trackNumber, boo
     m_originalFilePath = filePath;
     QFileInfo fileInfo(filePath);
     const QString suffix = fileInfo.suffix().toLower();
+    const bool hasThumbnail = !m_thumbnailPath.isEmpty() && QFile::exists(m_thumbnailPath);
 
-    if (!normalizeContainerTimestamps && suffix == QStringLiteral("opus") && trackNumber > 0 && m_extraMetadata.isEmpty()) {
-        qDebug() << "Skipping metadata embedding for .opus file to preserve album art.";
+    if (!normalizeContainerTimestamps && m_extraMetadata.isEmpty() && !hasThumbnail &&
+        ((suffix == QStringLiteral("opus") && trackNumber > 0) || trackNumber == 0)) {
+        qDebug() << "Skipping metadata embedding because no metadata rewrite or usable thumbnail is needed.";
         emit finished(true, "");
         return;
     }

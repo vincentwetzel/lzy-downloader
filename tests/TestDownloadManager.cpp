@@ -322,6 +322,18 @@ void TestDownloadManager::testMetadataEmbedderRunsOffGuiThread()
     QVERIFY(succeeded);
 }
 
+void TestDownloadManager::testMetadataEmbedderSkipsMissingThumbnailWithoutOtherWork()
+{
+    MetadataEmbedder *embedder = new MetadataEmbedder(getConfigManager());
+    QSignalSpy finishedSpy(embedder, &MetadataEmbedder::finished);
+
+    embedder->processFile(QStringLiteral("missing-test-file.opus"), 0, false);
+
+    QCOMPARE(finishedSpy.count(), 1);
+    QVERIFY(finishedSpy.first().at(0).toBool());
+    delete embedder;
+}
+
 void TestDownloadManager::testFinalizationDoesNotBlockGuiThread()
 {
     ConfigManager *configManager = getConfigManager();

@@ -9,6 +9,11 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## [Unreleased]
 
+- **Audio post-processing:** Skip redundant FFmpeg metadata rewrites when
+  yt-dlp has already embedded the artwork and its tracked thumbnail sidecar
+  is no longer available, allowing valid audio files to proceed directly to
+  finalization. Added regression coverage for missing-thumbnail audio jobs.
+
 ## [1.2.44] - 2026-09-02
 
 - **Persistence responsiveness:** Queue-backup and Download History JSON writes

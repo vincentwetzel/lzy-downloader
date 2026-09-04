@@ -63,6 +63,7 @@ private slots:
     void testSlowProbeFallbackAndExplicitPlaylistSmoke();
     void testDownloadWorkerUsesDedicatedThread();
     void testMetadataEmbedderRunsOffGuiThread();
+    void testMetadataEmbedderSkipsMissingThumbnailWithoutOtherWork();
     void testFinalizationDoesNotBlockGuiThread();
     void testCompletionStateSaveDoesNotBlockGuiThread();
 
