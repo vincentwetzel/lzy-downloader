@@ -104,29 +104,7 @@ public:
                     }
                 });
             } else if (!data.thumbnailPath.isEmpty()) {
-                const QString thumbnailPath = data.thumbnailPath;
-                QPointer<QLabel> label(thumbnailLabel);
-                QCoreApplication *application = QCoreApplication::instance();
-                QThread *thread = QThread::create([thumbnailPath, label, application]() {
-                    QImageReader reader(thumbnailPath);
-                    reader.setAutoTransform(true);
-                    const QImage image = reader.read();
-                    if (!application) {
-                        return;
-                    }
-                    QMetaObject::invokeMethod(application, [label, image, thumbnailPath]() {
-                        if (!label || label->property("thumbnailPath").toString() != thumbnailPath) {
-                            return;
-                        }
-                        if (!image.isNull()) {
-                            label->setPixmap(QPixmap::fromImage(image).scaled(120, 68, Qt::KeepAspectRatio, Qt::SmoothTransformation));
-                        } else {
-                            label->setText(QObject::tr("No Image"));
-                        }
-                    }, Qt::QueuedConnection);
-                });
-                QObject::connect(thread, &QThread::finished, thread, &QObject::deleteLater);
-                thread->start();
+                loadThumbnailAsync(data.thumbnailPath, thumbnailLabel);
             } else {
                 thumbnailLabel->setText(tr("No Image"));
             }
@@ -215,6 +193,20 @@ public:
         mainLayout->addLayout(actionLayout);
     }
 
+    ~DownloadHistoryItemWidget() override
+    {
+        // QThread::create() workers are owned by this row. Wait for any
+        // outstanding file read before QObject tears down the label and its
+        // queued callbacks. This is normally only a few milliseconds, while
+        // preventing a Windows heap corruption during rapid row teardown.
+        for (QThread *thread : std::as_const(m_thumbnailThreads)) {
+            if (thread->isRunning()) {
+                thread->requestInterruption();
+                thread->wait();
+            }
+        }
+    }
+
     void updateThumbnail(const QString &thumbnailPath)
     {
         if (thumbnailPath.isEmpty()) {
@@ -226,9 +218,15 @@ public:
             return;
         }
 
-        QPointer<QLabel> label(thumbnailLabel);
         thumbnailLabel->setProperty("thumbnailPath", thumbnailPath);
-        QCoreApplication *application = QCoreApplication::instance();
+        loadThumbnailAsync(thumbnailPath, thumbnailLabel);
+    }
+
+private:
+    void loadThumbnailAsync(const QString &thumbnailPath, QLabel *thumbnailLabel)
+    {
+        QPointer<QLabel> label(thumbnailLabel);
+        QPointer<QCoreApplication> application(QCoreApplication::instance());
         QThread *thread = QThread::create([thumbnailPath, label, application]() {
             QImageReader reader(thumbnailPath);
             reader.setAutoTransform(true);
@@ -236,7 +234,7 @@ public:
             if (!application || !label) {
                 return;
             }
-            QMetaObject::invokeMethod(label.data(), [label, image, thumbnailPath]() {
+            QMetaObject::invokeMethod(application.data(), [label, image, thumbnailPath]() {
                 if (!label || label->property("thumbnailPath").toString() != thumbnailPath) {
                     return;
                 }
@@ -247,9 +245,16 @@ public:
                 }
             }, Qt::QueuedConnection);
         });
+        thread->setParent(this);
+        m_thumbnailThreads.append(thread);
+        QObject::connect(thread, &QThread::finished, this, [this, thread]() {
+            m_thumbnailThreads.removeOne(thread);
+        });
         QObject::connect(thread, &QThread::finished, thread, &QObject::deleteLater);
         thread->start();
     }
+
+    QList<QThread *> m_thumbnailThreads;
 };
 
 DownloadHistoryTab::DownloadHistoryTab(QWidget *parent) : QWidget(parent) {

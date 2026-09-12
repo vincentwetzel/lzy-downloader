@@ -24,7 +24,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: windows-latest
+          # Keep the runner/compiler aligned with Qt's msvc2022_64 package.
+          - os: windows-2022
             platform: windows
             qt_arch: win64_msvc2022_64
           - os: ubuntu-22.04

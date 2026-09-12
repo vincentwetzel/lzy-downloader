@@ -284,7 +284,7 @@ Download History thumbnail decoding.
 GitHub Actions runs the full headless C++ test suite before building release
 assets when a `v*` tag is pushed. The workflow at
 `.github/workflows/release.yml` then runs `python build_release.py` on
-`windows-latest`, `ubuntu-22.04`, `macos-15-intel` (Intel), and `macos-15`
+`windows-2022`, `ubuntu-22.04`, `macos-15-intel` (Intel), and `macos-15`
 (Apple Silicon). A final publish job uploads the Windows installer, Linux
 AppImage, and both architecture-labelled macOS DMGs only when the test and all
 platform build jobs succeed. If the matching release-notes file is absent, CI
