@@ -37,6 +37,9 @@ private:
 
 #if defined(Q_OS_MACOS)
     unsigned int m_macosAssertionId = 0;
+#elif defined(Q_OS_WIN)
+    void *m_windowsPowerRequest = nullptr;
+    bool m_windowsExecutionStateActive = false;
 #elif defined(Q_OS_LINUX)
     int m_linuxLogin1Fd = -1;
     unsigned int m_linuxScreenSaverCookie = 0;

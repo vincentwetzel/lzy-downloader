@@ -28,13 +28,37 @@ bool PowerInhibitor::acquire() noexcept
     }
 
 #if defined(Q_OS_WIN)
-    // ES_SYSTEM_REQUIRED prevents idle sleep but deliberately leaves display
-    // power management untouched. The call is made on the manager's event
-    // loop thread and remains in effect until ES_CONTINUOUS is released.
+    // A persistent power request is the Windows API intended for long-running
+    // work. It is not tied to a worker thread and does not keep the display on.
+    wchar_t reason[] = L"LzyDownloader downloads active";
+    REASON_CONTEXT context{};
+    context.Version = POWER_REQUEST_CONTEXT_VERSION;
+    context.Flags = POWER_REQUEST_CONTEXT_SIMPLE_STRING;
+    context.Reason.SimpleReasonString = reason;
+
+    HANDLE powerRequest = PowerCreateRequest(&context);
+    if (powerRequest != INVALID_HANDLE_VALUE) {
+        if (PowerSetRequest(powerRequest, PowerRequestSystemRequired)) {
+            m_windowsPowerRequest = powerRequest;
+            m_active = true;
+            qInfo() << "Windows system power request enabled for active downloads.";
+            return true;
+        }
+
+        qWarning() << "Unable to set Windows system power request. Error:" << GetLastError();
+        CloseHandle(powerRequest);
+    } else {
+        qWarning() << "Unable to create Windows system power request. Error:" << GetLastError();
+    }
+
+    // Keep a compatibility fallback for unusual Windows configurations where
+    // the power-request object is unavailable. This legacy state is cleared
+    // explicitly during release and is still better than no protection.
     if (SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED) == 0) {
         qWarning() << "Unable to prevent Windows system idle sleep. Error:" << GetLastError();
         return false;
     }
+    m_windowsExecutionStateActive = true;
     m_active = true;
     return true;
 #elif defined(Q_OS_MACOS)
@@ -119,8 +143,19 @@ void PowerInhibitor::release() noexcept
     }
 
 #if defined(Q_OS_WIN)
-    if (SetThreadExecutionState(ES_CONTINUOUS) == 0) {
-        qWarning() << "Unable to release Windows system idle-sleep inhibition. Error:" << GetLastError();
+    if (m_windowsPowerRequest) {
+        const HANDLE powerRequest = static_cast<HANDLE>(m_windowsPowerRequest);
+        if (!PowerClearRequest(powerRequest, PowerRequestSystemRequired)) {
+            qWarning() << "Unable to clear Windows system power request. Error:" << GetLastError();
+        }
+        CloseHandle(powerRequest);
+        m_windowsPowerRequest = nullptr;
+    }
+    if (m_windowsExecutionStateActive) {
+        if (SetThreadExecutionState(ES_CONTINUOUS) == 0) {
+            qWarning() << "Unable to release Windows system idle-sleep inhibition. Error:" << GetLastError();
+        }
+        m_windowsExecutionStateActive = false;
     }
 #elif defined(Q_OS_MACOS)
     const IOReturn result = IOPMAssertionRelease(static_cast<IOPMAssertionID>(m_macosAssertionId));

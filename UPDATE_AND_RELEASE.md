@@ -374,6 +374,8 @@ If the workflow is unavailable, navigate to https://github.com/vincentwetzel/lzy
 - [ ] NSIS installer tested (install/uninstall preserves `%LOCALAPPDATA%\LzyDownloader\settings.ini`, `download_archive.db`, `downloads_backup.json`, `download_history.json`, and log files)
 - [ ] NSIS installer finish-page launch option starts `LzyDownloader.exe` when left checked and does not start it when cleared
 - [ ] Clean Windows install tested for HTTPS update checks (Qt TLS backend loads with `libcrypto-3-x64.dll` and `libssl-3-x64.dll` beside `LzyDownloader.exe`)
+- [ ] Windows MinGW packaging validation passes with `libgcc_s_seh-1.dll`, `libstdc++-6.dll`, and `libwinpthread-1.dll` beside `LzyDownloader.exe`; packaging fails when any required runtime is absent
+- [ ] Windows active-download sleep inhibition verified through completion, cancellation, and shutdown; the system may stay awake while the display remains eligible for normal power-off
 - [ ] Application update tested with active and queued downloads; queue/history state is saved and downloader/helper processes are stopped before installer launch
 - [ ] Silent application update verified to relaunch the freshly installed `LzyDownloader.exe` after NSIS completes
 - [ ] Intel and Apple Silicon DMGs mount and launch with deployed Qt plugins and the SQLite driver

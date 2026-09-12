@@ -64,6 +64,36 @@ def find_configured_qt_prefix():
     return None
 
 
+def verify_windows_runtime_deployment(build_dir, built_exe):
+    """Fail packaging when a MinGW release is missing its sibling runtimes."""
+    cache_path = Path(build_dir) / "CMakeCache.txt"
+    try:
+        cache_text = cache_path.read_text(encoding="utf-8")
+    except OSError as error:
+        log(f"Warning: Could not inspect CMake compiler configuration: {error}", YELLOW)
+        return
+
+    if not re.search(r"^CMAKE_CXX_COMPILER_ID:[^=]*=GNU$", cache_text, re.MULTILINE):
+        return
+
+    required_dlls = (
+        "libgcc_s_seh-1.dll",
+        "libstdc++-6.dll",
+        "libwinpthread-1.dll",
+    )
+    missing_dlls = [dll for dll in required_dlls if not (Path(built_exe).parent / dll).is_file()]
+    if missing_dlls:
+        log(
+            "Error: MinGW runtime deployment is incomplete beside "
+            f"{built_exe}: {', '.join(missing_dlls)}",
+            RED,
+        )
+        log("Reconfigure and rebuild before packaging the Windows release.", RED)
+        sys.exit(1)
+
+    log("Verified MinGW runtime DLLs beside the Windows executable.", GREEN)
+
+
 def create_macos_icon(source_icon, destination_icon):
     """Convert the release PNG into an ICNS file required by a macOS app bundle."""
     iconset_dir = destination_icon.with_suffix(".iconset")
@@ -312,6 +342,8 @@ def main():
         if not built_exe.exists():
             log(f"Error: Executable not found at {built_exe}", RED)
             sys.exit(1)
+
+        verify_windows_runtime_deployment(build_dir, built_exe)
 
         # Verify Windows Metadata version matches
         try:

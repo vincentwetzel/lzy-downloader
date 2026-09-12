@@ -15,6 +15,11 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 - **Non-interactive enqueue feedback:** Requests received while another
   download is undergoing asynchronous metadata validation now emit a terminal
   failure webhook instead of returning success and leaving the caller orphaned.
+- **Windows package validation:** Release packaging now fails early if a MinGW
+  executable is missing its required runtime DLLs beside the application.
+- **Windows sleep prevention:** Use a persistent Windows system power request
+  for active downloads so long-running transfers and post-processing remain
+  protected from automatic idle sleep without forcing the display to stay on.
 
 ## [1.2.48] - 2026-09-09
 

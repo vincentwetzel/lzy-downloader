@@ -1,4 +1,13 @@
+#include <QtGlobal>
+
+#if defined(Q_OS_WIN)
+// Verify the native request without invoking elevated powercfg commands.
+#define private public
+#endif
 #include "core/PowerInhibitor.h"
+#if defined(Q_OS_WIN)
+#undef private
+#endif
 #include <QtTest/QtTest>
 
 class TestPowerInhibitor : public QObject {
@@ -6,6 +15,9 @@ class TestPowerInhibitor : public QObject {
 
 private slots:
     void acquireAndReleaseAreIdempotent();
+#if defined(Q_OS_WIN)
+    void windowsPersistentPowerRequestLifecycle();
+#endif
 };
 
 void TestPowerInhibitor::acquireAndReleaseAreIdempotent()
@@ -26,6 +38,26 @@ void TestPowerInhibitor::acquireAndReleaseAreIdempotent()
     inhibitor.release();
     QVERIFY(!inhibitor.isActive());
 }
+
+#if defined(Q_OS_WIN)
+void TestPowerInhibitor::windowsPersistentPowerRequestLifecycle()
+{
+    PowerInhibitor inhibitor;
+    QVERIFY(inhibitor.acquire());
+    QVERIFY(inhibitor.m_windowsPowerRequest != nullptr);
+    QVERIFY(!inhibitor.m_windowsExecutionStateActive);
+
+    // Re-acquisition must not replace or stack the native request.
+    void *request = inhibitor.m_windowsPowerRequest;
+    QVERIFY(inhibitor.acquire());
+    QCOMPARE(inhibitor.m_windowsPowerRequest, request);
+
+    inhibitor.release();
+    QVERIFY(!inhibitor.isActive());
+    QVERIFY(inhibitor.m_windowsPowerRequest == nullptr);
+    QVERIFY(!inhibitor.m_windowsExecutionStateActive);
+}
+#endif
 
 QTEST_GUILESS_MAIN(TestPowerInhibitor)
 
