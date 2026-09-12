@@ -50,4 +50,17 @@ inline void applyNonInteractiveDownloadDefaults(QVariantMap &options)
     options["download_sections_set"] = true;
 }
 
+inline bool blocksClipboardAutoPasteForApplicationUpdate(bool updateCheckPending,
+                                                         bool updatePromptActive,
+                                                         bool updateInstalling)
+{
+    return updateCheckPending || updatePromptActive || updateInstalling;
+}
+
+inline bool blocksDownloadAdmissionForApplicationUpdate(bool updatePromptActive,
+                                                        bool updateInstalling)
+{
+    return updatePromptActive || updateInstalling;
+}
+
 }

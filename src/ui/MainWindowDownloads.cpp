@@ -67,6 +67,18 @@ void MainWindow::onDownloadRequested(const QString &url, const QVariantMap &opti
 {
     const bool nonInteractive = m_nonInteractiveLaunch || MainWindowHelpers::isNonInteractiveRequest(options);
 
+    if (MainWindowHelpers::blocksDownloadAdmissionForApplicationUpdate(
+            m_appUpdatePromptActive, m_appUpdateInstalling)) {
+        const QString reason = tr("Downloads are temporarily paused while the application update is being handled.");
+        if (nonInteractive) {
+            emit nonInteractiveRequestFailed(options.value(QStringLiteral("id")).toString(), url, reason);
+        } else {
+            statusBar()->showMessage(reason, 5000);
+        }
+        qInfo() << "Rejecting download request during application update handoff:" << url;
+        return;
+    }
+
     if (!m_pendingUrl.isEmpty()) {
         if (nonInteractive) {
             const QString reason = tr("Another download request is already being processed.");
@@ -185,6 +197,19 @@ void MainWindow::onDownloadRequested(const QString &url, const QVariantMap &opti
 void MainWindow::enqueueDownloadFromUi(const QString &url, QVariantMap options)
 {
     const bool nonInteractive = m_nonInteractiveLaunch || MainWindowHelpers::isNonInteractiveRequest(options);
+
+    if (MainWindowHelpers::blocksDownloadAdmissionForApplicationUpdate(
+            m_appUpdatePromptActive, m_appUpdateInstalling)) {
+        const QString reason = tr("Downloads are temporarily paused while the application update is being handled.");
+        if (nonInteractive) {
+            emit nonInteractiveRequestFailed(options.value(QStringLiteral("id")).toString(), url, reason);
+        } else {
+            statusBar()->showMessage(reason, 5000);
+        }
+        qInfo() << "Rejecting queued download during application update handoff:" << url;
+        return;
+    }
+
     const bool configuredOverride = m_configManager->get(QStringLiteral("General"), QStringLiteral("override_archive"), false).toBool();
     const bool overrideArchive = options.value(QStringLiteral("override_archive"), configuredOverride).toBool();
 

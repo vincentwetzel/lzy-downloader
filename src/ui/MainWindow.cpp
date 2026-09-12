@@ -27,10 +27,12 @@ MainWindow::MainWindow(ExtractorJsonParser *extractorJsonParser, QWidget *parent
       m_localApiServer(nullptr),
       m_clipboard(nullptr), m_startTab(nullptr), m_activeDownloadsTab(nullptr),
       m_advancedSettingsTab(nullptr), m_trayIcon(nullptr), m_trayMenu(nullptr),
-      m_silentUpdateCheck(false), m_appUpdateCheckPending(false), m_appUpdateInstalling(false),
+      m_silentUpdateCheck(false), m_appUpdateCheckPending(false), m_appUpdatePromptActive(false),
+      m_appUpdateInstalling(false),
       m_startupChecksFinished(false), m_startupSetupPresented(false),
       m_nonInteractiveLaunch(MainWindowHelpers::hasNonInteractiveLaunchArgument()),
-      m_lastAutoPasteTimestamp(0), m_skipInitialFocusAutoEnqueue(true)
+      m_lastAutoPasteTimestamp(0), m_deferredClipboardAutoPaste(false),
+      m_deferredClipboardForceEnqueue(false), m_skipInitialFocusAutoEnqueue(true)
 {
     // Intercept window creation BEFORE it can be shown by main.cpp
     if (m_nonInteractiveLaunch) {

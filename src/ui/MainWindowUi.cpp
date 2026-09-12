@@ -1,4 +1,5 @@
 #include "MainWindow.h"
+#include "MainWindowHelpers.h"
 #include "MainWindowUiBuilder.h"
 #include "StartTab.h"
 #include "ActiveDownloadsTab.h"
@@ -191,6 +192,17 @@ void MainWindow::onClipboardChanged()
 void MainWindow::handleClipboardAutoPaste(bool forceEnqueue)
 {
     if (m_nonInteractiveLaunch) {
+        return;
+    }
+
+    // AppUpdater's prompt uses a nested event loop. Hover and clipboard events
+    // can therefore arrive while the update decision is still on screen. Do
+    // not start a download that the installer will immediately have to kill;
+    // replay the latest clipboard action once the update barrier is released.
+    if (MainWindowHelpers::blocksClipboardAutoPasteForApplicationUpdate(
+            m_appUpdateCheckPending, m_appUpdatePromptActive, m_appUpdateInstalling)) {
+        m_deferredClipboardAutoPaste = true;
+        m_deferredClipboardForceEnqueue = m_deferredClipboardForceEnqueue || forceEnqueue;
         return;
     }
 

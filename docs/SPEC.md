@@ -277,6 +277,10 @@ only the sections relevant to the change.
   binary version probe: bundled extractor metadata is initialized after every
   terminal updater result, including missing-tool and probe-failure results, so
   the checklist can be shown and the Start tab can recover from its waiting state.
+  While the application update check, prompt, or installer handoff is active,
+  clipboard auto-paste/enqueue is deferred and new GUI download admission is
+  rejected; a deferred clipboard action is replayed after startup setup is
+  complete when no application update is being installed.
   Windows FFmpeg/FFprobe replacements stage beside the destination and retry
   transient locks while preserving the old executable on failure.
 - Windows deployment includes required Qt image plugins, SQLite, OpenSSL, and

@@ -377,6 +377,7 @@ If the workflow is unavailable, navigate to https://github.com/vincentwetzel/lzy
 - [ ] Windows MinGW packaging validation passes with `libgcc_s_seh-1.dll`, `libstdc++-6.dll`, and `libwinpthread-1.dll` beside `LzyDownloader.exe`; packaging fails when any required runtime is absent
 - [ ] Windows active-download sleep inhibition verified through completion, cancellation, and shutdown; the system may stay awake while the display remains eligible for normal power-off
 - [ ] Application update tested with active and queued downloads; queue/history state is saved and downloader/helper processes are stopped before installer launch
+- [ ] Application update tested with clipboard auto-paste/enqueue enabled; hover or clipboard events are deferred during the update check/prompt/handoff and a cancelled update replays the latest deferred action after startup setup
 - [ ] Silent application update verified to relaunch the freshly installed `LzyDownloader.exe` after NSIS completes
 - [ ] Intel and Apple Silicon DMGs mount and launch with deployed Qt plugins and the SQLite driver
 - [ ] macOS updater selects only the matching architecture DMG and opens it in Finder for installation

@@ -86,6 +86,7 @@ private:
     void connectStartupWorkerSignals();
     void queueDirectCliDownload();
     void releaseDeferredStartupBinaryUpdates();
+    void retryDeferredClipboardAutoPaste();
     void showStartupBinarySetupIfReady();
     void handleClipboardAutoPaste(bool forceEnqueue = false); // Modified to accept forceEnqueue
     bool showMissingBinariesDialog(const QStringList &binaryNames,
@@ -121,6 +122,7 @@ private:
     QVariantMap m_pendingOptions;
     bool m_silentUpdateCheck;
     bool m_appUpdateCheckPending;
+    bool m_appUpdatePromptActive;
     bool m_appUpdateInstalling;
     bool m_startupChecksFinished;
     bool m_startupSetupPresented;
@@ -129,6 +131,8 @@ private:
     QHash<QString, QString> m_startupUpdateDetails;
     QString m_lastAutoPastedUrl; // Track last auto-pasted URL to prevent duplicates
     qint64 m_lastAutoPasteTimestamp; // Timestamp of last auto-paste to enforce cooldown
+    bool m_deferredClipboardAutoPaste;
+    bool m_deferredClipboardForceEnqueue;
     bool m_skipInitialFocusAutoEnqueue;
 };
 

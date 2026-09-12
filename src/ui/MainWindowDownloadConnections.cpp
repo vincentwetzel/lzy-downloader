@@ -394,7 +394,7 @@ void MainWindow::connectStartupWorkerSignals()
         // Give the application update decision priority over binary updates.
         // Keep the warning, but defer automatic replacement and the checklist
         // until the application update check has resolved.
-        if (m_appUpdateCheckPending || m_appUpdateInstalling) {
+        if (m_appUpdateCheckPending || m_appUpdatePromptActive || m_appUpdateInstalling) {
             const bool updateAvailable = m_configManager->get(
                 QStringLiteral("Binaries"), QStringLiteral("%1_update_available").arg(binaryName), false).toBool();
             if (updateAvailable) {
@@ -463,9 +463,26 @@ void MainWindow::releaseDeferredStartupBinaryUpdates()
     }
 }
 
+void MainWindow::retryDeferredClipboardAutoPaste()
+{
+    if (!m_deferredClipboardAutoPaste || m_appUpdateCheckPending ||
+        !m_startupChecksFinished ||
+        m_appUpdatePromptActive || m_appUpdateInstalling) {
+        return;
+    }
+
+    const bool forceEnqueue = m_deferredClipboardForceEnqueue;
+    m_deferredClipboardAutoPaste = false;
+    m_deferredClipboardForceEnqueue = false;
+
+    QTimer::singleShot(0, this, [this, forceEnqueue]() {
+        handleClipboardAutoPaste(forceEnqueue);
+    });
+}
+
 void MainWindow::showStartupBinarySetupIfReady()
 {
-    if (m_nonInteractiveLaunch || m_appUpdateCheckPending || m_appUpdateInstalling ||
+    if (m_nonInteractiveLaunch || m_appUpdateCheckPending || m_appUpdatePromptActive || m_appUpdateInstalling ||
         !m_startupChecksFinished || m_startupSetupPresented) {
         return;
     }
@@ -484,6 +501,8 @@ void MainWindow::showStartupBinarySetupIfReady()
         m_configManager->set(QStringLiteral("Binaries"), QStringLiteral("setup_completed"), true);
         m_configManager->save();
     }
+
+    retryDeferredClipboardAutoPaste();
 }
 
 void MainWindow::queueDirectCliDownload()

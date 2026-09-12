@@ -25,6 +25,11 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## [Unreleased]
 
+- **Application update handoff:** Defer clipboard auto-paste/enqueue activity
+  while the app-update check or prompt is active, and reject new download
+  admission during installer shutdown so binary notices and hover automation do
+  not interfere with application upgrades.
+
 ## [1.2.49] - 2026-09-11
 
 - **Startup ownership compatibility:** Prevent older GUI/server instances from

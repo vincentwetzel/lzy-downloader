@@ -68,6 +68,12 @@ Application-wide settings that control theme, cookie handling, clipboard behavio
 
 Internally, clipboard-triggered auto-paste uses a short debounce window of roughly 500 ms plus queue-level duplicate detection, so rapid clipboard notifications do not enqueue the same URL multiple times while still allowing quick successive copies.
 
+While the application update check, update prompt, or installer handoff is active,
+clipboard-triggered paste/enqueue is deferred so it cannot start work while the
+application is preparing to close for an update. If the update is cancelled or
+otherwise does not install, the latest deferred clipboard action is replayed after
+startup setup completes.
+
 ---
 
 ## Paths

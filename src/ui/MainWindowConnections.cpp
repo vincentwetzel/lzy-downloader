@@ -129,10 +129,12 @@ void MainWindow::connectAppUpdaterSignals()
                 if (m_nonInteractiveLaunch) {
                     qInfo() << "Skipping update prompt during non-interactive launch. Available version:" << latestVersion;
                     m_silentUpdateCheck = false;
+                    m_appUpdatePromptActive = false;
                     return;
                 }
 
                 m_silentUpdateCheck = false;
+                m_appUpdatePromptActive = true;
 
                 QMessageBox msgBox(this);
                 msgBox.setIcon(QMessageBox::Information);
@@ -154,6 +156,7 @@ void MainWindow::connectAppUpdaterSignals()
                 QPushButton *viewReleaseButton = msgBox.addButton(tr("View Release"), QMessageBox::ActionRole);
                 msgBox.addButton(QMessageBox::Cancel);
                 msgBox.exec();
+                m_appUpdatePromptActive = false;
 
                 if (msgBox.clickedButton() == updateNowButton) {
                     m_appUpdateInstalling = true;
@@ -174,6 +177,7 @@ void MainWindow::connectAppUpdaterSignals()
 
     connect(m_appUpdater, &AppUpdater::noUpdateAvailable, this, [this]() {
         m_silentUpdateCheck = false;
+        m_appUpdatePromptActive = false;
         m_appUpdateCheckPending = false;
         releaseDeferredStartupBinaryUpdates();
         showStartupBinarySetupIfReady();
@@ -183,6 +187,7 @@ void MainWindow::connectAppUpdaterSignals()
     connect(m_appUpdater, &AppUpdater::updateCheckFailed, this, [this](const QString &error) {
         const bool wasSilent = m_silentUpdateCheck;
         m_silentUpdateCheck = false;
+        m_appUpdatePromptActive = false;
         m_appUpdateInstalling = false;
         m_appUpdateCheckPending = false;
         releaseDeferredStartupBinaryUpdates();

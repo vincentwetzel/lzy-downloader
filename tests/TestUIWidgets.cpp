@@ -1,6 +1,7 @@
 #include "TestUIWidgets.h"
 #include "core/ConfigManager.h"
 #include "core/ProcessUtils.h"
+#include "ui/MainWindowHelpers.h"
 #include "ui/StartTab.h"
 #include "ui/MissingBinariesDialog.h"
 #include "ui/advanced_settings/BinariesPage.h"
@@ -367,6 +368,18 @@ void TestUIWidgets::testRequiredToolsDialogDistinguishesExistingUpdates() {
     QCOMPARE(page.recommendedInstallLabel(QStringLiteral("deno")),
              QStringLiteral("PowerShell (Deno stable) (Recommended)"));
 #endif
+}
+
+void TestUIWidgets::testApplicationUpdateBlocksConflictingClipboardAndDownloads()
+{
+    QVERIFY(MainWindowHelpers::blocksClipboardAutoPasteForApplicationUpdate(true, false, false));
+    QVERIFY(MainWindowHelpers::blocksClipboardAutoPasteForApplicationUpdate(false, true, false));
+    QVERIFY(MainWindowHelpers::blocksClipboardAutoPasteForApplicationUpdate(false, false, true));
+    QVERIFY(!MainWindowHelpers::blocksClipboardAutoPasteForApplicationUpdate(false, false, false));
+
+    QVERIFY(MainWindowHelpers::blocksDownloadAdmissionForApplicationUpdate(true, false));
+    QVERIFY(MainWindowHelpers::blocksDownloadAdmissionForApplicationUpdate(false, true));
+    QVERIFY(!MainWindowHelpers::blocksDownloadAdmissionForApplicationUpdate(false, false));
 }
 
 QTEST_MAIN(TestUIWidgets)
