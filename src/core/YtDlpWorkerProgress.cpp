@@ -104,9 +104,9 @@ bool YtDlpWorker::parseYtDlpProgressLine(const QString &line) {
     }
 
     static const QRegularExpression progressRegex(
-        QStringLiteral(R"(^\[download\]\s+([\d\.]+)%\s+of\s+(?:~\s*)?(.+?)(?=\s+at\s+|\s+ETA\s+|\s+\(frag\s+\d+/\d+\)|$)(?:\s+at\s+(.+?)(?=\s+ETA\s+|\s+\(frag\s+\d+/\d+\)|$))?(?:\s+ETA\s+([^\s]+))?(?:\s+\(frag\s+(\d+)/(\d+)\))?)"));
+        QStringLiteral(R"(^\[download\]\s+([\d\.]+)%\s+of\s+(?:~\s*)?([\d\.]+\s*[KMGTPE]?i?B|[Uu]nknown(?:\s+[Ss]ize)?)(?:\s+at\s+(.+?)(?=\s+ETA\s+|\s+\(frag\s+\d+/\d+\)|$))?(?:\s+ETA\s+([^\s]+))?(?:\s+\(frag\s+(\d+)/(\d+)\))?\s*$)"));
     static const QRegularExpression completedRegex(
-        QStringLiteral(R"(^\[download\]\s+100(?:\.0+)?%\s+of\s+(?:~\s*)?(.+?)(?=\s+in\s+|\s+at\s+|\s+\(frag\s+\d+/\d+\)|$)(?:\s+in\s+([^\s]+))?(?:\s+at\s+(.+?)(?=\s+\(frag\s+\d+/\d+\)|$))?(?:\s+\(frag\s+(\d+)/(\d+)\))?)"));
+        QStringLiteral(R"(^\[download\]\s+100(?:\.0+)?%\s+of\s+(?:~\s*)?([\d\.]+\s*[KMGTPE]?i?B)(?:\s+in\s+([^\s]+))?(?:\s+at\s+(.+?)(?=\s+\(frag\s+\d+/\d+\)|$))?(?:\s+\(frag\s+(\d+)/(\d+)\))?)"));
     static const QRegularExpression indeterminateRegex(
         QStringLiteral(R"(^\[download\]\s+(.+?)\s+at\s+(.+?)\s+\(([^)]+)\))"));
 
@@ -179,6 +179,18 @@ bool YtDlpWorker::parseYtDlpProgressLine(const QString &line) {
     } else {
         percentage = matchedCompletedFormat ? 100.0 : match.capturedView(1).toDouble();
         totalString = (matchedCompletedFormat ? match.capturedView(1) : match.capturedView(2)).trimmed().toString();
+        if (matchedCompletedFormat) {
+            // Keep the completed-line size isolated from the optional timing
+            // suffix. This also handles concatenated aria2/yt-dlp lines on
+            // Windows where the broad progress expression can otherwise
+            // leave only the numeric portion (for example, "5.0").
+            static const QRegularExpression completedSizeRegex(
+                QStringLiteral(R"(\[download\]\s+100(?:\.0+)?%\s+of\s+(?:~\s*)?([\d\.]+\s*[KMGTPE]?i?B))"));
+            const QRegularExpressionMatch sizeMatch = completedSizeRegex.match(normalizedView.toString());
+            if (sizeMatch.hasMatch()) {
+                totalString = sizeMatch.captured(1).trimmed();
+            }
+        }
         speedString = match.capturedView(3).trimmed().toString();
         etaString = matchedCompletedFormat ? QStringLiteral("0:00") : match.capturedView(4).trimmed().toString();
 

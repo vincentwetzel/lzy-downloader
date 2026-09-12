@@ -1,8 +1,12 @@
 #include "RuntimeCoordinator.h"
 
+#include <QCoreApplication>
+#include <QElapsedTimer>
+#include <QEventLoop>
 #include <QLocalServer>
 #include <QLocalSocket>
 #include <QDebug>
+#include <QThread>
 #include <QTimer>
 #include <QVariant>
 
@@ -53,7 +57,7 @@ RuntimeCoordinator::StartResult RuntimeCoordinator::startOrNotify(const QString 
         return StartResult::Owner;
     }
     const NotifyResult notifyResult = notifyOwner(command);
-    if (notifyResult == NotifyResult::Notified) {
+    if (notifyResult == NotifyResult::Notified || notifyResult == NotifyResult::Sent) {
         return StartResult::ClientNotified;
     }
     if (notifyResult != NotifyResult::NoServer) {
@@ -86,18 +90,77 @@ bool RuntimeCoordinator::listen()
 
 RuntimeCoordinator::NotifyResult RuntimeCoordinator::notifyOwner(const QString &command) const
 {
-    QLocalSocket socket;
-    socket.connectToServer(m_serverName, QIODevice::WriteOnly);
-    if (!socket.waitForConnected(750)) {
-        return socket.error() == QLocalSocket::ServerNotFoundError
-            ? NotifyResult::NoServer : NotifyResult::Failed;
-    }
     const QByteArray payload = command.toUtf8() + '\n';
-    if (socket.write(payload) != payload.size() || !socket.waitForBytesWritten(750)) {
-        return NotifyResult::Failed;
+    bool sawNoServer = false;
+    bool sawOtherFailure = false;
+    constexpr int kNotificationAttempts = 10;
+    for (int attempt = 0; attempt < kNotificationAttempts; ++attempt) {
+        QLocalSocket socket;
+        socket.connectToServer(m_serverName, QIODevice::ReadWrite);
+        QElapsedTimer connectTimer;
+        connectTimer.start();
+        while (socket.state() == QLocalSocket::ConnectingState && connectTimer.elapsed() < 750) {
+            // The owner can live in this same thread (for example during
+            // startup tests). Process its newConnection/readyRead events so
+            // the synchronous client notification cannot deadlock the owner.
+            QCoreApplication::processEvents(QEventLoop::AllEvents, 5);
+            if (socket.state() == QLocalSocket::ConnectingState) {
+                socket.waitForConnected(1);
+            }
+        }
+        if (socket.state() != QLocalSocket::ConnectedState) {
+            if (socket.error() == QLocalSocket::ServerNotFoundError) {
+                sawNoServer = true;
+            } else {
+                sawOtherFailure = true;
+            }
+            if (attempt + 1 < kNotificationAttempts) {
+                QThread::msleep(25);
+            }
+            continue;
+        }
+        if (socket.write(payload) != payload.size()) {
+            sawOtherFailure = true;
+            if (attempt + 1 < kNotificationAttempts) {
+                QThread::msleep(25);
+            }
+            continue;
+        }
+        socket.flush();
+        QElapsedTimer writeTimer;
+        writeTimer.start();
+        while (socket.bytesToWrite() > 0 && writeTimer.elapsed() < 750) {
+            QCoreApplication::processEvents(QEventLoop::AllEvents, 5);
+            if (socket.bytesToWrite() > 0) {
+                if (!socket.waitForBytesWritten(1)) {
+                    break;
+                }
+            }
+        }
+        QByteArray acknowledgment;
+        QElapsedTimer acknowledgmentTimer;
+        acknowledgmentTimer.start();
+        while (acknowledgmentTimer.elapsed() < 750) {
+            QCoreApplication::processEvents(QEventLoop::AllEvents, 5);
+            acknowledgment += socket.readAll();
+            if (acknowledgment.indexOf('\n') >= 0) {
+                break;
+            }
+            if (socket.state() != QLocalSocket::ConnectedState
+                || !socket.waitForReadyRead(1)) {
+                continue;
+            }
+        }
+        // Once the complete command was accepted by the local socket, do not
+        // retry it: the owner may have processed it even if the acknowledgment
+        // was lost during a Windows named-pipe close.
+        socket.disconnectFromServer();
+        if (acknowledgment.startsWith(QByteArrayLiteral("ok\n"))) {
+            return NotifyResult::Notified;
+        }
+        return NotifyResult::Sent;
     }
-    socket.disconnectFromServer();
-    return NotifyResult::Notified;
+    return sawNoServer && !sawOtherFailure ? NotifyResult::NoServer : NotifyResult::Failed;
 }
 
 void RuntimeCoordinator::acceptConnection()
@@ -116,7 +179,10 @@ void RuntimeCoordinator::acceptConnection()
                 return;
             }
             handleCommand(QString::fromUtf8(bytes.left(newline)).trimmed());
-            socket->disconnectFromServer();
+            const QByteArray acknowledgment = QByteArrayLiteral("ok\n");
+            if (socket->write(acknowledgment) == acknowledgment.size()) {
+                socket->flush();
+            }
         });
         connect(socket, &QLocalSocket::disconnected, socket, &QObject::deleteLater);
     }

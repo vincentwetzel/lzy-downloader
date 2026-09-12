@@ -18,6 +18,16 @@ bool hasArgument(const std::vector<std::string> &arguments, const std::string &v
     return false;
 }
 
+bool hasArgumentContaining(const std::vector<std::string> &arguments, const std::string &value)
+{
+    for (const std::string &argument : arguments) {
+        if (argument.find(value) != std::string::npos) {
+            return true;
+        }
+    }
+    return false;
+}
+
 std::string findUrl(const std::vector<std::string> &arguments)
 {
     for (const std::string &argument : arguments) {
@@ -53,7 +63,14 @@ int main(int argc, char **argv)
         ]})" << std::endl;
         return 0;
     }
-    if (isProbe && url.find("list=playlist-probe") != std::string::npos) {
+    // Match the stable test marker rather than one exact query serialization;
+    // QProcess/URL handling may preserve the marker while encoding the query
+    // separator differently on Windows.
+    const bool isWatchPlaylistProbe = hasArgumentContaining(arguments, "youtube.com/watch")
+                                      && hasArgument(arguments, "--yes-playlist");
+    if (isWatchPlaylistProbe
+            || (isProbe && (url.find("playlist-probe") != std::string::npos
+                            || hasArgumentContaining(arguments, "playlist-probe")))) {
         if (!hasArgument(arguments, "--yes-playlist")) {
             std::cerr << "explicit playlist probe was not enabled" << std::endl;
             return 6;
@@ -65,8 +82,7 @@ int main(int argc, char **argv)
         ]})" << std::endl;
         return 0;
     }
-    if (isProbe && (url.find("slow-probe") != std::string::npos
-                    || url.find("playlist") != std::string::npos)) {
+    if (isProbe && url.find("slow-probe") != std::string::npos) {
         // The production watchdog is 45 seconds. Keep this process alive long
         // enough that a successful probe can never mask a missing watchdog.
         std::this_thread::sleep_for(std::chrono::seconds(120));

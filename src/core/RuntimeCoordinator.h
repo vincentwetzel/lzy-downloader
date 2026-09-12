@@ -26,7 +26,7 @@ private slots:
     void acceptConnection();
 
 private:
-    enum class NotifyResult { Notified, NoServer, Failed };
+    enum class NotifyResult { Notified, Sent, NoServer, Failed };
 
     bool listen();
     NotifyResult notifyOwner(const QString &command) const;

@@ -1,5 +1,6 @@
 #include "core/RuntimeCoordinator.h"
 
+#include <QElapsedTimer>
 #include <QSignalSpy>
 #include <QUuid>
 #include <QtTest>
@@ -23,7 +24,25 @@ void TestRuntimeCoordinator::testOwnerReceivesClientCommand()
 
     QSignalSpy spy(&owner, &RuntimeCoordinator::commandReceived);
     RuntimeCoordinator client(name);
-    QVERIFY(client.startOrNotify(QStringLiteral("ensure-api")) == RuntimeCoordinator::StartResult::ClientNotified);
+    const auto notifyClient = [&]() {
+        return client.startOrNotify(QStringLiteral("ensure-api"))
+               == RuntimeCoordinator::StartResult::ClientNotified;
+    };
+    // Windows named-pipe connection establishment can briefly lag behind the
+    // owner's successful listen() call when both coordinator objects share a
+    // test process. Use an explicit loop because QTRY_VERIFY evaluates its
+    // expression again during its final assertion; calling startOrNotify()
+    // there would send the command twice after a successful notification.
+    bool notified = false;
+    QElapsedTimer notifyTimer;
+    notifyTimer.start();
+    while (!notified && notifyTimer.elapsed() < 3000) {
+        notified = notifyClient();
+        if (!notified) {
+            QTest::qWait(50);
+        }
+    }
+    QVERIFY(notified);
     QTRY_COMPARE(spy.count(), 1);
     QCOMPARE(spy.first().first().toString(), QStringLiteral("ensure-api"));
 }

@@ -18,6 +18,7 @@ TEST_LINE_RE = re.compile(
 )
 LIST_LINE_RE = re.compile(r"^\s*Test\s+#\d+:\s+(\S+)", re.MULTILINE)
 FAILED_LIST_RE = re.compile(r"^\s*\d+\s+-\s+(\S+)\s+\(.*\)$", re.MULTILINE)
+CTEST_START_RE = re.compile(r"^Start\s+\d+:\s+(\S+)\s*$", re.MULTILINE)
 
 
 def timestamp() -> str:
@@ -61,7 +62,10 @@ def run_direct_test_diagnostics(build_dir: Path, config: str, names, env) -> Non
     for name in sorted(set(names)):
         executable = build_dir / config / f"{name}.exe"
         if not executable.exists():
-            executable = build_dir / name
+            # Single-config generators place the executable directly in the
+            # build directory. Keep the Windows suffix in this fallback so
+            # failed tests can still be run for loader/runtime diagnostics.
+            executable = build_dir / f"{name}.exe"
         if not executable.exists():
             log(f"Diagnostic executable not found: {executable}")
             continue
@@ -106,10 +110,20 @@ def configure_build(project_root: Path, build_dir: Path, config: str) -> int:
             cache = cache_path.read_text(encoding="utf-8", errors="replace")
         except OSError:
             cache = ""
-        cache_is_configured = (
-            re.search(r"^CMAKE_GENERATOR:INTERNAL=.+$", cache, re.MULTILINE)
-            and re.search(r"^CMAKE_CXX_COMPILER:FILEPATH=.+$", cache, re.MULTILINE)
-            and not re.search(r"^CMAKE_MAKE_PROGRAM:FILEPATH=.*NOTFOUND$", cache, re.MULTILINE)
+        generator = re.search(r"^CMAKE_GENERATOR:INTERNAL=(.+)$", cache, re.MULTILINE)
+        has_project = re.search(r"^CMAKE_PROJECT_NAME:STATIC=.+$", cache, re.MULTILINE)
+        has_compiler = re.search(r"^CMAKE_CXX_COMPILER:FILEPATH=.+$", cache, re.MULTILINE)
+        missing_make_program = re.search(
+            r"^CMAKE_MAKE_PROGRAM:FILEPATH=.*NOTFOUND$", cache, re.MULTILINE
+        )
+        # Visual Studio generators do not cache CMAKE_CXX_COMPILER, so use
+        # their generator/project markers instead of needlessly reconfiguring
+        # an otherwise valid multi-config build tree.
+        cache_is_configured = bool(
+            generator
+            and has_project
+            and not missing_make_program
+            and (generator.group(1).startswith("Visual Studio") or has_compiler)
         )
         if cache_is_configured:
             return 0
@@ -183,6 +197,25 @@ def parse_results(output: str):
     return results
 
 
+def has_qt_test_failure_details(output: str, names) -> bool:
+    """Return true only when each failed target has visible QtTest details."""
+    starts = list(CTEST_START_RE.finditer(output))
+    if starts:
+        sections = {}
+        for index, start in enumerate(starts):
+            end = starts[index + 1].start() if index + 1 < len(starts) else len(output)
+            sections[start.group(1)] = output[start.end():end]
+        return all(
+            "FAIL!" in sections.get(name, "") or "Totals:" in sections.get(name, "")
+            for name in names
+        )
+
+    # Non-verbose CTest does not delimit output by target. A single failed
+    # target can still be identified safely from --output-on-failure output;
+    # multiple failures remain ambiguous and trigger the diagnostic rerun.
+    return len(names) == 1 and ("FAIL!" in output or "Totals:" in output)
+
+
 def print_summary(results, selected, cache_path, build_failed=False):
     counts = {status: sum(value == status for value in results.values())
               for status in ("Passed", "Failed", "Timeout", "Not Run", "Skipped")}
@@ -215,6 +248,11 @@ def main() -> int:
     parser.add_argument("--build-dir", default="build", help="CMake build directory (default: build)")
     parser.add_argument("--config", default="Release", help="Build configuration (default: Release)")
     parser.add_argument("--verbose", action="store_true", help="Print verbose CTest output")
+    parser.add_argument(
+        "--no-build",
+        action="store_true",
+        help="Skip configure/build and run the existing CTest build tree",
+    )
     parser.add_argument("--suspects", action="store_true", help="Run only tests in the previous-failure cache")
     parser.add_argument("--suspects-file", help="Override the suspects cache path")
     args = parser.parse_args()
@@ -223,19 +261,26 @@ def main() -> int:
     build_dir = (project_root / args.build_dir).resolve()
     cache_path = Path(args.suspects_file).resolve() if args.suspects_file else build_dir / ".lzy-test-suspects.json"
 
-    configure_code = configure_build(project_root, build_dir, args.config)
-    if configure_code != 0:
-        log(f"CONFIGURE FAILED with exit code {configure_code}; no tests were started.")
-        print_summary({}, [], cache_path, build_failed=True)
-        return configure_code
+    if args.no_build:
+        if not build_dir.is_dir() or not (build_dir / "CTestTestfile.cmake").is_file():
+            log(f"ERROR: no configured CTest build tree found at {build_dir}.")
+            print_summary({}, [], cache_path, build_failed=True)
+            return 2
+        log(f"Skipping configure/build (--no-build); using existing tree: {build_dir}")
+    else:
+        configure_code = configure_build(project_root, build_dir, args.config)
+        if configure_code != 0:
+            log(f"CONFIGURE FAILED with exit code {configure_code}; no tests were started.")
+            print_summary({}, [], cache_path, build_failed=True)
+            return configure_code
 
-    log(f"Build directory: {build_dir}")
-    log(f"Configuration: {args.config}")
-    build_code, _ = run_command(cmake_build_command(build_dir, args.config), build_dir)
-    if build_code != 0:
-        log(f"BUILD FAILED with exit code {build_code}; no tests were started.")
-        print_summary({}, [], cache_path, build_failed=True)
-        return build_code
+        log(f"Build directory: {build_dir}")
+        log(f"Configuration: {args.config}")
+        build_code, _ = run_command(cmake_build_command(build_dir, args.config), build_dir)
+        if build_code != 0:
+            log(f"BUILD FAILED with exit code {build_code}; no tests were started.")
+            print_summary({}, [], cache_path, build_failed=True)
+            return build_code
 
     env = os.environ.copy()
     # Windows test targets deploy qminimal; qoffscreen is not consistently
@@ -267,23 +312,38 @@ def main() -> int:
         ctest.append("-V")
     if selected != available:
         ctest.extend(["-R", "^(" + "|".join(selected) + ")$"])
-    ctest.extend(["-j", str(os.cpu_count() or 1)])
+    # Qt GUI/process tests share runtime state (plugin loading, QSettings,
+    # and helper-process caches). Running them concurrently makes failures
+    # order-dependent on Windows and can leave the diagnostic rerun with a
+    # contaminated process state.
+    ctest.extend(["-j", "1"])
     test_code, test_output = run_command(ctest, build_dir, env)
     results = parse_results(test_output)
-    failed = [name for name, status in results.items() if status != "Passed"]
+    failed = [
+        name for name, status in results.items()
+        if status in {"Failed", "Timeout", "Not Run"}
+    ]
     failed.extend(name for name in selected if name not in results)
     if test_code != 0 and failed:
-        # Parallel CTest can suppress a failed QtTest process's assertion
-        # output. Repeat failed targets serially so CI identifies the exact
-        # test function and diagnostic.
-        diagnostic_ctest = [
-            "ctest", "-C", args.config, "--output-on-failure", "-V", "-j", "1",
-            "-R", "^(" + "|".join(sorted(set(failed))) + ")$",
-        ]
-        log("Rerunning failed tests serially for diagnostics.")
-        run_command(diagnostic_ctest, build_dir, env)
-        log("Running failed test executables directly for runtime diagnostics.")
-        run_direct_test_diagnostics(build_dir, args.config, failed, env)
+        # The main pass is already serial and --output-on-failure normally
+        # includes the QtTest assertion and Totals lines. Avoid rerunning the
+        # entire failed executable in that common case; reserve diagnostics
+        # for crashes, timeouts, loader failures, and other opaque exits.
+        has_opaque_failure = any(
+            name not in results or results[name] in {"Timeout", "Not Run"}
+            for name in failed
+        ) or not has_qt_test_failure_details(test_output, failed)
+        if not has_opaque_failure:
+            log("CTest already reported QtTest failure details; skipping duplicate diagnostics.")
+        else:
+            diagnostic_ctest = [
+                "ctest", "-C", args.config, "--output-on-failure", "-V", "-j", "1",
+                "-R", "^(" + "|".join(sorted(set(failed))) + ")$",
+            ]
+            log("Failure output was opaque; rerunning failed tests for diagnostics.")
+            run_command(diagnostic_ctest, build_dir, env)
+            log("Running failed test executables directly for runtime diagnostics.")
+            run_direct_test_diagnostics(build_dir, args.config, failed, env)
     try:
         save_suspects(cache_path, failed)
     except OSError as error:

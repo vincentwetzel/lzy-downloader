@@ -315,10 +315,12 @@ only the sections relevant to the change.
   UI row layout, completion-save responsiveness, startup/shutdown lifecycle,
   and the end-to-end fixture.
 - `tests/run_headless_tests.py` configures a missing build tree, builds before
-  CTest, and stops on configuration or build failure;
-  it timestamps output, reports pass/fail/not-run totals, keeps CTest exit-code
-  failures failed, reruns failed targets serially with verbose output so
-  QtTest assertion diagnostics remain visible, and stores failed names for
+  CTest, and stops on configuration or build failure unless `--no-build` is
+  used with an existing configured tree. It timestamps output, runs Qt tests
+  serially because they share plugin, settings, and helper-process state,
+  reports pass/fail/not-run totals, and keeps CTest exit-code failures failed.
+  Failed targets are rerun with verbose output and direct executable diagnostics
+  only when output is opaque (or the target timed out/crashed), then stored for
   `--suspects`. Visual Studio vcpkg-toolchain caches enable manifest mode;
   direct-Qt caches disable MSBuild integration. Windows test deployment
   includes `qminimal.dll` and the Qt runtime DLLs required by deployed test

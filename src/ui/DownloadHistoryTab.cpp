@@ -73,6 +73,8 @@ public:
         
         // Thumbnail
         QLabel *thumbnailLabel = new QLabel(this);
+        thumbnailLabel->setObjectName(QStringLiteral("thumbnailLabel"));
+        thumbnailLabel->setProperty("thumbnailPath", data.thumbnailPath);
         thumbnailLabel->setFixedSize(120, 68);
         thumbnailLabel->setAlignment(Qt::AlignCenter);
         
@@ -112,8 +114,8 @@ public:
                     if (!application) {
                         return;
                     }
-                    QMetaObject::invokeMethod(application, [label, image]() {
-                        if (!label) {
+                    QMetaObject::invokeMethod(application, [label, image, thumbnailPath]() {
+                        if (!label || label->property("thumbnailPath").toString() != thumbnailPath) {
                             return;
                         }
                         if (!image.isNull()) {
@@ -219,22 +221,23 @@ public:
             return;
         }
 
-        QLabel *thumbnailLabel = findChild<QLabel *>();
+        QLabel *thumbnailLabel = findChild<QLabel *>(QStringLiteral("thumbnailLabel"));
         if (!thumbnailLabel) {
             return;
         }
 
         QPointer<QLabel> label(thumbnailLabel);
+        thumbnailLabel->setProperty("thumbnailPath", thumbnailPath);
         QCoreApplication *application = QCoreApplication::instance();
         QThread *thread = QThread::create([thumbnailPath, label, application]() {
             QImageReader reader(thumbnailPath);
             reader.setAutoTransform(true);
             const QImage image = reader.read();
-            if (!application) {
+            if (!application || !label) {
                 return;
             }
-            QMetaObject::invokeMethod(application, [label, image]() {
-                if (!label) {
+            QMetaObject::invokeMethod(label.data(), [label, image, thumbnailPath]() {
+                if (!label || label->property("thumbnailPath").toString() != thumbnailPath) {
                     return;
                 }
                 if (!image.isNull()) {

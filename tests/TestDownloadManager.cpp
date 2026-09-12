@@ -112,14 +112,15 @@ void TestDownloadManager::testWatchUrlWithPlaylistQueryIsExpanded() {
 
     PlaylistExpansionWorker worker(QStringLiteral("https://youtube.com/watch?v=j0dr1SnyR9c&list=playlist-probe&index=3"), configManager, this);
     worker.setProperty("options", QVariantMap{{QStringLiteral("type"), QStringLiteral("video")}});
-    QSignalSpy expansionSpy(&worker, &PlaylistExpansionWorker::expansionFinished);
+    QSignalSpy playlistSpy(&worker, &PlaylistExpansionWorker::playlistDetected);
 
     worker.startExpansion(QStringLiteral("Ask"));
 
-    QTRY_COMPARE_WITH_TIMEOUT(expansionSpy.count(), 1, 10000);
-    const QList<QVariant> result = expansionSpy.first();
-    QVERIFY2(result.at(2).toString().isEmpty(), qPrintable(result.at(2).toString()));
-    const QList<QVariantMap> items = qvariant_cast<QList<QVariantMap>>(result.at(1));
+    QTRY_COMPARE_WITH_TIMEOUT(playlistSpy.count(), 1, 10000);
+    const QList<QVariant> result = playlistSpy.first();
+    QCOMPARE(result.at(0).toString(), QStringLiteral("https://youtube.com/watch?v=j0dr1SnyR9c&list=playlist-probe&index=3"));
+    QCOMPARE(result.at(1).toInt(), 1);
+    const QList<QVariantMap> items = qvariant_cast<QList<QVariantMap>>(result.at(3));
     QCOMPARE(items.size(), 1);
     QCOMPARE(items.first().value(QStringLiteral("url")).toString(), QStringLiteral("https://media.example/watch?id=playlist-3"));
     QCOMPARE(items.first().value(QStringLiteral("playlist_index")).toInt(), 3);

@@ -9,6 +9,19 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## [Unreleased]
 
+- **Coordinator notification reliability:** Retry transient local-socket startup
+  races, acknowledge accepted commands, and treat a delivered command as
+  successful even when the Windows named-pipe acknowledgment is lost.
+- **Playlist probe detection:** Explicitly probe playlist-shaped video URLs in
+  `Ask` mode and retain stable playlist metadata in the expansion result.
+- **Progress parsing:** Require a valid media-size token in native completion
+  and transfer lines so timing suffixes cannot be mistaken for file sizes.
+- **History thumbnail safety:** Prevent delayed thumbnail reads from replacing
+  a newer thumbnail selection in an existing history row.
+- **Headless test runner:** Add `--no-build`, support valid Visual Studio
+  configure caches, run Qt tests serially for deterministic shared runtime
+  state, and reserve duplicate diagnostic reruns for opaque failures.
+
 ## [1.2.49] - 2026-09-11
 
 - **Startup ownership compatibility:** Prevent older GUI/server instances from

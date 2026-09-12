@@ -28,9 +28,12 @@ background launches on one queue owner.
 - `void commandReceived(const QString &command)` — emitted asynchronously for
   validated commands received from another process.
 
-The coordinator uses a per-user `QLocalServer`. A failed client connection may
-recover only when Qt reports that no server exists; a busy owner is never
-replaced because a short notification timeout elapsed.
+The coordinator uses a per-user `QLocalServer`. Client notification retries
+short-lived startup races and processes events while connecting so an owner in
+the same thread cannot deadlock. A command is considered delivered once the
+owner accepts the complete line; the acknowledgment is an additional success
+signal, not a reason to resend a command that may already have been handled.
+A busy owner is never replaced because a short notification timeout elapsed.
 The executable also retains the legacy GUI/server shared-memory ownership keys
 for upgrade compatibility. An active older release therefore blocks a second
 queue owner rather than allowing competing SQLite, queue-backup, or Local API
