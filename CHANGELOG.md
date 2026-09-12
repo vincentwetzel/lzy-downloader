@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIVE.md](docs/CHANGELOG_ARCHIVE.md).
 
+## [1.2.51] - 2026-09-12
+
+- **Application update handoff:** Defer clipboard auto-paste/enqueue activity
+  while the app-update check or prompt is active, and reject new download
+  admission during installer shutdown so binary notices and hover automation do
+  not interfere with application upgrades.
+- **Extractor catalogs:** Refresh the yt-dlp and gallery-dl extractor catalogs.
+
 ## [1.2.50] - 2026-09-12
 
 - **Coordinator notification reliability:** Retry transient local-socket startup
@@ -24,11 +32,6 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 - **Extractor catalog:** Refresh the yt-dlp extractor catalog.
 
 ## [Unreleased]
-
-- **Application update handoff:** Defer clipboard auto-paste/enqueue activity
-  while the app-update check or prompt is active, and reject new download
-  admission during installer shutdown so binary notices and hover automation do
-  not interfere with application upgrades.
 
 ## [1.2.49] - 2026-09-11
 

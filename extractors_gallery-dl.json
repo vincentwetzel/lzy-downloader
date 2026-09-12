@@ -341,12 +341,6 @@
             "fikfap.com"
         ]
     },
-    "fileditchfiles": {
-        "domains": [
-            "fileditchfiles.st",
-            "theditch.st"
-        ]
-    },
     "filester": {
         "domains": [
             "filester.me"
@@ -506,6 +500,11 @@
     "imagevenue": {
         "domains": [
             "imagevenue.com"
+        ]
+    },
+    "imdb": {
+        "domains": [
+            "imdb.com"
         ]
     },
     "imgadult": {
@@ -796,11 +795,6 @@
     "naver-webtoon": {
         "domains": [
             "comic.naver.com"
-        ]
-    },
-    "nekohouse": {
-        "domains": [
-            "nekohouse.su"
         ]
     },
     "newgrounds": {
@@ -1305,6 +1299,11 @@
     "weibo": {
         "domains": [
             "weibo.com"
+        ]
+    },
+    "whitekitten": {
+        "domains": [
+            "whitekitten.art"
         ]
     },
     "whyp": {
