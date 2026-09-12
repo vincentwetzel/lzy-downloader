@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIVE.md](docs/CHANGELOG_ARCHIVE.md).
 
-## [Unreleased]
+## [1.2.50] - 2026-09-12
 
 - **Coordinator notification reliability:** Retry transient local-socket startup
   races, acknowledge accepted commands, and treat a delivered command as
@@ -21,6 +21,9 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 - **Headless test runner:** Add `--no-build`, support valid Visual Studio
   configure caches, run Qt tests serially for deterministic shared runtime
   state, and reserve duplicate diagnostic reruns for opaque failures.
+- **Extractor catalog:** Refresh the yt-dlp extractor catalog.
+
+## [Unreleased]
 
 ## [1.2.49] - 2026-09-11
 
