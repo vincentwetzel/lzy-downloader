@@ -33,6 +33,8 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## [Unreleased]
 
+## [1.2.52] - 2026-09-15
+
 - **Download controls:** Renamed the active-download cancellation action to
   **Stop** and preserve partial files for resume; destructive temporary-file
   removal remains an explicit cleanup action.
@@ -43,7 +45,7 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
   completion work and revalidate ownership before finalization, preventing
   reentrant row removal from invalidating manager state.
 - **Extractor catalog:** Refresh the bundled yt-dlp Nitter domain to
-  `nitter.freedit.eu`.
+  `nitter.girlboss.ceo` and refresh the bundled extractor metadata.
 
 ## [1.2.49] - 2026-09-11
 
