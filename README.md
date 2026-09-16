@@ -80,7 +80,7 @@ input are reported as incomplete-transfer failures before metadata embedding.
 - 📊 **Concurrent Downloads** — Queue and manage multiple downloads simultaneously
 - 🌙 **Sleep Prevention** — Prevents system idle sleep while downloads, post-processing, or finalization are active in GUI and non-interactive server/headless/background modes; the display may still turn off normally
 - 📌 **Compact Footer Status** — Download counters and current speed share the footer's first row, with the exit-after-downloads switch at the far right
-- ⏸️ **Pause & Resume** — Safely stop downloads, preserve partial `.part` files, and resume validated queue backups across application restarts
+- ⏸️ **Pause & Resume** — Stop downloads while preserving partial `.part` files for resume, with explicit cleanup actions for discarded temporary data
 - 🧰 **External Binaries Manager** — Detect, version-check, install, and update `yt-dlp`, `gallery-dl`, `ffmpeg`, `ffprobe`, `aria2c`, and `deno` from inside the app, with version-aware local `bin` discovery, package-manager-aware commands, wrapped command previews, exact installed/latest update warnings, persistent prompts for manually managed tools, SHA-256 checks when available, and cancellable install/update logs. Fresh interactive installs use guided system-first/app-managed-first setup with optional-tool provisioning; a WinGet-managed Deno install can fall back to the official stable installer when the catalog lags upstream.
 - 🛡️ **Recovery Diagnostics** — Distinguishes incomplete media and critical extractor failures from recoverable post-processing warnings, even when yt-dlp printed a final path
 - 🎚️ **Media-Aware Quality Warnings** — Video-resolution warnings apply only to video downloads; audio extraction remains audio-labeled even when yt-dlp transfers a combined video/audio source
@@ -290,6 +290,7 @@ queue snapshot before exit.
 - **Livestream replays** - Completed livestreams are detected from yt-dlp `live_status` metadata and downloaded as archived media; active/upcoming streams keep native wait and Finish Now behavior
 - **Download History links** - Valid HTTP/HTTPS source URLs are keyboard-accessible links; malformed or incomplete values remain plain text
 - **Queue previews** - Queued rows begin loading supplied remote thumbnails immediately, newly queued interactive rows are revealed in Active Downloads, and long titles wrap within narrow windows so row actions remain reachable
+- **Download controls** - Active rows use **Stop** to preserve partial files for resume; destructive temporary-file removal remains an explicit cleanup action
 - **Single download coordinator** - GUI and server/headless/background launches share one queue, worker owner, and Active Downloads view; older active releases are blocked from creating a competing owner during upgrades
 - **Playlist audio filenames** - Playlist audio downloads are prefixed with zero-padded indices by default; change `Download Options -> Prefix playlist indices` to disable this behavior
 - **Local API** - Enable a localhost-only API server from Advanced Settings -> Configuration

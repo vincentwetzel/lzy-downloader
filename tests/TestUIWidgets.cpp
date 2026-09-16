@@ -199,17 +199,17 @@ void TestUIWidgets::testDownloadItemWidgetKeepsActionsVisibleWhenNarrow() {
     widget.show();
     QCoreApplication::processEvents();
 
-    QPushButton *cancelButton = nullptr;
+    QPushButton *stopButton = nullptr;
     for (QPushButton *button : widget.findChildren<QPushButton*>()) {
-        if (button->text() == QObject::tr("Cancel")) {
-            cancelButton = button;
+        if (button->text() == QObject::tr("Stop")) {
+            stopButton = button;
             break;
         }
     }
 
-    QVERIFY(cancelButton != nullptr);
-    QVERIFY(cancelButton->isVisible());
-    QVERIFY(cancelButton->geometry().right() <= widget.rect().right());
+    QVERIFY(stopButton != nullptr);
+    QVERIFY(stopButton->isVisible());
+    QVERIFY(stopButton->geometry().right() <= widget.rect().right());
 }
 
 void TestUIWidgets::testDownloadItemWidgetShowsMediaTypeIcon()

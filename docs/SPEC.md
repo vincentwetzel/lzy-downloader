@@ -101,11 +101,15 @@ only the sections relevant to the change.
   format selection through Advanced Settings. `playlist_logic=Ask` supports all,
   selected one-based ranges, first item, or cancel.
 - Active Downloads provides stop/resume/clear/folder actions and one row per ID.
-  Rows shrink to the viewport, wrap long titles, keep actions visible, and
-  disable horizontal scrolling. Newly queued rows are revealed when the
-  request is interactive. Queued thumbnail URLs start bounded async requests
-  immediately; playlist transitions preserve them. Each row shows a compact,
-  palette-aware video, audio, or gallery type icon beside its title.
+  Stop keeps owned partial files for resume; clearing or terminal cancellation
+  is the explicit destructive cleanup path. Rows shrink to the viewport, wrap
+  long titles, keep actions visible, and disable horizontal scrolling. Newly
+  queued rows are revealed when the request is interactive. Queued thumbnail
+  URLs start bounded async requests immediately; playlist transitions preserve
+  them. Each row shows a compact, palette-aware video, audio, or gallery type
+  icon beside its title.
+- Dialog-style popups, including message boxes and file dialogs, expose close
+  and modal behavior without a minimize button.
 - Download History rows display cached thumbnails when available. A thumbnail
   copied after the row is created updates that row and the persisted history
   record asynchronously; local image decoding and cache copies never block

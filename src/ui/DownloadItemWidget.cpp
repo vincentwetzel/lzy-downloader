@@ -229,7 +229,8 @@ void DownloadItemWidget::onRetryClicked() {
     m_cancelButton->show();
     m_cancelButton->setEnabled(true);
     m_cancelButton->setIcon(createColoredIcon(QStyle::SP_MediaStop, QColor(QStringLiteral("#ef4444"))));
-    m_cancelButton->setToolTip(tr("Cancel this download and discard any partially downloaded files."));
+    m_cancelButton->setText(tr("Stop"));
+    m_cancelButton->setToolTip(tr("Stop this download and keep any partially downloaded files for resuming."));
 
     // Clear red error/stopped stylesheets
     m_statusLabel->setStyleSheet(QString());
@@ -271,13 +272,13 @@ void DownloadItemWidget::onFinishClicked() {
 void DownloadItemWidget::showCancellingFeedback()
 {
     if (m_statusLabel) {
-        m_statusLabel->setText(tr("Cancelling..."));
+        m_statusLabel->setText(tr("Stopping..."));
     }
 
     // Disable buttons so the user knows the click registered
     if (m_cancelButton) {
         m_cancelButton->setEnabled(false);
-        m_cancelButton->setToolTip(tr("Cancelling..."));
+        m_cancelButton->setToolTip(tr("Stopping..."));
     }
 }
 

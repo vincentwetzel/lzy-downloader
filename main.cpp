@@ -13,11 +13,39 @@
 #include <QSslSocket>
 #include <QSqlDatabase>
 #include <QSharedMemory>
+#include <QEvent>
+#include <QWidget>
 
 #include <memory>
 #include <vector>
 
 namespace {
+
+/**
+ * Keep dialog-style popups from exposing a minimize button.  This is applied
+ * at the application boundary so it also covers QMessageBox/QFileDialog
+ * instances created through Qt's static convenience functions.
+ */
+class PopupWindowPolicy final : public QObject {
+public:
+    explicit PopupWindowPolicy(QObject *parent = nullptr)
+        : QObject(parent)
+    {
+    }
+
+protected:
+    bool eventFilter(QObject *watched, QEvent *event) override
+    {
+        if ((event->type() == QEvent::Polish || event->type() == QEvent::Show)
+            && watched->isWidgetType()) {
+            auto *widget = static_cast<QWidget *>(watched);
+            if (widget->isWindow() && widget->windowType() == Qt::Dialog) {
+                widget->setWindowFlag(Qt::WindowMinimizeButtonHint, false);
+            }
+        }
+        return QObject::eventFilter(watched, event);
+    }
+};
 
 /**
  * v1.2.47 and older releases used these shared-memory keys for single-instance
@@ -74,6 +102,9 @@ int main(int argc, char *argv[]) {
 
     QApplication a(argc, argv);
     a.setWindowIcon(QIcon(QStringLiteral(":/app-icon")));
+
+    PopupWindowPolicy popupWindowPolicy(&a);
+    a.installEventFilter(&popupWindowPolicy);
 
     a.setOrganizationName(QStringLiteral(""));
     a.setApplicationName(APP_NAME);

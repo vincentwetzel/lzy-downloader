@@ -135,7 +135,10 @@ void DownloadManager::onWorkerFinished(const QString &id, bool success, const QS
     if (!m_activeWorkers.contains(id)) return;
 
     m_activeWorkers.remove(id);
-    DownloadItem &item = m_activeItems[id];
+    // Keep a value snapshot while emitting progress and starting post-processing.
+    // Those signals can synchronously trigger UI actions that remove or replace
+    // the map entry, which would invalidate a reference into QMap.
+    DownloadItem item = m_activeItems.value(id);
     m_workerSpeeds.remove(id);
     updateTotalSpeed();
 
@@ -214,6 +217,15 @@ void DownloadManager::onWorkerFinished(const QString &id, bool success, const QS
         item.metadata.insert(QStringLiteral("playlist_title"), item.options.value(QStringLiteral("playlist_title")));
     }
     applyAudioPlaylistAlbumMetadata(item);
+
+    // Preserve the completed metadata/options for finalization callbacks. Do
+    // this after all signal-capable work above, while the item is still active.
+    if (m_activeItems.contains(id)) {
+        m_activeItems[id] = item;
+    } else {
+        qWarning() << "DownloadManager: active item disappeared during completion callbacks:" << id;
+        return;
+    }
 
     const bool needsTrackEmbedding = (item.options.value(QStringLiteral("type")).toString() == QStringLiteral("audio") && item.playlistIndex > 0);
     const bool needsSectionNormalization = shouldNormalizeSectionContainer(item);

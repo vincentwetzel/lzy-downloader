@@ -131,9 +131,9 @@ void DownloadItemWidget::setupUi() {
     infoLayout->addWidget(m_statusLabel);
     infoLayout->addWidget(m_progressBar);
 
-    m_cancelButton = new QPushButton(tr("Cancel"), this);
+    m_cancelButton = new QPushButton(tr("Stop"), this);
     m_cancelButton->setIcon(createColoredIcon(QStyle::SP_MediaStop, QColor(QStringLiteral("#ef4444"))));
-    m_cancelButton->setToolTip(tr("Cancel this download and discard any partially downloaded files."));
+    m_cancelButton->setToolTip(tr("Stop this download and keep any partially downloaded files for resuming."));
 
     m_finishButton = new QPushButton(tr("Stop && Save"), this);
     m_finishButton->setIcon(createColoredIcon(QStyle::SP_DialogApplyButton, QColor(QStringLiteral("#10b981"))));

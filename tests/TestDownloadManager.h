@@ -3,7 +3,9 @@
 
 #include <QtTest/QtTest>
 #include "BaseTest.h"
+#define private public
 #include "core/DownloadManager.h"
+#undef private
 #include "core/DownloadQueueManager.h"
 #include "core/ConfigManager.h"
 #include "core/PlaylistExpansionWorker.h"
@@ -69,6 +71,7 @@ private slots:
     void testMetadataEmbedderRunsOffGuiThread();
     void testMetadataEmbedderSkipsMissingThumbnailWithoutOtherWork();
     void testMetadataEmbedderSkipsUnsupportedOpusThumbnailRemux();
+    void testCompletionSurvivesReentrantItemRemoval();
     void testFinalizationDoesNotBlockGuiThread();
     void testCompletionStateSaveDoesNotBlockGuiThread();
 

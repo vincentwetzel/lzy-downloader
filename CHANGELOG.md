@@ -33,6 +33,18 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## [Unreleased]
 
+- **Download controls:** Renamed the active-download cancellation action to
+  **Stop** and preserve partial files for resume; destructive temporary-file
+  removal remains an explicit cleanup action.
+- **Popup window controls:** Removed the minimize button from all dialog-style
+  popups, including message boxes and file dialogs, while preserving close and
+  modal behavior.
+- **Completion safety:** Snapshot active item metadata before signal-capable
+  completion work and revalidate ownership before finalization, preventing
+  reentrant row removal from invalidating manager state.
+- **Extractor catalog:** Refresh the bundled yt-dlp Nitter domain to
+  `nitter.freedit.eu`.
+
 ## [1.2.49] - 2026-09-11
 
 - **Startup ownership compatibility:** Prevent older GUI/server instances from

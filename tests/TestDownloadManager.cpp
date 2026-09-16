@@ -458,6 +458,63 @@ void TestDownloadManager::testMetadataEmbedderSkipsUnsupportedOpusThumbnailRemux
     delete embedder;
 }
 
+void TestDownloadManager::testCompletionSurvivesReentrantItemRemoval()
+{
+    ConfigManager *configManager = getConfigManager();
+    QTemporaryDir tempDir;
+    QVERIFY(tempDir.isValid());
+
+    const QString id = QStringLiteral("66666666-6666-4666-8666-666666666666");
+    const QString mediaPath = QDir(tempDir.path()).filePath(QStringLiteral("playlist-item.opus"));
+    QFile media(mediaPath);
+    QVERIFY(media.open(QIODevice::WriteOnly));
+    media.write("synthetic opus");
+    media.close();
+
+    configManager->set(QStringLiteral("Paths"), QStringLiteral("temporary_downloads_directory"), tempDir.path());
+    configManager->set(QStringLiteral("Paths"), QStringLiteral("completed_downloads_directory"), tempDir.path());
+    configManager->set(QStringLiteral("Metadata"), QStringLiteral("embed_thumbnail"), false);
+
+    TestableDownloadManager manager(configManager, this);
+    QSignalSpy finishedSpy(&manager, &DownloadManager::downloadFinished);
+
+    DownloadItem item;
+    item.id = id;
+    item.url = QStringLiteral("https://media.example.test/reentrant-playlist-item");
+    item.tempFilePath = mediaPath;
+    item.playlistIndex = 1;
+    item.options.insert(QStringLiteral("type"), QStringLiteral("audio"));
+    item.options.insert(QStringLiteral("is_playlist"), true);
+    item.metadata.insert(QStringLiteral("id"), QStringLiteral("reentrant-playlist-item"));
+
+    // Completion emits progress synchronously. Simulate a UI action that clears
+    // the row during that callback; the slot must not retain a QMap reference.
+    QObject worker;
+    manager.m_activeWorkers.insert(id, &worker);
+    manager.m_activeItems.insert(id, item);
+    connect(&manager, &DownloadManager::downloadProgress, &manager,
+            [&manager, id](const QString &progressId, const QVariantMap &data) {
+        if (progressId == id && data.value(QStringLiteral("progress")).toInt() == 100) {
+            manager.m_activeItems.remove(id);
+        }
+    }, Qt::DirectConnection);
+
+    const int slotIndex = manager.metaObject()->indexOfSlot(
+        "onWorkerFinished(QString,bool,QString,QString,QString,QVariantMap)");
+    QVERIFY(slotIndex >= 0);
+    QVERIFY(manager.metaObject()->method(slotIndex).invoke(
+        &manager,
+        Q_ARG(QString, id),
+        Q_ARG(bool, true),
+        Q_ARG(QString, QStringLiteral("completed")),
+        Q_ARG(QString, mediaPath),
+        Q_ARG(QString, QString()),
+        Q_ARG(QVariantMap, item.metadata)));
+
+    QCOMPARE(finishedSpy.count(), 0);
+    QVERIFY(!manager.m_activeItems.contains(id));
+}
+
 void TestDownloadManager::testFinalizationDoesNotBlockGuiThread()
 {
     ConfigManager *configManager = getConfigManager();

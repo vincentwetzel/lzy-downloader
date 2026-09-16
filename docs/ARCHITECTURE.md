@@ -55,6 +55,9 @@ flushes terminal state before `QCoreApplication::quit()`.
 
 `DownloadManager` registers a row immediately, resolves request-versus-persisted
 playlist policy, then expands a playlist or starts a dedicated worker thread.
+Completion handling snapshots the item before emitting progress or invoking
+post-processing, because those callbacks may synchronously remove or replace
+the active row; the manager revalidates ownership before starting finalization.
 `DownloadQueueManager` owns ordering, local concurrency, duplicate identity,
 retry/resume snapshots, restored-item recovery, and the single coalescing
 background writer for `downloads_backup.json`;
