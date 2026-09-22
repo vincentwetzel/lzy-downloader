@@ -33,6 +33,11 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## [Unreleased]
 
+- **Post-processing diagnostics:** Record FFmpeg stage timing and progress,
+  descendant-process CPU/memory snapshots, and event-loop delay warnings so
+  desktop responsiveness problems during concurrent merges can be correlated
+  with a specific stage.
+
 ## [1.2.52] - 2026-09-15
 
 - **Download controls:** Renamed the active-download cancellation action to

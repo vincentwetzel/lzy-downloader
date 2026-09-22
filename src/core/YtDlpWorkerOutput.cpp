@@ -65,6 +65,7 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
     m_allOutputLines.append(normalizedLine);
 
     emit outputReceived(m_id, normalizedLine);
+    observeFfmpegDiagnosticLine(normalizedLine);
 
     if (normalizedLine.startsWith(QStringLiteral("LZY_FINAL_PATH:"))) {
         static const QString prefix = QStringLiteral("LZY_FINAL_PATH:");

@@ -4,10 +4,13 @@
 #include <QVariantMap>
 #include <QStringList>
 #include <QProcess>
+#include <QElapsedTimer>
 
 #include "core/DiagnosticTail.h"
+#include "core/ProcessDiagnostics.h"
 
 class ConfigManager;
+class QTimer;
 
 class YtDlpWorker : public QObject {
     Q_OBJECT
@@ -79,6 +82,10 @@ protected: // Changed from private for testing
     double inferPrimaryStreamSizeBytes(const QVariantMap &requestMap) const;
     double inferPrimaryStreamSizeFromMetadata(const QString &formatId) const;
     void applyOverallPrimaryProgress(QVariantMap &progressData, double percentage, double downloadedBytes, double totalBytes);
+    void observeFfmpegDiagnosticLine(const QString &line);
+    void beginFfmpegStage(const QString &stage);
+    void finishFfmpegStage(const QString &reason);
+    void logFfmpegTelemetry();
 
     QString m_id;
     QStringList m_args;
@@ -112,6 +119,14 @@ protected: // Changed from private for testing
     int m_inferredTransferIndex = -1;
     double m_lastPrimaryProgress = -1.0;
     double m_lastPrimaryTotalBytes = 0.0;
+
+    QTimer *m_ffmpegTelemetryTimer = nullptr;
+    QString m_ffmpegStage;
+    QElapsedTimer m_ffmpegStageTimer;
+    QElapsedTimer m_ffmpegTelemetryClock;
+    ProcessDiagnostics::ProcessResourceSnapshot m_lastFfmpegResourceSnapshot;
+    qint64 m_lastFfmpegTelemetryMs = -1;
+    QVariantMap m_ffmpegProgressFields;
 
     static constexpr int RECOVERY_RETRY_DELAY_MS = 1000;
 };

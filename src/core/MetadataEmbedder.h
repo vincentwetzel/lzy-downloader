@@ -3,6 +3,7 @@
 #include <QObject>
 #include <QByteArray>
 #include <QProcess>
+#include <QElapsedTimer>
 #include <QString>
 #include <QVariantMap>
 
@@ -52,5 +53,10 @@ private:
     QString m_processOutputTail;
     QString m_thumbnailPath;
     QVariantMap m_extraMetadata;
+    QElapsedTimer m_processTimer;
+    qint64 m_lastProgressLogMs = -1;
+    QString m_lastProgressFrame;
+    QString m_lastProgressTime;
+    QString m_lastProgressSpeed;
 };
 

@@ -56,6 +56,11 @@ Read the relevant section only.
   filesystem workers into the GUI; snapshot immutable settings or use an
   asynchronous callback so a slow drive or stalled event loop cannot deadlock
   completion.
+- External FFmpeg stages must retain bounded machine-readable progress and
+  elapsed timing. If process-resource telemetry is added, collect it from the
+  owning worker thread with a platform-specific implementation and an explicit
+  unavailable fallback; never enumerate or inspect child processes on the GUI
+  thread. Keep diagnostic records free of credentials and unnecessary user paths.
 - Queue-backup writes triggered by progress, completion, pause, or cancellation
   must snapshot state on the GUI thread and use one coalescing background
   writer; never start concurrent atomic replacements for the same backup.

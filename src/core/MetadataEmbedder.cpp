@@ -47,6 +47,11 @@ MetadataEmbedder::MetadataEmbedder(ConfigManager *configManager, QObject *parent
     ProcessUtils::setProcessEnvironment(*m_process);
     connect(m_process, &QProcess::started, this, [this]() {
         ProcessUtils::setBackgroundProcessPriority(*m_process);
+        m_processTimer.start();
+        m_lastProgressLogMs = -1;
+        qInfo() << "[MetadataEmbedder][ffmpeg stage] started"
+                << "pid=" << m_process->processId()
+                << "stage=" << (m_stage == Stage::ProbingDuration ? QStringLiteral("probe_duration") : QStringLiteral("rewrite_file"));
     });
     
     QTimer *watchdog = new QTimer(this);
@@ -127,6 +132,9 @@ void MetadataEmbedder::processFile(const QString &filePath, int trackNumber, boo
     m_pendingTrackNumber = trackNumber;
     m_targetDurationSeconds = 0.0;
     m_processOutputTail.clear();
+    m_lastProgressFrame.clear();
+    m_lastProgressTime.clear();
+    m_lastProgressSpeed.clear();
     m_normalizeContainerTimestamps = normalizeContainerTimestamps &&
         (suffix == QStringLiteral("mp4") || suffix == QStringLiteral("m4v") || suffix == QStringLiteral("mov") || suffix == QStringLiteral("m4a"));
 
@@ -164,7 +172,9 @@ void MetadataEmbedder::startRewrite() {
         args << QStringLiteral("-fix_sub_duration");
     }
 
-    args << QStringLiteral("-nostdin");
+    args << QStringLiteral("-nostdin")
+         << QStringLiteral("-progress") << QStringLiteral("pipe:2")
+         << QStringLiteral("-stats_period") << QStringLiteral("1");
     args << QStringLiteral("-i") << m_originalFilePath;
     const bool hasThumbnail = !m_thumbnailPath.isEmpty()
         && QFile::exists(m_thumbnailPath)
@@ -258,6 +268,12 @@ void MetadataEmbedder::onProcessFinished(int exitCode, QProcess::ExitStatus exit
     }
 
     const bool success = (exitStatus == QProcess::NormalExit && exitCode == 0);
+    qInfo() << "[MetadataEmbedder][ffmpeg stage] finished"
+            << "elapsed_ms=" << (m_processTimer.isValid() ? m_processTimer.elapsed() : -1)
+            << "exit_code=" << exitCode << "success=" << success
+            << "frame=" << m_lastProgressFrame
+            << "out_time=" << m_lastProgressTime
+            << "speed=" << m_lastProgressSpeed;
     QString error;
     m_stage = Stage::Idle;
 
@@ -293,7 +309,31 @@ void MetadataEmbedder::appendProcessOutput(const QByteArray &data)
 
     qsizetype lastDelimiter = qMax(buffer.lastIndexOf('\n'), buffer.lastIndexOf('\r'));
     if (lastDelimiter != -1) {
-        m_processOutputTail += QString::fromUtf8(buffer.left(lastDelimiter + 1));
+        const QByteArray completeLines = buffer.left(lastDelimiter + 1);
+        QByteArray normalizedLines = completeLines;
+        normalizedLines.replace('\r', '\n');
+        const QList<QByteArray> lines = normalizedLines.split('\n');
+        for (QByteArray line : lines) {
+            line = line.trimmed();
+            const qsizetype separator = line.indexOf('=');
+            if (separator <= 0) {
+                continue;
+            }
+            const QString key = QString::fromLatin1(line.left(separator));
+            const QString value = QString::fromUtf8(line.mid(separator + 1));
+            if (key == QLatin1String("frame")) m_lastProgressFrame = value;
+            else if (key == QLatin1String("out_time_ms")) m_lastProgressTime = value;
+            else if (key == QLatin1String("speed")) m_lastProgressSpeed = value;
+            if (m_processTimer.isValid() && m_processTimer.elapsed() - m_lastProgressLogMs >= 5000) {
+                qDebug() << "[MetadataEmbedder][ffmpeg progress]"
+                         << "elapsed_ms=" << m_processTimer.elapsed()
+                         << "frame=" << m_lastProgressFrame
+                         << "out_time_ms=" << m_lastProgressTime
+                         << "speed=" << m_lastProgressSpeed;
+                m_lastProgressLogMs = m_processTimer.elapsed();
+            }
+        }
+        m_processOutputTail += QString::fromUtf8(completeLines);
         buffer.remove(0, lastDelimiter + 1);
         constexpr qsizetype maxTailLength = 12000;
         if (m_processOutputTail.size() > maxTailLength) {

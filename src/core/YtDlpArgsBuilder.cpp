@@ -127,7 +127,8 @@ void appendForcedKeyframeCutArgs(QStringList &args, ConfigManager *configManager
                 << QStringLiteral("-af aresample=async=1:first_pts=0")
                 << QStringLiteral("-avoid_negative_ts make_zero")
                 << QStringLiteral("-threads 2") << QStringLiteral("-filter_threads 1")
-                << QStringLiteral("-max_muxing_queue_size 2048");
+                << QStringLiteral("-max_muxing_queue_size 2048")
+                << QStringLiteral("-progress pipe:2") << QStringLiteral("-stats_period 1");
         if (!encoderArgs.isEmpty()) ppaArgs << encoderArgs;
     } else {
         if (!encoderArgs.isEmpty()) ppaArgs << encoderArgs;
@@ -141,7 +142,8 @@ void appendForcedKeyframeCutArgs(QStringList &args, ConfigManager *configManager
                 << QStringLiteral("-af aresample=async=1:first_pts=0")
                 << QStringLiteral("-avoid_negative_ts make_zero")
                 << QStringLiteral("-threads 2") << QStringLiteral("-filter_threads 1")
-                << QStringLiteral("-max_muxing_queue_size 2048");
+                << QStringLiteral("-max_muxing_queue_size 2048")
+                << QStringLiteral("-progress pipe:2") << QStringLiteral("-stats_period 1");
     }
 
     if (!ppaArgs.isEmpty()) {
@@ -367,6 +369,11 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
             rawArgs << QStringLiteral("-f") << QStringLiteral("%1+%2/%1+bestaudio/bestvideo+%2/bestvideo+bestaudio/%1/bestvideo/best").arg(videoFormatSelector, audioFormatSelector);
             rawArgs << QStringLiteral("--merge-output-format") << requestedExtension;
         }
+
+        // Make yt-dlp's merger emit machine-readable FFmpeg progress so long
+        // mux/re-encode intervals remain distinguishable from a stalled job.
+        rawArgs << QStringLiteral("--ppa")
+                << QStringLiteral("Merger+ffmpeg_o:-progress pipe:2 -stats_period 1");
 
     } else if (downloadType == QLatin1String("audio") && !isPlaylistExpansion) {
         QString audioQuality = options.value(QStringLiteral("audio_quality"), configManager->get(QStringLiteral("Audio"), QStringLiteral("audio_quality"), QStringLiteral("Best"))).toString();

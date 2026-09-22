@@ -90,14 +90,16 @@ replacement. Temp cleanup owns root resolution and guarded UUID-folder removal.
 | `YtDlpArgsBuilder.*` | Settings/options to yt-dlp/aria2c arguments and replay-safe live classification |
 | `ArtworkNormalizer.*` | Worker-thread detection, complete-edge sampling, and atomic codec-buffer rewriting that removes high-confidence borders around square audio artwork |
 | `DiagnosticTail.h`, `YtDlpWorker.*`, `YtDlpWorkerProcess.cpp`, `YtDlpWorkerProcessOutput.cpp`, `YtDlpWorkerInfoJson.cpp`, `YtDlpWorkerProcessHelpers.h` | Async yt-dlp process, bounded diagnostics, output/progress parsing, metadata loading, cookies, livestream wait, aria2c recovery |
+| `YtDlpWorkerFfmpegDiagnostics.cpp` | FFmpeg merger/cut stage detection, bounded progress/timing logs, and worker-thread process-tree telemetry |
 | `YtDlpWorkerDiagnostics.cpp` | Fatal/incomplete-media, disk-full, and bounded recovery classification |
 | `YtDlpWorkerTransfers.cpp` | Transfer-stage inference, including combined-source audio |
 | `YtDlpLiveStatus.h` | Explicit premiere/upcoming diagnostic mapping |
 | `GalleryDlWorker.*` | gallery-dl process and gallery output handling |
 | `DownloadFinalizer.*` | Background verification, sorting, replacement, terminal cleanup, and worker-thread archive update |
-| `MetadataEmbedder.*` | Worker-thread metadata/thumbnail rewrite, cancellation, and tracked `attached_pic` remux; audio sidecar normalization is coordinated by the yt-dlp worker before native embedding |
+| `MetadataEmbedder.*` | Worker-thread metadata/thumbnail rewrite, cancellation, tracked `attached_pic` remux, and bounded FFmpeg stage progress/timing; audio sidecar normalization is coordinated by the yt-dlp worker before native embedding |
 | `download_pipeline/FfmpegMuxer.*` | Async FFmpeg muxing and progress |
-| `ProcessUtils.*`, `SmartBinaryResolver.*` | Process trees, environments, binary discovery, and ownership tracking |
+| `ProcessDiagnostics.*` | Cross-platform worker-process-tree CPU/RSS/priority snapshots with an unavailable fallback |
+| `ProcessUtils.*`, `SmartBinaryResolver.*` | Process startup, environments, binary discovery, and ownership tracking |
 
 ### UI and integrations
 
@@ -112,7 +114,7 @@ replacement. Temp cleanup owns root resolution and guarded UUID-folder removal.
 | `integration/BrowserNativeMessagingHost.cpp`, `integration/BrowserNativeHostRegistration.*`, `integration/BrowserCookieFile.*` | Bounded cross-platform Chrome native-messaging bridge and registration, plus request-scoped cookie-file ownership; requests the coordinator's Local API and relays allowlisted operations |
 | `AppUpdater.*`, `LzyDownloader.nsi` | Release lookup/handoff and Windows silent-install relaunch |
 | `PowerInhibitor.*` | Platform idle-sleep inhibition |
-| `LogManager.*` | Per-run logs and five-file startup retention |
+| `LogManager.*` | Per-run logs, five-file startup retention, and GUI event-loop delay heartbeat diagnostics |
 
 ### Tests and release support
 
@@ -140,7 +142,11 @@ for long operations. Coalesce high-frequency progress before QWidget updates,
 but keep backend/API progress delivery independent. Mutexes use RAII and are
 not held while emitting signals.
 External processes have bounded watchdogs, UTF-8 line buffering, bounded
-diagnostics, and process-tree cleanup. Qt SQL connections stay within their
+diagnostics, and process-tree cleanup. FFmpeg stage telemetry runs with the
+owning worker and never samples process resources from the GUI thread; platforms
+without a supported resource API log an explicit unavailable result. The GUI
+event-loop heartbeat records delayed timer callbacks so a desktop stall can be
+distinguished from a long but responsive FFmpeg stage. Qt SQL connections stay within their
 creating thread. `GlobalDownloadLimiter` uses a short-lived lock and removes
 holders whose process is no longer alive; manager shutdown releases the
 process's reservations. Queue and history writes snapshot immutable state and

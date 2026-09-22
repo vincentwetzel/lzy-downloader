@@ -187,6 +187,15 @@ only the sections relevant to the change.
   device`, errno/ENOSPC 28, and FFmpeg `-28` are terminal before metadata
   embedding. Recoverable non-zero exits retain a visible “Completed with
   warnings” state; optional impersonation warnings are recommendations.
+- FFmpeg merger and cut stages emit bounded machine-readable progress, elapsed
+  stage timing, and descendant-process resource snapshots from the owning worker;
+  metadata rewrite stages emit bounded progress and timing. Resource sampling is
+  off the GUI thread and uses a safe unavailable fallback on unsupported
+  platforms. The application heartbeat records delayed GUI event-loop callbacks
+  separately. Diagnostic records use `[YtDlpWorker][ffmpeg stage]`,
+  `[YtDlpWorker][ffmpeg telemetry]`, `[MetadataEmbedder][ffmpeg stage]`, and
+  `[Diagnostics][event_loop]` markers so long processing can be separated from
+  process pressure or GUI-thread starvation.
 - Low-quality warnings apply only to video jobs below 480p, include the title,
   and render a complete HTTP/HTTPS source URL as an escaped link. Audio jobs
   remain audio-oriented even when a combined transport reports `video/*` or

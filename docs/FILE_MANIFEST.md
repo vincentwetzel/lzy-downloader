@@ -43,7 +43,7 @@ Public/project guidance is in `README.md`, `CONTRIBUTING.md`, `SECURITY.md`,
 ## Source layout
 
 - `src/core/`: queue, archive, configuration, workers, finalization, binary
-  resolution, API, and platform behavior.
+  resolution, diagnostics, API, and platform behavior.
 - `src/integration/BrowserNativeMessagingHost.cpp`: Chrome native-messaging
   bridge for the local desktop API; built as `LzyDownloaderBrowserHost`.
 - `src/integration/BrowserNativeHostRegistration.*`: Cross-platform
@@ -65,10 +65,10 @@ Public/project guidance is in `README.md`, `CONTRIBUTING.md`, `SECURITY.md`,
 | Cross-process worker admission | `src/core/GlobalDownloadLimiter.*` |
 | Runtime coordination | `src/core/RuntimeCoordinator.*`, `main.cpp` |
 | Temp/finalization | `src/core/DownloadFinalizer.*`, `src/core/FileReplacement.*`, `src/core/DownloadTempCleanup.*`, `src/core/DownloadQueueManagerCleanup.cpp` |
-| yt-dlp/gallery pipeline | `src/core/DiagnosticTail.h`, `src/core/YtDlpWorker.*`, `src/core/YtDlpWorkerProcess.cpp`, `src/core/YtDlpWorkerProcessOutput.cpp`, `src/core/YtDlpWorkerInfoJson.cpp`, `src/core/YtDlpWorkerProcessHelpers.h`, `src/core/YtDlpWorkerDiagnostics.cpp`, `src/core/YtDlpWorkerTransfers.cpp`, `src/core/GalleryDlWorker.*` |
+| yt-dlp/gallery pipeline | `src/core/DiagnosticTail.h`, `src/core/YtDlpWorker.*`, `src/core/YtDlpWorkerProcess.cpp`, `src/core/YtDlpWorkerProcessOutput.cpp`, `src/core/YtDlpWorkerInfoJson.cpp`, `src/core/YtDlpWorkerProcessHelpers.h`, `src/core/YtDlpWorkerDiagnostics.cpp`, `src/core/YtDlpWorkerFfmpegDiagnostics.cpp`, `src/core/YtDlpWorkerTransfers.cpp`, `src/core/GalleryDlWorker.*` |
 | Probe/arguments/live state | `src/core/PlaylistExpansionWorker.*`, `src/core/PlaylistExpansionParser.*`, `src/core/YtDlpArgsBuilder.*`, `src/core/YtDlpLiveStatus.h` |
-| Metadata/FFmpeg | `src/core/ArtworkNormalizer.*`, `src/core/MetadataEmbedder.*`, `src/core/download_pipeline/FfmpegMuxer.*` |
-| Tools/processes | `src/core/ProcessUtils.*`, `src/core/SmartBinaryResolver.*`, `src/core/BaseBinaryUpdater.*`, `src/core/StartupWorker.*` |
+| Metadata/FFmpeg | `src/core/ArtworkNormalizer.*`, `src/core/MetadataEmbedder.*`, `src/core/YtDlpWorkerFfmpegDiagnostics.cpp`, `src/core/download_pipeline/FfmpegMuxer.*` |
+| Tools/processes | `src/core/ProcessDiagnostics.*`, `src/core/ProcessUtils.*`, `src/core/SmartBinaryResolver.*`, `src/core/BaseBinaryUpdater.*`, `src/core/StartupWorker.*` |
 | API/update/power/logging | `src/core/LocalApiServer.*`, `src/core/AppUpdater.*`, `src/core/PowerInhibitor.*`, `src/utils/LogManager.*` |
 | Main UI | `src/ui/MainWindow.*`, `src/ui/MainWindowConnections.cpp`, `src/ui/MainWindowDownloadConnections.cpp`, `src/ui/MainWindowUiBuilder.*`, `src/ui/StartTab.*`, `src/ui/ActiveDownloadsTab.*`, `src/ui/DownloadItemWidget.cpp`, `src/ui/DownloadItemWidgetProgress.cpp`, `src/ui/DownloadItemWidgetIcons.h`, `src/ui/DownloadHistoryTab.*` |
 | Settings UI | `src/ui/advanced_settings/*`, `src/ui/MissingBinariesDialog.*` |
@@ -85,7 +85,7 @@ paths/headless Qt. Main focused files are:
 | Queue/archive/temp/replacement | `TestDownloadQueueManager.cpp`, `TestDownloadQueueState.cpp`, `TestDownloadTempCleanup.cpp`, `TestFileReplacement.cpp` |
 | Cross-process worker admission | `TestGlobalDownloadLimiter.cpp` |
 | Single queue coordination | `TestRuntimeCoordinator.cpp` |
-| Worker/tools/power | `TestYtDlpWorker.cpp`, `TestProcessUtils.cpp`, `TestPowerInhibitor.cpp` |
+| Worker/tools/power | `TestYtDlpArgsBuilder.cpp`, `TestYtDlpWorker.cpp`, `TestProcessUtils.cpp`, `TestPowerInhibitor.cpp` |
 | UI | `TestUIWidgets.cpp`, `TestDownloadManager.cpp` (completion-save responsiveness) |
 | Browser companion | `TestBrowserCookieFile.cpp`, `TestLocalApiServer.cpp` |
 

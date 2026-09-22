@@ -293,6 +293,7 @@ add_library(LzyAppLib STATIC
     src/core/PlaylistRangeDialog.cpp
     src/core/ProcessUtils.cpp
     src/core/PowerInhibitor.cpp
+    src/core/ProcessDiagnostics.cpp
     src/core/RuntimeCoordinator.cpp
     src/core/SortingManager.cpp
     src/core/StartupWorker.cpp
@@ -300,6 +301,7 @@ add_library(LzyAppLib STATIC
     src/core/YtDlpArgsBuilder.cpp
     src/core/YtDlpWorker.cpp
     src/core/YtDlpWorkerDiagnostics.cpp
+    src/core/YtDlpWorkerFfmpegDiagnostics.cpp
     src/core/YtDlpWorkerOutput.cpp
     src/core/YtDlpWorkerProcess.cpp
     src/core/YtDlpWorkerProcessHelpers.h

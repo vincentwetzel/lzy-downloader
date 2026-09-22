@@ -11,6 +11,8 @@
 #include <QRegularExpression>
 #include <QMutex>
 #include <QStringList>
+#include <QElapsedTimer>
+#include <QTimer>
 
 namespace {
     const int MAX_LOG_FILES = 5;
@@ -150,6 +152,22 @@ void LogManager::installHandler() {
     }
 
     qInstallMessageHandler(customMessageHandler);
+
+    // A timer callback is a cheap event-loop heartbeat. If FFmpeg or a slow
+    // filesystem operation starves the GUI thread, the delayed callback gives
+    // the log an objective timestamp instead of relying on user observation.
+    auto *heartbeat = new QTimer(QCoreApplication::instance());
+    heartbeat->setInterval(1000);
+    QElapsedTimer heartbeatClock;
+    heartbeatClock.start();
+    QObject::connect(heartbeat, &QTimer::timeout, heartbeat, [clock = heartbeatClock]() mutable {
+        const qint64 elapsedMs = clock.restart();
+        if (elapsedMs >= 1250) {
+            qWarning() << "[Diagnostics][event_loop] delayed_ms=" << elapsedMs
+                       << "expected_ms=1000";
+        }
+    });
+    heartbeat->start();
 
     // Print the log file path on startup
     qDebug() << "Log file created:" << logPath;

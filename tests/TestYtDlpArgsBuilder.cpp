@@ -89,7 +89,8 @@ void TestYtDlpArgsBuilder::testSponsorBlockArguments() {
     QVERIFY(args.contains(QStringLiteral("all")));
     QVERIFY(args.contains(QStringLiteral("--force-keyframes-at-cuts")));
     QVERIFY(args.contains(QStringLiteral("--ppa")));
-    QVERIFY(args.contains(QStringLiteral("ModifyChapters+ffmpeg_o:-c:a aac -b:a 192k -af aresample=async=1:first_pts=0 -avoid_negative_ts make_zero -threads 2 -filter_threads 1 -max_muxing_queue_size 2048")));
+    QVERIFY(args.contains(QStringLiteral("ModifyChapters+ffmpeg_o:-c:a aac -b:a 192k -af aresample=async=1:first_pts=0 -avoid_negative_ts make_zero -threads 2 -filter_threads 1 -max_muxing_queue_size 2048 -progress pipe:2 -stats_period 1")));
+    QVERIFY(args.contains(QStringLiteral("Merger+ffmpeg_o:-progress pipe:2 -stats_period 1")));
     QVERIFY(!args.contains(QStringLiteral("-c:a copy")));
 }
 

@@ -25,6 +25,8 @@ YtDlpWorker::YtDlpWorker(const QString &id, const QStringList &args, ConfigManag
       m_thumbnailPath(QString()), m_infoJsonPath(QString()), m_infoJsonRetryCount(0) {
 
     m_process = new QProcess(this);
+    m_ffmpegTelemetryTimer = new QTimer(this);
+    connect(m_ffmpegTelemetryTimer, &QTimer::timeout, this, &YtDlpWorker::logFfmpegTelemetry);
     connect(m_process, &QProcess::started, this, [this]() {
         // yt-dlp launches FFmpeg for merging and post-processing. Lowering the
         // parent priority also makes those child processes background work on
@@ -164,6 +166,7 @@ void YtDlpWorker::start() {
     m_inferredTransferIndex = -1;
     m_lastPrimaryProgress = -1.0;
     m_lastPrimaryTotalBytes = 0.0;
+    finishFfmpegStage(QStringLiteral("worker_restart"));
     const ProcessUtils::FoundBinary ytDlpBinary = ProcessUtils::findBinary(QStringLiteral("yt-dlp"), m_configManager);
     if (ytDlpBinary.source == QStringLiteral("Not Found") || ytDlpBinary.path.isEmpty()) {
         const QString message = tr("Download failed.\n"

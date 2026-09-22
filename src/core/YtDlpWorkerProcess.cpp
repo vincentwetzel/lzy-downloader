@@ -21,6 +21,7 @@
 using namespace YtDlpWorkerProcessHelpers;
 
 void YtDlpWorker::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatus) {
+    finishFfmpegStage(QStringLiteral("yt_dlp_exit"));
     if (m_finishEmitted) {
         return;
     }
