@@ -134,16 +134,23 @@ bool YtDlpWorker::retryWithoutAria2cIfTransientFailure(const QString &diagnostic
         QStringLiteral("aria2c exited with code\\s+(?:2|5|6|29)\\b"),
         QRegularExpression::CaseInsensitiveOption);
     const QRegularExpressionMatch errorMatch = transientAria2Error.match(diagnostic);
+    static const QRegularExpression aria2EofError(
+        QStringLiteral("aria2c exited with code\\s+1\\b"),
+        QRegularExpression::CaseInsensitiveOption);
+    const bool eofFailure = aria2EofError.match(diagnostic).hasMatch()
+                            && diagnostic.contains(QStringLiteral("Got EOF from the server"), Qt::CaseInsensitive);
     const bool missingOutput = isMissingExternalDownloaderOutputDiagnostic(diagnostic);
-    if (!errorMatch.hasMatch() && !missingOutput) {
+    if (!errorMatch.hasMatch() && !eofFailure && !missingOutput) {
         return false;
     }
 
     m_retriedWithoutAria2c = true;
     m_recoveryDiagnostic = missingOutput
         ? tr("aria2c returned without the expected temporary media file before native fallback.")
-        : tr("aria2c exited with transient error code %1 before native fallback.")
-              .arg(errorMatch.captured(0).section(QLatin1Char(' '), -1));
+        : eofFailure
+            ? tr("aria2c lost the remote connection before native fallback.")
+            : tr("aria2c exited with transient error code %1 before native fallback.")
+                  .arg(errorMatch.captured(0).section(QLatin1Char(' '), -1));
     removeArgumentAndValue(m_args, QStringLiteral("--external-downloader"));
     removeArgumentAndValue(m_args, QStringLiteral("--external-downloader-args"));
 
@@ -159,7 +166,9 @@ bool YtDlpWorker::retryWithoutAria2cIfTransientFailure(const QString &diagnostic
     progressData.insert(QStringLiteral("status"),
                         missingOutput
                             ? tr("aria2c did not leave its expected media output; retrying with the native downloader...")
-                            : tr("aria2c encountered a temporary server or network error; retrying with the native downloader..."));
+                            : eofFailure
+                                ? tr("aria2c lost the remote connection; retrying with the native downloader...")
+                                : tr("aria2c encountered a temporary server or network error; retrying with the native downloader..."));
     progressData.insert(QStringLiteral("progress"), -1);
     emit progressUpdated(m_id, progressData);
 

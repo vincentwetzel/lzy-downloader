@@ -59,6 +59,7 @@ private slots:
     void testAudioThumbnailIsNormalizedBeforeNativeEmbedding();
     void testTransientAria2FailureFallsBackToNativeDownloader();
     void testMissingAria2OutputFallsBackToNativeDownloader();
+    void testAria2EofFailureFallsBackToNativeDownloader();
     void testAria2RecoveryRejectsUnrelatedFailuresAndRetriesOnce();
     void testMetadataFormatSizeFallback();
     void testOverallProgressPayloadForDiscord();
@@ -298,6 +299,24 @@ void TestYtDlpWorker::testMissingAria2OutputFallsBackToNativeDownloader() {
     QVERIFY(!worker.arguments().contains(QStringLiteral("--external-downloader-args")));
     QVERIFY(!progressSpy.isEmpty());
     QVERIFY(progressSpy.last().at(1).toMap().value(QStringLiteral("status")).toString().contains(QStringLiteral("expected media output")));
+}
+
+void TestYtDlpWorker::testAria2EofFailureFallsBackToNativeDownloader() {
+    ConfigManager *config = getConfigManager();
+    TestableYtDlpWorker worker(QStringLiteral("aria2EofRecovery"),
+                               {QStringLiteral("--external-downloader"), QStringLiteral("aria2c"),
+                                QStringLiteral("--external-downloader-args"), QStringLiteral("aria2c:--max-tries=6")},
+                               config, nullptr);
+    QSignalSpy progressSpy(&worker, &YtDlpWorker::progressUpdated);
+
+    const QString diagnostic = QStringLiteral(
+        "Exception: [DownloadCommand.cc:234] errorCode=1 Got EOF from the server.\n"
+        "ERROR: aria2c exited with code 1");
+    QVERIFY(worker.callRetryWithoutAria2c(diagnostic));
+    QVERIFY(!worker.arguments().contains(QStringLiteral("--external-downloader")));
+    QVERIFY(!worker.arguments().contains(QStringLiteral("--external-downloader-args")));
+    QVERIFY(!progressSpy.isEmpty());
+    QVERIFY(progressSpy.last().at(1).toMap().value(QStringLiteral("status")).toString().contains(QStringLiteral("lost the remote connection")));
 }
 
 void TestYtDlpWorker::testAria2RecoveryRejectsUnrelatedFailuresAndRetriesOnce() {

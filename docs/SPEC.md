@@ -158,9 +158,12 @@ only the sections relevant to the change.
   section containers/filename labels.
 - Aria2c is for ordinary non-livestream transfers. Use bounded retry/backoff,
   conservative per-server connections, and a referer only when the URL has a
-  scheme and host. For exit codes 2, 5, 6, or 29, or the narrowly classified
+  scheme and host. For exit codes 2, 5, 6, or 29, the specific combination of
+  exit code 1 with `Got EOF from the server`, or the narrowly classified
   expected-media `.part` file-not-found diagnostic, retry once with native
   yt-dlp after removing stale `.info.json` sidecars; preserve media partials.
+  The EOF classification may come from combined stdout/stderr diagnostics;
+  unrelated exit code 1 failures remain terminal.
 - Browser-cookie extraction and livestream-wait failures may each use one
   generic fallback retry only with explicit cookie/browser/sign-in or
   pre-wait evidence. Words such as `locked`, URL text, and ambiguous titles are

@@ -69,8 +69,9 @@ protected: // Changed from private for testing
     /**
      * Retries a recoverable aria2-backed transfer once through yt-dlp's native downloader.
      *
-     * This is limited to documented transient aria2 exit codes and the narrow case where
-     * aria2 reports success but yt-dlp cannot find the required media .part output.
+     * This is limited to documented transient aria2 exit codes, an aria2 EOF from the
+     * remote server, and the narrow case where aria2 reports success but yt-dlp cannot
+     * find the required media .part output.
      */
     bool retryWithoutAria2cIfTransientFailure(const QString &diagnostic);
     /** Removes only metadata sidecars that can collide with yt-dlp's atomic JSON write on retry. */

@@ -33,6 +33,9 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## [Unreleased]
 
+- **Aria2c EOF recovery:** Retry once with yt-dlp's native downloader when
+  aria2c exits with code 1 and reports `Got EOF from the server`, while keeping
+  unrelated code 1 failures terminal and preserving media partials.
 - **Post-processing diagnostics:** Record FFmpeg stage timing and progress,
   descendant-process CPU/memory snapshots, and event-loop delay warnings so
   desktop responsiveness problems during concurrent merges can be correlated

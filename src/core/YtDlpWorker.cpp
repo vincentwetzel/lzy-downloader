@@ -122,7 +122,14 @@ YtDlpWorker::YtDlpWorker(const QString &id, const QStringList &args, ConfigManag
                 return;
             }
 
-            if (retryWithoutAria2cIfTransientFailure(accumulatedStderr)) {
+            QString aria2Diagnostic = accumulatedStderr;
+            if (!m_allOutputLines.isEmpty()) {
+                if (!aria2Diagnostic.isEmpty()) {
+                    aria2Diagnostic.append(QLatin1Char('\n'));
+                }
+                aria2Diagnostic.append(m_allOutputLines.join(QStringLiteral("\n")));
+            }
+            if (retryWithoutAria2cIfTransientFailure(aria2Diagnostic)) {
                 return;
             }
         }
