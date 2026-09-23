@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIVE.md](docs/CHANGELOG_ARCHIVE.md).
 
+## [1.2.53] - 2026-09-23
+
+- **Aria2c EOF recovery:** Retry once with yt-dlp's native downloader when
+  aria2c exits with code 1 and reports `Got EOF from the server`, while keeping
+  unrelated code 1 failures terminal and preserving media partials.
+- **Post-processing diagnostics:** Record FFmpeg stage timing and progress,
+  descendant-process CPU/memory snapshots, and event-loop delay warnings so
+  desktop responsiveness problems during concurrent merges can be correlated
+  with a specific stage.
+- **Extractor catalogs:** Refresh the bundled yt-dlp and gallery-dl extractor
+  catalogs.
+
+## [1.2.52] - 2026-09-15
+
+- **Download controls:** Renamed the active-download cancellation action to
+  **Stop** and preserve partial files for resume; destructive temporary-file
+  removal remains an explicit cleanup action.
+- **Popup window controls:** Removed the minimize button from all dialog-style
+  popups, including message boxes and file dialogs, while preserving close and
+  modal behavior.
+- **Completion safety:** Snapshot active item metadata before signal-capable
+  completion work and revalidate ownership before finalization, preventing
+  reentrant row removal from invalidating manager state.
+- **Extractor catalog:** Refresh the bundled yt-dlp Nitter domain to
+  `nitter.girlboss.ceo` and refresh the bundled extractor metadata.
+
 ## [1.2.51] - 2026-09-12
 
 - **Application update handoff:** Defer clipboard auto-paste/enqueue activity
@@ -30,30 +56,6 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
   configure caches, run Qt tests serially for deterministic shared runtime
   state, and reserve duplicate diagnostic reruns for opaque failures.
 - **Extractor catalog:** Refresh the yt-dlp extractor catalog.
-
-## [Unreleased]
-
-- **Aria2c EOF recovery:** Retry once with yt-dlp's native downloader when
-  aria2c exits with code 1 and reports `Got EOF from the server`, while keeping
-  unrelated code 1 failures terminal and preserving media partials.
-- **Post-processing diagnostics:** Record FFmpeg stage timing and progress,
-  descendant-process CPU/memory snapshots, and event-loop delay warnings so
-  desktop responsiveness problems during concurrent merges can be correlated
-  with a specific stage.
-
-## [1.2.52] - 2026-09-15
-
-- **Download controls:** Renamed the active-download cancellation action to
-  **Stop** and preserve partial files for resume; destructive temporary-file
-  removal remains an explicit cleanup action.
-- **Popup window controls:** Removed the minimize button from all dialog-style
-  popups, including message boxes and file dialogs, while preserving close and
-  modal behavior.
-- **Completion safety:** Snapshot active item metadata before signal-capable
-  completion work and revalidate ownership before finalization, preventing
-  reentrant row removal from invalidating manager state.
-- **Extractor catalog:** Refresh the bundled yt-dlp Nitter domain to
-  `nitter.girlboss.ceo` and refresh the bundled extractor metadata.
 
 ## [1.2.49] - 2026-09-11
 
