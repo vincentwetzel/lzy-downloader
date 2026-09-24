@@ -45,18 +45,6 @@ void DownloadManager::cancelDownload(const QString &id) {
         }
     }
 
-    if (m_pendingSponsorBlockPreflights.contains(id)) {
-        DownloadItem item = m_pendingSponsorBlockPreflights.take(id);
-        m_activeItems.remove(id);
-        item.options[QStringLiteral("is_stopped")] = true;
-        m_queueManager->m_pausedItems[id] = item;
-        adjustActiveDownloadCount(-1);
-        if (!cancelled) {
-            emit downloadCancelled(id);
-            cancelled = true;
-        }
-    }
-
     // Always check active workers to ensure no ghost processes remain
     if (m_activeWorkers.contains(id)) {
         QObject *worker = m_activeWorkers.take(id);
@@ -131,9 +119,7 @@ void DownloadManager::restartDownloadWithOptions(const QVariantMap &itemData) {
 
     qDebug() << "Restarting active download with new options:" << id;
 
-    if (m_pendingSponsorBlockPreflights.contains(id)) {
-        m_pendingSponsorBlockPreflights.remove(id);
-    } else if (m_activeWorkers.contains(id)) {
+    if (m_activeWorkers.contains(id)) {
         // 1. Get the active worker and kill it.
         QObject *worker = m_activeWorkers.take(id);
         // Disconnect signals to prevent onWorkerFinished from being called with an error
@@ -202,14 +188,6 @@ void DownloadManager::pauseDownload(const QString &id) {
         qDebug() << "Paused active download:" << id;
         emit downloadPaused(id);
         paused = true; // Corrected: paused = true
-    } else if (!paused && m_pendingSponsorBlockPreflights.contains(id)) {
-        DownloadItem item = m_pendingSponsorBlockPreflights.take(id);
-        m_activeItems.remove(id);
-        m_queueManager->m_pausedItems[id] = item;
-        adjustActiveDownloadCount(-1);
-        qDebug() << "Paused SponsorBlock preflight download:" << id;
-        emit downloadPaused(id);
-        paused = true;
     } else if (!paused && m_activeEmbedders.contains(id)) {
         qWarning() << "Cannot pause a download that is currently embedding metadata:" << id;
         emit downloadResumed(id); // Revert UI

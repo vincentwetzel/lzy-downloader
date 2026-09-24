@@ -486,15 +486,19 @@ void TestDownloadManager::testCompletionSurvivesReentrantItemRemoval()
     item.options.insert(QStringLiteral("type"), QStringLiteral("audio"));
     item.options.insert(QStringLiteral("is_playlist"), true);
     item.metadata.insert(QStringLiteral("id"), QStringLiteral("reentrant-playlist-item"));
+    item.metadata.insert(QStringLiteral("postprocessor_warning"), QStringLiteral("synthetic completion warning"));
 
-    // Completion emits progress synchronously. Simulate a UI action that clears
-    // the row during that callback; the slot must not retain a QMap reference.
+    // A completion warning emits progress synchronously. Simulate a UI action
+    // that clears the row during that callback; the slot must not retain a
+    // QMap reference after the reentrant removal.
     QObject worker;
     manager.m_activeWorkers.insert(id, &worker);
     manager.m_activeItems.insert(id, item);
+    bool removedDuringCompletionProgress = false;
     connect(&manager, &DownloadManager::downloadProgress, &manager,
-            [&manager, id](const QString &progressId, const QVariantMap &data) {
-        if (progressId == id && data.value(QStringLiteral("progress")).toInt() == 100) {
+            [&manager, &removedDuringCompletionProgress, id](const QString &progressId, const QVariantMap &data) {
+        if (progressId == id && data.contains(QStringLiteral("status"))) {
+            removedDuringCompletionProgress = true;
             manager.m_activeItems.remove(id);
         }
     }, Qt::DirectConnection);
@@ -512,6 +516,7 @@ void TestDownloadManager::testCompletionSurvivesReentrantItemRemoval()
         Q_ARG(QVariantMap, item.metadata)));
 
     QCOMPARE(finishedSpy.count(), 0);
+    QVERIFY(removedDuringCompletionProgress);
     QVERIFY(!manager.m_activeItems.contains(id));
 }
 

@@ -53,9 +53,14 @@ RuntimeCoordinator::StartResult RuntimeCoordinator::startOrNotify(const QString 
     if (!isAllowedCommand(command)) {
         return StartResult::Unavailable;
     }
-    if (listen()) {
+
+    if (m_isOwner) {
         return StartResult::Owner;
     }
+
+    // Probe the existing coordinator before attempting to bind this object's
+    // server to the same name. Binding first can leave a failed QLocalServer
+    // with platform-specific state and can race the active owner's endpoint.
     const NotifyResult notifyResult = notifyOwner(command);
     if (notifyResult == NotifyResult::Notified || notifyResult == NotifyResult::Sent) {
         return StartResult::ClientNotified;
@@ -64,8 +69,17 @@ RuntimeCoordinator::StartResult RuntimeCoordinator::startOrNotify(const QString 
         return StartResult::Unavailable;
     }
 
-    // Recover only when Qt reports that no server exists. A busy coordinator
-    // must never be replaced merely because it did not answer quickly.
+    // No owner answered. A normal listen succeeds immediately; only remove
+    // the endpoint after that attempt fails, which keeps a newly-started or
+    // busy owner protected from stale-endpoint recovery.
+    if (listen()) {
+        return StartResult::Owner;
+    }
+
+    // Recover only after the endpoint was already classified as absent and a
+    // fresh listen still failed. A busy coordinator must never be replaced
+    // merely because it did not answer quickly.
+    m_server->close();
     QLocalServer::removeServer(m_serverName);
     return listen() ? StartResult::Owner : StartResult::Unavailable;
 }
@@ -81,11 +95,25 @@ void RuntimeCoordinator::dispatchPendingCommands()
 
 bool RuntimeCoordinator::listen()
 {
-    m_isOwner = m_server->listen(m_serverName);
-    if (!m_isOwner) {
-        qWarning() << "Runtime coordinator listen failed:" << m_server->errorString();
+    // QLocalServer can retain its listening state after a failed/repeated
+    // listen attempt. A client coordinator must be able to retry notification
+    // without producing "listen() called when already listening" and masking
+    // the actual owner connection result.
+    if (m_server->isListening()) {
+        if (m_isOwner) {
+            return true;
+        }
+        m_server->close();
     }
-    return m_isOwner;
+
+    m_isOwner = false;
+    if (!m_server->listen(m_serverName)) {
+        qWarning() << "Runtime coordinator listen failed:" << m_server->errorString();
+        m_server->close();
+        return false;
+    }
+    m_isOwner = true;
+    return true;
 }
 
 RuntimeCoordinator::NotifyResult RuntimeCoordinator::notifyOwner(const QString &command) const

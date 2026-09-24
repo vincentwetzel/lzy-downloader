@@ -424,7 +424,6 @@ void DownloadManager::checkQueueFinished() {
     }
 
     bool isQueueEmptyAndIdle = m_activeWorkers.isEmpty()
-        && m_pendingSponsorBlockPreflights.isEmpty()
         && !m_queueManager->hasQueuedDownloads()
         && m_activeItems.isEmpty()
         && !hasPendingPlaylistExpansions

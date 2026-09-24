@@ -199,7 +199,8 @@ public:
         // outstanding file read before QObject tears down the label and its
         // queued callbacks. This is normally only a few milliseconds, while
         // preventing a Windows heap corruption during rapid row teardown.
-        for (QThread *thread : std::as_const(m_thumbnailThreads)) {
+        while (!m_thumbnailThreads.isEmpty()) {
+            QThread *thread = m_thumbnailThreads.takeLast();
             if (thread->isRunning()) {
                 thread->requestInterruption();
                 thread->wait();

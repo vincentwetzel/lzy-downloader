@@ -60,17 +60,42 @@ def run_command(command, cwd, env=None):
 def run_direct_test_diagnostics(build_dir: Path, config: str, names, env) -> None:
     """Run failed QtTest executables directly to expose loader/runtime errors."""
     for name in sorted(set(names)):
-        executable = build_dir / config / f"{name}.exe"
-        if not executable.exists():
-            # Single-config generators place the executable directly in the
-            # build directory. Keep the Windows suffix in this fallback so
-            # failed tests can still be run for loader/runtime diagnostics.
-            executable = build_dir / f"{name}.exe"
-        if not executable.exists():
-            log(f"Diagnostic executable not found: {executable}")
+        executable_names = [name]
+        if os.name == "nt":
+            executable_names.insert(0, f"{name}.exe")
+        candidates = [
+            build_dir / config / executable_name
+            for executable_name in executable_names
+        ] + [
+            build_dir / executable_name
+            for executable_name in executable_names
+        ]
+        executable = next((candidate for candidate in candidates if candidate.exists()), None)
+        if executable is None:
+            log(f"Diagnostic executable not found: {candidates[0]}")
             continue
-        log(f"$ {executable} -v2")
-        run_command([str(executable), "-v2"], build_dir, env)
+        # Some Windows QtTest releases do not forward their reporter output
+        # through the pipe when the process exits abnormally. Ask QtTest to
+        # write a plain-text report as well, then replay it into the Actions
+        # log so assertion details survive loader/crash diagnostics.
+        report_path = build_dir / f".lzy-{name}-diagnostic-{os.getpid()}.txt"
+        log(f"$ {executable} -v2 -o {report_path},txt")
+        try:
+            run_command([str(executable), "-v2", "-o", f"{report_path},txt"], build_dir, env)
+            if report_path.exists():
+                log(f"QtTest report for {name}:")
+                try:
+                    for line in report_path.read_text(encoding="utf-8", errors="replace").splitlines():
+                        log(line)
+                except OSError as error:
+                    log(f"Unable to read QtTest report '{report_path}': {error}")
+        finally:
+            try:
+                report_path.unlink()
+            except FileNotFoundError:
+                pass
+            except OSError as error:
+                log(f"Unable to remove temporary QtTest report '{report_path}': {error}")
 
 
 def cmake_build_command(build_dir: Path, config: str):

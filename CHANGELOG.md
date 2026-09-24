@@ -7,11 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIVE.md](docs/CHANGELOG_ARCHIVE.md).
 
+## [Unreleased]
+
+- **Coordinator startup:** Probe an existing local coordinator before attempting
+  to bind its endpoint, then recover stale endpoints only after a fresh listen
+  fails; this avoids duplicate-owner races across GUI, server, and headless
+  launches.
+- **Aria2c fallback diagnostics:** Recognize the Windows unreachable-network
+  diagnostic as a narrowly classified transient failure and retry once with
+  yt-dlp's native downloader while preserving unrelated code 1 failures as
+  terminal.
+- **Headless validation:** Make direct QtTest diagnostics portable across native
+  Windows and WSL/Linux builds, and keep focused and full-suite runs serial for
+  deterministic Qt/plugin/process state.
+
 ## [1.2.53] - 2026-09-23
 
+- **Download kickoff:** Remove the blocking SponsorBlock segment preflight;
+  SponsorBlock-enabled video downloads now start immediately with the
+  conservative accurate-cut arguments needed to preserve A/V sync.
 - **Aria2c EOF recovery:** Retry once with yt-dlp's native downloader when
   aria2c exits with code 1 and reports `Got EOF from the server`, while keeping
   unrelated code 1 failures terminal and preserving media partials.
+- **Aria2c network recovery:** Retry once with yt-dlp's native downloader when
+  aria2c reports the Windows unreachable-network socket error.
+- **FFmpeg diagnostics:** Fix the invalid stage-detection regular expression
+  that was repeatedly generating Qt warnings during downloads.
 - **Post-processing diagnostics:** Record FFmpeg stage timing and progress,
   descendant-process CPU/memory snapshots, and event-loop delay warnings so
   desktop responsiveness problems during concurrent merges can be correlated

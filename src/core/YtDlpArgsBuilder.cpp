@@ -439,13 +439,10 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
     if (configManager->get(QStringLiteral("General"), QStringLiteral("sponsorblock"), false).toBool() && !isLivestream && !isPlaylistExpansion) {
         rawArgs << QStringLiteral("--sponsorblock-remove") << QStringLiteral("all");
         if (downloadType == QStringLiteral("video")) {
-            const bool sponsorBlockSegmentsChecked = options.value(QStringLiteral("sponsorblock_segments_checked"), false).toBool();
-            const bool sponsorBlockHasSegments = options.value(QStringLiteral("sponsorblock_has_segments"), false).toBool();
-            if (!sponsorBlockSegmentsChecked || sponsorBlockHasSegments) {
-                forceKeyframesAtCuts = true;
-            } else {
-                qInfo() << "YtDlpArgsBuilder: SponsorBlock has no removable segments for this video; skipping forced keyframe cut encoder args.";
-            }
+            // Do not delay admission on a separate segment API request. The
+            // accurate-cut path is required whenever yt-dlp finds segments,
+            // and is harmless when it finds none.
+            forceKeyframesAtCuts = true;
         }
     }
     const ProcessUtils::FoundBinary aria2Binary = ProcessUtils::findBinary(QStringLiteral("aria2c"), configManager);

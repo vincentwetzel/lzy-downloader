@@ -42,12 +42,26 @@ recorded as failed by the preceding run.
 When GitHub Actions reports a build or test failure, reproduce it locally
 before editing a workflow. Prefer the closest native Windows toolchain; WSL is
 also suitable for CMake/Qt test debugging when it has the required packages.
-Use a separate build directory, run the failing target serially with `ctest
--V -j 1`, and then run the full suite. If CTest gives no assertion output,
-invoke the test executable directly with `-v2` to expose native loader/runtime
-errors. Change workflow configuration only when
-the failure cannot be reproduced locally and the evidence points to CI setup,
-runner state, or workflow orchestration.
+Use a separate build directory and rerun the cached suspects first:
+
+```powershell
+python .\tests\run_headless_tests.py `
+  --build-dir build-windows-rerun `
+  --config Release `
+  --verbose `
+  --suspects
+```
+
+In WSL/Linux, use the same command with `python3` and a separate build
+directory such as `build-wsl-rerun`. The helper runs CTest serially, reruns
+opaque failures with verbose QtTest diagnostics, and invokes failed test
+executables directly when necessary. After the focused run passes, run the
+same command without `--suspects` and require `Result: PASS`. Native Windows
+remains the decisive check for Windows-specific loader or heap failures; WSL
+validates the portable C++/Qt behavior but cannot reproduce those failures.
+Change workflow configuration only when the failure cannot be reproduced
+locally and the evidence points to CI setup, runner state, or workflow
+orchestration.
 
 Tagged releases call the same workflow as a required gate before the
 cross-platform packaging matrix and publish job.

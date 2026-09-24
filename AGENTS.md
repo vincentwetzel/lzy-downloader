@@ -102,6 +102,16 @@ platform branches with a tested fallback or a documented release prerequisite.
   QtTest arguments and capture its native exit/loader diagnostics. Change CI
   configuration only when local reproduction shows the problem is
   workflow-specific.
+- After fixing a GitHub Actions failure, the coding-agent handoff must include
+  copy-pasteable local validation steps before the user pushes again. Prefer
+  native Windows validation for the Windows workflow, using the repository's
+  documented build/test commands and a separate build directory when needed.
+  If Windows reproduction is unavailable or the failure is Linux-specific, give
+  the WSL/Linux commands instead, state which behavior they validate and which
+  Windows-specific behavior they cannot reproduce, and include the focused
+  serial test followed by the full suite. Report prerequisites, expected
+  success criteria, and whether the result is sufficient to push to Actions or
+  whether the workflow itself still needs verification.
 - Keep documentation token-efficient: prefer one canonical statement,
   concise bullets/tables, and links to detailed references over duplicated
   prose. Remove stale or completed guidance without omitting behavioral

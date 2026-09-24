@@ -159,11 +159,16 @@ only the sections relevant to the change.
 - Aria2c is for ordinary non-livestream transfers. Use bounded retry/backoff,
   conservative per-server connections, and a referer only when the URL has a
   scheme and host. For exit codes 2, 5, 6, or 29, the specific combination of
-  exit code 1 with `Got EOF from the server`, or the narrowly classified
-  expected-media `.part` file-not-found diagnostic, retry once with native
-  yt-dlp after removing stale `.info.json` sidecars; preserve media partials.
-  The EOF classification may come from combined stdout/stderr diagnostics;
-  unrelated exit code 1 failures remain terminal.
+  exit code 1 with `Got EOF from the server`, the Windows
+  `Network problem has occurred` plus `unreachable network`
+  diagnostic, or the narrowly classified expected-media `.part`
+  file-not-found diagnostic, retry once with native yt-dlp after removing stale
+  `.info.json` sidecars; preserve media partials. The EOF and
+  unreachable-network classifications may come from combined stdout/stderr
+  diagnostics; unrelated exit code 1 failures remain terminal.
+- SponsorBlock segment removal never delays download admission: video jobs begin
+  with the accurate-cut arguments needed to preserve A/V sync, without a
+  blocking SponsorBlock API preflight.
 - Browser-cookie extraction and livestream-wait failures may each use one
   generic fallback retry only with explicit cookie/browser/sign-in or
   pre-wait evidence. Words such as `locked`, URL text, and ambiguous titles are

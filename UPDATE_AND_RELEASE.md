@@ -244,12 +244,15 @@ python .\tests\run_headless_tests.py --build-dir build --config Release
 ```
 
 The helper builds before CTest and stops on compilation failure, then runs
-headless tests with Qt's `minimal` platform plugin in parallel with timestamped
-output and a final summary. Windows test targets receive the platform and Qt
-runtime DLLs through the appropriate CMake deployment helper used by the
-application.
+headless tests serially with Qt's `minimal` platform plugin, timestamped output,
+and a final summary. Serial execution keeps Qt/plugin/process state isolated
+between targets. Windows test targets receive the platform and Qt runtime DLLs
+through the appropriate CMake deployment helper used by the application.
 It stores failed names in `build/.lzy-test-suspects.json`; use `--suspects` to rerun
-that cache. Test locations and coverage are indexed in
+that cache before expanding to the full suite. For a GitHub Actions failure,
+prefer native Windows for the Windows workflow, or use WSL/Linux with a
+separate build directory; WSL cannot reproduce Windows-specific loader or heap
+failures. Test locations and coverage are indexed in
 `docs/FILE_MANIFEST.md` and `docs/SPEC.md`.
 
 To package locally for troubleshooting only:

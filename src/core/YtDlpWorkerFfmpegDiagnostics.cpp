@@ -17,7 +17,7 @@ QString progressValue(const QVariantMap &fields, const QString &key)
 QString stageNameFromLine(const QString &line)
 {
     static const QRegularExpression stageRegex(
-        QStringLiteral(R"(^\[([^\]]*(?:Merger|ModifyChapters|SponsorBlock|Metadata|EmbedSubtitle|EmbedThumbnail|Thumbnail)[^\]]*)\]))"),
+        QStringLiteral(R"(^\[([^\]]*(?:Merger|ModifyChapters|SponsorBlock|Metadata|EmbedSubtitle|EmbedThumbnail|Thumbnail)[^\]]*)\])"),
         QRegularExpression::CaseInsensitiveOption);
     const QRegularExpressionMatch match = stageRegex.match(line);
     return match.hasMatch() ? match.captured(1) : QString();

@@ -104,8 +104,6 @@ private:
     void emitDownloadStats();
     void fetchInfoForSections(const QString &url, const QVariantMap &options);
     void fetchFormatsForSelection(const QString &url, const QVariantMap &options);
-    bool shouldPreflightSponsorBlock(const DownloadItem &item) const;
-    void startSponsorBlockPreflight(const DownloadItem &item);
     QString effectivePlaylistTitle(const DownloadItem &item) const;
     void applyAudioPlaylistAlbumMetadata(DownloadItem &item) const;
     void adjustActiveDownloadCount(int delta);
@@ -119,7 +117,6 @@ private:
     QMap<QString, QObject*> m_activeWorkers;
     QMap<QString, DownloadItem> m_activeItems;
     QMap<QString, QObject*> m_activeEmbedders;
-    QMap<QString, DownloadItem> m_pendingSponsorBlockPreflights;
 
     int m_maxConcurrentDownloads;
     enum SleepMode { NoSleep, ShortSleep, LongSleep };

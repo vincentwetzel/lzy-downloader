@@ -147,8 +147,6 @@ void DownloadManager::shutdown() {
         }
     }
     m_activeEmbedders.clear();
-    m_pendingSponsorBlockPreflights.clear();
-
     // Worker and metadata threads are children of this manager. Ensure their
     // event loops have exited before QObject destruction; otherwise a timed
     // test or headless shutdown can destroy a live QThread and abort.

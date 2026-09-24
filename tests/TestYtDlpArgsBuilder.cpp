@@ -29,7 +29,6 @@ void TestYtDlpArgsBuilder::testBasicVideoArguments() {
     options[QStringLiteral("type")] = QStringLiteral("video");
     options[QStringLiteral("videoQuality")] = QStringLiteral("best");
     options[QStringLiteral("videoExtension")] = QStringLiteral("mp4");
-    // Add other relevant options here if needed for specific tests
 
     QStringList args = builder.build(mockConfig, QUrl(TEST_URL).toString(), options);
 
@@ -81,7 +80,10 @@ void TestYtDlpArgsBuilder::testSponsorBlockArguments() {
     options[QStringLiteral("type")] = QStringLiteral("video");
     options[QStringLiteral("videoQuality")] = QStringLiteral("best");
     options[QStringLiteral("videoExtension")] = QStringLiteral("mp4");
-    // Add other relevant options here if needed for specific tests
+    // A restored request may retain the legacy no-segments result. It must no
+    // longer suppress safe cut arguments or delay a new download kickoff.
+    options[QStringLiteral("sponsorblock_segments_checked")] = true;
+    options[QStringLiteral("sponsorblock_has_segments")] = false;
 
     QStringList args = builder.build(mockConfig, QUrl(TEST_URL).toString(), options);
 
