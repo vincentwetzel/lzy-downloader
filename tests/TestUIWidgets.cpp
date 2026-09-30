@@ -27,7 +27,12 @@
 
 void TestUIWidgets::testAdvancedSettingsSectionsUseNaturalSpacing() {
     ConfigManager config(QStringLiteral(":memory:"), true, nullptr);
-    const QString testExecutable = QCoreApplication::applicationFilePath();
+    QTemporaryDir binaryDir;
+    QVERIFY(binaryDir.isValid());
+    // A directory is an existing, explicit path for resolution but cannot be
+    // launched for the asynchronous --version probes below.
+    const QString nonExecutablePath = binaryDir.path();
+
     const QStringList binaryNames = {
         QStringLiteral("aria2c"),
         QStringLiteral("deno"),
@@ -37,7 +42,7 @@ void TestUIWidgets::testAdvancedSettingsSectionsUseNaturalSpacing() {
         QStringLiteral("yt-dlp")
     };
     for (const QString &binaryName : binaryNames) {
-        config.set(QStringLiteral("Binaries"), binaryName + QStringLiteral("_path"), testExecutable);
+        config.set(QStringLiteral("Binaries"), binaryName + QStringLiteral("_path"), nonExecutablePath);
         config.set(QStringLiteral("Binaries"), binaryName + QStringLiteral("_auto_detected"), false);
     }
     config.save();
