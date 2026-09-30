@@ -26,7 +26,24 @@
 #include <QPair>
 
 void TestUIWidgets::testAdvancedSettingsSectionsUseNaturalSpacing() {
-    AdvancedSettingsTab tab(getConfigManager());
+    ConfigManager config(QStringLiteral(":memory:"), true, nullptr);
+    const QString testExecutable = QCoreApplication::applicationFilePath();
+    const QStringList binaryNames = {
+        QStringLiteral("aria2c"),
+        QStringLiteral("deno"),
+        QStringLiteral("ffmpeg"),
+        QStringLiteral("ffprobe"),
+        QStringLiteral("gallery-dl"),
+        QStringLiteral("yt-dlp")
+    };
+    for (const QString &binaryName : binaryNames) {
+        config.set(QStringLiteral("Binaries"), binaryName + QStringLiteral("_path"), testExecutable);
+        config.set(QStringLiteral("Binaries"), binaryName + QStringLiteral("_auto_detected"), false);
+    }
+    config.save();
+    ProcessUtils::clearCache();
+
+    AdvancedSettingsTab tab(&config);
     tab.resize(900, 700);
     tab.show();
     QCoreApplication::processEvents();

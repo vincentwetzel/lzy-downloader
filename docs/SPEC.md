@@ -329,8 +329,8 @@ only the sections relevant to the change.
   not bundled runtime dependencies. Windows CI installs NSIS; child commands
   retain the invoking terminal. The final executable is `LzyDownloader.exe`.
 - The reusable `.github/workflows/tests.yml` workflow runs the full headless
-  suite on pull requests and `main`/`master` branches. Tag releases call that same
-  workflow before the platform build matrix; a separate publish job runs only
+  suite on pull requests. Tag releases call that same workflow before the
+  platform build matrix; a separate publish job runs only
   after every test and release build job succeeds.
 - Register tests with `lzy_add_test(...)`; keep them isolated from user files
   and use `QT_QPA_PLATFORM=minimal`. Required coverage includes argument

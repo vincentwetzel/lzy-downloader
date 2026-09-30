@@ -20,7 +20,7 @@ tasks to the smallest useful reference.
 | `cmake/deploy_qt_runtime.cmake` | Direct-Qt `windeployqt` deployment and explicit Qt DLL/plugin fallback |
 | `tools/` | Extractor refresh, shared parsing, and checksum helpers |
 | `tools/configure_debug.ps1` | Debug configure recovery in `build-debug` |
-| `.github/workflows/tests.yml` | Reusable full headless test workflow for PRs, branches, and releases |
+| `.github/workflows/tests.yml` | Reusable full headless test workflow for PRs and releases |
 | `.github/workflows/release.yml` | Release CI matrix, artifact collection, and gated publication |
 | `tests/run_headless_tests.py` | Configure/build-before-CTest runner, direct failed-test diagnostics, and `--suspects` cache |
 | `extractors_yt-dlp.json`, `extractors_gallery-dl.json` | Bundled extractor data |
