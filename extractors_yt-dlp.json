@@ -4006,7 +4006,7 @@
     },
     "nitter": {
         "domains": [
-            "canada.unofficialbird.com"
+            "nitter.caioalonso.com"
         ]
     },
     "njoy": {
@@ -4224,8 +4224,6 @@
     },
     "odnoklassniki": {
         "domains": [
-            "m.ok.ru",
-            "mobile.ok.ru",
             "ok.ru"
         ]
     },

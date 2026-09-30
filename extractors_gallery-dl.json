@@ -1124,6 +1124,11 @@
             "speakerdeck.com"
         ]
     },
+    "steamcommunity": {
+        "domains": [
+            "steamcommunity.com"
+        ]
+    },
     "steamgriddb": {
         "domains": [
             "steamgriddb.com"

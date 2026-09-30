@@ -9,6 +9,8 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## [Unreleased]
 
+## [1.2.54] - 2026-09-30
+
 - **Coordinator startup:** Probe an existing local coordinator before attempting
   to bind its endpoint, then recover stale endpoints only after a fresh listen
   fails; this avoids duplicate-owner races across GUI, server, and headless
@@ -20,6 +22,8 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 - **Headless validation:** Make direct QtTest diagnostics portable across native
   Windows and WSL/Linux builds, and keep focused and full-suite runs serial for
   deterministic Qt/plugin/process state.
+- **Extractor catalogs:** Refresh the bundled yt-dlp and gallery-dl extractor
+  catalogs.
 
 ## [1.2.53] - 2026-09-23
 
