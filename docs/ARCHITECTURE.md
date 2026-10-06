@@ -10,7 +10,7 @@ is the callable-interface index. Do not duplicate those contracts here.
 `LzyAppLib` contains `src/core/`, `src/ui/`, and `src/utils/`; `main.cpp` owns
 startup and the executable. The UI submits options and renders signals. Core
 managers own queue state, workers, archive access, and finalization. Utilities
-provide process, logging, path, and platform helpers.
+provide process, logging, path, URL extraction, and platform helpers.
 
 ```text
 StartTab / LocalApiServer / CLI
@@ -88,6 +88,7 @@ replacement. Temp cleanup owns root resolution and guarded UUID-folder removal.
 | `DownloadManager.*`, `DownloadManagerWorkers.cpp` | Scheduling, shutdown/worker-thread lifecycle, terminal classification, power, video quality warnings |
 | `DownloadManagerPlaylist.cpp`, `PlaylistExpansionWorker.*`, `PlaylistExpansionParser.*` | Read-only probing, item selection, placeholders, thumbnails, playlist metadata, fallback |
 | `YtDlpArgsBuilder.*` | Settings/options to yt-dlp/aria2c arguments and replay-safe live classification |
+| `src/utils/UrlUtils.*` | Generic extraction of HTTP(S) targets from plain text and Markdown links |
 | `ArtworkNormalizer.*` | Worker-thread detection, complete-edge sampling, and atomic codec-buffer rewriting that removes high-confidence borders around square audio artwork |
 | `DiagnosticTail.h`, `YtDlpWorker.*`, `YtDlpWorkerProcess.cpp`, `YtDlpWorkerProcessOutput.cpp`, `YtDlpWorkerInfoJson.cpp`, `YtDlpWorkerProcessHelpers.h` | Async yt-dlp process, bounded diagnostics, output/progress parsing, metadata loading, cookies, livestream wait, aria2c recovery |
 | `YtDlpWorkerFfmpegDiagnostics.cpp` | FFmpeg merger/cut stage detection, bounded progress/timing logs, and worker-thread process-tree telemetry |

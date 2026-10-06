@@ -320,6 +320,7 @@ add_library(LzyAppLib STATIC
     src/utils/BrowserUtils.cpp
     src/utils/ExtractorJsonParser.cpp
     src/utils/LogManager.cpp
+    src/utils/UrlUtils.cpp
     src/ui/ActiveDownloadsTab.cpp
     src/ui/AdvancedSettingsTab.cpp
     src/ui/DownloadHistoryTab.cpp

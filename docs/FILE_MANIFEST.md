@@ -54,7 +54,7 @@ Public/project guidance is in `README.md`, `CONTRIBUTING.md`, `SECURITY.md`,
   app-local discovery-file helpers for the configurable Local API port.
 - `src/core/download_pipeline/`: FFmpeg pipeline helpers.
 - `src/ui/`: Qt Widgets, tabs, dialogs, and presentation builders.
-- `src/utils/`: logging, discovery, parsing, and platform helpers.
+- `src/utils/`: logging, discovery, parsing, URL extraction, and platform helpers.
 - `tests/`: Qt tests, fixtures, and test-only helpers.
 
 ## High-value source entry points
@@ -88,6 +88,7 @@ paths/headless Qt. Main focused files are:
 | Worker/tools/power | `TestYtDlpArgsBuilder.cpp`, `TestYtDlpWorker.cpp`, `TestProcessUtils.cpp`, `TestPowerInhibitor.cpp` |
 | UI | `TestUIWidgets.cpp`, `TestDownloadManager.cpp` (completion-save responsiveness) |
 | Browser companion | `TestBrowserCookieFile.cpp`, `TestLocalApiServer.cpp` |
+| Shared URL extraction and Local API enqueue | `TestLocalApiServer.cpp` |
 
 When adding or moving a major file, update this manifest and
 `docs/ARCHITECTURE.md` together. Keep generated/build paths out of this index.

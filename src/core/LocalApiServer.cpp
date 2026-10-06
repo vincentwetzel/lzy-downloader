@@ -1,6 +1,7 @@
 #include "LocalApiServer.h"
 #include "integration/BrowserCookieFile.h"
 #include "integration/LocalApiEndpoint.h"
+#include "utils/UrlUtils.h"
 #include <QDir>
 #include <QStandardPaths>
 #include <QUuid>
@@ -359,7 +360,7 @@ void LocalApiServer::handleRequest(QTcpSocket *socket, const QByteArray &request
 
         if (!doc.isNull() && doc.isObject()) {
             const QJsonObject jsonObj = doc.object();
-            const QString targetUrl = jsonObj.value(QStringLiteral("url")).toString().trimmed();
+            const QString targetUrl = UrlUtils::extractUrl(jsonObj.value(QStringLiteral("url")).toString());
             const QString downloadType = jsonObj.value(QStringLiteral("type")).toString(QStringLiteral("video")); // Default to "video"
             const bool hasClientId = jsonObj.contains(QStringLiteral("client_id"));
             const QString clientId = jsonObj.value(QStringLiteral("client_id")).toString().trimmed();

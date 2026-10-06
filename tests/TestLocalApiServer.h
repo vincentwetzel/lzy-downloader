@@ -16,6 +16,7 @@ private slots:
     void testApiTokenGeneration();
     void testConfiguredPort();
     void testUnauthorizedAccess();
+    void testUrlUtilsExtractsSharedText();
     void testValidEnqueueRequest();
     void testValidCancelRequest();
     void testClientScopedStatusAndCancellation();

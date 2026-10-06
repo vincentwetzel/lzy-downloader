@@ -1,4 +1,5 @@
 #include "TestLocalApiServer.h"
+#include "utils/UrlUtils.h"
 #include <QNetworkAccessManager>
 #include <QNetworkRequest>
 #include <QNetworkReply>
@@ -92,6 +93,17 @@ void TestLocalApiServer::testUnauthorizedAccess() {
     QCOMPARE(reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt(), 401);
 }
 
+void TestLocalApiServer::testUrlUtilsExtractsSharedText() {
+    QCOMPARE(
+        UrlUtils::extractUrl(QStringLiteral(
+            "Joe Trippi: Polling Update [https://example.test/label]"
+            "(https://example.test/video?id=42).")),
+        QStringLiteral("https://example.test/video?id=42"));
+    QCOMPARE(
+        UrlUtils::extractUrl(QStringLiteral("Shared: https://example.test/video).")),
+        QStringLiteral("https://example.test/video"));
+}
+
 void TestLocalApiServer::testValidEnqueueRequest() {
     QSignalSpy spy(m_apiServer, &LocalApiServer::enqueueRequested);
     
@@ -101,7 +113,9 @@ void TestLocalApiServer::testValidEnqueueRequest() {
     request.setHeader(QNetworkRequest::ContentTypeHeader, QStringLiteral("application/json"));
     
     QJsonObject json;
-    json[QStringLiteral("url")] = QStringLiteral("https://www.youtube.com/watch?v=dQw4w9WgXcQ");
+    json[QStringLiteral("url")] = QStringLiteral(
+        "Joe Trippi: Polling Problem [https://www.youtube.com/watch?v=dQw4w9WgXcQ]"
+        "(https://www.youtube.com/watch?v=dQw4w9WgXcQ).");
     json[QStringLiteral("type")] = QStringLiteral("video");
     json[QStringLiteral("override_archive")] = true;
     QByteArray data = QJsonDocument(json).toJson(QJsonDocument::Compact);

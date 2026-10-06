@@ -12,6 +12,7 @@
 #include "core/ProcessUtils.h"
 #include "core/UrlValidator.h"
 #include "core/download_pipeline/YtDlpDownloadInfoExtractor.h"
+#include "utils/UrlUtils.h"
 
 #include <QMessageBox>
 #include <QPushButton>
@@ -63,8 +64,9 @@ void MainWindow::onLocalApiCancelRequested(const QString &jobId)
     m_downloadManager->cancelDownload(jobId);
 }
 
-void MainWindow::onDownloadRequested(const QString &url, const QVariantMap &options)
+void MainWindow::onDownloadRequested(const QString &urlText, const QVariantMap &options)
 {
+    const QString url = UrlUtils::extractUrl(urlText);
     const bool nonInteractive = m_nonInteractiveLaunch || MainWindowHelpers::isNonInteractiveRequest(options);
 
     if (MainWindowHelpers::blocksDownloadAdmissionForApplicationUpdate(

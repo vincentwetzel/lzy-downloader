@@ -252,8 +252,11 @@ only the sections relevant to the change.
 - The Local API binds only to `127.0.0.1:<local_api_port>` (default `8765`), requires a Bearer token, bounds
   payloads, validates Host/Origin, and grants CORS only to localhost/trusted
   extension origins. `POST /enqueue` accepts URL, type, optional ID, and
-  explicit `override_archive`; `GET /status` returns snapshots; authenticated
-  `POST /cancel` accepts `job_id` (or `id`) and routes through the manager.
+  explicit `override_archive`. Desktop and Local API URL inputs extract the
+  HTTP(S) target from shared text or a Markdown link before validation;
+  plain URLs pass through unchanged. `GET /status` returns snapshots;
+  authenticated `POST /cancel` accepts `job_id` (or `id`) and routes through
+  the manager.
   Direct/API requests and `--background`/`--server`/`--headless` launches are
   non-interactive. Validation, duplicate, missing-binary, runtime, and
   terminal failures emit the `nonInteractiveRequestFailed` signal for bridge

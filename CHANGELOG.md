@@ -9,6 +9,9 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## [Unreleased]
 
+- **Shared URL input:** Extract HTTP(S) links from pasted text and Markdown
+  links in desktop and Local API download requests.
+
 ## [1.2.54] - 2026-09-30
 
 - **Coordinator startup:** Probe an existing local coordinator before attempting

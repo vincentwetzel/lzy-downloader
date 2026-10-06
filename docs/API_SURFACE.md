@@ -200,7 +200,9 @@ port is `8765` and the active value is published in `api_port.txt`.
   `api_token.txt`.
 - `void enqueueRequested(const QString &url, const QString &type,
   const QString &jobId, bool overrideArchive)` fires for an authorized
-  valid enqueue. `jobId` is generated when omitted; the override is explicit.
+  valid enqueue. Plain text containing an HTTP(S) link, including a Markdown
+  link, is reduced to its URL before this signal; `jobId` is generated when
+  omitted and the override is explicit.
 - `void enqueueWithCookieFileRequested(const QString &url, const QString &type,
   const QString &jobId, bool overrideArchive, const QString &cookieFile)` is
   the browser-companion variant; it carries an owned temporary cookie-file path
