@@ -64,3 +64,6 @@ src/core/version.h
 AppDir/
 linuxdeploy
 linuxdeploy-plugin-qt
+
+# Generated log files
+*.log
