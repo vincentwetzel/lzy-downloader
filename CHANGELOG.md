@@ -9,6 +9,9 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## [Unreleased]
 
+- **Application updates:** Pause new download admission while the startup update
+  check is pending so a download cannot begin just before the update prompt.
+
 ## [1.2.55] - 2026-10-05
 
 - **Shared URL input:** Extract HTTP(S) links from pasted text and Markdown

@@ -70,8 +70,8 @@ void MainWindow::onDownloadRequested(const QString &urlText, const QVariantMap &
     const bool nonInteractive = m_nonInteractiveLaunch || MainWindowHelpers::isNonInteractiveRequest(options);
 
     if (MainWindowHelpers::blocksDownloadAdmissionForApplicationUpdate(
-            m_appUpdatePromptActive, m_appUpdateInstalling)) {
-        const QString reason = tr("Downloads are temporarily paused while the application update is being handled.");
+            m_appUpdateCheckPending, m_appUpdatePromptActive, m_appUpdateInstalling)) {
+        const QString reason = tr("Downloads are temporarily paused while the application update check or handoff is in progress.");
         if (nonInteractive) {
             emit nonInteractiveRequestFailed(options.value(QStringLiteral("id")).toString(), url, reason);
         } else {
@@ -201,8 +201,8 @@ void MainWindow::enqueueDownloadFromUi(const QString &url, QVariantMap options)
     const bool nonInteractive = m_nonInteractiveLaunch || MainWindowHelpers::isNonInteractiveRequest(options);
 
     if (MainWindowHelpers::blocksDownloadAdmissionForApplicationUpdate(
-            m_appUpdatePromptActive, m_appUpdateInstalling)) {
-        const QString reason = tr("Downloads are temporarily paused while the application update is being handled.");
+            m_appUpdateCheckPending, m_appUpdatePromptActive, m_appUpdateInstalling)) {
+        const QString reason = tr("Downloads are temporarily paused while the application update check or handoff is in progress.");
         if (nonInteractive) {
             emit nonInteractiveRequestFailed(options.value(QStringLiteral("id")).toString(), url, reason);
         } else {

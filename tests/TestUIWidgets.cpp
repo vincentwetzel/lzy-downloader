@@ -399,9 +399,10 @@ void TestUIWidgets::testApplicationUpdateBlocksConflictingClipboardAndDownloads(
     QVERIFY(MainWindowHelpers::blocksClipboardAutoPasteForApplicationUpdate(false, false, true));
     QVERIFY(!MainWindowHelpers::blocksClipboardAutoPasteForApplicationUpdate(false, false, false));
 
-    QVERIFY(MainWindowHelpers::blocksDownloadAdmissionForApplicationUpdate(true, false));
-    QVERIFY(MainWindowHelpers::blocksDownloadAdmissionForApplicationUpdate(false, true));
-    QVERIFY(!MainWindowHelpers::blocksDownloadAdmissionForApplicationUpdate(false, false));
+    QVERIFY(MainWindowHelpers::blocksDownloadAdmissionForApplicationUpdate(true, false, false));
+    QVERIFY(MainWindowHelpers::blocksDownloadAdmissionForApplicationUpdate(false, true, false));
+    QVERIFY(MainWindowHelpers::blocksDownloadAdmissionForApplicationUpdate(false, false, true));
+    QVERIFY(!MainWindowHelpers::blocksDownloadAdmissionForApplicationUpdate(false, false, false));
 }
 
 QTEST_MAIN(TestUIWidgets)

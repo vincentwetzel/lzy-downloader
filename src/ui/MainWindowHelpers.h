@@ -57,10 +57,11 @@ inline bool blocksClipboardAutoPasteForApplicationUpdate(bool updateCheckPending
     return updateCheckPending || updatePromptActive || updateInstalling;
 }
 
-inline bool blocksDownloadAdmissionForApplicationUpdate(bool updatePromptActive,
+inline bool blocksDownloadAdmissionForApplicationUpdate(bool updateCheckPending,
+                                                        bool updatePromptActive,
                                                         bool updateInstalling)
 {
-    return updatePromptActive || updateInstalling;
+    return updateCheckPending || updatePromptActive || updateInstalling;
 }
 
 }
