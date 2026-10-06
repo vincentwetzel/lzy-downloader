@@ -9,8 +9,11 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## [Unreleased]
 
+## [1.2.56] - 2026-10-06
+
 - **Application updates:** Pause new download admission while the startup update
   check is pending so a download cannot begin just before the update prompt.
+- **Extractor catalog:** Refresh the bundled yt-dlp catalog.
 
 ## [1.2.55] - 2026-10-05
 
