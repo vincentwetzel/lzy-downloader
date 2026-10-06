@@ -9,8 +9,11 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## [Unreleased]
 
+## [1.2.55] - 2026-10-05
+
 - **Shared URL input:** Extract HTTP(S) links from pasted text and Markdown
   links in desktop and Local API download requests.
+- **Extractor catalogs:** Refresh the bundled yt-dlp and gallery-dl catalogs.
 
 ## [1.2.54] - 2026-09-30
 
