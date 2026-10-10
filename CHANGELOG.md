@@ -9,6 +9,14 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## [Unreleased]
 
+- **FFmpeg telemetry:** Expand post-processing diagnostics with process-tree
+  identity, image names, CPU time, RSS, read/write throughput, system CPU and
+  memory snapshots, and identity-change markers so short system stalls can be
+  distinguished from process churn or PID reuse.
+- **Cross-process admission:** Probe actual directory write access before
+  placing the global worker-slot registry, fall back from ACL-blocked app-local
+  storage to the user temp directory, and log lock or persistence failures.
+
 ## [1.2.56] - 2026-10-06
 
 - **Application updates:** Pause new download admission while the startup update

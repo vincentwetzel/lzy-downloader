@@ -1,6 +1,8 @@
 #include "TestProcessUtils.h"
 #include "core/ConfigManager.h"
+#include "core/ProcessDiagnostics.h"
 
+#include <QCoreApplication>
 #include <QDir>
 #include <QFile>
 #include <QScopeGuard>
@@ -118,6 +120,29 @@ void TestProcessUtils::testExplicitAppManagedPathWinsSystemFirstPreference() {
     const ProcessUtils::FoundBinary found = ProcessUtils::resolveBinary(QStringLiteral("ffmpeg"), config);
     QCOMPARE(found.source, QStringLiteral("Custom"));
     QCOMPARE(QDir::cleanPath(found.path), QDir::cleanPath(binaryPath));
+}
+
+void TestProcessUtils::testProcessDiagnosticsCaptureIdentityAndSystemResources() {
+    const ProcessDiagnostics::ProcessResourceSnapshot snapshot =
+        ProcessDiagnostics::captureProcessTree(QCoreApplication::applicationPid());
+
+    QVERIFY(!snapshot.platform.isEmpty());
+    if (!snapshot.available) {
+        QSKIP("Process diagnostics are unavailable on this platform.");
+    }
+
+    QCOMPARE(snapshot.rootPid, QCoreApplication::applicationPid());
+    QVERIFY(snapshot.rootCreationTime > 0);
+    QVERIFY(!snapshot.rootImageName.isEmpty());
+    QVERIFY(!snapshot.processes.isEmpty());
+    QVERIFY(snapshot.processIds.contains(snapshot.rootPid));
+
+    if (snapshot.system.available) {
+        QVERIFY(snapshot.system.cpuTimeMs > 0);
+        QVERIFY(snapshot.system.memoryTotalBytes > 0);
+        QVERIFY(snapshot.system.memoryAvailableBytes > 0);
+        QVERIFY(snapshot.system.memoryAvailableBytes <= snapshot.system.memoryTotalBytes);
+    }
 }
 
 QTEST_GUILESS_MAIN(TestProcessUtils)

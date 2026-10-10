@@ -83,9 +83,9 @@ paths/headless Qt. Main focused files are:
 | Manager/probe/gallery/playlist | `TestDownloadManager.cpp`, `FakeYtDlp.cpp`, `TestGalleryDlArgsBuilder.cpp`, `TestPlaylistExpansionParser.cpp` |
 | Audio artwork normalization and edge-region regression coverage (JPEG fixture) | `TestArtworkNormalizer.cpp` |
 | Queue/archive/temp/replacement | `TestDownloadQueueManager.cpp`, `TestDownloadQueueState.cpp`, `TestDownloadTempCleanup.cpp`, `TestFileReplacement.cpp` |
-| Cross-process worker admission | `TestGlobalDownloadLimiter.cpp` |
+| Cross-process worker admission and writable-state fallback | `TestGlobalDownloadLimiter.cpp` |
 | Single queue coordination | `TestRuntimeCoordinator.cpp` |
-| Worker/tools/power | `TestYtDlpArgsBuilder.cpp`, `TestYtDlpWorker.cpp`, `TestProcessUtils.cpp`, `TestPowerInhibitor.cpp` |
+| Worker/process telemetry/power | `TestYtDlpArgsBuilder.cpp`, `TestYtDlpWorker.cpp`, `TestProcessUtils.cpp`, `TestPowerInhibitor.cpp` |
 | UI | `TestUIWidgets.cpp`, `TestDownloadManager.cpp` (completion-save responsiveness) |
 | Browser companion | `TestBrowserCookieFile.cpp`, `TestLocalApiServer.cpp` |
 | Shared URL extraction and Local API enqueue | `TestLocalApiServer.cpp` |

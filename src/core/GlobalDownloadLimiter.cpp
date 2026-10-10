@@ -12,6 +12,7 @@
 #include <QLockFile>
 #include <QSaveFile>
 #include <QStandardPaths>
+#include <QTemporaryFile>
 
 #ifdef Q_OS_WIN
 #include <windows.h>
@@ -25,24 +26,38 @@
 namespace {
 constexpr int kLockTimeoutMs = 100;
 constexpr int kStaleLockTimeMs = 5000;
+
+bool isWritableDirectory(const QString &path)
+{
+    QDir directory(path);
+    if ((!directory.exists() && !directory.mkpath(QStringLiteral(".")))
+        || !QFileInfo(path).isDir()) {
+        return false;
+    }
+
+    // QFileInfo::isWritable() can report the owner permissions while the
+    // current token is still denied by an inherited Windows ACL. Probe the
+    // operation that QLockFile/QSaveFile actually need instead.
+    QTemporaryFile probe(directory.filePath(QStringLiteral(
+        ".global_download_slots_write_test_XXXXXX")));
+    probe.setAutoRemove(true);
+    return probe.open();
+}
 }
 
 GlobalDownloadLimiter::GlobalDownloadLimiter(const QString &namespaceKey)
     : m_processId(QCoreApplication::applicationPid())
 {
     QString dataDir = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation);
-    QDir dataDirectory(dataDir);
-    if ((!dataDirectory.exists() && !dataDirectory.mkpath(QStringLiteral(".")))
-        || !QFileInfo(dataDir).isWritable()) {
+    if (!isWritableDirectory(dataDir)) {
         // Some test sandboxes and locked-down installations do not permit a
         // new directory below AppLocalDataLocation. Keep the coordination
         // functional with a per-user temporary fallback in that case.
         const QString fallbackDir = QDir(QStandardPaths::writableLocation(QStandardPaths::TempLocation))
             .filePath(QStringLiteral("LzyDownloader"));
         dataDir = fallbackDir;
-        dataDirectory = QDir(fallbackDir);
-        if (!dataDirectory.exists()) {
-            dataDirectory.mkpath(QStringLiteral("."));
+        if (!isWritableDirectory(dataDir)) {
+            qWarning() << "GlobalDownloadLimiter: no writable state directory; using" << dataDir;
         }
     }
 
@@ -136,6 +151,8 @@ bool GlobalDownloadLimiter::withLockedState(const std::function<bool(QList<Holde
     QLockFile lock(m_lockPath);
     lock.setStaleLockTime(kStaleLockTimeMs);
     if (!lock.tryLock(kLockTimeoutMs)) {
+        qWarning() << "GlobalDownloadLimiter: unable to lock" << m_lockPath
+                   << lock.error();
         return false;
     }
 
@@ -146,6 +163,9 @@ bool GlobalDownloadLimiter::withLockedState(const std::function<bool(QList<Holde
         persisted = writeState(holders);
     } else {
         persisted = !QFile::exists(m_statePath) || QFile::remove(m_statePath);
+    }
+    if (!persisted) {
+        qWarning() << "GlobalDownloadLimiter: unable to persist" << m_statePath;
     }
     return result && persisted;
 }

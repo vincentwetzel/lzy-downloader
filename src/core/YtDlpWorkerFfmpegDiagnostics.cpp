@@ -14,6 +14,32 @@ QString progressValue(const QVariantMap &fields, const QString &key)
     return fields.value(key).toString();
 }
 
+QString formatProcessTree(const ProcessDiagnostics::ProcessResourceSnapshot &snapshot)
+{
+    QStringList entries;
+    for (const ProcessDiagnostics::ProcessResourceDetail &process : snapshot.processes) {
+        entries.append(QStringLiteral("%1:%2<- %3 cpu_ms=%4 rss_mb=%5 read_mb=%6 write_mb=%7 start=%8")
+                           .arg(process.pid)
+                           .arg(process.imageName)
+                           .arg(process.parentPid)
+                           .arg(process.cpuTimeMs)
+                           .arg(QString::number(static_cast<double>(process.residentBytes) / (1024.0 * 1024.0), 'f', 1))
+                           .arg(QString::number(static_cast<double>(process.readBytes) / (1024.0 * 1024.0), 'f', 1))
+                           .arg(QString::number(static_cast<double>(process.writeBytes) / (1024.0 * 1024.0), 'f', 1))
+                           .arg(process.creationTime));
+    }
+    return entries.join(QLatin1Char(','));
+}
+
+QSet<QString> processIdentitySet(const ProcessDiagnostics::ProcessResourceSnapshot &snapshot)
+{
+    QSet<QString> identities;
+    for (const ProcessDiagnostics::ProcessResourceDetail &process : snapshot.processes) {
+        identities.insert(QStringLiteral("%1:%2").arg(process.pid).arg(process.creationTime));
+    }
+    return identities;
+}
+
 QString stageNameFromLine(const QString &line)
 {
     static const QRegularExpression stageRegex(
@@ -101,8 +127,16 @@ void YtDlpWorker::logFfmpegTelemetry()
     const ProcessDiagnostics::ProcessResourceSnapshot snapshot =
         ProcessDiagnostics::captureProcessTree(m_process->processId());
 
+    const bool processIdentityChanged = m_lastFfmpegResourceSnapshot.available
+        && snapshot.rootCreationTime != 0
+        && m_lastFfmpegResourceSnapshot.rootCreationTime != 0
+        && snapshot.rootCreationTime != m_lastFfmpegResourceSnapshot.rootCreationTime;
+    const bool processTreeChanged = m_lastFfmpegResourceSnapshot.available
+        && processIdentitySet(snapshot) != processIdentitySet(m_lastFfmpegResourceSnapshot);
+
     QString cpuPercent = QStringLiteral("unavailable");
-    if (m_lastFfmpegTelemetryMs >= 0 && snapshot.available && m_lastFfmpegResourceSnapshot.available) {
+    if (!processIdentityChanged && !processTreeChanged && m_lastFfmpegTelemetryMs >= 0
+        && snapshot.available && m_lastFfmpegResourceSnapshot.available) {
         const qint64 wallMs = nowMs - m_lastFfmpegTelemetryMs;
         const quint64 cpuDelta = snapshot.cpuTimeMs >= m_lastFfmpegResourceSnapshot.cpuTimeMs
             ? snapshot.cpuTimeMs - m_lastFfmpegResourceSnapshot.cpuTimeMs : 0;
@@ -111,14 +145,54 @@ void YtDlpWorker::logFfmpegTelemetry()
         }
     }
 
+    QString readMbPerSecond = QStringLiteral("unavailable");
+    QString writeMbPerSecond = QStringLiteral("unavailable");
+    if (!processIdentityChanged && !processTreeChanged && m_lastFfmpegTelemetryMs >= 0
+        && snapshot.available && m_lastFfmpegResourceSnapshot.available) {
+        const qint64 wallMs = nowMs - m_lastFfmpegTelemetryMs;
+        if (wallMs > 0) {
+            const quint64 readDelta = snapshot.readBytes >= m_lastFfmpegResourceSnapshot.readBytes
+                ? snapshot.readBytes - m_lastFfmpegResourceSnapshot.readBytes : 0;
+            const quint64 writeDelta = snapshot.writeBytes >= m_lastFfmpegResourceSnapshot.writeBytes
+                ? snapshot.writeBytes - m_lastFfmpegResourceSnapshot.writeBytes : 0;
+            readMbPerSecond = QString::number(
+                static_cast<double>(readDelta) * 1000.0 / static_cast<double>(wallMs) / (1024.0 * 1024.0), 'f', 1);
+            writeMbPerSecond = QString::number(
+                static_cast<double>(writeDelta) * 1000.0 / static_cast<double>(wallMs) / (1024.0 * 1024.0), 'f', 1);
+        }
+    }
+
+    QString systemCpuPercent = QStringLiteral("unavailable");
+    if (m_lastFfmpegResourceSnapshot.system.available && snapshot.system.available) {
+        const quint64 totalDelta = snapshot.system.cpuTimeMs >= m_lastFfmpegResourceSnapshot.system.cpuTimeMs
+            ? snapshot.system.cpuTimeMs - m_lastFfmpegResourceSnapshot.system.cpuTimeMs : 0;
+        const quint64 idleDelta = snapshot.system.idleTimeMs >= m_lastFfmpegResourceSnapshot.system.idleTimeMs
+            ? snapshot.system.idleTimeMs - m_lastFfmpegResourceSnapshot.system.idleTimeMs : 0;
+        if (totalDelta > 0 && idleDelta <= totalDelta) {
+            systemCpuPercent = QString::number(
+                100.0 * static_cast<double>(totalDelta - idleDelta) / static_cast<double>(totalDelta), 'f', 1);
+        }
+    }
+
     qInfo() << "[YtDlpWorker][ffmpeg telemetry]"
             << "id=" << m_id << "stage=" << m_ffmpegStage
             << "elapsed_ms=" << (m_ffmpegStageTimer.isValid() ? m_ffmpegStageTimer.elapsed() : -1)
             << "pid=" << m_process->processId()
+            << "root_image=" << snapshot.rootImageName
+            << "root_parent_pid=" << snapshot.rootParentPid
+            << "root_creation=" << snapshot.rootCreationTime
             << "process_count=" << snapshot.processCount
             << "child_pids=" << snapshot.processIds
+            << "process_tree=" << formatProcessTree(snapshot)
             << "rss_mb=" << (snapshot.available ? QString::number(static_cast<double>(snapshot.residentBytes) / (1024.0 * 1024.0), 'f', 1) : QStringLiteral("unavailable"))
             << "cpu_percent=" << cpuPercent
+            << "read_mb_s=" << readMbPerSecond
+            << "write_mb_s=" << writeMbPerSecond
+            << "system_cpu_percent=" << systemCpuPercent
+            << "system_memory_available_mb=" << (snapshot.system.available ? QString::number(static_cast<double>(snapshot.system.memoryAvailableBytes) / (1024.0 * 1024.0), 'f', 1) : QStringLiteral("unavailable"))
+            << "system_memory_total_mb=" << (snapshot.system.available ? QString::number(static_cast<double>(snapshot.system.memoryTotalBytes) / (1024.0 * 1024.0), 'f', 1) : QStringLiteral("unavailable"))
+            << "tree_changed=" << processTreeChanged
+            << "identity_changed=" << processIdentityChanged
             << "priority=" << (snapshot.priorityClass.isEmpty() ? QStringLiteral("unavailable") : snapshot.priorityClass)
             << "platform=" << snapshot.platform
             << "frame=" << progressValue(m_ffmpegProgressFields, QStringLiteral("frame"))

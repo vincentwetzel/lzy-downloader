@@ -18,4 +18,5 @@ private slots:
     void testWinGetPackageCandidateDiscovery();
 #endif
     void testExplicitAppManagedPathWinsSystemFirstPreference();
+    void testProcessDiagnosticsCaptureIdentityAndSystemResources();
 };

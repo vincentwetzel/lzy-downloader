@@ -79,7 +79,7 @@ replacement. Temp cleanup owns root resolution and guarded UUID-folder removal.
 | `ConfigManager.*` | Validated Qt `QSettings`, defaults, reset, change signals |
 | `ArchiveManager.*` | Schema-compatible SQLite completed-media archive and media identity |
 | `DownloadQueueManager.*` | Ordering, concurrency, duplicate checks, retry/resume, and coalesced queue-backup writes |
-| `GlobalDownloadLimiter.*` | Locked per-user process registry for cross-process worker-slot admission and stale-holder cleanup |
+| `GlobalDownloadLimiter.*` | Locked per-user process registry for cross-process worker-slot admission and stale-holder cleanup; probes directory write access and falls back from ACL-blocked app-local storage |
 | `RuntimeCoordinator.*` | Per-user local-socket ownership, GUI activation, API activation, and direct-URL forwarding |
 | `DownloadQueueManagerRecovery.cpp` | Restored stopped/failed replacement recovery |
 | `DownloadQueueState.*` | Atomic `downloads_backup.json` save/load/restore, including path-based worker saves |
@@ -91,7 +91,7 @@ replacement. Temp cleanup owns root resolution and guarded UUID-folder removal.
 | `src/utils/UrlUtils.*` | Generic extraction of HTTP(S) targets from plain text and Markdown links |
 | `ArtworkNormalizer.*` | Worker-thread detection, complete-edge sampling, and atomic codec-buffer rewriting that removes high-confidence borders around square audio artwork |
 | `DiagnosticTail.h`, `YtDlpWorker.*`, `YtDlpWorkerProcess.cpp`, `YtDlpWorkerProcessOutput.cpp`, `YtDlpWorkerInfoJson.cpp`, `YtDlpWorkerProcessHelpers.h` | Async yt-dlp process, bounded diagnostics, output/progress parsing, metadata loading, cookies, livestream wait, aria2c recovery |
-| `YtDlpWorkerFfmpegDiagnostics.cpp` | FFmpeg merger/cut stage detection, bounded progress/timing logs, and worker-thread process-tree telemetry |
+| `YtDlpWorkerFfmpegDiagnostics.cpp` | FFmpeg merger/cut stage detection, bounded progress/timing logs, and worker-thread process-tree telemetry with identity-stable CPU, RSS, I/O, and system-resource rates |
 | `YtDlpWorkerDiagnostics.cpp` | Fatal/incomplete-media, disk-full, and bounded recovery classification |
 | `YtDlpWorkerTransfers.cpp` | Transfer-stage inference, including combined-source audio |
 | `YtDlpLiveStatus.h` | Explicit premiere/upcoming diagnostic mapping |
@@ -99,7 +99,7 @@ replacement. Temp cleanup owns root resolution and guarded UUID-folder removal.
 | `DownloadFinalizer.*` | Background verification, sorting, replacement, terminal cleanup, and worker-thread archive update |
 | `MetadataEmbedder.*` | Worker-thread metadata/thumbnail rewrite, cancellation, tracked `attached_pic` remux, and bounded FFmpeg stage progress/timing; audio sidecar normalization is coordinated by the yt-dlp worker before native embedding |
 | `download_pipeline/FfmpegMuxer.*` | Async FFmpeg muxing and progress |
-| `ProcessDiagnostics.*` | Cross-platform worker-process-tree CPU/RSS/priority snapshots with an unavailable fallback |
+| `ProcessDiagnostics.*` | Cross-platform worker-process-tree identity, image, CPU/RSS/I/O/priority snapshots plus system CPU/memory metrics, with unavailable fallbacks |
 | `ProcessUtils.*`, `SmartBinaryResolver.*` | Process startup, environments, binary discovery, and ownership tracking |
 
 ### UI and integrations
@@ -144,16 +144,19 @@ but keep backend/API progress delivery independent. Mutexes use RAII and are
 not held while emitting signals.
 External processes have bounded watchdogs, UTF-8 line buffering, bounded
 diagnostics, and process-tree cleanup. FFmpeg stage telemetry runs with the
-owning worker and never samples process resources from the GUI thread; platforms
-without a supported resource API log an explicit unavailable result. The GUI
-event-loop heartbeat records delayed timer callbacks so a desktop stall can be
-distinguished from a long but responsive FFmpeg stage. Qt SQL connections stay within their
-creating thread. `GlobalDownloadLimiter` uses a short-lived lock and removes
-holders whose process is no longer alive; manager shutdown releases the
-process's reservations. Queue and history writes snapshot immutable state and
-coalesce while a writer is active; shutdown waits for the writer before the
-final synchronous queue flush. GUI and server/headless/background downloads
-inhibit idle sleep while active, without preventing normal display power-off.
+owning worker and never samples process resources from the GUI thread; it logs
+process identity and tree changes and only derives CPU/I/O rates across stable
+snapshots, while platforms without a supported resource API log an explicit
+unavailable result. The GUI event-loop heartbeat records delayed timer callbacks
+so a desktop stall can be distinguished from a long but responsive FFmpeg
+stage. Qt SQL connections stay within their creating thread.
+`GlobalDownloadLimiter` probes actual directory writes, uses a short-lived lock,
+logs lock/persistence failures, and removes holders whose process is no longer
+alive; manager shutdown releases the process's reservations. Queue and history
+writes snapshot immutable state and coalesce while a writer is active; shutdown
+waits for the writer before the final synchronous queue flush. GUI and
+server/headless/background downloads inhibit idle sleep while active, without
+preventing normal display power-off.
 
 Windows keeps required Qt category plugins, SQLite, OpenSSL, Qt runtime, and MinGW
 compiler runtime DLLs beside the executable. The deployment helper is also
