@@ -12,6 +12,13 @@
 
 #include <QRegularExpression>
 
+#ifdef Q_OS_WIN
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#endif
+
 namespace {
 constexpr auto kShowUi = "show-ui";
 constexpr auto kEnsureApi = "ensure-api";
@@ -25,6 +32,27 @@ bool isAllowedCommand(const QString &command)
     static const QRegularExpression enqueueCommand(
         QStringLiteral("^enqueue:(?:video|audio|gallery):[A-Za-z0-9_-]{1,16000}$"));
     return enqueueCommand.match(command).hasMatch();
+}
+
+void grantForegroundPermissionToOwner(const QLocalSocket &socket)
+{
+#ifdef Q_OS_WIN
+    const HANDLE pipe = reinterpret_cast<HANDLE>(socket.socketDescriptor());
+    ULONG serverProcessId = 0;
+    if (!GetNamedPipeServerProcessId(pipe, &serverProcessId)) {
+        qWarning() << "Could not identify the coordinator process for foreground activation;"
+                      " continuing with the platform default. Windows error:" << GetLastError();
+        return;
+    }
+    if (!AllowSetForegroundWindow(serverProcessId)) {
+        qWarning() << "Windows denied foreground permission for the coordinator process"
+                   << serverProcessId << "; continuing with the platform default. Error:" << GetLastError();
+        return;
+    }
+    qInfo() << "Granted foreground activation permission to coordinator process" << serverProcessId;
+#else
+    Q_UNUSED(socket);
+#endif
 }
 }
 
@@ -146,6 +174,14 @@ RuntimeCoordinator::NotifyResult RuntimeCoordinator::notifyOwner(const QString &
                 QThread::msleep(25);
             }
             continue;
+        }
+        if (command == QLatin1String(kShowUi)) {
+            // The newly launched GUI process is allowed to transfer its
+            // foreground activation right to the existing coordinator. On
+            // Windows, the coordinator cannot reliably foreground itself
+            // after this short-lived client exits unless it receives this
+            // grant before the show-ui command is handled.
+            grantForegroundPermissionToOwner(socket);
         }
         if (socket.write(payload) != payload.size()) {
             sawOtherFailure = true;

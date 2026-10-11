@@ -9,9 +9,9 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## [Unreleased]
 
-- **Server-mode GUI activation:** Keep server-mode coordinator windows unmapped
-  until requested, without setting `WA_DontShowOnScreen`, so a GUI launch can
-  reveal the existing coordinator while Discord downloads continue.
+- **Server-mode GUI activation:** A GUI launch now grants the running Windows
+  coordinator foreground permission before requesting its window. Its window
+  remains unmapped until requested, and the existing queue continues running.
 - **Headless shutdown:** Keep history data current without loading or copying
   thumbnail files in non-interactive launches, avoiding slow destination I/O
   during coordinator teardown; render history thumbnails if the GUI is opened.

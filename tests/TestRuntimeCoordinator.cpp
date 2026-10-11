@@ -18,14 +18,14 @@ void TestRuntimeCoordinator::testOwnerReceivesClientCommand()
     const QString name = QStringLiteral("LzyDownloaderTestCoordinator-%1")
                              .arg(QUuid::createUuid().toString(QUuid::WithoutBraces));
     RuntimeCoordinator owner(name);
-    if (owner.startOrNotify(QStringLiteral("show-ui")) != RuntimeCoordinator::StartResult::Owner) {
+    if (owner.startOrNotify(QStringLiteral("ensure-api")) != RuntimeCoordinator::StartResult::Owner) {
         QSKIP("QLocalServer is unavailable in this execution environment.");
     }
 
     QSignalSpy spy(&owner, &RuntimeCoordinator::commandReceived);
     RuntimeCoordinator client(name);
     const auto notifyClient = [&]() {
-        return client.startOrNotify(QStringLiteral("ensure-api"))
+        return client.startOrNotify(QStringLiteral("show-ui"))
                == RuntimeCoordinator::StartResult::ClientNotified;
     };
     // Windows named-pipe connection establishment can briefly lag behind the
@@ -44,7 +44,7 @@ void TestRuntimeCoordinator::testOwnerReceivesClientCommand()
     }
     QVERIFY(notified);
     QTRY_COMPARE(spy.count(), 1);
-    QCOMPARE(spy.first().first().toString(), QStringLiteral("ensure-api"));
+    QCOMPARE(spy.first().first().toString(), QStringLiteral("show-ui"));
 }
 
 void TestRuntimeCoordinator::testRejectsUnexpectedCommand()

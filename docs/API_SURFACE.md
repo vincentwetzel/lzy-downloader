@@ -34,6 +34,9 @@ the same thread cannot deadlock. A command is considered delivered once the
 owner accepts the complete line; the acknowledgment is an additional success
 signal, not a reason to resend a command that may already have been handled.
 A busy owner is never replaced because a short notification timeout elapsed.
+For `show-ui`, a Windows client grants the connected owner foreground
+activation permission before sending the command; if the OS denies that grant,
+the owner still uses Qt's normal show, raise, and activate requests.
 The executable also retains the legacy GUI/server shared-memory ownership keys
 for upgrade compatibility. An active older release therefore blocks a second
 queue owner rather than allowing competing SQLite, queue-backup, or Local API

@@ -151,10 +151,11 @@ void MainWindow::activateCoordinatorUi()
     }
     m_configManager->set(QStringLiteral("General"), QStringLiteral("exit_after"), false);
     m_configManager->save();
-    qInfo() << "[MainWindow] Coordinator UI activated; disabling exit-after for the shared interactive owner.";
     showNormal();
     raise();
     activateWindow();
+    qInfo() << "[MainWindow] Coordinator UI show requested; disabling exit-after for the shared interactive owner."
+            << "visible=" << isVisible() << "active=" << isActiveWindow();
 }
 
 void MainWindow::ensureCoordinatorApi()
