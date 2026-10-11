@@ -50,6 +50,11 @@ MainWindow::MainWindow(ExtractorJsonParser *extractorJsonParser, QWidget *parent
         m_configManager->set(QStringLiteral("General"), QStringLiteral("exit_after"), false);
     }
     m_configManager->save();
+    qInfo() << "[MainWindow] Launch lifecycle:"
+            << "pid=" << QCoreApplication::applicationPid()
+            << "non_interactive=" << m_nonInteractiveLaunch
+            << "server=" << QCoreApplication::arguments().contains(QStringLiteral("--server"))
+            << "exit_after=" << m_configManager->get(QStringLiteral("General"), QStringLiteral("exit_after"), false).toBool();
 
     m_archiveManager = new ArchiveManager(m_configManager, this);
     m_downloadManager = new DownloadManager(m_configManager, this);
@@ -139,6 +144,7 @@ void MainWindow::activateCoordinatorUi()
     setAttribute(Qt::WA_DontShowOnScreen, false);
     m_configManager->set(QStringLiteral("General"), QStringLiteral("exit_after"), false);
     m_configManager->save();
+    qInfo() << "[MainWindow] Coordinator UI activated; disabling exit-after for the shared interactive owner.";
     showNormal();
     raise();
     activateWindow();

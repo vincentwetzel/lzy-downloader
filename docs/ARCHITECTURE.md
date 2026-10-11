@@ -158,6 +158,12 @@ waits for the writer before the final synchronous queue flush. GUI and
 server/headless/background downloads inhibit idle sleep while active, without
 preventing normal display power-off.
 
+Headless `--exit-after` uses `DownloadManager::isQueueIdle()` after the
+`queueFinished` signal and before requesting `QCoreApplication::quit()`; UI
+counter labels are not lifecycle authority. Queue transitions and the
+`aboutToQuit`/event-loop boundary are logged so coordinator ownership or a
+stalled queue can be distinguished from a process that has already exited.
+
 Windows keeps required Qt category plugins, SQLite, OpenSSL, Qt runtime, and MinGW
 compiler runtime DLLs beside the executable. The deployment helper is also
 used for test executables so headless runs do not depend on the developer shell.

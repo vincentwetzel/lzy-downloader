@@ -16,6 +16,10 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 - **Cross-process admission:** Probe actual directory write access before
   placing the global worker-slot registry, fall back from ACL-blocked app-local
   storage to the user temp directory, and log lock or persistence failures.
+- **Headless exit lifecycle:** Use authoritative `DownloadManager` queue state
+  instead of UI counters before `--exit-after` quits, and add queue transition,
+  shutdown, and Qt event-loop telemetry for diagnosing coordinator processes
+  that appear to remain alive after the final download.
 
 ## [1.2.56] - 2026-10-06
 

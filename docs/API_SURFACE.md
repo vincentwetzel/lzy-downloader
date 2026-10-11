@@ -70,6 +70,10 @@ Public methods:
   tracks selected by the playlist dialog.
 - `void resumeDownloadWithFormat(const QString &url, const QVariantMap &options,
   const QString &formatId)` — queue a concrete format.
+- `bool isQueueIdle() const` — report whether the manager has no active workers,
+  active items, runnable queued items, pending playlist expansions, or active
+  paused items. This is the authoritative lifecycle check for exit-after
+  handling; UI counters are presentation-only.
 - `void shutdown()` — stop admission and workers, disconnect queued worker
   starts, wait for owned threads, flush queue state, and terminate pools.
 

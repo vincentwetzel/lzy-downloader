@@ -46,6 +46,7 @@ public:
     void onWorkerOutputReceived(const QString &id, const QString &output);
     void processPlaylistSelection(const QString &url, const QString &action, const QVariantMap &options, const QList<QVariantMap> &expandedItems);
     void resumeDownloadWithFormat(const QString &url, const QVariantMap &options, const QString &formatId);
+    bool isQueueIdle() const;
     void shutdown();
 
 public slots:

@@ -67,6 +67,29 @@ DownloadManager::~DownloadManager() {
     shutdown();
 }
 
+bool DownloadManager::isQueueIdle() const
+{
+    if (!m_queueManager) {
+        return m_activeWorkers.isEmpty() && m_activeItems.isEmpty();
+    }
+
+    bool hasActivelyPausedItems = false;
+    for (auto it = m_queueManager->m_pausedItems.cbegin(); it != m_queueManager->m_pausedItems.cend(); ++it) {
+        const DownloadItem &pausedItem = it.value();
+        if (!pausedItem.options.value(QStringLiteral("is_stopped")).toBool()
+            && !pausedItem.options.value(QStringLiteral("is_failed")).toBool()) {
+            hasActivelyPausedItems = true;
+            break;
+        }
+    }
+
+    return m_activeWorkers.isEmpty()
+        && !m_queueManager->hasQueuedDownloads()
+        && m_activeItems.isEmpty()
+        && m_queueManager->m_pendingExpansions.isEmpty()
+        && !hasActivelyPausedItems;
+}
+
 void DownloadManager::stopWorker(QObject *worker)
 {
     if (!worker) {

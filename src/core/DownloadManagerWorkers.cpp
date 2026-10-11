@@ -410,31 +410,44 @@ void DownloadManager::onItemCleared(const QString &id, bool wasSuccessful, bool 
 }
 
 void DownloadManager::checkQueueFinished() {
-    const bool hasPendingPlaylistExpansions = m_queueManager && !m_queueManager->m_pendingExpansions.isEmpty();
-
     bool hasActivelyPausedItems = false;
     if (m_queueManager) {
         for (auto it = m_queueManager->m_pausedItems.cbegin(); it != m_queueManager->m_pausedItems.cend(); ++it) {
             const DownloadItem &pausedItem = it.value();
-            if (!pausedItem.options.value(QStringLiteral("is_stopped")).toBool() && !pausedItem.options.value(QStringLiteral("is_failed")).toBool()) {
+            if (!pausedItem.options.value(QStringLiteral("is_stopped")).toBool()
+                && !pausedItem.options.value(QStringLiteral("is_failed")).toBool()) {
                 hasActivelyPausedItems = true;
                 break;
             }
         }
     }
 
-    bool isQueueEmptyAndIdle = m_activeWorkers.isEmpty()
-        && !m_queueManager->hasQueuedDownloads()
-        && m_activeItems.isEmpty()
-        && !hasPendingPlaylistExpansions
-        && !hasActivelyPausedItems;
+    const bool isQueueEmptyAndIdle = isQueueIdle();
+    const QString state = QStringLiteral("active_workers=%1 active_items=%2 queued_items=%3 paused_items=%4 "
+                                         "pending_expansions=%5 active_paused=%6 temp_cleanup=%7 idle=%8")
+        .arg(m_activeWorkers.size())
+        .arg(m_activeItems.size())
+        .arg(m_queueManager ? m_queueManager->m_downloadQueue.size() : 0)
+        .arg(m_queueManager ? m_queueManager->m_pausedItems.size() : 0)
+        .arg(m_queueManager ? m_queueManager->m_pendingExpansions.size() : 0)
+        .arg(hasActivelyPausedItems ? 1 : 0)
+        .arg(m_queueManager && m_queueManager->m_tempCleanupInProgress ? 1 : 0)
+        .arg(isQueueEmptyAndIdle ? 1 : 0);
+    if (property("queueActivityState").toString() != state) {
+        setProperty("queueActivityState", state);
+        qInfo() << "[DownloadManager] Queue activity state:" << state;
+    }
 
     if (isQueueEmptyAndIdle) {
         if (property("queueWasActive").toBool()) {
             setProperty("queueWasActive", false);
+            qInfo() << "[DownloadManager] Queue transitioned active -> idle; emitting queueFinished.";
             emit queueFinished();
         }
     } else {
+        if (!property("queueWasActive").toBool()) {
+            qInfo() << "[DownloadManager] Queue transitioned idle -> active.";
+        }
         setProperty("queueWasActive", true);
     }
 }

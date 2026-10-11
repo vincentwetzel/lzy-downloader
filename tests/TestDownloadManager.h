@@ -74,6 +74,7 @@ private slots:
     void testCompletionSurvivesReentrantItemRemoval();
     void testFinalizationDoesNotBlockGuiThread();
     void testCompletionStateSaveDoesNotBlockGuiThread();
+    void testQueueIdleUsesManagerState();
 
 private:
     DownloadManager *m_manager = nullptr;

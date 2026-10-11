@@ -51,8 +51,9 @@ void MainWindow::connectDownloadManagerSignals()
     // during automated headless shutdowns (like --server --exit-after).
     connect(QCoreApplication::instance(), &QCoreApplication::aboutToQuit, this, [this]() {
         if (m_downloadManager) {
-            qInfo() << "Executing headless shutdown/cleanup sequence before event loop terminates...";
+            qInfo() << "[MainWindow] aboutToQuit received; executing DownloadManager shutdown.";
             m_downloadManager->shutdown();
+            qInfo() << "[MainWindow] DownloadManager shutdown completed before event loop termination.";
         }
     });
 

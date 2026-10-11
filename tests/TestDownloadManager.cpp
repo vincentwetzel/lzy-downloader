@@ -34,6 +34,32 @@ void TestDownloadManager::cleanup() {
     BaseTest::cleanup();
 }
 
+void TestDownloadManager::testQueueIdleUsesManagerState() {
+    TestableDownloadManager manager(getConfigManager(), this);
+
+    QVERIFY(manager.isQueueIdle());
+
+    DownloadItem activeItem;
+    activeItem.id = QStringLiteral("active-item");
+    activeItem.url = QStringLiteral("https://media.example/active");
+    manager.m_activeItems.insert(activeItem.id, activeItem);
+    QVERIFY(!manager.isQueueIdle());
+    manager.m_activeItems.clear();
+
+    DownloadItem queuedItem;
+    queuedItem.id = QStringLiteral("queued-item");
+    queuedItem.url = QStringLiteral("https://media.example/queued");
+    manager.m_queueManager->enqueueDownload(queuedItem, false);
+    QVERIFY(!manager.isQueueIdle());
+    QVERIFY(manager.m_queueManager->cancelQueuedOrPausedDownload(queuedItem.id));
+    QVERIFY(manager.isQueueIdle());
+
+    manager.m_queueManager->m_pendingExpansions.insert(QStringLiteral("expansion"), queuedItem.url);
+    QVERIFY(!manager.isQueueIdle());
+    manager.m_queueManager->m_pendingExpansions.clear();
+    QVERIFY(manager.isQueueIdle());
+}
+
 void TestDownloadManager::testTransientPlaylistProbeFallback() {
     TestableDownloadManager manager(getConfigManager(), this);
     

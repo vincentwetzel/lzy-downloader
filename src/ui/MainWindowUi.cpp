@@ -259,29 +259,39 @@ void MainWindow::onQueueFinished()
     }
 
     const bool exitAfter = m_configManager->get(QStringLiteral("General"), QStringLiteral("exit_after"), false).toBool();
+    qInfo() << "[MainWindow] queueFinished received."
+            << "exit_after=" << exitAfter
+            << "manager_idle=" << (m_downloadManager && m_downloadManager->isQueueIdle());
     if (exitAfter) {
-        qInfo() << "Queue finished and 'exit after' is enabled. Waiting 2 seconds before quitting to allow for final file cleanup.";
+        qInfo() << "[MainWindow] Exit-after enabled; waiting 2 seconds before requesting application quit.";
         QTimer::singleShot(std::chrono::seconds(2), this, [this]() {
             if (!m_configManager || !m_uiBuilder) {
+                qWarning() << "[MainWindow] Exit-after timer cannot verify application state because UI/configuration is unavailable.";
                 return;
             }
 
             const bool exitStillEnabled = m_configManager->get(QStringLiteral("General"), QStringLiteral("exit_after"), false).toBool();
             if (!exitStillEnabled) {
-                qInfo() << "Exit-after timer cancelled because the setting was turned off before shutdown.";
+                qInfo() << "[MainWindow] Exit-after timer cancelled because the setting was turned off before shutdown.";
                 return;
             }
 
             const int activeCount = m_uiBuilder->activeDownloadsLabel()->property("count").toInt();
             const int queuedCount = m_uiBuilder->queuedDownloadsLabel()->property("count").toInt();
+            const bool managerIdle = m_downloadManager && m_downloadManager->isQueueIdle();
+            qInfo() << "[MainWindow] Exit-after timer fired."
+                    << "manager_idle=" << managerIdle
+                    << "ui_active=" << activeCount
+                    << "ui_queued=" << queuedCount;
 
-            if (activeCount == 0 && queuedCount == 0) {
+            if (managerIdle) {
+                qInfo() << "[MainWindow] Requesting application quit after confirmed manager-idle state.";
                 QCoreApplication::quit();
                 return;
             }
 
-            qInfo() << "Exit-after timer cancelled because downloads resumed before shutdown."
-                    << "Active:" << activeCount << "Queued:" << queuedCount;
+            qInfo() << "[MainWindow] Exit-after timer cancelled because manager state is still active."
+                    << "UI active:" << activeCount << "UI queued:" << queuedCount;
         });
     }
 }

@@ -196,6 +196,8 @@ int main(int argc, char *argv[]) {
         w.show();
     }
 
+    qInfo() << "[main] Entering Qt event loop.";
     int result = a.exec();
+    qInfo() << "[main] Qt event loop exited with code" << result << ".";
     return result;
 }
