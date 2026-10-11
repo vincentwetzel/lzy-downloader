@@ -38,7 +38,9 @@ GUI thread.
 contains the `DownloadManager`, queue backup, workers, and Local API. GUI,
 `--server`, `--headless`, and `--background` launches attach to that one
 owner: GUI activation reveals an existing headless owner, and background
-activation asks an existing GUI owner to start its Local API.
+activation asks an existing GUI owner to start its Local API. A server-mode
+owner leaves its main window unmapped at startup, so a later GUI launch can
+show that same window while its queue and workers continue running.
 During upgrades, `main.cpp` also claims the legacy GUI and server
 single-instance keys used by older releases. If an older instance is still
 active and cannot receive coordinator commands, the new process exits instead

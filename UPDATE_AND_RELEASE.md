@@ -430,10 +430,12 @@ The application stores user data below the platform-specific
 
 The Local API also accepts `override_archive: true` on intentional automation re-downloads; verify the Discord bridge and C++ executable are updated together so this confirmation reaches the queue manager.
 
-Server/headless/background mode still reads user preferences from the shared
-`settings.ini`, but isolates runtime queue backups, API tokens, and logs under
-the root's `Server/` subfolder. Each launch creates a fresh timestamped log;
-startup cleanup keeps only the five most recent logs.
+GUI and server/headless/background modes share the settings, archive, queue
+backup, and Local API token under the application-local data root. A GUI launch
+activates the existing coordinator and shows its current queue while downloads
+continue. Server/headless/background logs are isolated under the root's
+`Server/` subfolder. Each launch creates a fresh timestamped log; startup
+cleanup keeps only the five most recent logs.
 
 **Important:** The NSIS installer must NOT overwrite `settings.ini`,
 `download_archive.db`, `downloads_backup.json`, `download_history.json`,

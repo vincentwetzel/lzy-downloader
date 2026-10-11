@@ -35,8 +35,11 @@ MainWindow::MainWindow(ExtractorJsonParser *extractorJsonParser, QWidget *parent
       m_lastAutoPasteTimestamp(0), m_deferredClipboardAutoPaste(false),
       m_deferredClipboardForceEnqueue(false), m_skipInitialFocusAutoEnqueue(true)
 {
-    // Intercept window creation BEFORE it can be shown by main.cpp
-    if (m_nonInteractiveLaunch) {
+    // A server-mode owner is hidden because main.cpp never calls show() for
+    // it. Avoid WA_DontShowOnScreen there so a later show-ui command can map
+    // this same window normally. Direct URL launches still pass through
+    // main.cpp's show() call and need the attribute to remain non-interactive.
+    if (m_nonInteractiveLaunch && !MainWindowHelpers::hasServerLaunchArgument()) {
         setAttribute(Qt::WA_DontShowOnScreen, true);
     }
 
