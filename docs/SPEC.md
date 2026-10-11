@@ -46,7 +46,10 @@ only the sections relevant to the change.
   atomic replacements are not started. Orderly shutdown waits for that writer,
   performs the final synchronous flush, and only then permits non-interactive
   `QCoreApplication::quit()`. Download History uses the same off-thread,
-  coalesced write pattern for `download_history.json`.
+  coalesced write pattern for `download_history.json`. Non-interactive launches
+  retain history data without rendering history thumbnails or copying them
+  from download destinations; rendering resumes if the coordinator opens its
+  GUI.
 
 ### 2.2 Instances, settings, and archive
 

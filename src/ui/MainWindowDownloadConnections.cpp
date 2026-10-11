@@ -65,6 +65,9 @@ void MainWindow::connectDownloadManagerSignals()
         if (originalPath.isEmpty() || originalPath.startsWith(QStringLiteral("http://")) || originalPath.startsWith(QStringLiteral("https://"))) {
             return originalPath;
         }
+        if (m_nonInteractiveLaunch) {
+            return originalPath;
+        }
         const QString cacheKey = id + QLatin1Char('\0') + originalPath;
         if (cachedThumbnailPaths->contains(cacheKey)) {
             return cachedThumbnailPaths->value(cacheKey);

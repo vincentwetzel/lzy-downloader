@@ -54,6 +54,7 @@ void MainWindow::setupUI()
     m_activeDownloadsTab = new ActiveDownloadsTab(m_configManager, this);
     DownloadHistoryTab *downloadHistoryTab = new DownloadHistoryTab(this);
     downloadHistoryTab->setObjectName(QStringLiteral("downloadHistoryTab"));
+    downloadHistoryTab->setRenderingEnabled(!m_nonInteractiveLaunch);
     downloadHistoryTab->loadHistory(QDir(m_configManager->getConfigDir()).filePath(QStringLiteral("download_history.json")));
     m_advancedSettingsTab = new AdvancedSettingsTab(m_configManager, this);
     SortingTab *sortingTab = new SortingTab(m_configManager, this);

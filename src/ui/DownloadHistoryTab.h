@@ -28,6 +28,7 @@ public:
     void loadHistory(const QString &filePath);
     void saveHistory() const;
     void updateThumbnail(const QString &id, const QString &thumbnailPath);
+    void setRenderingEnabled(bool enabled);
 
 public slots:
     void addHistoryItem(const HistoryItemData &data);
@@ -36,6 +37,7 @@ public slots:
 private:
     void saveHistoryAsync();
     void startHistorySave(const QString &path, const QList<HistoryItemData> &items);
+    void rebuildHistoryRows();
 
     QScrollArea *m_scrollArea;
     QWidget *m_scrollWidget;
@@ -43,6 +45,7 @@ private:
 
     QString m_historyFilePath;
     QList<HistoryItemData> m_historyItems;
+    bool m_renderingEnabled = true;
     QFutureWatcher<void> *m_historySaveWatcher = nullptr;
     bool m_hasPendingHistorySave = false;
     QString m_pendingHistoryPath;

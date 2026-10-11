@@ -2,6 +2,7 @@
 #include "MainWindow.h"
 #include "MainWindowHelpers.h"
 #include "MainWindowUiBuilder.h"
+#include "DownloadHistoryTab.h"
 
 #include "core/ArchiveManager.h"
 #include "core/AppUpdater.h"
@@ -142,6 +143,9 @@ void MainWindow::activateCoordinatorUi()
     // interactive surface after starting as an automation coordinator.
     m_nonInteractiveLaunch = false;
     setAttribute(Qt::WA_DontShowOnScreen, false);
+    if (auto *historyTab = findChild<DownloadHistoryTab *>(QStringLiteral("downloadHistoryTab"))) {
+        historyTab->setRenderingEnabled(true);
+    }
     m_configManager->set(QStringLiteral("General"), QStringLiteral("exit_after"), false);
     m_configManager->save();
     qInfo() << "[MainWindow] Coordinator UI activated; disabling exit-after for the shared interactive owner.";

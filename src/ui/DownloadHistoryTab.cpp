@@ -363,6 +363,35 @@ void DownloadHistoryTab::loadHistory(const QString &filePath) {
         file.close();
     }
     
+    rebuildHistoryRows();
+}
+
+void DownloadHistoryTab::setRenderingEnabled(bool enabled)
+{
+    if (m_renderingEnabled == enabled) {
+        return;
+    }
+    m_renderingEnabled = enabled;
+    if (enabled) {
+        rebuildHistoryRows();
+    } else {
+        QLayoutItem *item;
+        while ((item = m_listLayout->takeAt(0)) != nullptr) {
+            if (item->widget()) {
+                delete item->widget();
+            }
+            delete item;
+        }
+        m_listLayout->addStretch();
+    }
+}
+
+void DownloadHistoryTab::rebuildHistoryRows()
+{
+    if (!m_renderingEnabled) {
+        return;
+    }
+
     QLayoutItem *item;
     while ((item = m_listLayout->takeAt(0)) != nullptr) {
         if (item->widget()) {
@@ -434,11 +463,13 @@ void DownloadHistoryTab::addHistoryItem(const HistoryItemData &data) {
     }
     saveHistoryAsync();
 
-    DownloadHistoryItemWidget *itemWidget = new DownloadHistoryItemWidget(data, m_scrollWidget);
-    // Insert at index 0 so newest items appear at the top
-    m_listLayout->insertWidget(0, itemWidget);
+    if (m_renderingEnabled) {
+        DownloadHistoryItemWidget *itemWidget = new DownloadHistoryItemWidget(data, m_scrollWidget);
+        // Insert at index 0 so newest items appear at the top
+        m_listLayout->insertWidget(0, itemWidget);
+    }
 
-    while (m_listLayout->count() > 501) { // 500 max widgets + 1 stretch
+    while (m_renderingEnabled && m_listLayout->count() > 501) { // 500 max widgets + 1 stretch
         QLayoutItem *item = m_listLayout->takeAt(m_listLayout->count() - 2);
         if (item && item->widget()) {
             item->widget()->deleteLater();

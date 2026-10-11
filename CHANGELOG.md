@@ -9,6 +9,10 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## [Unreleased]
 
+- **Headless shutdown:** Keep history data current without loading or copying
+  thumbnail files in non-interactive launches, avoiding slow destination I/O
+  during coordinator teardown; render history thumbnails if the GUI is opened.
+
 ## [1.2.56.65] - 2026-10-10
 
 - **Release versioning:** Move the app version base to `VERSION` and have
