@@ -210,14 +210,16 @@ Test-Path .\.github\workflows\release.yml
 The first command must identify the C++ repository root and both path checks
 must return `True`.
 
-- `CMakeLists.txt` `project(VERSION x.y.z)` is the app version source of truth.
-- The release builder compares that version with fetched `vX.Y.Z` tags and stops when it is not newer; tag-triggered CI also requires an exact tag/version match. Set `LZY_ALLOW_VERSION_REBUILD=1` only for an intentional rebuild of an existing release.
-- `vcpkg.json` `version-string` must be updated to the same version, and `builtin-baseline` should remain pinned to the intended vcpkg commit.
-- GitHub Actions is the normal release packaging path: push a synchronized
-  release commit, then its matching `vX.Y.Z` tag. The workflow runs
-  `build_release.py` on the Windows, Linux, Intel macOS, and Apple Silicon
-  runners only after the full headless C++ test suite passes. Local
-  `build_release.py` runs are optional diagnostics only.
+- `VERSION` is the app's `MAJOR.MINOR.PATCH` base. Local builds use that value;
+  GitHub Actions appends its workflow run number for a four-part release
+  version. `vcpkg.json` tracks the three-part base, and `builtin-baseline`
+  remains pinned to the intended vcpkg commit.
+- To release, push a unique `release-*` trigger tag. GitHub Actions builds the
+  full suite and platform packages, then publishes the generated
+  `vMAJOR.MINOR.PATCH.BUILD` version tag and release. No app version edits are
+  needed for each release. The workflow runs `build_release.py` on Windows,
+  Linux, Intel macOS, and Apple Silicon only after the full headless C++ test
+  suite passes. Local `build_release.py` runs are optional diagnostics only.
 - The release builder remains native-only: GitHub Actions selects the platform
   runner and packaging path for each artifact. Its `--target` options are for
   explicitly requested local diagnostics, not the normal release procedure.
@@ -229,7 +231,7 @@ must return `True`.
 - Python dependencies are installed after Qt setup with the restored Python
   3.11 interpreter because `install-qt-action` manages an internal Python
   environment while installing the SDK.
-- macOS CI builds separate Intel (`macos-15-intel`) and Apple Silicon (`macos-15`) app bundles from Qt's universal `clang_64` archive, deploys Qt with `macdeployqt`, and packages `LzyDownloader-X.Y.Z-macos-x86_64.dmg` plus `LzyDownloader-X.Y.Z-macos-arm64.dmg`.
+- macOS CI builds separate Intel (`macos-15-intel`) and Apple Silicon (`macos-15`) app bundles from Qt's universal `clang_64` archive, deploys Qt with `macdeployqt`, and packages `LzyDownloader-<version>-macos-x86_64.dmg` plus `LzyDownloader-<version>-macos-arm64.dmg`.
 - Release automation installs yt-dlp from its prerelease/nightly channel (`pip install --pre --upgrade yt-dlp`) so extractor/runtime changes are exercised before packaging.
 - Linux AppImage packaging uses qmake from the same prebuilt Qt SDK that built
   the executable when invoking linuxdeploy, including QtSql's SQLite plugin
@@ -237,21 +239,22 @@ must return `True`.
 - Linux release builds use a persistent ccache, and the pinned Qt SDK is cached
   by `install-qt-action` between compatible GitHub Actions runs; Ninja is used
   when available for the Linux compilation graph.
-- If a tag-matched `release-notes/<tag>.md` file is absent, CI creates a minimal fallback release body so GitHub Release publication does not emit a missing-file warning.
-- The workflow also supports `workflow_dispatch` validation runs; release assets are uploaded only when the workflow was started by a `v*` tag and every test and platform build job passed.
+- If a trigger-tag-matched `release-notes/<tag>.md` file is absent, CI creates a minimal fallback release body so GitHub Release publication does not emit a missing-file warning.
+- The workflow also supports `workflow_dispatch` validation runs; release assets are published only when the workflow was started by a `release-*` trigger tag and every test and platform build job passed.
 - Each tag release includes a platform-specific `SHA256SUMS-*.txt` manifest beside the packaged installer, AppImage, or DMG.
 - Local Linux source builds that choose vcpkg still need the development
   packages required by that vcpkg revision; they are not release-runtime
   dependencies.
-- `LzyDownloader.nsi` must not contain stale hardcoded version examples or installer metadata; pass the release version with `makensis /DAPP_VERSION=x.y.z /DRELEASE_BUILD_DIR=build-release\Release LzyDownloader.nsi` when building manually.
-- `CHANGELOG.md` must move `[Unreleased]` notes under the dated release version.
-- The normal release workflow is metadata preparation followed by pushing the
-  release commit and matching `v*` tag. Pushing the tag starts
+- `LzyDownloader.nsi` must not contain stale hardcoded version examples or installer metadata; pass the generated release version with `makensis /DAPP_VERSION=<version> /DRELEASE_BUILD_DIR=build-release\Release LzyDownloader.nsi` when building manually.
+- `CHANGELOG.md` release notes may remain under `[Unreleased]` until the generated version is known.
+- The normal release workflow is release preparation followed by pushing the
+  release commit and a unique `release-*` trigger tag. Pushing the tag starts
   `.github/workflows/release.yml`, which first runs the full headless C++ test
   suite, then builds the Windows installer, Linux AppImage, and
-  Intel/Apple-Silicon macOS DMGs. A final job attaches them to the GitHub
-  Release only after all builds pass; local packaging is optional diagnostics
-  only.
+  Intel/Apple-Silicon macOS DMGs using `VERSION` plus the Actions run number. A
+  final job creates the generated `vMAJOR.MINOR.PATCH.BUILD` tag and attaches
+  artifacts to that GitHub Release only after all builds pass; local packaging
+  is optional diagnostics only.
 
 ## Usage
 

@@ -1,6 +1,25 @@
 cmake_minimum_required(VERSION 3.16)
+file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/VERSION" LZY_VERSION_BASE LIMIT_COUNT 1)
+if(NOT LZY_VERSION_BASE MATCHES "^[0-9]+\\.[0-9]+\\.[0-9]+$")
+    message(FATAL_ERROR "VERSION must contain a single MAJOR.MINOR.PATCH value")
+endif()
+if(NOT DEFINED LZY_BUILD_NUMBER OR LZY_BUILD_NUMBER STREQUAL "")
+    if(DEFINED ENV{LZY_BUILD_NUMBER} AND NOT "$ENV{LZY_BUILD_NUMBER}" STREQUAL "")
+        set(LZY_BUILD_NUMBER "$ENV{LZY_BUILD_NUMBER}")
+    else()
+        set(LZY_BUILD_NUMBER "0")
+    endif()
+endif()
+if(NOT LZY_BUILD_NUMBER MATCHES "^[0-9]+$" OR LZY_BUILD_NUMBER GREATER 65535)
+    message(FATAL_ERROR "LZY_BUILD_NUMBER must be an integer from 0 to 65535")
+endif()
+if(LZY_BUILD_NUMBER STREQUAL "0")
+    set(LZY_APP_VERSION "${LZY_VERSION_BASE}")
+else()
+    set(LZY_APP_VERSION "${LZY_VERSION_BASE}.${LZY_BUILD_NUMBER}")
+endif()
 project(LzyDownloader
-    VERSION 1.2.56
+    VERSION ${LZY_VERSION_BASE}
     DESCRIPTION "Qt desktop video, audio, playlist, and gallery downloader powered by yt-dlp and gallery-dl"
     HOMEPAGE_URL "https://github.com/vincentwetzel/lzy-downloader"
     LANGUAGES CXX
@@ -405,8 +424,8 @@ if(APPLE)
         MACOSX_BUNDLE TRUE
         MACOSX_BUNDLE_BUNDLE_NAME "LzyDownloader"
         MACOSX_BUNDLE_GUI_IDENTIFIER "com.lzydownloader.app"
-        MACOSX_BUNDLE_BUNDLE_VERSION "${PROJECT_VERSION}"
-        MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION}"
+        MACOSX_BUNDLE_BUNDLE_VERSION "${LZY_APP_VERSION}"
+        MACOSX_BUNDLE_SHORT_VERSION_STRING "${LZY_VERSION_BASE}"
     )
 endif()
 
@@ -507,6 +526,8 @@ lzy_add_test(TestDownloadTempCleanup tests/TestDownloadTempCleanup.cpp)
 lzy_add_test(TestPowerInhibitor tests/TestPowerInhibitor.cpp)
 lzy_add_test(TestGlobalDownloadLimiter tests/TestGlobalDownloadLimiter.cpp)
 lzy_add_test(TestStartupWorker tests/TestStartupWorker.cpp)
+lzy_add_test(TestVersioning tests/TestVersioning.cpp)
+target_compile_definitions(TestVersioning PRIVATE LZY_EXPECTED_BUILD_NUMBER=${LZY_BUILD_NUMBER})
 add_dependencies(TestDownloadManager LzyTestFakeYtDlp)
 set_tests_properties(TestDownloadManager PROPERTIES TIMEOUT 75)
 set_tests_properties(TestEndToEnd PROPERTIES TIMEOUT 75)

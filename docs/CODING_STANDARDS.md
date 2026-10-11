@@ -117,5 +117,6 @@ Read the relevant section only.
   hides loader/runtime diagnostics, and supports `--suspects`.
   For Visual Studio, preserve the cache-selected vcpkg/MSBuild integration.
 - Before app updates, save resumable state and stop child processes. Release
-  packaging must preserve version/tag checks, tag-only publication, and
-  matching SHA-256 manifests. Child commands inherit the invoking terminal.
+  packaging must preserve generated-version checks, publication only from
+  `release-*` trigger tags, and matching SHA-256 manifests. Child commands
+  inherit the invoking terminal.

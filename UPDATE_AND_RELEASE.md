@@ -79,7 +79,7 @@ not automatically use an image merely because it exists in the repository.
 
 1. **NSIS (Nullsoft Scriptable Install System)**
    - Download from: https://nsis.sourceforge.io/Download
-   - Install to default location (e.g., `C:\Program Files (x86)\NSIS`)
+   - Install to the standard Program Files (x86) location
    - Verify: `makensis /version` in PowerShell
    - GitHub Actions installs NSIS automatically on the Windows runner before invoking `build_release.py`.
 
@@ -119,12 +119,13 @@ not automatically use an image merely because it exists in the repository.
 ## Build Process
 
 This project uses GitHub Actions as the normal release build environment. A
-release-preparation task updates metadata, refreshes extractor lists, writes
-the changelog and matching release notes, and prepares the commit/tag commands.
-Do not run `build_release.py` locally as part of the normal release workflow;
-the pushed `vX.Y.Z` tag starts the full-test gate and release matrix on GitHub
-Actions. Local builds and headless tests remain useful diagnostics, but they do
-not replace the required release workflow checks.
+release-preparation task refreshes extractor lists, writes the changelog and
+release notes, and prepares the commit and trigger-tag commands. Do not run
+`build_release.py` locally as part of the normal release workflow; pushing a
+unique `release-*` trigger tag starts the full-test gate and release matrix.
+GitHub Actions generates and publishes a `vMAJOR.MINOR.PATCH.BUILD` tag using
+its workflow run number. Local builds and headless tests remain useful
+diagnostics, but they do not replace the required release workflow checks.
 
 Before preparing a release, review `CHANGELOG.md` and the maintained docs against the
 implementation. Use `docs/SPEC.md` as the smoke-test contract, especially for
@@ -165,26 +166,34 @@ python ./tools/update_gallery-dl_extractors.py
 ```
 This will update `extractors_yt-dlp.json` and `extractors_gallery-dl.json`. Both scripts share `tools/extractor_utils.py` for domain parsing with precompiled regexes, are intentionally non-interactive, and should return directly to the shell when they finish.
 
-### Step 2: Update Version Number
+### Step 2: Prepare Release Notes
 
-Update the version in `CMakeLists.txt` (`project(VERSION x.y.z)`) to a value newer than the latest `vX.Y.Z` Git tag. This is the single source of truth for the release version. The app version is generated from there into `version.h`, used by the Windows resources, and passed into the NSIS installer build by `build_release.py`.
+`VERSION` contains the checked-in `MAJOR.MINOR.PATCH` base. Normal releases do
+not require changing it: Actions appends `github.run_number` as the fourth
+component and uses that value for the app, Windows resources, installer,
+AppImage, DMGs, and published version tag. Change `VERSION` only when advancing
+the major, minor, or patch base. Local builds omit the build suffix unless
+`LZY_BUILD_NUMBER` is supplied.
 
-Also update `vcpkg.json` `version-string` to the same version, keep its `builtin-baseline` pinned to the intended vcpkg commit, and ensure `CHANGELOG.md` has the release notes under the matching dated version heading.
-The matching GitHub release body belongs in `release-notes/vX.Y.Z.md`; create
-that file before tagging because the tag-triggered workflow attaches it
-automatically.
+Keep `vcpkg.json` `version-string` aligned with the three-part `VERSION` base
+and keep its `builtin-baseline` pinned to the intended vcpkg commit. Add the
+release entry to `CHANGELOG.md` under `Unreleased` or the chosen dated heading.
+Put the GitHub release body in `release-notes/<trigger-tag>.md`; if absent,
+Actions creates a short generated description.
 
-`build_release.py` rejects a local release version that is not newer than the
-newest semantic `v*` tag and rejects tag builds whose tag does not exactly
-match CMake. Manual `workflow_dispatch` validation skips the monotonicity
-check. To intentionally rebuild an existing release, set
-`LZY_ALLOW_VERSION_REBUILD=1` and document why the rebuild is needed.
+The release builder rejects a generated version that is not newer than the
+newest numeric `v*` release tag. Manual `workflow_dispatch` validates without
+publishing. Actions creates the matching version tag and release from the
+commit referenced by the trigger tag.
 
-**Release rule:** Do not manually rename the installer `.exe` to fix a version mismatch. If the setup filename version is wrong, fix the release inputs/scripts and rebuild so the installer filename, Windows app version, and uninstall `DisplayVersion` all match the same `CMakeLists.txt` version.
+**Release rule:** Do not manually rename the installer `.exe` to fix a version
+mismatch. If an artifact version is wrong, fix the release inputs/scripts and
+rebuild so the installer filename, Windows app version, and uninstall
+`DisplayVersion` all match the generated release version.
 
 ### Step 3: GitHub Actions builds the release
 
-Push the synchronized release commit and then its matching annotated tag as
+Push the release commit and then a unique annotated `release-*` trigger tag as
 described in [Release to GitHub](#release-to-github). The tag-triggered
 workflow first runs the full reusable headless test suite, then invokes
 `build_release.py` on GitHub-hosted Windows, Linux, Intel macOS, and Apple
@@ -205,7 +214,7 @@ On each runner, the workflow:
 - Builds the platform-native `LzyDownloader` executable and
   `LzyDownloaderBrowserHost` native-messaging host (and `LzyDownloader.app` on
   macOS)
-- On Windows, runs `makensis` from `PATH` when available, otherwise the standard NSIS installation path, against `LzyDownloader.nsi` with `/DAPP_VERSION=<version from CMakeLists.txt>` and `/DRELEASE_BUILD_DIR=build-release\Release`. If the repository variable `LZY_BROWSER_EXTENSION_ID` is configured with the final 32-character Store ID, the release builder passes it into the desktop build and installer for exact native-host registration; if unset, production registration remains disabled.
+- On Windows, runs `makensis` from `PATH` when available, otherwise the standard NSIS installation path, against `LzyDownloader.nsi` with `/DAPP_VERSION=<generated app version>` and `/DRELEASE_BUILD_DIR=build-release\Release`. If the repository variable `LZY_BROWSER_EXTENSION_ID` is configured with the final 32-character Store ID, the release builder passes it into the desktop build and installer for exact native-host registration; if unset, production registration remains disabled.
 - The Windows installer finish page offers a checked-by-default option to launch `LzyDownloader.exe` after installation
 - On Linux, stages a clean `build-release/AppDir`, caches linuxdeploy and its Qt plugin under `build-release/tooling/`, generates a linuxdeploy desktop file whose `Icon` matches the resized release PNG, and packages `build-release/LzyDownloader-<version>-x86_64.AppImage`
 - On Linux, selects qmake from the Qt SDK that built the executable so
@@ -285,7 +294,9 @@ Download History thumbnail decoding.
 ## Release to GitHub
 
 GitHub Actions runs the full headless C++ test suite before building release
-assets when a `v*` tag is pushed. The workflow at
+assets when a `release-*` tag is pushed. It generates a four-part app version
+from `VERSION` and the workflow run number, then publishes the corresponding
+`vMAJOR.MINOR.PATCH.BUILD` version tag. The workflow at
 `.github/workflows/release.yml` then runs `python build_release.py` on
 `windows-2022`, `ubuntu-22.04`, `macos-15-intel` (Intel), and `macos-15`
 (Apple Silicon). A final publish job uploads the Windows installer, Linux
@@ -318,8 +329,8 @@ created in this C++ repository.
 Before tagging, commit the synchronized release inputs:
 
 ```powershell
-git add CMakeLists.txt vcpkg.json CHANGELOG.md README.md UPDATE_AND_RELEASE.md docs/ AGENTS.md TODO.md .github/workflows/ build_release.py tools/ triplets/ LzyDownloader.nsi src/ui/LzyDownloader.desktop extractors_yt-dlp.json extractors_gallery-dl.json release-notes/vX.Y.Z.md
-git commit -m "Release vX.X.X"
+git add VERSION CMakeLists.txt vcpkg.json CHANGELOG.md README.md UPDATE_AND_RELEASE.md docs/ AGENTS.md TODO.md .github/workflows/ build_release.py tools/ triplets/ LzyDownloader.nsi src/ui/LzyDownloader.desktop extractors_yt-dlp.json extractors_gallery-dl.json release-notes/
+git commit -m "Prepare release"
 git push origin HEAD
 ```
 
@@ -330,30 +341,34 @@ before the synchronized release commit is available on the remote.
 ### Step 2: Create and Push a Git Tag
 
 ```powershell
-git tag -a vX.X.X -m "Release version X.X.X"
-git push origin vX.X.X
+git tag -a release-YYYYMMDD-description -m "Start release build"
+git push origin release-YYYYMMDD-description
 ```
 
-Pushing the tag starts the `Build and Release` workflow. Watch the full test
+Pushing the trigger tag starts the `Build and Release` workflow. Actions
+publishes a version tag such as `v1.2.56.123`, where `123` is that workflow
+run's number. Watch the full test
 gate, all four platform build jobs, and the final publish job complete, then
 verify the GitHub Release contains:
 
-- `LzyDownloader-Setup-X.X.X.exe`
-- `LzyDownloader-X.X.X-x86_64.AppImage`
-- `LzyDownloader-X.X.X-macos-x86_64.dmg`
-- `LzyDownloader-X.X.X-macos-arm64.dmg`
+- `LzyDownloader-Setup-<version>.exe`
+- `LzyDownloader-<version>-x86_64.AppImage`
+- `LzyDownloader-<version>-macos-x86_64.dmg`
+- `LzyDownloader-<version>-macos-arm64.dmg`
 - `SHA256SUMS-<platform>-<architecture>.txt`
 
 ### Step 3: Manual GitHub Release Fallback
 
-If the workflow is unavailable, navigate to https://github.com/vincentwetzel/lzy-downloader/releases and:
+If all build jobs succeeded but the publish job did not, use that workflow
+run's base version and run number to create the matching release manually at
+https://github.com/vincentwetzel/lzy-downloader/releases:
 
 1. Click "Create a new release"
-2. **Tag version:** `vX.X.X` (must match Git tag)
-3. **Release title:** `LzyDownloader X.X.X`
+2. **Tag version:** `v<MAJOR.MINOR.PATCH>.<workflow-run-number>`
+3. **Release title:** `LzyDownloader <generated-version>`
 4. **Description:** Add release notes.
-5. **Attach Assets:** Upload `LzyDownloader-Setup-X.X.X.exe`
-   - Also attach `LzyDownloader-X.X.X-x86_64.AppImage` for Linux systems.
+5. **Attach Assets:** Upload `LzyDownloader-Setup-<version>.exe`
+   - Also attach `LzyDownloader-<version>-x86_64.AppImage` for Linux systems.
    - Attach the generated platform-specific `SHA256SUMS-*.txt` manifest and keep it alongside the matching release assets.
    - Also attach both architecture-labelled macOS DMGs.
 6. Click "Publish release"
@@ -362,15 +377,15 @@ If the workflow is unavailable, navigate to https://github.com/vincentwetzel/lzy
 
 - [ ] Extractor lists updated (`extractors_yt-dlp.json`, `extractors_gallery-dl.json`)
 - [ ] Extractor refresh scripts completed without prompts or manual keypresses
-- [ ] Version number updated in `CMakeLists.txt`
-- [ ] `vcpkg.json` `version-string` matches `CMakeLists.txt`
+- [ ] `VERSION` contains the intended `MAJOR.MINOR.PATCH` base
+- [ ] `vcpkg.json` `version-string` matches the `VERSION` base
 - [ ] `vcpkg.json` `builtin-baseline` is pinned to the intended vcpkg commit
-- [ ] `CHANGELOG.md` has the release notes under the matching dated version
-- [ ] `release-notes/vX.Y.Z.md` contains the GitHub release description
+- [ ] `CHANGELOG.md` has the release notes under `[Unreleased]` or the chosen dated heading
+- [ ] `release-notes/<trigger-tag>.md` contains the GitHub release description, if prepared
 - [ ] SHA-256 manifest is attached for each release build job
-- [ ] `release-notes/` exists in the checkout and the file name matches the pushed tag
+- [ ] The release trigger tag is unique and uses the `release-*` prefix
 - [ ] Active documentation matches the release behavior, including the README, API, architecture, settings, specification, manifest, coding standards, and release guides
-- [ ] GitHub Actions rebuilt the platform artifacts from the current `CMakeLists.txt` version (the tag workflow runs `python build_release.py`); artifacts were not manually renamed
+- [ ] GitHub Actions generated one matching four-part app, installer, and release-tag version; artifacts were not manually renamed
 - [ ] Tag-triggered GitHub Actions full headless test gate completed successfully
 - [ ] Tag-triggered GitHub Actions release matrix and final publish job completed successfully
 - [ ] Slow playlist-probe smoke test passed: ordinary URLs download through the fallback and explicit playlist URLs fail without a direct-download start
@@ -389,7 +404,7 @@ If the workflow is unavailable, navigate to https://github.com/vincentwetzel/lzy
 - [ ] Temporary-root reconciliation verified (orphan UUID folders are removed asynchronously while stopped/failed IDs, symlinks, non-UUID folders, and the shared root are preserved)
 - [ ] aria2c recovery verified (transient exit codes or a missing expected temporary media output fall back once to native yt-dlp, stale `.info.json` sidecars are removed, and `.part` files remain)
 - [ ] GitHub release published with Windows installer, Linux AppImage, and both macOS DMG assets
-- [ ] Tag `vX.X.X` pushed and the `Build and Release` GitHub Actions workflow attached Windows, Linux, Intel macOS, and Apple Silicon macOS assets
+- [ ] `release-*` trigger tag pushed and the `Build and Release` GitHub Actions workflow attached all platform assets to its generated `vMAJOR.MINOR.PATCH.BUILD` release
 - [ ] Browser companion registration verified with the exact production extension ID on Windows, Linux, and macOS; Linux AppImage registration uses a persistent wrapper
 - [ ] Queue and Download History persistence verified on a slow filesystem: normal progress/completion remains responsive, writes coalesce to the newest snapshot, and orderly shutdown flushes the final queue state without a live worker thread
 

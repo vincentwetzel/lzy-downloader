@@ -3,8 +3,8 @@
 IDI_ICON1 ICON "@CMAKE_CURRENT_SOURCE_DIR@/src/resources/icon.ico"
 
 VS_VERSION_INFO VERSIONINFO
-    FILEVERSION     @PROJECT_VERSION_MAJOR@,@PROJECT_VERSION_MINOR@,@PROJECT_VERSION_PATCH@,0
-    PRODUCTVERSION  @PROJECT_VERSION_MAJOR@,@PROJECT_VERSION_MINOR@,@PROJECT_VERSION_PATCH@,0
+    FILEVERSION     @PROJECT_VERSION_MAJOR@,@PROJECT_VERSION_MINOR@,@PROJECT_VERSION_PATCH@,@LZY_BUILD_NUMBER@
+    PRODUCTVERSION  @PROJECT_VERSION_MAJOR@,@PROJECT_VERSION_MINOR@,@PROJECT_VERSION_PATCH@,@LZY_BUILD_NUMBER@
     FILEFLAGSMASK   VS_FFI_FILEFLAGSMASK
     FILEFLAGS       0
     FILEOS          VOS__WINDOWS32
@@ -17,12 +17,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName",      "LzyDownloader"
             VALUE "FileDescription",  "LzyDownloader"
-            VALUE "FileVersion",      "@PROJECT_VERSION@"
+            VALUE "FileVersion",      "@LZY_APP_VERSION@"
             VALUE "InternalName",     "LzyDownloader"
             VALUE "LegalCopyright",   "MIT License"
             VALUE "OriginalFilename", "LzyDownloader.exe"
             VALUE "ProductName",      "LzyDownloader"
-            VALUE "ProductVersion",   "@PROJECT_VERSION@"
+            VALUE "ProductVersion",   "@LZY_APP_VERSION@"
         END
     END
     BLOCK "VarFileInfo"

@@ -282,9 +282,13 @@ only the sections relevant to the change.
   cookie must match the requested host and URL path boundary, secure cookies
   require HTTPS, and expiration values are bounded whole seconds.
 - `AppUpdater` checks HTTPS releases asynchronously, validates JSON/assets,
-  matches OS and macOS CPU architecture, and opens macOS DMGs through Finder.
-  Before install launch, save resumable state and terminate child processes.
-  Silent Windows `/S` installs relaunch the installed `LzyDownloader.exe`.
+  and compares numeric version components with missing components treated as
+  zero. This keeps existing three-part installs eligible for the first
+  four-part release when its base matches and its build number is positive.
+  It matches OS and macOS CPU architecture, and opens macOS DMGs through
+  Finder. Before install launch, save resumable state and terminate child
+  processes. Silent Windows `/S` installs relaunch the installed
+  `LzyDownloader.exe`.
 - Runtime binaries are not required to be bundled: users may configure or
   install them through External Binaries. Mark **(Recommended)** only install
   options that write to the platform app-data `bin` folder; system/package
@@ -317,10 +321,13 @@ only the sections relevant to the change.
 
 ## 7. Release and test requirements
 
-- `build_release.py --target auto|windows|linux|macos` is native-only. It
-  refreshes extractor data, checks semantic CMake/tag versions, rejects reused
-  versions unless `LZY_ALLOW_VERSION_REBUILD=1`, and packages the platform.
-  CI publishes only for matching `v*` tags; manual dispatch validates without
+- `VERSION` is the checked-in `MAJOR.MINOR.PATCH` base. Local builds use that
+  value; release CI appends the workflow run number as a fourth component,
+  producing `MAJOR.MINOR.PATCH.BUILD` for the app and platform packages.
+  `build_release.py --target auto|windows|linux|macos` is native-only. It
+  refreshes extractor data, rejects reused generated versions, and packages
+  the platform. CI release triggers use unique `release-*` tags and publish the
+  generated `vMAJOR.MINOR.PATCH.BUILD` tag; manual dispatch validates without
   publishing. Windows and Linux use the pinned prebuilt Qt 6.10.2 SDK and build
   only the application target in parallel. Linux selects qmake from that SDK,
   deploys dynamic Qt/SQLite with linuxdeploy, caches linuxdeploy under
@@ -332,9 +339,10 @@ only the sections relevant to the change.
   not bundled runtime dependencies. Windows CI installs NSIS; child commands
   retain the invoking terminal. The final executable is `LzyDownloader.exe`.
 - The reusable `.github/workflows/tests.yml` workflow runs the full headless
-  suite on pull requests. Tag releases call that same workflow before the
-  platform build matrix; a separate publish job runs only
-  after every test and release build job succeeds.
+  suite on pull requests. Unique `release-*` trigger tags call that same
+  workflow before the platform build matrix. A separate publish job creates
+  the generated four-part `v*` tag and release only after every test and
+  platform build job succeeds.
 - Register tests with `lzy_add_test(...)`; keep them isolated from user files
   and use `QT_QPA_PLATFORM=minimal`. Required coverage includes argument
   builders, playlist/probe fallback, audio artwork normalization, progress and

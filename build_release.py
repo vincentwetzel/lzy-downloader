@@ -160,8 +160,9 @@ def resolve_target_platform(target_name):
 
 
 def parse_semantic_version(version):
-    """Return a comparable release-version tuple for a strict X.Y.Z value."""
-    return tuple(int(part) for part in version.split("."))
+    """Return a comparable release-version tuple for X.Y.Z or X.Y.Z.BUILD."""
+    parts = tuple(int(part) for part in version.split("."))
+    return parts + (0,) * (4 - len(parts))
 
 
 def validate_release_version(app_version):
@@ -171,17 +172,15 @@ def validate_release_version(app_version):
         return
 
     tag_ref = os.environ.get("GITHUB_REF", "")
-    if tag_ref.startswith("refs/tags/"):
+    if tag_ref.startswith("refs/tags/v"):
         expected_ref = f"refs/tags/v{app_version}"
         if tag_ref != expected_ref:
             log(
-                f"Error: CI tag {tag_ref.removeprefix('refs/tags/')} does not "
-                f"match CMake version {app_version}.",
+                f"Error: version tag {tag_ref.removeprefix('refs/tags/')} does not "
+                f"match generated application version {app_version}.",
                 RED,
             )
             sys.exit(1)
-        # The tagged release is expected to equal the newest tag. The
-        # monotonicity rule applies to untagged local builds only.
         return
     local_tag_result = subprocess.run(
         ["git", "describe", "--tags", "--exact-match"],
@@ -190,16 +189,16 @@ def validate_release_version(app_version):
         check=False,
     )
     local_tag = local_tag_result.stdout.strip()
-    if local_tag:
+    if local_tag.startswith("v"):
         expected_tag = f"v{app_version}"
         if local_tag != expected_tag:
             log(
-                f"Error: checked-out tag {local_tag} does not match CMake "
-                f"version {app_version}.",
+                f"Error: checked-out tag {local_tag} does not match generated "
+                f"application version {app_version}.",
                 RED,
             )
             sys.exit(1)
-        log(f"Exact local release tag {local_tag} matches CMake version.", GREEN)
+        log(f"Exact local release tag {local_tag} matches generated version.", GREEN)
         return
     elif os.environ.get("GITHUB_EVENT_NAME") == "workflow_dispatch":
         log("Manual workflow validation: skipping tag monotonicity check.", YELLOW)
@@ -217,7 +216,7 @@ def validate_release_version(app_version):
 
     tag_versions = []
     for tag in git_result.stdout.splitlines():
-        match = re.fullmatch(r"v([0-9]+\.[0-9]+\.[0-9]+)", tag.strip())
+        match = re.fullmatch(r"v([0-9]+\.[0-9]+\.[0-9]+(?:\.[0-9]+)?)", tag.strip())
         if match:
             tag_versions.append((parse_semantic_version(match.group(1)), tag.strip()))
 
@@ -227,8 +226,8 @@ def validate_release_version(app_version):
     newest_version, newest_tag = max(tag_versions)
     if parse_semantic_version(app_version) <= newest_version:
         log(
-            f"Error: CMake version {app_version} is not newer than the latest "
-            f"release tag {newest_tag}. Bump the release version first, or set "
+            f"Error: generated version {app_version} is not newer than the latest "
+            f"release tag {newest_tag}. Advance VERSION or set "
             "LZY_ALLOW_VERSION_REBUILD=1 for an intentional rebuild.",
             RED,
         )
@@ -240,23 +239,22 @@ def main():
     target_platform = resolve_target_platform(args.target)
     log(f"Release target: {target_platform}", GREEN)
 
-    # 1. Parse Version from CMakeLists.txt
-    cmake_path = Path("CMakeLists.txt")
-    if not cmake_path.exists():
-        log("Error: CMakeLists.txt not found!", RED)
+    # 1. Resolve the checked-in three-part base and CI build number.
+    version_path = Path("VERSION")
+    if not version_path.exists():
+        log("Error: VERSION file not found!", RED)
         sys.exit(1)
 
-    content = cmake_path.read_text(encoding="utf-8")
-    match = re.search(
-        r'project\s*\(\s*LzyDownloader\s+VERSION\s+([0-9]+\.[0-9]+\.[0-9]+)',
-        content,
-        flags=re.IGNORECASE,
-    )
-    if not match:
-        log("Error: Could not parse version from CMakeLists.txt", RED)
+    base_version = version_path.read_text(encoding="utf-8").strip()
+    build_number = os.environ.get("LZY_BUILD_NUMBER", "0").strip()
+    if re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", base_version) is None:
+        log("Error: VERSION must contain a single MAJOR.MINOR.PATCH value.", RED)
+        sys.exit(1)
+    if re.fullmatch(r"[0-9]+", build_number) is None or int(build_number) > 65535:
+        log("Error: LZY_BUILD_NUMBER must be an integer from 0 to 65535.", RED)
         sys.exit(1)
 
-    app_version = match.group(1)
+    app_version = base_version if build_number == "0" else f"{base_version}.{build_number}"
     log(f"Detected Application Version: {app_version}", GREEN)
     validate_release_version(app_version)
 
@@ -279,7 +277,10 @@ def main():
 
     # 4. Configure CMake
     log("\n[2/4] Configuring CMake (Release)...", YELLOW)
-    cmake_args = ["cmake", "-B", str(build_dir), "-DCMAKE_BUILD_TYPE=Release"]
+    cmake_args = [
+        "cmake", "-B", str(build_dir), "-DCMAKE_BUILD_TYPE=Release",
+        f"-DLZY_BUILD_NUMBER={build_number}",
+    ]
     if browser_extension_id:
         cmake_args.append(f"-DLZY_BROWSER_EXTENSION_ID:STRING={browser_extension_id}")
 
@@ -350,7 +351,7 @@ def main():
             cmd = f"(Get-Item '{built_exe}').VersionInfo.ProductVersion"
             built_version = subprocess.check_output(["powershell", "-Command", cmd], text=True).strip()
             if built_version != app_version:
-                log(f"Error: Version mismatch! CMake is {app_version}, but binary is {built_version}", RED)
+                log(f"Error: Version mismatch! Expected {app_version}, but binary is {built_version}", RED)
                 sys.exit(1)
             log(f"Verified executable version: {built_version}", GREEN)
         except Exception as e:

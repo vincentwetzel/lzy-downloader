@@ -9,6 +9,9 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## [Unreleased]
 
+- **Release versioning:** Move the app version base to `VERSION` and have
+  tag-triggered GitHub Actions generate four-part app/release versions from
+  the workflow run number.
 - **FFmpeg telemetry:** Expand post-processing diagnostics with process-tree
   identity, image names, CPU time, RSS, read/write throughput, system CPU and
   memory snapshots, and identity-change markers so short system stalls can be
