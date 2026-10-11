@@ -12,6 +12,7 @@ class DownloadQueueState : public QObject
     Q_OBJECT
 public:
     explicit DownloadQueueState(QObject *parent = nullptr);
+    explicit DownloadQueueState(const QString &backupPath, QObject *parent = nullptr);
     QJsonArray load();
     void save(const QList<DownloadItem>& activeItems, const QMap<QString, DownloadItem>& pausedItems, const QQueue<DownloadItem>& downloadQueue);
     static void saveToPath(const QString &backupPath, const QList<DownloadItem> &activeItems,

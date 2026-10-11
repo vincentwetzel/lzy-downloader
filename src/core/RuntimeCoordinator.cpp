@@ -255,8 +255,10 @@ void RuntimeCoordinator::acceptConnection()
 void RuntimeCoordinator::handleCommand(const QString &command)
 {
     if (!isAllowedCommand(command)) {
+        qWarning() << "[RuntimeCoordinator] Rejected coordinator command." << command;
         return;
     }
+    qInfo() << "[RuntimeCoordinator] Accepted coordinator command." << command;
     m_pendingCommands.append(command);
     QTimer::singleShot(0, this, &RuntimeCoordinator::dispatchPendingCommands);
 }

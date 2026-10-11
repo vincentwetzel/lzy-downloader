@@ -40,7 +40,10 @@ contains the `DownloadManager`, queue backup, workers, and Local API. GUI,
 owner: GUI activation reveals an existing headless owner, and background
 activation asks an existing GUI owner to start its Local API. A server-mode
 owner leaves its main window unmapped at startup, so a later GUI launch can
-show that same window while its queue and workers continue running.
+show that same window while its queue and workers continue running. This
+activation preserves an explicit `--exit-after` request; the owner exits when
+the shared queue becomes idle. On Windows, activation also restores the native
+window and logs its native visibility for diagnosis.
 During upgrades, `main.cpp` also claims the legacy GUI and server
 single-instance keys used by older releases. If an older instance is still
 active and cannot receive coordinator commands, the new process exits instead
@@ -109,6 +112,7 @@ replacement. Temp cleanup owns root resolution and guarded UUID-folder removal.
 | Component | Owns |
 |---|---|
 | `MainWindow.*`, `MainWindowConnections.cpp`, `MainWindowDownloadConnections.cpp`, `MainWindowUiBuilder.*` | Shell, tabs, footer, global actions, startup/external-tool update handoff, webhook wiring |
+| `CoordinatorWindowActivation.*` | Cross-platform coordinator window reveal, including native Windows restore/foreground handling |
 | `StartTab.*`, `start_tab/*` | URL submission, clipboard, playlist/runtime selection |
 | `ActiveDownloadsTab.*`, `DownloadItemWidget.cpp`, `DownloadItemWidgetProgress.cpp`, `DownloadItemWidgetIcons.h` | Download rows, thumbnails, async owned-temp checks, compact layout, one focused progress bar, actions, and newest-row visibility |
 | `DownloadHistoryTab.*` | `download_history.json` display cache, atomic coalesced saves, and off-thread local thumbnail decoding |

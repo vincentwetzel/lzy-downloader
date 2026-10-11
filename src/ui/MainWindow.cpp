@@ -2,6 +2,7 @@
 #include "MainWindow.h"
 #include "MainWindowHelpers.h"
 #include "MainWindowUiBuilder.h"
+#include "CoordinatorWindowActivation.h"
 #include "DownloadHistoryTab.h"
 
 #include "core/ArchiveManager.h"
@@ -136,25 +137,19 @@ MainWindow::~MainWindow() {
 void MainWindow::activateCoordinatorUi()
 {
     if (!m_nonInteractiveLaunch) {
-        showNormal();
-        raise();
-        activateWindow();
+        CoordinatorWindowActivation::activate(*this);
         return;
     }
 
     // Keep the existing queue and workers; this process has simply gained an
     // interactive surface after starting as an automation coordinator.
     m_nonInteractiveLaunch = false;
-    setAttribute(Qt::WA_DontShowOnScreen, false);
     if (auto *historyTab = findChild<DownloadHistoryTab *>(QStringLiteral("downloadHistoryTab"))) {
         historyTab->setRenderingEnabled(true);
     }
-    m_configManager->set(QStringLiteral("General"), QStringLiteral("exit_after"), false);
-    m_configManager->save();
-    showNormal();
-    raise();
-    activateWindow();
-    qInfo() << "[MainWindow] Coordinator UI show requested; disabling exit-after for the shared interactive owner."
+    CoordinatorWindowActivation::activate(*this);
+    qInfo() << "[MainWindow] Coordinator UI show requested."
+            << "exit_after=" << m_configManager->get(QStringLiteral("General"), QStringLiteral("exit_after"), false).toBool()
             << "visible=" << isVisible() << "active=" << isActiveWindow();
 }
 

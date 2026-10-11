@@ -1,4 +1,7 @@
 #include "TestUrlValidator.h"
+#include <QCoreApplication>
+#include <QDir>
+#include <QFileInfo>
 #include <QSignalSpy>
 #include <QMetaMethod>
 #include <QUrl>
@@ -19,7 +22,19 @@ namespace {
 
 void TestUrlValidator::init() {
     BaseTest::init();
-    m_validator = new UrlValidator(getConfigManager(), this);
+    ConfigManager *configManager = getConfigManager();
+#ifdef Q_OS_WIN
+    const QString fakeYtDlp = QDir(QCoreApplication::applicationDirPath())
+                                  .filePath(QStringLiteral("LzyTestFakeYtDlp.exe"));
+#else
+    const QString fakeYtDlp = QDir(QCoreApplication::applicationDirPath())
+                                  .filePath(QStringLiteral("LzyTestFakeYtDlp"));
+#endif
+    QVERIFY2(QFileInfo::exists(fakeYtDlp), qPrintable(QStringLiteral("Fake yt-dlp not found: %1").arg(fakeYtDlp)));
+    configManager->set(QStringLiteral("Binaries"), QStringLiteral("yt-dlp_path"), fakeYtDlp);
+    configManager->set(QStringLiteral("Binaries"), QStringLiteral("yt-dlp_auto_detected"), false);
+    configManager->save();
+    m_validator = new UrlValidator(configManager, this);
 }
 
 void TestUrlValidator::cleanup() {
@@ -31,7 +46,7 @@ void TestUrlValidator::cleanup() {
 }
 
 void TestUrlValidator::testTier1FastTrackYoutube() {
-    // Test standard YouTube URL which should immediately pass Tier 1 (fast-track) without a network call
+    // The fake yt-dlp returns success for valid URLs without making a network call.
     QByteArray signalName = getValidationSignal(m_validator);
     QSignalSpy spy(m_validator, signalName.constData());
     QVERIFY2(spy.isValid(), "Could not find a valid signal for UrlValidator");

@@ -342,6 +342,7 @@ add_library(LzyAppLib STATIC
     src/utils/UrlUtils.cpp
     src/ui/ActiveDownloadsTab.cpp
     src/ui/AdvancedSettingsTab.cpp
+    src/ui/CoordinatorWindowActivation.cpp
     src/ui/DownloadHistoryTab.cpp
     src/ui/DownloadItemWidget.cpp
     src/ui/DownloadItemWidgetIcons.h
@@ -510,6 +511,7 @@ lzy_add_test(TestArchiveManager tests/TestArchiveManager.cpp)
 lzy_add_test(TestConfigManager tests/TestConfigManager.cpp)
 lzy_add_test(TestLocalApiServer tests/TestLocalApiServer.cpp)
 lzy_add_test(TestRuntimeCoordinator tests/TestRuntimeCoordinator.cpp)
+lzy_add_test(TestCoordinatorWindowActivation tests/TestCoordinatorWindowActivation.cpp)
 lzy_add_test(TestBrowserCookieFile tests/TestBrowserCookieFile.cpp)
 lzy_add_test(TestUrlValidator tests/TestUrlValidator.cpp)
 lzy_add_test(TestSortingManager tests/TestSortingManager.cpp)
@@ -529,5 +531,6 @@ lzy_add_test(TestStartupWorker tests/TestStartupWorker.cpp)
 lzy_add_test(TestVersioning tests/TestVersioning.cpp)
 target_compile_definitions(TestVersioning PRIVATE LZY_EXPECTED_BUILD_NUMBER=${LZY_BUILD_NUMBER})
 add_dependencies(TestDownloadManager LzyTestFakeYtDlp)
+add_dependencies(TestUrlValidator LzyTestFakeYtDlp)
 set_tests_properties(TestDownloadManager PROPERTIES TIMEOUT 75)
 set_tests_properties(TestEndToEnd PROPERTIES TIMEOUT 75)

@@ -49,6 +49,14 @@ int main(int argc, char **argv)
     }
 
     const std::string url = findUrl(arguments);
+    if (hasArgument(arguments, "--simulate")) {
+        if (hasArgumentContaining(arguments, "not_a_valid_url")) {
+            std::cerr << "ERROR: [generic] invalid test URL" << std::endl;
+            return 1;
+        }
+        return 0;
+    }
+
     const bool isProbe = hasArgument(arguments, "--dump-single-json")
                          && hasArgument(arguments, "--no-download");
     if (isProbe && url.find("search-probe") != std::string::npos) {

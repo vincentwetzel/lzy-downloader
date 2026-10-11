@@ -3,6 +3,7 @@
 #include <QDir>
 #include <QStandardPaths>
 #include <QFile>
+#include <QFileInfo>
 #include <QJsonDocument>
 #include <QJsonArray>
 #include <QJsonObject>
@@ -23,6 +24,12 @@ DownloadQueueState::DownloadQueueState(QObject *parent)
         && !QFile::rename(legacyBackupPath, m_backupPath)) {
         qWarning() << "Failed to migrate legacy server queue backup:" << legacyBackupPath;
     }
+}
+
+DownloadQueueState::DownloadQueueState(const QString &backupPath, QObject *parent)
+    : QObject(parent), m_backupPath(backupPath)
+{
+    QDir().mkpath(QFileInfo(m_backupPath).absolutePath());
 }
 
 QJsonArray DownloadQueueState::load()

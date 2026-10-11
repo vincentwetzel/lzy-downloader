@@ -9,7 +9,6 @@
 #include <QMap>
 #include <QQueue>
 #include <QSignalSpy>
-#include <QStandardPaths>
 #include <QtTest/QtTest>
 
 class TestDownloadQueueState : public BaseTest
@@ -33,7 +32,7 @@ TestDownloadQueueState::TestDownloadQueueState(QObject *parent)
 
 void TestDownloadQueueState::testSaveRestoresStatusesAndFields()
 {
-    DownloadQueueState state;
+    DownloadQueueState state(QDir(getTempDir()).filePath(QStringLiteral("queue-state.json")));
     DownloadItem active;
     active.id = QStringLiteral("active-id");
     active.url = QStringLiteral("https://example.test/active");
@@ -96,7 +95,7 @@ void TestDownloadQueueState::testSaveRestoresStatusesAndFields()
 
 void TestDownloadQueueState::testEmptySaveRemovesBackup()
 {
-    DownloadQueueState state;
+    DownloadQueueState state(QDir(getTempDir()).filePath(QStringLiteral("queue-state-empty.json")));
     DownloadItem item;
     item.id = QStringLiteral("temporary-id");
     QQueue<DownloadItem> queue;
@@ -110,16 +109,14 @@ void TestDownloadQueueState::testEmptySaveRemovesBackup()
 
 void TestDownloadQueueState::testLoadFiltersNonObjectEntries()
 {
-    DownloadQueueState state;
+    DownloadQueueState state(QDir(getTempDir()).filePath(QStringLiteral("queue-state-filter.json")));
     DownloadItem item;
     item.id = QStringLiteral("valid-id");
     QQueue<DownloadItem> queue;
     queue.enqueue(item);
     state.save({}, {}, queue);
 
-    const QString backupPath = QDir(QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation))
-                                   .filePath(QStringLiteral("downloads_backup.json"));
-    QFile backup(backupPath);
+    QFile backup(state.backupPath());
     QVERIFY(backup.open(QIODevice::WriteOnly | QIODevice::Truncate));
     QJsonArray mixed;
     mixed.append(QJsonObject{{QStringLiteral("id"), QStringLiteral("valid-id")}});

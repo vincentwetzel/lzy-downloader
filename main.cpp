@@ -171,6 +171,7 @@ int main(int argc, char *argv[]) {
     MainWindow w(&extractorJsonParser);
     QObject::connect(&coordinator, &RuntimeCoordinator::commandReceived, &w,
                      [&w](const QString &command) {
+        qInfo() << "[main] Dispatching coordinator command to the window." << command;
         if (command == QStringLiteral("show-ui")) {
             w.activateCoordinatorUi();
         } else if (command == QStringLiteral("ensure-api")) {

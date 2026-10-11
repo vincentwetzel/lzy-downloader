@@ -57,6 +57,8 @@ only the sections relevant to the change.
   API. GUI and `--server`/`--headless`/`--background` launches attach to that
   coordinator rather than creating independent queues; a GUI launch reveals an
   existing headless coordinator and a background launch ensures its API runs.
+  Revealing the GUI does not clear an explicit `--exit-after` request; the
+  coordinator still quits after the shared queue becomes idle.
 - Settings are Qt-native `QSettings` in the app-local `settings.ini`. Python
   `configparser` compatibility is not required. Invalid/legacy values are
   discarded and replaced with documented defaults; see `docs/SETTINGS.md`.

@@ -9,9 +9,15 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## [Unreleased]
 
-- **Server-mode GUI activation:** A GUI launch now grants the running Windows
-  coordinator foreground permission before requesting its window. Its window
-  remains unmapped until requested, and the existing queue continues running.
+- **Server-mode GUI activation:** The Discord bridge no longer starts the GUI
+  executable with a Windows hidden first-show state, allowing a later GUI
+  activation to reveal the running coordinator. The owner also restores its
+  native window after Qt's show request and logs native visibility. Revealing
+  the window preserves explicit `--exit-after`; the coordinator exits after
+  its queue becomes idle.
+- **Regression coverage:** Add headless coverage for coordinator window reveal,
+  use a fake yt-dlp for URL validation, and isolate queue-state backup tests
+  from per-user application data.
 - **Headless shutdown:** Keep history data current without loading or copying
   thumbnail files in non-interactive launches, avoiding slow destination I/O
   during coordinator teardown; render history thumbnails if the GUI is opened.

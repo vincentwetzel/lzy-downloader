@@ -36,7 +36,9 @@ signal, not a reason to resend a command that may already have been handled.
 A busy owner is never replaced because a short notification timeout elapsed.
 For `show-ui`, a Windows client grants the connected owner foreground
 activation permission before sending the command; if the OS denies that grant,
-the owner still uses Qt's normal show, raise, and activate requests.
+the owner still uses Qt's normal show, raise, and activate requests. The owner
+then restores its native window with `ShowWindow(SW_RESTORE)` and logs native
+visibility and foreground results, covering a stale hidden first-show state.
 The executable also retains the legacy GUI/server shared-memory ownership keys
 for upgrade compatibility. An active older release therefore blocks a second
 queue owner rather than allowing competing SQLite, queue-backup, or Local API
