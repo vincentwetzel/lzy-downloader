@@ -9,6 +9,8 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## [Unreleased]
 
+## [1.2.56.65] - 2026-10-10
+
 - **Release versioning:** Move the app version base to `VERSION` and have
   tag-triggered GitHub Actions generate four-part app/release versions from
   the workflow run number.
@@ -23,6 +25,7 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
   instead of UI counters before `--exit-after` quits, and add queue transition,
   shutdown, and Qt event-loop telemetry for diagnosing coordinator processes
   that appear to remain alive after the final download.
+- **Extractor catalogs:** Refresh the yt-dlp and gallery-dl catalogs.
 
 ## [1.2.56] - 2026-10-06
 
