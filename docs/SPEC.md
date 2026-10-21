@@ -345,6 +345,9 @@ only the sections relevant to the change.
 - `VERSION` is the checked-in `MAJOR.MINOR.PATCH` base. Local builds use that
   value; release CI appends the workflow run number as a fourth component,
   producing `MAJOR.MINOR.PATCH.BUILD` for the app and platform packages.
+  Release preparation increments PATCH by one for each new release and keeps
+  the vcpkg `version-string` synchronized with this base. Change MAJOR or MINOR
+  only when requested.
   `build_release.py --target auto|windows|linux|macos` is native-only. It
   refreshes extractor data, rejects reused generated versions, and packages
   the platform. CI release triggers use unique `release-*` tags and publish the

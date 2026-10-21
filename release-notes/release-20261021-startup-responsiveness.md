@@ -1,4 +1,4 @@
-# LzyDownloader 1.2.56
+# LzyDownloader 1.2.57
 
 This release makes desktop startup more responsive while extractor metadata
 loads, restores saved queue rows in batches, and moves archive identity

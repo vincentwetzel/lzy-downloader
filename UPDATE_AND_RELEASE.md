@@ -168,18 +168,21 @@ This will update `extractors_yt-dlp.json` and `extractors_gallery-dl.json`. Both
 
 ### Step 2: Prepare Release Notes
 
-`VERSION` contains the checked-in `MAJOR.MINOR.PATCH` base. Normal releases do
-not require changing it: Actions appends `github.run_number` as the fourth
-component and uses that value for the app, Windows resources, installer,
-AppImage, DMGs, and published version tag. Change `VERSION` only when advancing
-the major, minor, or patch base. Local builds omit the build suffix unless
+For each new release, increment the PATCH component in `VERSION` by one before
+preparing the release (for example, `1.2.56` becomes `1.2.57`). Change MAJOR
+or MINOR only when the user requests it. Keep `vcpkg.json` `version-string`
+synchronized with the new base. GitHub
+Actions appends `github.run_number` as the fourth component and uses the
+generated version for the app, Windows resources, installer, AppImage, DMGs,
+and published version tag. Local builds omit the build suffix unless
 `LZY_BUILD_NUMBER` is supplied.
 
 Keep `vcpkg.json` `version-string` aligned with the three-part `VERSION` base
 and keep its `builtin-baseline` pinned to the intended vcpkg commit. Add the
 release entry to `CHANGELOG.md` under `Unreleased` or the chosen dated heading.
-Put the GitHub release body in `release-notes/<trigger-tag>.md`; if absent,
-Actions creates a short generated description.
+Put the GitHub release body in `release-notes/<trigger-tag>.md` and title it
+with the bumped three-part base; if absent, Actions creates a short generated
+description.
 
 The release builder rejects a generated version that is not newer than the
 newest numeric `v*` release tag. Manual `workflow_dispatch` validates without
@@ -346,7 +349,7 @@ git push origin release-YYYYMMDD-description
 ```
 
 Pushing the trigger tag starts the `Build and Release` workflow. Actions
-publishes a version tag such as `v1.2.56.123`, where `123` is that workflow
+publishes a version tag such as `v1.2.57.123`, where `123` is that workflow
 run's number. Watch the full test
 gate, all four platform build jobs, and the final publish job complete, then
 verify the GitHub Release contains:
@@ -377,7 +380,8 @@ https://github.com/vincentwetzel/lzy-downloader/releases:
 
 - [ ] Extractor lists updated (`extractors_yt-dlp.json`, `extractors_gallery-dl.json`)
 - [ ] Extractor refresh scripts completed without prompts or manual keypresses
-- [ ] `VERSION` contains the intended `MAJOR.MINOR.PATCH` base
+- [ ] `VERSION` PATCH is incremented by one for this release (unless a
+      major/minor version change was requested)
 - [ ] `vcpkg.json` `version-string` matches the `VERSION` base
 - [ ] `vcpkg.json` `builtin-baseline` is pinned to the intended vcpkg commit
 - [ ] `CHANGELOG.md` has the release notes under `[Unreleased]` or the chosen dated heading

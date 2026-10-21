@@ -210,14 +210,15 @@ Test-Path .\.github\workflows\release.yml
 The first command must identify the C++ repository root and both path checks
 must return `True`.
 
-- `VERSION` is the app's `MAJOR.MINOR.PATCH` base. Local builds use that value;
-  GitHub Actions appends its workflow run number for a four-part release
-  version. `vcpkg.json` tracks the three-part base, and `builtin-baseline`
-  remains pinned to the intended vcpkg commit.
-- To release, push a unique `release-*` trigger tag. GitHub Actions builds the
-  full suite and platform packages, then publishes the generated
-  `vMAJOR.MINOR.PATCH.BUILD` version tag and release. No app version edits are
-  needed for each release. The workflow runs `build_release.py` on Windows,
+- `VERSION` is the app's `MAJOR.MINOR.PATCH` base. Increment PATCH by one for
+  each new release and keep `vcpkg.json`'s three-part base synchronized; change
+  MAJOR or MINOR only when requested. `builtin-baseline` remains pinned to the
+  intended vcpkg commit. Local builds use the base value, while GitHub Actions
+  appends its workflow run number for a four-part release version.
+- To release, increment PATCH by one, then push a unique `release-*` trigger tag.
+  GitHub Actions builds the full suite and platform packages, then publishes
+  the generated `vMAJOR.MINOR.PATCH.BUILD` version tag and release. The
+  workflow runs `build_release.py` on Windows,
   Linux, Intel macOS, and Apple Silicon only after the full headless C++ test
   suite passes. Local `build_release.py` runs are optional diagnostics only.
 - The release builder remains native-only: GitHub Actions selects the platform

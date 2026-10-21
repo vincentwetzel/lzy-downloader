@@ -116,12 +116,13 @@ platform branches with a tested fallback or a documented release prerequisite.
   concise bullets/tables, and links to detailed references over duplicated
   prose. Remove stale or completed guidance without omitting behavioral
   contracts merely to shorten a document.
-- Releases are CI-first: keep `VERSION`, the matching vcpkg base version,
-  changelog, and release notes synchronized, then provide the commit and unique
-  `release-*` trigger-tag commands. GitHub Actions appends its run number and
-  creates the versioned release tag. Do not run `python build_release.py`
-  locally or push commits/tags unless the user explicitly requests local
-  validation or a different release workflow.
+- Releases are CI-first: for each new release, increment the PATCH component
+  in `VERSION` by one and synchronize the vcpkg base version, changelog, and
+  release notes. Change MAJOR or MINOR only when the user requests it. Then
+  provide the commit and unique `release-*` trigger-tag commands. GitHub
+  Actions appends its run number and creates the versioned release tag. Do not
+  run `python build_release.py` locally or push commits/tags unless the user
+  explicitly requests local validation or a different release workflow.
 
 ## High-value locations
 
