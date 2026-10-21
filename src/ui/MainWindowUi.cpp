@@ -34,6 +34,7 @@
 #include <QStyleFactory>
 #include <QStyleHints>
 #include <QUrl>
+#include <QSignalBlocker>
 #include <QSystemTrayIcon>
 #include <QTabWidget>
 #include <QTimer>
@@ -55,11 +56,12 @@ void MainWindow::setupUI()
     DownloadHistoryTab *downloadHistoryTab = new DownloadHistoryTab(this);
     downloadHistoryTab->setObjectName(QStringLiteral("downloadHistoryTab"));
     downloadHistoryTab->setRenderingEnabled(!m_nonInteractiveLaunch);
-    downloadHistoryTab->loadHistory(QDir(m_configManager->getConfigDir()).filePath(QStringLiteral("download_history.json")));
-    m_advancedSettingsTab = new AdvancedSettingsTab(m_configManager, this);
-    SortingTab *sortingTab = new SortingTab(m_configManager, this);
+    downloadHistoryTab->loadHistoryAsync(QDir(m_configManager->getConfigDir()).filePath(QStringLiteral("download_history.json")));
+    auto *sortingPlaceholder = new QWidget(this);
+    auto *advancedSettingsPlaceholder = new QWidget(this);
 
-    m_uiBuilder->build(this, mainLayout, m_startTab, m_activeDownloadsTab, downloadHistoryTab, m_advancedSettingsTab, sortingTab);
+    m_uiBuilder->build(this, mainLayout, m_startTab, m_activeDownloadsTab, downloadHistoryTab,
+                       sortingPlaceholder, advancedSettingsPlaceholder);
 
     connect(m_uiBuilder->exitAfterSwitch(), &ToggleSwitch::toggled, this, [this](bool checked) {
         m_configManager->set(QStringLiteral("General"), QStringLiteral("exit_after"), checked);
@@ -68,10 +70,12 @@ void MainWindow::setupUI()
 
     connect(m_startTab, &StartTab::downloadRequested, this, &MainWindow::onDownloadRequested);
     connect(m_startTab, &StartTab::navigateToExternalBinaries, this, [this]() {
+        ensureAdvancedSettingsTab();
         m_uiBuilder->tabWidget()->setCurrentWidget(m_advancedSettingsTab);
         m_advancedSettingsTab->navigateToCategory(QStringLiteral("External Binaries"));
     });
     connect(m_startTab, &StartTab::navigateToCookieSettings, this, [this]() {
+        ensureAdvancedSettingsTab();
         m_uiBuilder->tabWidget()->setCurrentWidget(m_advancedSettingsTab);
         m_advancedSettingsTab->navigateToCategory(QStringLiteral("Authentication Access"));
     });
@@ -83,12 +87,66 @@ void MainWindow::setupUI()
         }
         showMissingBinariesDialog(missingBinaries);
     });
-    connect(m_advancedSettingsTab, &AdvancedSettingsTab::themeChanged, this, &MainWindow::applyTheme);
-
     connect(m_uiBuilder->tabWidget(), &QTabWidget::currentChanged, this, [this](int index) {
-        if (m_uiBuilder->tabWidget()->widget(index) == m_startTab) {
-            m_startTab->updateDynamicUI();
+        if (index == 3) {
+            ensureSortingTab();
+        } else if (index == 4) {
+            ensureAdvancedSettingsTab();
         }
+    });
+}
+
+void MainWindow::replaceLazyTab(int index, QWidget *tab)
+{
+    QTabWidget *tabs = m_uiBuilder->tabWidget();
+    QWidget *placeholder = tabs->widget(index);
+    const QString title = tabs->tabText(index);
+    const bool wasCurrent = tabs->currentIndex() == index;
+    {
+        const QSignalBlocker blocker(tabs);
+        tabs->removeTab(index);
+        tabs->insertTab(index, tab, title);
+        if (placeholder) {
+            placeholder->deleteLater();
+        }
+    }
+    if (wasCurrent) {
+        tabs->setCurrentIndex(index);
+    }
+}
+
+void MainWindow::ensureAdvancedSettingsTab()
+{
+    if (m_advancedSettingsTab) {
+        return;
+    }
+    m_advancedSettingsTab = new AdvancedSettingsTab(m_configManager, this);
+    connect(m_advancedSettingsTab, &AdvancedSettingsTab::themeChanged, this, &MainWindow::applyTheme);
+    if (!m_ytDlpVersion.isEmpty()) {
+        m_advancedSettingsTab->setYtDlpVersion(m_ytDlpVersion);
+    }
+    if (!m_galleryDlVersion.isEmpty()) {
+        m_advancedSettingsTab->setGalleryDlVersion(m_galleryDlVersion);
+    }
+    replaceLazyTab(4, m_advancedSettingsTab);
+}
+
+void MainWindow::ensureSortingTab()
+{
+    if (m_sortingTab) {
+        return;
+    }
+    m_sortingTab = new SortingTab(m_configManager, this);
+    replaceLazyTab(3, m_sortingTab);
+}
+
+void MainWindow::preloadSecondaryTabs()
+{
+    QTimer::singleShot(250, this, [this]() {
+        ensureAdvancedSettingsTab();
+        QTimer::singleShot(0, this, [this]() {
+            ensureSortingTab();
+        });
     });
 }
 
@@ -299,6 +357,10 @@ void MainWindow::onQueueFinished()
 
 void MainWindow::startStartupChecks()
 {
+    if (m_startupChecksStarted || !m_startupThread) {
+        return;
+    }
+    m_startupChecksStarted = true;
     m_startupThread->start();
 }
 
@@ -315,9 +377,8 @@ bool MainWindow::showMissingBinariesDialog(const QStringList &binaryNames,
         return false;
     }
 
-    BinariesPage *binariesPage = m_advancedSettingsTab
-        ? m_advancedSettingsTab->findChild<BinariesPage*>()
-        : nullptr;
+    ensureAdvancedSettingsTab();
+    BinariesPage *binariesPage = m_advancedSettingsTab->findChild<BinariesPage*>();
 
     MissingBinariesDialog dialog(binaryNames, m_configManager, binariesPage, updateDetails, this);
     const bool accepted = dialog.exec() == QDialog::Accepted;
@@ -441,6 +502,7 @@ void MainWindow::onDownloadStatsUpdated(int queued, int active, int completed, i
 
 void MainWindow::setYtDlpVersion(const QString &version)
 {
+    m_ytDlpVersion = version;
     if (m_advancedSettingsTab) {
         m_advancedSettingsTab->setYtDlpVersion(version);
     }

@@ -27,6 +27,9 @@ StartTabDownloadActions::StartTabDownloadActions(ConfigManager *configManager, S
       m_galleryDlArgsBuilder(galleryDlArgsBuilder), // Keep for future use if needed, or remove if truly unused
       m_parentWidget(parent)
 {
+    m_dynamicUiUpdateTimer.setSingleShot(true);
+    m_dynamicUiUpdateTimer.setInterval(150);
+    connect(&m_dynamicUiUpdateTimer, &QTimer::timeout, this, &StartTabDownloadActions::updateDynamicUI);
     if (!m_uiBuilder) {
         qCritical() << "CRITICAL ERROR: m_uiBuilder is null in StartTabDownloadActions constructor!";
         return;
@@ -48,8 +51,12 @@ StartTabDownloadActions::StartTabDownloadActions(ConfigManager *configManager, S
     }
 
     connect(m_configManager, &ConfigManager::settingChanged, this, [this](const QString &group, const QString &/*key*/, const QVariant &/*value*/) {
-        if (group == QStringLiteral("Binaries") || group == QStringLiteral("General")) {
-            QTimer::singleShot(0, this, &StartTabDownloadActions::updateDynamicUI);
+        if (group == QStringLiteral("General")
+            || (group == QStringLiteral("Binaries") && m_startupChecksFinished)) {
+            if (group == QStringLiteral("Binaries")) {
+                m_hasStartupBinarySnapshot = false;
+            }
+            m_dynamicUiUpdateTimer.start();
         }
     });
 }
@@ -57,6 +64,22 @@ StartTabDownloadActions::StartTabDownloadActions(ConfigManager *configManager, S
 StartTabDownloadActions::~StartTabDownloadActions()
 {
     // No owned pointers to delete
+}
+
+void StartTabDownloadActions::setStartupChecksFinished(bool finished)
+{
+    m_startupChecksFinished = finished;
+    if (finished) {
+        m_dynamicUiUpdateTimer.stop();
+    }
+}
+
+void StartTabDownloadActions::setStartupBinaryStatus(const QStringList &missingBinaries)
+{
+    m_hasStartupBinarySnapshot = true;
+    m_missingStartupBinaries = missingBinaries;
+    m_dynamicUiUpdateTimer.stop();
+    updateDynamicUI();
 }
 
 void StartTabDownloadActions::onDownloadButtonClicked() {
@@ -233,33 +256,46 @@ void StartTabDownloadActions::openDownloadsFolder() {
 }
 
 void StartTabDownloadActions::updateDynamicUI() {
+    m_dynamicUiUpdateTimer.stop();
     if (!m_uiBuilder || !m_uiBuilder->downloadTypeCombo() || !m_uiBuilder->downloadButton()) {
         qWarning() << "StartTabDownloadActions::updateDynamicUI - UI elements not fully initialized yet.";
         return;
     }
 
-    QStringList requiredYt = {"yt-dlp", "ffmpeg", "ffprobe", "deno"};
     bool hasMissingYt = false;
-    for (const QString &bin : requiredYt) {
-        QString source = ProcessUtils::findBinary(bin, m_configManager).source;
-        if (source == "Not Found" || source == "Invalid Custom") {
-            hasMissingYt = true;
-            break;
-        }
-    }
-
-    QStringList requiredGallery = {"gallery-dl", "ffmpeg", "ffprobe"};
     bool hasMissingGallery = false;
-    for (const QString &bin : requiredGallery) {
-        QString source = ProcessUtils::findBinary(bin, m_configManager).source;
-        if (source == "Not Found" || source == "Invalid Custom") {
-            hasMissingGallery = true;
-            break;
+    bool ytDlpOnlyMissing = false;
+    if (m_hasStartupBinarySnapshot) {
+        const auto missing = [this](const QString &name) {
+            return m_missingStartupBinaries.contains(name, Qt::CaseInsensitive);
+        };
+        hasMissingYt = missing(QStringLiteral("yt-dlp")) || missing(QStringLiteral("ffmpeg"))
+            || missing(QStringLiteral("ffprobe")) || missing(QStringLiteral("deno"));
+        hasMissingGallery = missing(QStringLiteral("gallery-dl")) || missing(QStringLiteral("ffmpeg"))
+            || missing(QStringLiteral("ffprobe"));
+        ytDlpOnlyMissing = missing(QStringLiteral("yt-dlp"));
+    } else {
+        const QStringList requiredYt = {QStringLiteral("yt-dlp"), QStringLiteral("ffmpeg"), QStringLiteral("ffprobe"), QStringLiteral("deno")};
+        for (const QString &bin : requiredYt) {
+            const QString source = ProcessUtils::findBinary(bin, m_configManager).source;
+            if (source == QStringLiteral("Not Found") || source == QStringLiteral("Invalid Custom")) {
+                hasMissingYt = true;
+                break;
+            }
         }
-    }
 
-    QString ytSource = ProcessUtils::findBinary("yt-dlp", m_configManager).source;
-    bool ytDlpOnlyMissing = (ytSource == "Not Found" || ytSource == "Invalid Custom");
+        const QStringList requiredGallery = {QStringLiteral("gallery-dl"), QStringLiteral("ffmpeg"), QStringLiteral("ffprobe")};
+        for (const QString &bin : requiredGallery) {
+            const QString source = ProcessUtils::findBinary(bin, m_configManager).source;
+            if (source == QStringLiteral("Not Found") || source == QStringLiteral("Invalid Custom")) {
+                hasMissingGallery = true;
+                break;
+            }
+        }
+
+        const QString ytSource = ProcessUtils::findBinary(QStringLiteral("yt-dlp"), m_configManager).source;
+        ytDlpOnlyMissing = ytSource == QStringLiteral("Not Found") || ytSource == QStringLiteral("Invalid Custom");
+    }
 
     auto updateItemText = [this](const QString &dataValue, const QString &baseText, bool isMissing) {
         int index = m_uiBuilder->downloadTypeCombo()->findData(dataValue);

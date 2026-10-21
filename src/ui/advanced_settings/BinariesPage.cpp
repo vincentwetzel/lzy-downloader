@@ -141,7 +141,9 @@ BinariesPage::BinariesPage(ConfigManager *configManager, QWidget *parent)
         m_configManager->set(QStringLiteral("Binaries"), QStringLiteral("prefer_app_managed"), preferenceCombo->currentData().toBool());
         m_configManager->save();
         ProcessUtils::clearCache();
-        loadSettings();
+        for (const QString &binaryName : m_configKeys.keys()) {
+            refreshBinaryStatus(binaryName);
+        }
     });
     connect(frequencyCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this, frequencyCombo](int) {
         m_configManager->set(QStringLiteral("Binaries"), QStringLiteral("automatic_update_frequency"), frequencyCombo->currentData().toString());
@@ -182,7 +184,9 @@ BinariesPage::BinariesPage(ConfigManager *configManager, QWidget *parent)
         constexpr int REFRESH_DELAY_MS = 150;
         QTimer::singleShot(REFRESH_DELAY_MS, this, [this, refreshButton]() {
             qInfo() << "[BinariesPage] Refresh delay completed. Re-loading settings...";
-            loadSettings();
+            for (const QString &binaryName : m_configKeys.keys()) {
+                refreshBinaryStatus(binaryName);
+            }
             refreshButton->setEnabled(true);
         });
     });
@@ -1262,7 +1266,7 @@ void BinariesPage::saveBinaryOverride(const QString &binaryName, const QString &
 
 void BinariesPage::loadSettings() {
     for (auto it = m_statusLabels.constBegin(); it != m_statusLabels.constEnd(); ++it) {
-        refreshBinaryStatus(it.key());
+        showConfiguredBinaryStatus(it.key());
     }
 }
 
@@ -1271,12 +1275,83 @@ void BinariesPage::handleConfigSettingChanged(const QString &section, const QStr
         return;
     }
 
-    const QString binaryName = m_configKeys.key(key);
+    QString binaryName;
+    for (auto it = m_configKeys.constBegin(); it != m_configKeys.constEnd(); ++it) {
+        if (key == it.value()
+            || key == QStringLiteral("%1_auto_detected").arg(it.key())
+            || key == QStringLiteral("%1_update_available").arg(it.key())
+            || key == QStringLiteral("%1_latest_version").arg(it.key())) {
+            binaryName = it.key();
+            break;
+        }
+    }
     if (binaryName.isEmpty() || !m_statusLabels.contains(binaryName)) {
         return;
     }
 
-    refreshBinaryStatus(binaryName);
+    showConfiguredBinaryStatus(binaryName);
+}
+
+void BinariesPage::showConfiguredBinaryStatus(const QString &binaryName)
+{
+    QLabel *statusLabel = m_statusLabels.value(binaryName);
+    QPushButton *installButton = m_installButtons.value(binaryName);
+    QPushButton *updateButton = m_updateButtons.value(binaryName);
+    QPushButton *clearButton = findChild<QPushButton *>(QStringLiteral("%1_clearButton").arg(binaryName));
+    const QString configKey = m_configKeys.value(binaryName);
+    if (!statusLabel || !installButton || !updateButton || configKey.isEmpty()) {
+        return;
+    }
+
+    const QString path = m_configManager->get(QStringLiteral("Binaries"), configKey).toString().trimmed();
+    const bool autoDetected = m_configManager->get(
+        QStringLiteral("Binaries"), QStringLiteral("%1_auto_detected").arg(binaryName), true).toBool();
+    const bool hasWarning = m_binaryWarnings.contains(binaryName)
+        || m_configManager->get(QStringLiteral("Binaries"),
+                                QStringLiteral("%1_update_available").arg(binaryName), false).toBool();
+    QString warningDetails = m_binaryWarnings.value(binaryName);
+    if (warningDetails.isEmpty() && hasWarning) {
+        const QString latestVersion = m_configManager->get(
+            QStringLiteral("Binaries"), QStringLiteral("%1_latest_version").arg(binaryName)).toString();
+        warningDetails = latestVersion.isEmpty()
+            ? tr("An update is available.")
+            : tr("A newer version (%1) is available.").arg(latestVersion);
+    }
+
+    const bool configured = !path.isEmpty();
+    installButton->setEnabled(true);
+    installButton->setVisible(!configured);
+    updateButton->setEnabled(true);
+    updateButton->setVisible(configured && hasWarning);
+    if (clearButton) {
+        clearButton->setEnabled(configured && !autoDetected);
+        clearButton->setVisible(true);
+    }
+
+    if (!configured) {
+        const bool optional = m_optionalBinaries.contains(binaryName);
+        const QString note = optional
+            ? tr("This is an optional enhancement.")
+            : tr("This binary is required for core functionality.");
+        const QString label = optional
+            ? tr("Optional tool not configured")
+            : tr("Required tool not configured");
+        statusLabel->setText(tr("<b>Status:</b> %1. %2<br>Use Refresh All Statuses to discover installed tools.")
+                                 .arg(label.toHtmlEscaped(), note.toHtmlEscaped()));
+        if (QLabel *versionLabel = m_versionLabels.value(binaryName)) {
+            versionLabel->setText(tr("Version: Unknown"));
+        }
+    } else {
+        QString displayPath = path.toHtmlEscaped();
+        displayPath.replace(QStringLiteral("\\"), QStringLiteral("\\\u200B"));
+        displayPath.replace(QStringLiteral("/"), QStringLiteral("/\u200B"));
+        const QString state = hasWarning
+            ? tr("Configured; update recommended: %1").arg(warningDetails.toHtmlEscaped())
+            : tr("Configured path (%1)").arg(autoDetected ? tr("auto-detected") : tr("manual override"));
+        statusLabel->setText(tr("<b>Status:</b> %1<br><b>Path:</b> %2")
+                                 .arg(state, displayPath));
+    }
+    scheduleScrollDocumentResize();
 }
 
 void BinariesPage::refreshBinaryStatus(const QString &binaryName) {

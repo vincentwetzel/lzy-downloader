@@ -382,6 +382,9 @@ void MainWindow::connectStartupWorkerSignals()
     connect(m_startupThread, &QThread::finished, m_startupWorker, &QObject::deleteLater);
     connect(m_startupWorker, &StartupWorker::binariesChecked, this, [this](const QStringList &missingBinaries) {
         m_startupMissingBinaries = missingBinaries;
+        if (m_startTab) {
+            m_startTab->setStartupBinaryStatus(missingBinaries);
+        }
     });
 
     // Collect startup binary notices and show one consolidated setup window
@@ -432,11 +435,18 @@ void MainWindow::connectStartupWorkerSignals()
         }
 
         m_startupChecksFinished = true;
+        if (m_startTab) {
+            m_startTab->setStartupChecksFinished(true);
+        }
         showStartupBinarySetupIfReady();
     });
     connect(m_startupWorker, &StartupWorker::ytDlpVersionFetched, this, &MainWindow::setYtDlpVersion);
-    connect(m_startupWorker, &StartupWorker::galleryDlVersionFetched,
-            m_advancedSettingsTab, &AdvancedSettingsTab::setGalleryDlVersion);
+    connect(m_startupWorker, &StartupWorker::galleryDlVersionFetched, this, [this](const QString &version) {
+        m_galleryDlVersion = version;
+        if (m_advancedSettingsTab) {
+            m_advancedSettingsTab->setGalleryDlVersion(version);
+        }
+    });
     connect(m_clipboard, &QClipboard::changed, this, &MainWindow::onClipboardChanged);
 }
 

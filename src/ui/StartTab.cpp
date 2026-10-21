@@ -45,12 +45,9 @@ StartTab::StartTab(ConfigManager *configManager, ExtractorJsonParser *extractorJ
 
     connect(m_configManager, &ConfigManager::settingChanged, this, [this](const QString &section, const QString &/*key*/, const QVariant &/*value*/){
         // The command preview only cares about settings that influence the download args
-        if (section != QStringLiteral("SortingRules")) {
+        if (section != QStringLiteral("SortingRules")
+            && (section != QStringLiteral("Binaries") || m_commandPreviewEnabled)) {
             updateCommandPreview();
-        }
-        // updateDynamicUI is now a slot in StartTab, which delegates to m_downloadActions
-        if (section == QStringLiteral("Binaries")) {
-            updateDynamicUI();
         }
     });
 
@@ -72,14 +69,10 @@ StartTab::StartTab(ConfigManager *configManager, ExtractorJsonParser *extractorJ
 
     loadSettings();
     if (m_uiBuilder->urlInput()) { // Added null check
-        m_uiBuilder->urlInput()->setEnabled(false);
-        m_uiBuilder->urlInput()->setPlaceholderText(tr("Waiting for startup checks to finish..."));
         m_uiBuilder->urlInput()->installEventFilter(this);
     } else {
         qCritical() << "CRITICAL ERROR: m_urlInput is null in StartTab constructor after setupUI!";
     }
-    m_downloadActions->updateDynamicUI(); // Initial call to set up dynamic UI
-
     updateCommandPreview(); // Call after UI is built and initial settings loaded
 }
 
@@ -192,6 +185,23 @@ bool StartTab::eventFilter(QObject *obj, QEvent *event) {
 void StartTab::updateCommandPreview()
 {
     m_commandPreviewUpdater->updateCommandPreview();
+}
+
+void StartTab::setCommandPreviewEnabled(bool enabled)
+{
+    m_commandPreviewEnabled = enabled;
+    m_commandPreviewUpdater->setCommandPreviewEnabled(enabled);
+}
+
+void StartTab::setStartupChecksFinished(bool finished)
+{
+    m_downloadActions->setStartupChecksFinished(finished);
+    setCommandPreviewEnabled(finished);
+}
+
+void StartTab::setStartupBinaryStatus(const QStringList &missingBinaries)
+{
+    m_downloadActions->setStartupBinaryStatus(missingBinaries);
 }
 
 void StartTab::updateDynamicUI() {

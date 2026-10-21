@@ -21,7 +21,7 @@ class MainWindowUiBuilder : public QObject
     Q_OBJECT
 public:
     explicit MainWindowUiBuilder(ConfigManager *configManager, QObject *parent = nullptr);
-    void build(QMainWindow *mainWindow, QVBoxLayout *mainLayout, StartTab *startTab, ActiveDownloadsTab *activeDownloadsTab, DownloadHistoryTab *downloadHistoryTab, AdvancedSettingsTab *advancedSettingsTab, SortingTab *sortingTab);
+    void build(QMainWindow *mainWindow, QVBoxLayout *mainLayout, StartTab *startTab, ActiveDownloadsTab *activeDownloadsTab, DownloadHistoryTab *downloadHistoryTab, QWidget *sortingTab, QWidget *advancedSettingsTab);
     QLabel* speedLabel() const { return m_speedLabel; }
     QLabel* queuedDownloadsLabel() const { return m_queuedDownloadsLabel; }
     QLabel* activeDownloadsLabel() const { return m_activeDownloadsLabel; }

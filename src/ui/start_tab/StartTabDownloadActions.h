@@ -10,6 +10,7 @@
 #include <QTextEdit> // For dialog text
 #include <QPushButton> // For dialog button
 #include <QStringList>
+#include <QTimer>
 
 #include "core/ConfigManager.h"
 #include "ui/StartTabUiBuilder.h"
@@ -33,6 +34,8 @@ public slots:
     void onViewFormatsFinished(int exitCode, QProcess::ExitStatus exitStatus);
     void openDownloadsFolder();
     void updateDynamicUI(); // Moved here as it affects download button state
+    void setStartupChecksFinished(bool finished);
+    void setStartupBinaryStatus(const QStringList &missingBinaries);
 
 signals:
     void downloadRequested(const QString &url, const QVariantMap &options);
@@ -47,6 +50,10 @@ private:
     GalleryDlArgsBuilder *m_galleryDlArgsBuilder; // Not directly used here, but passed to constructor
 
     QWidget *m_parentWidget; // To use for QMessageBox parent
+    QTimer m_dynamicUiUpdateTimer;
+    bool m_startupChecksFinished = false;
+    bool m_hasStartupBinarySnapshot = false;
+    QStringList m_missingStartupBinaries;
 
     void checkFormats(const QString &url);
     QString resolveExecutablePath(const QString &name) const;

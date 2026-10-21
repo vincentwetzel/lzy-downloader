@@ -66,6 +66,7 @@ private:
     };
 
     void runProcessWithLog(const ProcessRunOptions &opts);
+    void showConfiguredBinaryStatus(const QString &binaryName);
     void resizeScrollDocument(QScrollArea *scrollArea);
     void scheduleScrollDocumentResize();
 

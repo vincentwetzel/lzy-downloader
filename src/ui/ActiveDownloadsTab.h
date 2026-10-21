@@ -42,7 +42,7 @@ signals:
     void moveDownloadUpRequested(const QString &id);
     void moveDownloadDownRequested(const QString &id);
     void finishDownloadRequested(const QString &id);
-    void itemCleared(const QString &id, bool wasSuccessful, bool wasFinished);
+    void itemCleared(const QString &id, const QString &url, bool wasSuccessful, bool wasFinished);
 
 private:
     void setupUi();

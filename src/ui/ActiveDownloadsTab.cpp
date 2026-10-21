@@ -8,18 +8,30 @@
 #include <QMessageBox>
 #include <QProcess>
 #include <QPushButton>
+#include <QCheckBox>
 #include <QTimer>
 #include <QDesktopServices>
 #include <QDir>
 #include <QApplication>
 #include <QStyle>
 #include <QStyleOption>
+#include <QPen>
 #include "core/ConfigManager.h"
 #include <QPainter>
 #include <chrono>
 
 static QIcon createColoredIcon(QStyle::StandardPixmap sp, const QColor &color) {
-    QPixmap pixmap = QApplication::style()->standardIcon(sp).pixmap(32, 32);
+    QPixmap pixmap;
+    if (sp == QStyle::SP_TrashIcon) {
+        pixmap = QPixmap(32, 32);
+        pixmap.fill(Qt::transparent);
+        QPainter glyphPainter(&pixmap); glyphPainter.setRenderHint(QPainter::Antialiasing);
+        glyphPainter.setPen(QPen(Qt::white, 2.4, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin)); glyphPainter.drawRoundedRect(QRectF(3.5, 4.5, 17, 22), 2, 2);
+        glyphPainter.drawLine(QPointF(7, 10), QPointF(16, 10)); glyphPainter.drawLine(QPointF(7, 15), QPointF(16, 15)); glyphPainter.drawLine(QPointF(7, 20), QPointF(14, 20));
+        glyphPainter.setPen(QPen(Qt::white, 2.8, Qt::SolidLine, Qt::RoundCap)); glyphPainter.drawLine(QPointF(20, 8), QPointF(29, 17)); glyphPainter.drawLine(QPointF(29, 8), QPointF(20, 17));
+    } else {
+        pixmap = QApplication::style()->standardIcon(sp).pixmap(32, 32);
+    }
     if (pixmap.isNull()) return QIcon();
     QPainter painter(&pixmap);
     painter.setCompositionMode(QPainter::CompositionMode_SourceIn);
@@ -93,7 +105,9 @@ void ActiveDownloadsTab::setupUi() {
 
     m_clearInactiveButton = new QPushButton(this);
     m_clearInactiveButton->setIcon(createColoredIcon(QStyle::SP_TrashIcon, QColor(QStringLiteral("#64748b"))));
+    m_clearInactiveButton->setIconSize(QSize(22, 22));
     m_clearInactiveButton->setToolTip(tr("Clear all inactive (completed, stopped, and failed) downloads."));
+    m_clearInactiveButton->setAccessibleName(tr("Clear Inactive Downloads"));
     m_clearInactiveButton->setFixedSize(32, 32);
     
     connect(m_clearInactiveButton, &QPushButton::clicked, this, [this]() {
@@ -114,12 +128,34 @@ void ActiveDownloadsTab::setupUi() {
             }
         }
         
-        bool deleteTempFiles = false;
-        if (!incompleteToRemove.isEmpty()) {
-            deleteTempFiles = (QMessageBox::question(this, tr("Clear Inactive Downloads"),
-                                                     tr("Do you also want to delete temporary files for the incomplete downloads being cleared?"),
-                                                     QMessageBox::Yes | QMessageBox::No) == QMessageBox::Yes);
+        const int inactiveCount = completedToRemove.size() + incompleteToRemove.size();
+        if (inactiveCount == 0) {
+            return;
         }
+
+        QMessageBox confirmation(this);
+        confirmation.setIcon(QMessageBox::Warning);
+        confirmation.setWindowTitle(tr("Clear Inactive Downloads"));
+        confirmation.setText(tr("Remove %1 inactive download(s) from Active Downloads and the saved queue? This cannot be undone.")
+                                 .arg(inactiveCount));
+        if (!incompleteToRemove.isEmpty()) {
+            confirmation.setInformativeText(tr("Stopped and failed downloads will keep their temporary files unless you choose to delete them too."));
+        }
+        QCheckBox *deleteTempFilesCheckBox = nullptr;
+        if (!incompleteToRemove.isEmpty()) {
+            deleteTempFilesCheckBox = new QCheckBox(
+                tr("Also delete temporary files for %1 stopped or failed download(s)").arg(incompleteToRemove.size()),
+                &confirmation);
+            confirmation.setCheckBox(deleteTempFilesCheckBox);
+        }
+        QPushButton *clearButton = confirmation.addButton(tr("Clear Downloads"), QMessageBox::DestructiveRole);
+        confirmation.addButton(QMessageBox::Cancel);
+        confirmation.setDefaultButton(qobject_cast<QPushButton *>(confirmation.button(QMessageBox::Cancel)));
+        confirmation.exec();
+        if (confirmation.clickedButton() != clearButton) {
+            return;
+        }
+        const bool deleteTempFiles = deleteTempFilesCheckBox && deleteTempFilesCheckBox->isChecked();
 
         for (const QString &id : completedToRemove) {
             onItemClearRequested(id);
@@ -177,11 +213,9 @@ void ActiveDownloadsTab::setupUi() {
     m_placeholderWidget = new QWidget(this);
     QVBoxLayout *placeholderLayout = new QVBoxLayout(m_placeholderWidget);
 
-    QLabel *iconLabel = new QLabel(QStringLiteral("📥"), this);
+    QLabel *iconLabel = new QLabel(this);
+    iconLabel->setPixmap(QApplication::style()->standardIcon(QStyle::SP_ArrowDown).pixmap(48, 48));
     iconLabel->setAlignment(Qt::AlignCenter);
-    QFont iconFont = iconLabel->font();
-    iconFont.setPointSize(48);
-    iconLabel->setFont(iconFont);
 
     QLabel *emptyStateTitle = new QLabel(tr("No active downloads"), this);
     emptyStateTitle->setObjectName(QStringLiteral("emptyStateTitle"));
@@ -429,7 +463,8 @@ void ActiveDownloadsTab::togglePauseAllDownloads() {
 void ActiveDownloadsTab::onItemClearRequested(const QString &id) {
     if (m_downloadItems.contains(id)) {
         DownloadItemWidget *widget = m_downloadItems.take(id);
-        emit itemCleared(id, widget->isSuccessful(), widget->isFinished());
+        const QString url = widget->getItemData().value(QStringLiteral("url")).toString();
+        emit itemCleared(id, url, widget->isSuccessful(), widget->isFinished());
         m_downloadsLayout->removeWidget(widget);
         widget->deleteLater();
         updatePlaceholderVisibility();

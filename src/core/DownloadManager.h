@@ -47,10 +47,11 @@ public:
     void processPlaylistSelection(const QString &url, const QString &action, const QVariantMap &options, const QList<QVariantMap> &expandedItems);
     void resumeDownloadWithFormat(const QString &url, const QVariantMap &options, const QString &formatId);
     bool isQueueIdle() const;
+    bool isInArchive(const QString &url);
     void shutdown();
 
 public slots:
-    void onItemCleared(const QString &id, bool wasSuccessful, bool wasFinished);
+    void onItemCleared(const QString &id, const QString &url, bool wasSuccessful, bool wasFinished);
 
 signals:
     void downloadAddedToQueue(const QVariantMap &itemData);

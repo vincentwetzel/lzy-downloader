@@ -219,7 +219,7 @@ void MainWindow::enqueueDownloadFromUi(const QString &url, QVariantMap options)
         options.insert(QStringLiteral("override_archive"), true);
     }
 
-    if (!nonInteractive && !overrideArchive && m_archiveManager && m_archiveManager->isInArchive(url)) {
+    if (!nonInteractive && !overrideArchive && m_downloadManager && m_downloadManager->isInArchive(url)) {
         const QMessageBox::StandardButton reply = QMessageBox::question(
             this,
             tr("Duplicate Download"),

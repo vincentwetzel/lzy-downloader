@@ -82,7 +82,7 @@ replacement. Temp cleanup owns root resolution and guarded UUID-folder removal.
 | Component | Owns |
 |---|---|
 | `ConfigManager.*` | Validated Qt `QSettings`, defaults, reset, change signals |
-| `ArchiveManager.*` | Schema-compatible SQLite completed-media archive and media identity |
+| `ArchiveManager.*` | Schema-compatible SQLite completed-media archive and media identity; asynchronously backfills legacy identity columns and indexes |
 | `DownloadQueueManager.*` | Ordering, concurrency, duplicate checks, retry/resume, and coalesced queue-backup writes |
 | `GlobalDownloadLimiter.*` | Locked per-user process registry for cross-process worker-slot admission and stale-holder cleanup; probes directory write access and falls back from ACL-blocked app-local storage |
 | `RuntimeCoordinator.*` | Per-user local-socket ownership, GUI activation, API activation, and direct-URL forwarding |
@@ -111,11 +111,11 @@ replacement. Temp cleanup owns root resolution and guarded UUID-folder removal.
 
 | Component | Owns |
 |---|---|
-| `MainWindow.*`, `MainWindowConnections.cpp`, `MainWindowDownloadConnections.cpp`, `MainWindowUiBuilder.*` | Shell, tabs, footer, global actions, startup/external-tool update handoff, webhook wiring |
+| `MainWindow.*`, `MainWindowConnections.cpp`, `MainWindowDownloadConnections.cpp`, `MainWindowUiBuilder.*` | Shell, tabs, footer, global actions, deferred startup checks and secondary-tab construction, external-tool update handoff, webhook wiring |
 | `CoordinatorWindowActivation.*` | Cross-platform coordinator window reveal, including native Windows restore/foreground handling |
-| `StartTab.*`, `start_tab/*` | URL submission, clipboard, playlist/runtime selection |
+| `StartTab.*`, `StartTabUiBuilder.cpp`, `start_tab/*` | URL submission, clipboard, playlist/runtime selection, startup-safe command preview and saved cookie-warning state |
 | `ActiveDownloadsTab.*`, `DownloadItemWidget.cpp`, `DownloadItemWidgetProgress.cpp`, `DownloadItemWidgetIcons.h` | Download rows, thumbnails, async owned-temp checks, compact layout, one focused progress bar, actions, and newest-row visibility |
-| `DownloadHistoryTab.*` | `download_history.json` display cache, atomic coalesced saves, and off-thread local thumbnail decoding |
+| `DownloadHistoryTab.*`, `DownloadHistoryStorage.*` | Asynchronous `download_history.json` loading, display cache, bounded row rendering, atomic coalesced saves, and off-thread local thumbnail decoding |
 | `advanced_settings/*`, `MissingBinariesDialog.*` | Settings pages, templates, and consolidated binary setup/provisioning |
 | `LocalApiServer.*`, `integration/LocalApiEndpoint.h` | Authenticated localhost enqueue/status/cancel, aggregate progress, tracked-job signals, and app-local port discovery |
 | `integration/BrowserNativeMessagingHost.cpp`, `integration/BrowserNativeHostRegistration.*`, `integration/BrowserCookieFile.*` | Bounded cross-platform Chrome native-messaging bridge and registration, plus request-scoped cookie-file ownership; requests the coordinator's Local API and relays allowlisted operations |

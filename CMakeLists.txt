@@ -344,6 +344,7 @@ add_library(LzyAppLib STATIC
     src/ui/AdvancedSettingsTab.cpp
     src/ui/CoordinatorWindowActivation.cpp
     src/ui/DownloadHistoryTab.cpp
+    src/ui/DownloadHistoryStorage.cpp
     src/ui/DownloadItemWidget.cpp
     src/ui/DownloadItemWidgetIcons.h
     src/ui/DownloadItemWidgetProgress.cpp

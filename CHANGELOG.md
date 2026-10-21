@@ -9,6 +9,17 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## [Unreleased]
 
+- **Startup responsiveness:** Show the main window before binary discovery,
+  keep URL entry available while extractor metadata loads, render command
+  previews without resolver probes, defer secondary-tab setup, and avoid
+  repeating binary discovery when Advanced Settings is preloaded. Restore queue
+  rows in bounded batches, move archive identity backfill and history loading
+  off the GUI thread, and initialize the browser-cookie warning from saved
+  settings to avoid a false warning flash.
+- **Inactive download clearing:** Require explicit confirmation before removing
+  inactive rows from the saved queue, make temporary-file deletion a separate
+  opt-in, and log each cleared source URL with credential-bearing components
+  redacted. Replace the ambiguous platform trash glyph with a list-and-X icon.
 - **Server-mode GUI activation:** The Discord bridge no longer starts the GUI
   executable with a Windows hidden first-show state, allowing a later GUI
   activation to reveal the running coordinator. The owner also restores its

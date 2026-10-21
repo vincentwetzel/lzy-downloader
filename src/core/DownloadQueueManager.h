@@ -60,6 +60,7 @@ signals:
     void queueCountsChanged(int queued, int paused);
     void playlistExpansionPlaceholderRemoved(const QString &id);
     void playlistExpansionPlaceholderUpdated(const QString &id, const QVariantMap &itemData);
+    void resumeItemsRestored();
 
 public: // Public for DownloadManager to access directly during playlist expansion
     friend class DownloadManager;
@@ -74,14 +75,18 @@ private:
     QQueue<DownloadItem> m_downloadQueue;
     QMap<QString, DownloadItem> m_pausedItems;
     bool m_tempCleanupInProgress = false;
+    bool m_queueRestoreInProgress = false;
     QFutureWatcher<void> *m_queueSaveWatcher = nullptr;
     bool m_hasPendingQueueSave = false;
     QString m_pendingQueueSavePath;
     QList<DownloadItem> m_pendingActiveItems;
     QMap<QString, DownloadItem> m_pendingPausedItems;
     QQueue<DownloadItem> m_pendingDownloadQueue;
+    QJsonArray m_pendingResumeItems;
+    int m_nextResumeItemIndex = 0;
 
     void emitQueueCountsChanged();
+    void processResumeDownloadsBatch();
     void startQueueStateSave(const QString &backupPath, const QList<DownloadItem> &activeItems,
                              const QMap<QString, DownloadItem> &pausedItems,
                              const QQueue<DownloadItem> &downloadQueue);

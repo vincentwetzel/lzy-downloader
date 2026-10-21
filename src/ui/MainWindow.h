@@ -14,8 +14,8 @@
 
 // Forward declarations
 class QEvent;
+class QShowEvent;
 class ConfigManager;
-class ArchiveManager;
 class DownloadManager;
 class AppUpdater;
 class UrlValidator;
@@ -48,6 +48,7 @@ signals:
 
 protected:
     void closeEvent(QCloseEvent *event) override;
+    void showEvent(QShowEvent *event) override;
     bool event(QEvent *event) override;
 
 private slots:
@@ -74,6 +75,10 @@ private slots:
 private:
     void enqueueDownloadFromUi(const QString &url, QVariantMap options);
     void setupUI();
+    void ensureAdvancedSettingsTab();
+    void ensureSortingTab();
+    void preloadSecondaryTabs();
+    void replaceLazyTab(int index, QWidget *tab);
     void setupTrayIcon();
     void checkBinaries();
     void startStartupChecks();
@@ -93,7 +98,6 @@ private:
                                    const QHash<QString, QString> &updateDetails = {});
 
     ConfigManager *m_configManager;
-    ArchiveManager *m_archiveManager;
     DownloadManager *m_downloadManager;
     AppUpdater *m_appUpdater;
     UrlValidator *m_urlValidator;
@@ -108,6 +112,7 @@ private:
     QTabWidget *m_tabWidget;
     ActiveDownloadsTab *m_activeDownloadsTab;
     AdvancedSettingsTab *m_advancedSettingsTab;
+    SortingTab *m_sortingTab;
     StartTab *m_startTab;
     QLabel *m_speedLabel;
     QLabel *m_queuedDownloadsLabel;
@@ -126,7 +131,11 @@ private:
     bool m_appUpdateInstalling;
     bool m_startupChecksFinished;
     bool m_startupSetupPresented;
+    bool m_startupChecksScheduled = false;
+    bool m_startupChecksStarted = false;
     bool m_nonInteractiveLaunch;
+    QString m_ytDlpVersion;
+    QString m_galleryDlVersion;
     QStringList m_startupMissingBinaries;
     QHash<QString, QString> m_startupUpdateDetails;
     QString m_lastAutoPastedUrl; // Track last auto-pasted URL to prevent duplicates

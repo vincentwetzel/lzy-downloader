@@ -49,6 +49,9 @@ public slots: // Changed from private slots:
     void onDownloadButtonClicked();
     void onExtractorsReady();
     void updateCommandPreview();
+    void setCommandPreviewEnabled(bool enabled);
+    void setStartupChecksFinished(bool finished);
+    void setStartupBinaryStatus(const QStringList &missingBinaries);
     void onDuplicateDownloadDetected(const QString &url, const QString &reason);
     void updateDynamicUI();
 
@@ -74,6 +77,7 @@ private:
     StartTabUrlHandler *m_urlHandler;
     StartTabDownloadActions *m_downloadActions;
     StartTabCommandPreviewUpdater *m_commandPreviewUpdater;
+    bool m_commandPreviewEnabled = false;
 
     QMessageBox *m_typeSelectionDialog = nullptr;
     QString m_lastAutoSwitchedUrl;

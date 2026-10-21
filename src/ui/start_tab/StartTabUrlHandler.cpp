@@ -40,6 +40,10 @@ void StartTabUrlHandler::onExtractorsReady()
     if (m_uiBuilder->urlInput()) {
         m_uiBuilder->urlInput()->setEnabled(true);
         m_uiBuilder->urlInput()->setPlaceholderText(tr("Paste one or more media URLs (one per line)..."));
+        const QString enteredUrl = m_uiBuilder->urlInput()->toPlainText().trimmed();
+        if (!enteredUrl.isEmpty()) {
+            autoSwitchDownloadType(enteredUrl);
+        }
     }
 }
 

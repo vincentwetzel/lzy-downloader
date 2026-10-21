@@ -53,11 +53,13 @@ DownloadManager::DownloadManager(ConfigManager *configManager, QObject *parent) 
     connect(m_queueManager, &DownloadQueueManager::queueCountsChanged, this, &DownloadManager::onQueueCountsChanged);
     connect(m_queueManager, &DownloadQueueManager::playlistExpansionPlaceholderRemoved, this, &DownloadManager::onPlaylistExpansionPlaceholderRemoved);
     connect(m_queueManager, &DownloadQueueManager::playlistExpansionPlaceholderUpdated, this, &DownloadManager::onPlaylistExpansionPlaceholderUpdated);
+    connect(m_queueManager, &DownloadQueueManager::resumeItemsRestored,
+            m_queueManager, &DownloadQueueManager::cleanupOrphanedTempDirectories);
     QTimer::singleShot(0, this, [this]() {
-        m_queueState->load();
-        // Queue restoration is synchronous within load(); reconcile only after
-        // restored stopped/paused items have been registered as protected IDs.
-        m_queueManager->cleanupOrphanedTempDirectories();
+        const QJsonArray restoredItems = m_queueState->load();
+        if (restoredItems.isEmpty()) {
+            m_queueManager->cleanupOrphanedTempDirectories();
+        }
     });
 
     emitDownloadStats();
@@ -88,6 +90,11 @@ bool DownloadManager::isQueueIdle() const
         && m_activeItems.isEmpty()
         && m_queueManager->m_pendingExpansions.isEmpty()
         && !hasActivelyPausedItems;
+}
+
+bool DownloadManager::isInArchive(const QString &url)
+{
+    return m_archiveManager && m_archiveManager->isInArchive(url);
 }
 
 void DownloadManager::stopWorker(QObject *worker)

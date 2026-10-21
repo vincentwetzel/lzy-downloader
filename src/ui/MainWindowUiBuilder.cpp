@@ -35,7 +35,7 @@ MainWindowUiBuilder::MainWindowUiBuilder(ConfigManager *configManager, QObject *
 {
 }
 
-void MainWindowUiBuilder::build(QMainWindow *mainWindow, QVBoxLayout *mainLayout, StartTab *startTab, ActiveDownloadsTab *activeDownloadsTab, DownloadHistoryTab *downloadHistoryTab, AdvancedSettingsTab *advancedSettingsTab, SortingTab *sortingTab)
+void MainWindowUiBuilder::build(QMainWindow *mainWindow, QVBoxLayout *mainLayout, StartTab *startTab, ActiveDownloadsTab *activeDownloadsTab, DownloadHistoryTab *downloadHistoryTab, QWidget *sortingTab, QWidget *advancedSettingsTab)
 {
     mainWindow->setMinimumWidth(850);
     mainWindow->resize(850, 600);

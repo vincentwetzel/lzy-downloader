@@ -77,6 +77,11 @@ void StartTabUiBuilder::build(QWidget *parentWidget, QVBoxLayout *mainLayout)
     m_cookieWarningLabel->setToolTip(tr("Choose a signed-in browser in Advanced Settings → Essentials → Authentication Access. Firefox can stay open; Chrome-based browsers must be fully closed while cookies are checked."));
     m_cookieWarningLabel->setStyleSheet(QStringLiteral("color: #E6A23C;"));
     m_cookieWarningLabel->setWordWrap(true);
+    const QString configuredCookieBrowser = m_configManager
+        ? m_configManager->get(QStringLiteral("General"), QStringLiteral("cookies_from_browser"), QStringLiteral("None")).toString().trimmed()
+        : QStringLiteral("None");
+    m_cookieWarningLabel->setVisible(configuredCookieBrowser.isEmpty()
+                                     || configuredCookieBrowser.compare(QStringLiteral("None"), Qt::CaseInsensitive) == 0);
     mainLayout->addWidget(m_cookieWarningLabel);
 
     QHBoxLayout *inputSectionLayout = new QHBoxLayout();

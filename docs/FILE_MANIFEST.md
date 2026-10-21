@@ -70,7 +70,7 @@ Public/project guidance is in `README.md`, `CONTRIBUTING.md`, `SECURITY.md`,
 | Metadata/FFmpeg | `src/core/ArtworkNormalizer.*`, `src/core/MetadataEmbedder.*`, `src/core/YtDlpWorkerFfmpegDiagnostics.cpp`, `src/core/download_pipeline/FfmpegMuxer.*` |
 | Tools/processes | `src/core/ProcessDiagnostics.*`, `src/core/ProcessUtils.*`, `src/core/SmartBinaryResolver.*`, `src/core/BaseBinaryUpdater.*`, `src/core/StartupWorker.*` |
 | API/update/power/logging | `src/core/LocalApiServer.*`, `src/core/AppUpdater.*`, `src/core/PowerInhibitor.*`, `src/utils/LogManager.*` |
-| Main UI | `src/ui/MainWindow.*`, `src/ui/MainWindowConnections.cpp`, `src/ui/MainWindowDownloadConnections.cpp`, `src/ui/MainWindowUiBuilder.*`, `src/ui/CoordinatorWindowActivation.*`, `src/ui/StartTab.*`, `src/ui/ActiveDownloadsTab.*`, `src/ui/DownloadItemWidget.cpp`, `src/ui/DownloadItemWidgetProgress.cpp`, `src/ui/DownloadItemWidgetIcons.h`, `src/ui/DownloadHistoryTab.*` |
+| Main UI | `src/ui/MainWindow.*`, `src/ui/MainWindowConnections.cpp`, `src/ui/MainWindowDownloadConnections.cpp`, `src/ui/MainWindowUiBuilder.*`, `src/ui/CoordinatorWindowActivation.*`, `src/ui/StartTab.*`, `src/ui/ActiveDownloadsTab.*`, `src/ui/DownloadItemWidget.cpp`, `src/ui/DownloadItemWidgetProgress.cpp`, `src/ui/DownloadItemWidgetIcons.h`, `src/ui/DownloadHistoryTab.*`, `src/ui/DownloadHistoryStorage.*` |
 | Settings UI | `src/ui/advanced_settings/*`, `src/ui/MissingBinariesDialog.*` |
 
 ## Regression-test index
@@ -81,6 +81,7 @@ paths/headless Qt. Main focused files are:
 | Concern | Test |
 |---|---|
 | Manager/probe/gallery/playlist | `TestDownloadManager.cpp`, `FakeYtDlp.cpp`, `TestGalleryDlArgsBuilder.cpp`, `TestPlaylistExpansionParser.cpp` |
+| UI/startup responsiveness | `TestUIWidgets.cpp`, `TestCoordinatorWindowActivation.cpp`, `TestStartupWorker.cpp` |
 | Audio artwork normalization and edge-region regression coverage (JPEG fixture) | `TestArtworkNormalizer.cpp` |
 | Queue/archive/temp/replacement | `TestDownloadQueueManager.cpp`, `TestDownloadQueueState.cpp`, `TestDownloadTempCleanup.cpp`, `TestFileReplacement.cpp` |
 | Cross-process worker admission and writable-state fallback | `TestGlobalDownloadLimiter.cpp` |

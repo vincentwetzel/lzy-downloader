@@ -102,6 +102,24 @@ void TestUIWidgets::testStartTabCarriesPlaylistLogicIntoRequest() {
              QStringLiteral("Download All (no prompt)"));
 }
 
+void TestUIWidgets::testStartTabCookieWarningUsesSavedBrowserImmediately() {
+    ConfigManager config(QStringLiteral(":memory:"), true, nullptr);
+    config.set(QStringLiteral("General"), QStringLiteral("cookies_from_browser"), QStringLiteral("Firefox"));
+
+    StartTab startTab(&config, nullptr);
+    QLabel *cookieWarning = startTab.findChild<QLabel *>(QStringLiteral("cookieWarningLabel"));
+
+    QVERIFY(cookieWarning != nullptr);
+    QVERIFY(cookieWarning->isHidden());
+
+    config.set(QStringLiteral("General"), QStringLiteral("cookies_from_browser"), QStringLiteral("None"));
+    StartTab startTabWithoutBrowser(&config, nullptr);
+    QLabel *missingCookieWarning = startTabWithoutBrowser.findChild<QLabel *>(QStringLiteral("cookieWarningLabel"));
+
+    QVERIFY(missingCookieWarning != nullptr);
+    QVERIFY(!missingCookieWarning->isHidden());
+}
+
 void TestUIWidgets::testProgressLabelBarFilling() {
     ProgressLabelBar progressBar;
     progressBar.setRange(0, 100);

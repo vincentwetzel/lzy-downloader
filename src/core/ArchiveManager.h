@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QObject>
+#include <QFuture>
 #include <QSqlDatabase>
 #include <QMutex>
 #include "ConfigManager.h"
@@ -82,6 +83,8 @@ private:
     ConfigManager *m_configManager;
     QString m_dbPath;
     QMutex m_mutex;
+    QFuture<void> m_backfillFuture;
+    bool m_asyncBackfill = false;
 
     void ensureSchema();
     void backfillIdentityColumns();

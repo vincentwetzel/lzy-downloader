@@ -13,6 +13,10 @@ StartTabCommandPreviewUpdater::StartTabCommandPreviewUpdater(ConfigManager *conf
       m_ytDlpArgsBuilder(ytDlpArgsBuilder),
       m_galleryDlArgsBuilder(galleryDlArgsBuilder)
 {
+    m_updateTimer.setSingleShot(true);
+    m_updateTimer.setInterval(100);
+    connect(&m_updateTimer, &QTimer::timeout, this, &StartTabCommandPreviewUpdater::refreshCommandPreview);
+
     if (!m_uiBuilder) {
         qCritical() << "CRITICAL ERROR: m_uiBuilder is null in StartTabCommandPreviewUpdater constructor!";
         return;
@@ -34,6 +38,23 @@ StartTabCommandPreviewUpdater::~StartTabCommandPreviewUpdater()
 
 void StartTabCommandPreviewUpdater::updateCommandPreview()
 {
+    m_pendingUpdate = true;
+    if (m_enabled) {
+        m_updateTimer.start();
+    }
+}
+
+void StartTabCommandPreviewUpdater::setCommandPreviewEnabled(bool enabled)
+{
+    m_enabled = enabled;
+    if (m_enabled && m_pendingUpdate) {
+        m_updateTimer.start();
+    }
+}
+
+void StartTabCommandPreviewUpdater::refreshCommandPreview()
+{
+    m_pendingUpdate = false;
     qDebug() << "StartTabCommandPreviewUpdater::updateCommandPreview called.";
 
     if (!m_uiBuilder) {
@@ -120,10 +141,10 @@ QString StartTabCommandPreviewUpdater::resolveExecutablePath(const QString &name
         baseName.chop(4);
     }
 
-    const ProcessUtils::FoundBinary binary = ProcessUtils::findBinary(baseName, m_configManager);
-    if (binary.source != QStringLiteral("Not Found") && !binary.path.isEmpty()) {
-        return binary.path;
-    }
-
-    return QString();
+    // Preview rendering must stay cheap on the GUI thread. Startup binary
+    // discovery fills this setting asynchronously; before then the caller
+    // displays the generic executable name. Never launch resolver probes here.
+    return m_configManager
+        ? m_configManager->get(QStringLiteral("Binaries"), baseName + QStringLiteral("_path")).toString().trimmed()
+        : QString();
 }

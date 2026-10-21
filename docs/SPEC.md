@@ -28,6 +28,13 @@ only the sections relevant to the change.
 
 ### 2.1 Responsiveness and lifecycle
 
+- GUI startup shows the main window without waiting for extractor metadata or
+  binary version checks. Start-tab URL entry and command preview remain
+  available during those checks; re-evaluate entered URLs when extractor
+  metadata arrives. Render command previews from saved binary paths without
+  launching resolver probes on the GUI thread. Restored queue rows are emitted
+  in bounded batches; queue start and orphan cleanup wait until every restored
+  ID is protected.
 - Network, filesystem scans, long database work, and external processes run
   asynchronously/off the GUI thread. All QWidget access stays on the GUI thread.
 - yt-dlp/gallery-dl processes, metadata embedding, finalization, and thumbnail
@@ -65,6 +72,8 @@ only the sections relevant to the change.
 - `download_archive.db` remains schema-compatible with the Python version.
   SQLite connections are Qt thread-local. Queue, active, paused, retry, and
   archive checks use shared normalized media identity, not raw URL equality.
+  Legacy identity backfill and index creation run off the GUI thread; archive
+  reads and writes wait for that migration to finish.
 - Startup concurrency is 4; users may increase it to 8 during a session. The
   coordinator owns one queue across GUI and server/headless/background entry
   points. Playlist audio filenames use zero-padded indices by default and can
@@ -105,20 +114,27 @@ only the sections relevant to the change.
   handling, concurrency, global rate limit, duplicate override, and runtime
   format selection through Advanced Settings. `playlist_logic=Ask` supports all,
   selected one-based ranges, first item, or cancel.
+- The Start tab shows the browser-cookie setup warning only when no browser is
+  selected. Its initial visibility reflects the saved setting before the first
+  UI refresh, so configured users do not see a transient warning at startup.
 - Active Downloads provides stop/resume/clear/folder actions and one row per ID.
-  Stop keeps owned partial files for resume; clearing or terminal cancellation
-  is the explicit destructive cleanup path. Rows shrink to the viewport, wrap
-  long titles, keep actions visible, and disable horizontal scrolling. Newly
-  queued rows are revealed when the request is interactive. Queued thumbnail
-  URLs start bounded async requests immediately; playlist transitions preserve
-  them. Each row shows a compact, palette-aware video, audio, or gallery type
-  icon beside its title.
+  Stop keeps owned partial files for resume. Clearing inactive rows always
+  requires confirmation that names the entries' removal from the saved queue;
+  deleting stopped/failed temporary files is a separate opt-in. Clear logs
+  include the source URL with credential-bearing URL components redacted.
+  Terminal cancellation is the explicit destructive cleanup path. Rows shrink
+  to the viewport, wrap long titles, keep actions visible, and disable
+  horizontal scrolling. Newly queued rows are revealed when the request is
+  interactive. Queued thumbnail URLs start bounded async requests immediately;
+  playlist transitions preserve them. Each row shows a compact, palette-aware
+  video, audio, or gallery type icon beside its title.
 - Dialog-style popups, including message boxes and file dialogs, expose close
   and modal behavior without a minimize button.
 - Download History rows display cached thumbnails when available. A thumbnail
   copied after the row is created updates that row and the persisted history
   record asynchronously; local image decoding and cache copies never block
-  the GUI thread.
+  the GUI thread. History rows are created in small batches to keep large
+  histories from blocking startup.
 - Every row has one detailed `ProgressLabelBar` for the active transfer or
   processing stage. Use default palette styling for queued/indeterminate,
   light blue for transfer, teal for processing, and green for completed. Paint

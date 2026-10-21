@@ -5,7 +5,6 @@
 #include "CoordinatorWindowActivation.h"
 #include "DownloadHistoryTab.h"
 
-#include "core/ArchiveManager.h"
 #include "core/AppUpdater.h"
 #include "core/ConfigManager.h"
 #include "core/DownloadManager.h"
@@ -13,22 +12,23 @@
 #include "core/StartupWorker.h"
 #include "core/UrlValidator.h"
 #include "core/download_pipeline/YtDlpDownloadInfoExtractor.h"
-#include "utils/BinaryFinder.h"
 
 #include <QApplication>
 #include <QCoreApplication>
 #include <QDebug>
 #include <QDir>
-#include <QFile>
+#include <QShowEvent>
 #include <QThread>
+#include <QTimer>
 
 MainWindow::MainWindow(ExtractorJsonParser *extractorJsonParser, QWidget *parent)
-    : QMainWindow(parent), m_configManager(nullptr), m_archiveManager(nullptr), m_downloadManager(nullptr),
+    : QMainWindow(parent), m_configManager(nullptr), m_downloadManager(nullptr),
       m_appUpdater(nullptr), m_urlValidator(nullptr), m_startupWorker(nullptr), m_startupThread(nullptr),
       m_extractorJsonParser(extractorJsonParser), m_runtimeExtractor(nullptr), m_uiBuilder(nullptr),
       m_localApiServer(nullptr),
       m_clipboard(nullptr), m_startTab(nullptr), m_activeDownloadsTab(nullptr),
-      m_advancedSettingsTab(nullptr), m_trayIcon(nullptr), m_trayMenu(nullptr),
+      m_advancedSettingsTab(nullptr), m_sortingTab(nullptr),
+      m_trayIcon(nullptr), m_trayMenu(nullptr),
       m_silentUpdateCheck(false), m_appUpdateCheckPending(false), m_appUpdatePromptActive(false),
       m_appUpdateInstalling(false),
       m_startupChecksFinished(false), m_startupSetupPresented(false),
@@ -61,7 +61,6 @@ MainWindow::MainWindow(ExtractorJsonParser *extractorJsonParser, QWidget *parent
             << "server=" << QCoreApplication::arguments().contains(QStringLiteral("--server"))
             << "exit_after=" << m_configManager->get(QStringLiteral("General"), QStringLiteral("exit_after"), false).toBool();
 
-    m_archiveManager = new ArchiveManager(m_configManager, this);
     m_downloadManager = new DownloadManager(m_configManager, this);
     const QStringList repoUrls = {
         QStringLiteral("https://api.github.com/repos/vincentwetzel/lzy-downloader"),
@@ -85,20 +84,6 @@ MainWindow::MainWindow(ExtractorJsonParser *extractorJsonParser, QWidget *parent
         m_configManager->set(QStringLiteral("Binaries"), QStringLiteral("setup_completed"), true);
     }
 
-    // --- Dynamic Binary Discovery ---
-    QMap<QString, QString> foundBinaries = BinaryFinder::findAllBinaries();
-    for (auto it = foundBinaries.constBegin(); it != foundBinaries.constEnd(); ++it) {
-        QString configKey = QStringLiteral("%1_path").arg(it.key());
-        QString currentPath = m_configManager->get(QStringLiteral("Binaries"), configKey).toString();
-        // If current path is empty or invalid, update it
-        if (currentPath.isEmpty() || !QFile::exists(currentPath)) {
-            if (!it.value().isEmpty()) {
-                m_configManager->set(QStringLiteral("Binaries"), configKey, it.value());
-            }
-        }
-    }
-    m_configManager->save();
-
     // Create worker and thread but do not parent the worker to MainWindow
     m_startupWorker = new StartupWorker(m_configManager, m_extractorJsonParser, nullptr);
     m_startupThread = new QThread(this);
@@ -116,21 +101,47 @@ MainWindow::MainWindow(ExtractorJsonParser *extractorJsonParser, QWidget *parent
 
     setupLocalApiServer();
     setupWindowsDebugConsole();
-
     setupUI();
     setupTrayIcon();
     connectAppUpdaterSignals();
     scheduleInitialSetup();
     connectDownloadManagerSignals();
     connectStartupWorkerSignals();
-    startStartupChecks();
+    if (m_nonInteractiveLaunch) {
+        startStartupChecks();
+    }
     queueDirectCliDownload();
+
+    // Build secondary tabs after show() returns so they are ready by the time
+    // the user first opens them, without putting their construction on the
+    // click path.
+    if (!m_nonInteractiveLaunch) {
+        preloadSecondaryTabs();
+    }
 }
 
 MainWindow::~MainWindow() {
     if (m_startupThread && m_startupThread->isRunning()) {
         m_startupThread->quit();
         m_startupThread->wait();
+    } else if (!m_startupChecksStarted && m_startupWorker) {
+        // A very early window close can cancel the delayed GUI startup check
+        // before its thread has ever started.
+        delete m_startupWorker;
+        m_startupWorker = nullptr;
+    }
+}
+
+void MainWindow::showEvent(QShowEvent *event)
+{
+    QMainWindow::showEvent(event);
+    if (!m_nonInteractiveLaunch && !m_startupChecksScheduled) {
+        m_startupChecksScheduled = true;
+        // Start binary discovery after the native window has been shown and
+        // the event loop has had time to paint the real UI.
+        QTimer::singleShot(0, this, [this]() {
+            QTimer::singleShot(350, this, &MainWindow::startStartupChecks);
+        });
     }
 }
 
@@ -144,6 +155,7 @@ void MainWindow::activateCoordinatorUi()
     // Keep the existing queue and workers; this process has simply gained an
     // interactive surface after starting as an automation coordinator.
     m_nonInteractiveLaunch = false;
+    preloadSecondaryTabs();
     if (auto *historyTab = findChild<DownloadHistoryTab *>(QStringLiteral("downloadHistoryTab"))) {
         historyTab->setRenderingEnabled(true);
     }

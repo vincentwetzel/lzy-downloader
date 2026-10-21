@@ -2,6 +2,7 @@
 
 // Qt headers
 #include <QDateTime>
+#include <QtConcurrent/QtConcurrentRun>
 #include <QDebug>
 #include <QDir>
 #include <QFileInfo>
@@ -24,7 +25,10 @@ ArchiveManager::ArchiveManager(ConfigManager *configManager, QObject *parent)
 
 // New constructor for custom database path or testing
 ArchiveManager::ArchiveManager(ConfigManager *configManager, const QString &dbPath, bool forTesting, QObject *parent)
-    : QObject(parent), m_configManager(configManager), m_dbPath(dbPath) {
+    : QObject(parent), m_configManager(configManager), m_dbPath(dbPath),
+      m_asyncBackfill(!forTesting && configManager
+                      && QFileInfo(dbPath).absoluteFilePath()
+                             == QFileInfo(QDir(configManager->getConfigDir()).filePath(QStringLiteral("download_archive.db"))).absoluteFilePath()) {
     if (forTesting) {
         qDebug() << "ArchiveManager using test database path:" << m_dbPath;
     } else {
@@ -34,6 +38,7 @@ ArchiveManager::ArchiveManager(ConfigManager *configManager, const QString &dbPa
 }
 
 ArchiveManager::~ArchiveManager() {
+    m_backfillFuture.waitForFinished();
     closeCurrentThreadDatabase();
 }
 
@@ -90,46 +95,62 @@ void ArchiveManager::closeDatabase() {
 }
 
 void ArchiveManager::ensureSchema() {
-    QMutexLocker locker(&m_mutex);
-    QSqlDatabase db = getDatabase();
-    if (!db.isOpen()) return;
+    {
+        QMutexLocker locker(&m_mutex);
+        QSqlDatabase db = getDatabase();
+        if (!db.isOpen()) return;
 
-    QSqlQuery query(db);
+        QSqlQuery query(db);
+        if (!query.exec(QStringLiteral("CREATE TABLE IF NOT EXISTS downloads ("
+                        "url TEXT PRIMARY KEY, "
+                        "normalized_url TEXT, "
+                        "provider TEXT, "
+                        "media_id TEXT, "
+                        "timestamp REAL)"))) {
+            qCritical() << "Failed to create downloads table:" << query.lastError().text();
+            return;
+        }
 
-    // Create table if not exists
-    if (!query.exec(QStringLiteral("CREATE TABLE IF NOT EXISTS downloads ("
-                    "url TEXT PRIMARY KEY, "
-                    "normalized_url TEXT, "
-                    "provider TEXT, "
-                    "media_id TEXT, "
-                    "timestamp REAL)"))) {
-        qCritical() << "Failed to create downloads table:" << query.lastError().text();
-        return;
+        const QSqlRecord record = db.record(QStringLiteral("downloads"));
+        if (!record.contains(QStringLiteral("normalized_url"))) {
+            query.exec(QStringLiteral("ALTER TABLE downloads ADD COLUMN normalized_url TEXT"));
+        }
+        if (!record.contains(QStringLiteral("provider"))) {
+            query.exec(QStringLiteral("ALTER TABLE downloads ADD COLUMN provider TEXT"));
+        }
+        if (!record.contains(QStringLiteral("media_id"))) {
+            query.exec(QStringLiteral("ALTER TABLE downloads ADD COLUMN media_id TEXT"));
+        }
+        if (!record.contains(QStringLiteral("timestamp"))) {
+            query.exec(QStringLiteral("ALTER TABLE downloads ADD COLUMN timestamp REAL"));
+        }
+
     }
 
-    // Check for missing columns and add them if necessary
-    QSqlRecord record = db.record(QStringLiteral("downloads"));
-    if (!record.contains(QStringLiteral("normalized_url"))) {
-        query.exec(QStringLiteral("ALTER TABLE downloads ADD COLUMN normalized_url TEXT"));
+    const auto backfillAndIndex = [this]() {
+        backfillIdentityColumns();
+        {
+            QMutexLocker locker(&m_mutex);
+            QSqlDatabase db = getDatabase();
+            if (db.isOpen()) {
+                QSqlQuery query(db);
+                query.exec(QStringLiteral("CREATE INDEX IF NOT EXISTS idx_downloads_norm ON downloads(normalized_url)"));
+                query.exec(QStringLiteral("CREATE INDEX IF NOT EXISTS idx_downloads_provider_media ON downloads(provider, media_id)"));
+            }
+        }
+        if (m_asyncBackfill) {
+            closeCurrentThreadDatabase();
+        }
+    };
+    if (m_asyncBackfill) {
+        m_backfillFuture = QtConcurrent::run(backfillAndIndex);
+    } else {
+        backfillAndIndex();
     }
-    if (!record.contains(QStringLiteral("provider"))) {
-        query.exec(QStringLiteral("ALTER TABLE downloads ADD COLUMN provider TEXT"));
-    }
-    if (!record.contains(QStringLiteral("media_id"))) {
-        query.exec(QStringLiteral("ALTER TABLE downloads ADD COLUMN media_id TEXT"));
-    }
-    if (!record.contains(QStringLiteral("timestamp"))) {
-        query.exec(QStringLiteral("ALTER TABLE downloads ADD COLUMN timestamp REAL"));
-    }
-
-    backfillIdentityColumns();
-
-    // Create indices
-    query.exec(QStringLiteral("CREATE INDEX IF NOT EXISTS idx_downloads_norm ON downloads(normalized_url)"));
-    query.exec(QStringLiteral("CREATE INDEX IF NOT EXISTS idx_downloads_provider_media ON downloads(provider, media_id)"));
 }
 
 void ArchiveManager::backfillIdentityColumns() {
+    QMutexLocker locker(&m_mutex);
     QSqlDatabase db = getDatabase();
     if (!db.isOpen()) return;
 
@@ -157,6 +178,7 @@ void ArchiveManager::backfillIdentityColumns() {
 }
 
 void ArchiveManager::addToArchive(const QString &url) {
+    m_backfillFuture.waitForFinished();
     UrlIdentity identity = buildIdentity(url);
     if (identity.normalizedUrl.isEmpty()) {
         qWarning() << "Could not normalize URL for archive:" << url;
@@ -192,6 +214,7 @@ void ArchiveManager::addToArchive(const QString &url) {
 
 bool ArchiveManager::isInArchive(const QString &url) {
     if (!QFileInfo::exists(m_dbPath)) return false;
+    m_backfillFuture.waitForFinished();
 
     UrlIdentity identity = buildIdentity(url);
     if (identity.normalizedUrl.isEmpty()) return false;

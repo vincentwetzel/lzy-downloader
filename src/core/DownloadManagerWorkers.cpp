@@ -9,6 +9,8 @@
 #include <QFileInfo>
 #include <QMetaObject>
 #include <QDateTime>
+#include <QUrl>
+#include <QUrlQuery>
 
 namespace {
 bool shouldNormalizeSectionContainer(const DownloadItem &item)
@@ -25,6 +27,32 @@ bool shouldNormalizeSectionContainer(const DownloadItem &item)
 bool isMetadataSidecarPath(const QString &path)
 {
     return path.endsWith(QStringLiteral(".info.json"), Qt::CaseInsensitive);
+}
+
+QString urlForClearLog(const QString &value)
+{
+    QUrl url(value);
+    if (!url.isValid() || url.isEmpty()) {
+        return QStringLiteral("<unavailable>");
+    }
+
+    url.setUserInfo(QString());
+    url.setFragment(QString());
+    QUrlQuery query(url);
+    const auto items = query.queryItems(QUrl::FullyDecoded);
+    for (const auto &item : items) {
+        const QString key = item.first.toLower();
+        if (key.contains(QStringLiteral("token")) || key.contains(QStringLiteral("auth"))
+            || key.contains(QStringLiteral("signature")) || key == QStringLiteral("sig")
+            || key.contains(QStringLiteral("key")) || key.contains(QStringLiteral("password"))
+            || key.contains(QStringLiteral("passwd")) || key.contains(QStringLiteral("cookie"))
+            || key.contains(QStringLiteral("secret")) || key.contains(QStringLiteral("credential"))) {
+            query.removeAllQueryItems(item.first);
+            query.addQueryItem(item.first, QStringLiteral("[REDACTED]"));
+        }
+    }
+    url.setQuery(query);
+    return url.toString(QUrl::FullyEncoded);
 }
 
 void appendCleanupCandidate(QVariantMap &options, const QString &path)
@@ -392,8 +420,10 @@ void DownloadManager::onFinalizationComplete(const QString &id, bool success, co
     }, Qt::QueuedConnection);
 }
 
-void DownloadManager::onItemCleared(const QString &id, bool wasSuccessful, bool wasFinished) {
+void DownloadManager::onItemCleared(const QString &id, const QString &url, bool wasSuccessful, bool wasFinished) {
     Q_UNUSED(wasSuccessful);
+
+    qInfo() << "Cleared inactive download:" << "id=" << id << "url=" << urlForClearLog(url);
     
     if (!wasFinished) {
         cancelDownload(id);
