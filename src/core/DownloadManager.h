@@ -96,6 +96,7 @@ private slots:
     void onQueueCountsChanged(int queued, int paused);
     void onRequestStartNextDownload();
     void onGlobalCapacityRetry();
+    void processNextPlaylistEnqueueBatch();
 
 private:
     void applyMaxConcurrentSetting(const QString &maxThreadsStr);
@@ -114,6 +115,11 @@ private:
     void adjustActiveDownloadCount(int delta);
     void stopWorker(QObject *worker);
     void stopEmbedder(QObject *embedder);
+    void enqueuePlaylistItems(const QString &originalUrl,
+                              const QList<QVariantMap> &items,
+                              const QVariantMap &options,
+                              const QString &placeholderId,
+                              bool forcePlaylistItems);
 
     ConfigManager *m_configManager;
     SortingManager *m_sortingManager;
@@ -143,6 +149,17 @@ private:
 
     DownloadQueueState *m_queueState;
     DownloadQueueManager *m_queueManager;
+
+    struct PendingPlaylistEnqueue {
+        QString originalUrl;
+        QList<QVariantMap> items;
+        QVariantMap options;
+        QString placeholderId;
+        qsizetype nextItemIndex = 0;
+        bool forcePlaylistItems = false;
+    };
+    QQueue<PendingPlaylistEnqueue> m_pendingPlaylistEnqueues;
+    bool m_playlistEnqueueBatchScheduled = false;
 };
 
 

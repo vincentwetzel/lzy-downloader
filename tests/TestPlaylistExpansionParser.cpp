@@ -77,6 +77,25 @@ void TestPlaylistExpansionParser::testNestedPlaylistEntries() {
     QCOMPARE(item1.value(QStringLiteral("url")).toString(), QStringLiteral("https://www.youtube.com/watch?v=abcde"));
 }
 
+void TestPlaylistExpansionParser::testYoutubeFamilyExtractorKeysBuildWatchUrls() {
+    QJsonArray entries;
+    entries.append(QJsonObject{
+        {QStringLiteral("id"), QStringLiteral("music-entry")},
+        {QStringLiteral("extractor_key"), QStringLiteral("YoutubeMusic")},
+        {QStringLiteral("title"), QStringLiteral("Music entry")}
+    });
+
+    QJsonObject root;
+    root.insert(QStringLiteral("entries"), entries);
+
+    const PlaylistExpansionParseResult result = PlaylistExpansionParser::parse(
+        root, QStringLiteral("https://music.youtube.com/playlist?list=music-list"));
+
+    QCOMPARE(result.items.size(), 1);
+    QCOMPARE(result.items.first().value(QStringLiteral("url")).toString(),
+             QStringLiteral("https://www.youtube.com/watch?v=music-entry"));
+}
+
 void TestPlaylistExpansionParser::testMalformedData() {
     // Missing entries but it's empty
     QJsonObject root;

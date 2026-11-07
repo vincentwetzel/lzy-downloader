@@ -21,6 +21,7 @@
 #include <QNetworkRequest>
 #include <QUrl>
 #include <QPropertyAnimation>
+#include <QFutureWatcher>
 #include <QThread>
 #include <QTimer>
 #include <QSettings>
@@ -28,6 +29,7 @@
 #include <QMap>
 #include <QPair>
 #include <QtMath>
+#include <QtConcurrent/QtConcurrentRun>
 #include <utility>
 
 using DownloadItemWidgetIcons::createColoredIcon;
@@ -64,13 +66,25 @@ void DownloadItemWidget::setThumbnail(const QString &imagePath) {
         request.setTransferTimeout(15000);
         QNetworkReply *reply = manager->get(request);
         connect(reply, &QNetworkReply::finished, reply, &QNetworkReply::deleteLater);
-        connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+        connect(reply, &QNetworkReply::finished, this, [this, reply, imagePath]() {
             if (reply->error() == QNetworkReply::NoError) {
-                QPixmap pixmap;
-                if (pixmap.loadFromData(reply->readAll())) {
-                    QPixmap scaled = pixmap.scaled(m_thumbnailLabel->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation);
-                    m_thumbnailLabel->setPixmap(scaled);
-                }
+                const QByteArray imageData = reply->readAll();
+                const QSize thumbnailSize = m_thumbnailLabel->size();
+                auto *watcher = new QFutureWatcher<QImage>(this);
+                connect(watcher, &QFutureWatcher<QImage>::finished, this,
+                        [this, watcher, imagePath]() {
+                    const QImage scaled = watcher->result();
+                    watcher->deleteLater();
+                    if (m_currentThumbnailPath == imagePath && !scaled.isNull()) {
+                        m_thumbnailLabel->setPixmap(QPixmap::fromImage(scaled));
+                    }
+                });
+                watcher->setFuture(QtConcurrent::run([imageData, thumbnailSize]() {
+                    const QImage image = QImage::fromData(imageData);
+                    return image.isNull()
+                        ? QImage()
+                        : image.scaled(thumbnailSize, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+                }));
             }
         });
         return;

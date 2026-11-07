@@ -173,6 +173,9 @@ void DownloadManager::shutdown() {
     if (m_isShuttingDown) {
         return;
     }
+    while (!m_pendingPlaylistEnqueues.isEmpty()) {
+        processNextPlaylistEnqueueBatch();
+    }
     m_isShuttingDown = true;
     m_powerInhibitor.release();
 

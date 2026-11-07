@@ -211,12 +211,12 @@ QStringList PlaylistExpansionWorker::buildProbeArguments(const QString &playlist
     removeArgWithValue(QStringLiteral("--ffmpeg-location"));
     removeArgWithValue(QStringLiteral("--print"));
 
-    // Search pages can contain many videos and nested playlists. A full JSON
-    // expansion recursively resolves those entries and can exceed the probe
-    // watchdog before the app has a chance to create individual queue rows.
-    // Flat extraction keeps this metadata-only probe bounded; each queued item
-    // can still obtain its complete metadata during its normal download.
-    if (looksLikeSearchUrl(cleanUrl)) {
+    // Playlist probes only need entry URLs and lightweight display metadata.
+    // Resolving every video recursively here duplicates work done by each
+    // download worker and can make a second playlist probe time out while the
+    // first playlist is already downloading. Flat extraction keeps the probe
+    // bounded; each queued item obtains full metadata during its own download.
+    if (looksLikePlaylistUrl(cleanUrl) || looksLikeSearchUrl(cleanUrl)) {
         args << QStringLiteral("--flat-playlist");
     }
 

@@ -11,6 +11,7 @@ private slots:
     void testSingleVideoItem();
     void testFlatPlaylist();
     void testNestedPlaylistEntries();
+    void testYoutubeFamilyExtractorKeysBuildWatchUrls();
     void testMalformedData();
     void testEmptyData();
     void testRequestedIndexUsesGenericPlaylistIndex();

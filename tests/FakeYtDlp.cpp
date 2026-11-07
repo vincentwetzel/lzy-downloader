@@ -95,6 +95,10 @@ int main(int argc, char **argv)
         return 0;
     }
     if (isProbe && url.find("playlist-policy-probe") != std::string::npos) {
+        if (!hasArgument(arguments, "--flat-playlist")) {
+            std::cerr << "playlist probe was not flat" << std::endl;
+            return 10;
+        }
         if (!hasArgument(arguments, "--yes-playlist")
                 || hasArgument(arguments, "--no-playlist")) {
             std::cerr << "playlist policy probe must expand playlist metadata" << std::endl;

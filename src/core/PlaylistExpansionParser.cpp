@@ -27,7 +27,7 @@ QString resolveExpandedItemUrl(const QJsonObject &entry)
         ? entry.value(QStringLiteral("extractor_key")).toString().trimmed()
         : extractorKey;
 
-    if (normalizedExtractor.compare(QStringLiteral("Youtube"), Qt::CaseInsensitive) == 0 && !entryId.isEmpty()) {
+    if (normalizedExtractor.startsWith(QStringLiteral("Youtube"), Qt::CaseInsensitive) && !entryId.isEmpty()) {
         return QStringLiteral("https://www.youtube.com/watch?v=%1").arg(entryId);
     }
 

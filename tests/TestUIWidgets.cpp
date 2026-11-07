@@ -25,6 +25,9 @@
 #include <QImage>
 #include <QLabel>
 #include <QPair>
+#include <QBuffer>
+#include <QTcpServer>
+#include <QTcpSocket>
 
 void TestUIWidgets::testAdvancedSettingsSectionsUseNaturalSpacing() {
     ConfigManager config(QStringLiteral(":memory:"), true, nullptr);
@@ -274,6 +277,53 @@ void TestUIWidgets::testDownloadItemWidgetShowsMediaTypeIcon()
         QCOMPARE(typeIcon->toolTip(), QObject::tr("Download type: %1").arg(label));
         QVERIFY(typeIcon->accessibleName().contains(label));
     }
+}
+
+void TestUIWidgets::testDownloadItemWidgetLoadsRemoteThumbnail()
+{
+    QImage source(16, 12, QImage::Format_RGB32);
+    source.fill(Qt::magenta);
+    QByteArray imageData;
+    QBuffer imageBuffer(&imageData);
+    QVERIFY(imageBuffer.open(QIODevice::WriteOnly));
+    QVERIFY(source.save(&imageBuffer, "PNG"));
+
+    QTcpServer server;
+    QVERIFY(server.listen(QHostAddress::LocalHost));
+    connect(&server, &QTcpServer::newConnection, &server, [&server, &imageData]() {
+        while (server.hasPendingConnections()) {
+            QTcpSocket *socket = server.nextPendingConnection();
+            connect(socket, &QTcpSocket::readyRead, socket, [socket, &imageData]() {
+                socket->readAll();
+                const QByteArray response = QByteArrayLiteral("HTTP/1.1 200 OK\r\n")
+                    + QByteArrayLiteral("Content-Type: image/png\r\nContent-Length: ")
+                    + QByteArray::number(imageData.size())
+                    + QByteArrayLiteral("\r\nConnection: close\r\n\r\n")
+                    + imageData;
+                socket->write(response);
+                socket->disconnectFromHost();
+            });
+        }
+    });
+
+    QVariantMap itemData;
+    itemData.insert(QStringLiteral("id"), QStringLiteral("remote-thumbnail"));
+    DownloadItemWidget widget(itemData);
+    widget.updateProgress({
+        {QStringLiteral("thumbnail_path"),
+         QStringLiteral("http://127.0.0.1:%1/thumbnail.png").arg(server.serverPort())}
+    });
+
+    QLabel *thumbnailLabel = nullptr;
+    for (QLabel *label : widget.findChildren<QLabel *>()) {
+        if (label->size() == QSize(80, 60)) {
+            thumbnailLabel = label;
+            break;
+        }
+    }
+    QVERIFY(thumbnailLabel != nullptr);
+    QTRY_VERIFY_WITH_TIMEOUT(!thumbnailLabel->pixmap(Qt::ReturnByValue).isNull(), 5000);
+    QCOMPARE(thumbnailLabel->pixmap(Qt::ReturnByValue).size(), QSize(80, 60));
 }
 
 void TestUIWidgets::testDownloadHistoryUpdatesThumbnailAfterAsyncCacheCopy()

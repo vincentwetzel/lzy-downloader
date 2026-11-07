@@ -13,4 +13,13 @@ private slots:
     void testRetryingFailedPlaylistPlaceholderReexpandsTracks();
     void testRestoredPendingPlaylistPlaceholderIsReprobed();
     void testPlaylistLogicModesControlProbeAndExpansion();
+    void testTransientPlaylistProbeFallback();
+    void testSearchProbeFailureDoesNotFallBackToSingleWorker();
+    void testSearchProbeUsesFlatPlaylistAndReturnsEntries();
+    void testWatchUrlWithPlaylistQueryIsExpanded();
+    void testExplicitPlaylistFailureClassification();
+    void testEnqueueUsesPersistedPlaylistLogic();
+    void testSinglePlaylistSettingQueuesOnlyFirstItem();
+    void testDownloadAllCreatesOneQueueItemPerExpandedItem();
+    void testPlaylistRowsAreEnqueuedInBoundedBatches();
 };

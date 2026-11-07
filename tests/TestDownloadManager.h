@@ -12,7 +12,6 @@
 
 // To access DownloadManager's private slot onPlaylistExpanded for testing
 class TestableDownloadManager : public DownloadManager {
-    Q_OBJECT
 public:
     explicit TestableDownloadManager(ConfigManager *configManager, QObject *parent = nullptr)
         : DownloadManager(configManager, parent), m_configManager(configManager) {}
@@ -58,14 +57,6 @@ private slots:
     void init();
     void cleanup();
 
-    void testTransientPlaylistProbeFallback();
-    void testSearchProbeFailureDoesNotFallBackToSingleWorker();
-    void testSearchProbeUsesFlatPlaylistAndReturnsEntries();
-    void testWatchUrlWithPlaylistQueryIsExpanded();
-    void testExplicitPlaylistFailureClassification();
-    void testEnqueueUsesPersistedPlaylistLogic();
-    void testSinglePlaylistSettingQueuesOnlyFirstItem();
-    void testDownloadAllCreatesOneQueueItemPerExpandedItem();
     void testNonInteractiveDuplicateUsesFailureSignal();
     void testSlowProbeFallbackAndExplicitPlaylistSmoke();
     void testDownloadWorkerUsesDedicatedThread();

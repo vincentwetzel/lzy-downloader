@@ -9,6 +9,12 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## [Unreleased]
 
+- **Playlist enqueue responsiveness:** Use flat extraction for playlist probes
+  and enqueue expanded items in bounded GUI-thread batches. Decode and scale
+  remote queue thumbnails off the GUI thread so adding a second playlist does
+  not stall the active-download window. Add regression coverage for flat probe
+  arguments, bounded batch yields, YouTube Music flat-entry URLs, and remote
+  thumbnail loading.
 - **YouTube Music playlist recovery:** Allow metadata-only playlist probes to
   use configured cookies, parse probe JSON off the GUI thread, and re-probe
   pending or retried playlist placeholders before starting downloads. Add

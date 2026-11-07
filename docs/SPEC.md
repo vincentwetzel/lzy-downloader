@@ -83,7 +83,9 @@ only the sections relevant to the change.
 
 - Queue rows are emitted immediately. Video/audio rows start as
   `Checking for playlist...`; gallery rows start as `Queued`; single items
-  become `Queued` and playlists replace the placeholder with their entries.
+  become `Queued` and playlists replace the placeholder with entries in batches
+  of at most eight per event-loop turn so large playlists do not block the GUI
+  thread.
   Queue persistence is deferred, coalesced, and written off the GUI thread.
 - Retry/resume compares the candidate with the current active snapshot before
   enqueueing. `override_archive=true` may replace only a matching restored
@@ -126,8 +128,9 @@ only the sections relevant to the change.
   to the viewport, wrap long titles, keep actions visible, and disable
   horizontal scrolling. Newly queued rows are revealed when the request is
   interactive. Queued thumbnail URLs start bounded async requests immediately;
-  playlist transitions preserve them. Each row shows a compact, palette-aware
-  video, audio, or gallery type icon beside its title.
+  playlist transitions preserve them. Remote and local thumbnail decoding and
+  scaling happen off the GUI thread, with stale results ignored. Each row shows
+  a compact, palette-aware video, audio, or gallery type icon beside its title.
 - Dialog-style popups, including message boxes and file dialogs, expose close
   and modal behavior without a minimize button.
 - Download History rows display cached thumbnails when available. A thumbnail
@@ -170,11 +173,12 @@ only the sections relevant to the change.
   presents the selection UI, `Download All (no prompt)` forces expansion and
   queues each entry, and `Download Single (ignore playlist)` expands a
   playlist-only URL to identify its first entry before queueing that one item.
-  Search-shaped URLs use flat playlist extraction so search results can become
-  separate queue items without recursively resolving nested playlists during
-  the probe. A probe is bounded by a 45-second watchdog. Transient probe/JSON
-  errors, including that timeout, fall back to the normal worker only for
-  ordinary URLs; explicit playlist- or search-shaped URLs and missing yt-dlp
+  Playlist and search-shaped URLs use flat extraction so entries can become
+  separate queue items without recursively resolving each media item during
+  the probe. Expanded entries are queued in batches of at most eight per
+  event-loop turn. A probe is bounded by a 45-second watchdog. Transient
+  probe/JSON errors, including that timeout, fall back to the normal worker only
+  for ordinary URLs; explicit playlist- or search-shaped URLs and missing yt-dlp
   remain terminal failures. An ordinary-URL fallback explicitly disables
   playlist expansion so one failed probe cannot turn one queue row into an
   unbounded extractor-level batch.

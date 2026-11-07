@@ -17,6 +17,7 @@ private slots:
     void testDownloadItemWidgetCoalescesHighFrequencyProgress();
     void testDownloadItemWidgetKeepsActionsVisibleWhenNarrow();
     void testDownloadItemWidgetShowsMediaTypeIcon();
+    void testDownloadItemWidgetLoadsRemoteThumbnail();
     void testAdvancedSettingsSectionsUseNaturalSpacing();
     void testBinariesPageUsesNaturalScrollDocument();
     void testDenoAppManagedInstallIsRecommended();
