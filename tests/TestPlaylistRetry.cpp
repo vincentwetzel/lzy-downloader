@@ -114,7 +114,7 @@ void TestPlaylistRetry::testRetryingFailedPlaylistPlaceholderReexpandsTracks()
 void TestPlaylistRetry::testPlaylistRowsAreEnqueuedInBoundedBatches()
 {
     ConfigManager *config = getConfigManager();
-    DownloadManager manager(config, this);
+    TestableDownloadManager manager(config, this);
     QSignalSpy addedSpy(&manager, &DownloadManager::downloadAddedToQueue);
 
     // Occupy the manager's worker slots so this test measures queue insertion
@@ -133,11 +133,13 @@ void TestPlaylistRetry::testPlaylistRowsAreEnqueuedInBoundedBatches()
     }
 
     const QString playlistUrl = QStringLiteral("https://media.example/playlist?list=batch-test");
-    manager.onPlaylistExpanded(playlistUrl, items, QString());
+    manager.callOnPlaylistExpanded(playlistUrl, items, QString());
 
     QCOMPARE(addedSpy.count(), 0);
     QCOMPARE(manager.m_pendingPlaylistEnqueues.size(), 1);
-    manager.processNextPlaylistEnqueueBatch();
+    QVERIFY(QMetaObject::invokeMethod(&manager,
+                                      "processNextPlaylistEnqueueBatch",
+                                      Qt::DirectConnection));
 
     QCOMPARE(addedSpy.count(), 8);
     QCOMPARE(manager.m_pendingPlaylistEnqueues.head().nextItemIndex, 8);
