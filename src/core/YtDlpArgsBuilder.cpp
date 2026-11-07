@@ -646,7 +646,7 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
         rawArgs << QStringLiteral("--cookies") << requestCookieFile;
     } else {
         QString cookiesBrowser = configManager->get(QStringLiteral("General"), QStringLiteral("cookies_from_browser"), QStringLiteral("None")).toString();
-        if (cookiesBrowser != QLatin1String("None") && !isPlaylistExpansion) {
+        if (cookiesBrowser != QLatin1String("None")) {
             rawArgs << QStringLiteral("--cookies-from-browser") << cookiesBrowser.toLower();
         }
     }

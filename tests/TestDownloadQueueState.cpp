@@ -56,6 +56,8 @@ void TestDownloadQueueState::testSaveRestoresStatusesAndFields()
 
     DownloadItem queued;
     queued.id = QStringLiteral("queued-id");
+    queued.url = QStringLiteral("https://music.example/playlist?id=pending");
+    queued.options.insert(QStringLiteral("playlist_expansion_pending"), true);
 
     QMap<QString, DownloadItem> pausedItems;
     pausedItems.insert(paused.id, paused);
@@ -82,6 +84,17 @@ void TestDownloadQueueState::testSaveRestoresStatusesAndFields()
     QCOMPARE(statuses.value(stopped.id), QStringLiteral("stopped"));
     QCOMPARE(statuses.value(failed.id), QStringLiteral("stopped"));
     QCOMPARE(statuses.value(queued.id), QStringLiteral("queued"));
+
+    bool foundPendingPlaylist = false;
+    for (const QJsonValue &value : restored) {
+        const QJsonObject object = value.toObject();
+        if (object.value(QStringLiteral("id")).toString() == queued.id) {
+            foundPendingPlaylist = object.value(QStringLiteral("options")).toObject()
+                .value(QStringLiteral("playlist_expansion_pending")).toBool();
+            break;
+        }
+    }
+    QVERIFY(foundPendingPlaylist);
 
     const QJsonObject activeObject = restored.at(0).toObject();
     QCOMPARE(activeObject.value(QStringLiteral("url")).toString(), active.url);

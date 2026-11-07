@@ -9,6 +9,15 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## [Unreleased]
 
+- **YouTube Music playlist recovery:** Allow metadata-only playlist probes to
+  use configured cookies, parse probe JSON off the GUI thread, and re-probe
+  pending or retried playlist placeholders before starting downloads. Add
+  regression coverage for authenticated expansion, retry splitting, and
+  persisted pending probes.
+- **Playlist Logic probe policies:** Apply Ask, Download All, and Download
+  Single behavior explicitly to metadata probes so all-items requests expand
+  into individual queue entries and playlist-only single-item requests expand
+  metadata before selecting one track to queue.
 - **Download History thumbnails:** Preserve the existing thumbnail reference
   while a background cache copy is pending, then switch to the stable cached
   path when the copy completes.

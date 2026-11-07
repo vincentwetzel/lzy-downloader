@@ -10,6 +10,7 @@
 #include "YtDlpWorker.h"
 #include "PowerInhibitor.h"
 #include "DynamicRateLimitProxy.h"
+#include "PlaylistExpansionWorker.h"
 #include <QDebug>
 #include <QMetaObject>
 #include <QProcess>
@@ -63,6 +64,8 @@ DownloadManager::DownloadManager(ConfigManager *configManager, QObject *parent) 
     connect(m_queueManager, &DownloadQueueManager::playlistExpansionPlaceholderUpdated, this, &DownloadManager::onPlaylistExpansionPlaceholderUpdated);
     connect(m_queueManager, &DownloadQueueManager::resumeItemsRestored,
             m_queueManager, &DownloadQueueManager::cleanupOrphanedTempDirectories);
+    connect(m_queueManager, &DownloadQueueManager::resumeItemsRestored,
+            this, &DownloadManager::resumePendingPlaylistExpansions);
     QTimer::singleShot(0, this, [this]() {
         const QJsonArray restoredItems = m_queueState->load();
         if (restoredItems.isEmpty()) {
@@ -71,6 +74,37 @@ DownloadManager::DownloadManager(ConfigManager *configManager, QObject *parent) 
     });
 
     emitDownloadStats();
+}
+
+void DownloadManager::resumePendingPlaylistExpansions()
+{
+    if (m_isShuttingDown || !m_queueManager) {
+        return;
+    }
+
+    for (const DownloadItem &item : std::as_const(m_queueManager->m_downloadQueue)) {
+        if (!item.options.value(QStringLiteral("playlist_expansion_pending")).toBool()
+                || m_queueManager->m_pendingExpansions.contains(item.id)) {
+            continue;
+        }
+
+        launchPlaylistExpansion(item);
+        qInfo() << "DownloadManager: Restarting interrupted playlist expansion for queued item" << item.id;
+    }
+}
+
+void DownloadManager::launchPlaylistExpansion(const DownloadItem &item)
+{
+    m_queueManager->m_pendingExpansions.insert(item.id, item.url);
+    auto *expander = new PlaylistExpansionWorker(item.url, m_configManager, this);
+    expander->setProperty("options", item.options);
+    expander->setProperty("queueId", item.id);
+    connect(expander, &PlaylistExpansionWorker::expansionFinished,
+            this, &DownloadManager::onPlaylistExpanded);
+    connect(expander, &PlaylistExpansionWorker::playlistDetected,
+            this, &DownloadManager::onPlaylistDetected);
+    expander->startExpansion(item.options.value(QStringLiteral("playlist_logic"), QStringLiteral("Ask")).toString());
+    emit playlistExpansionStarted(item.url);
 }
 
 DownloadManager::~DownloadManager() {

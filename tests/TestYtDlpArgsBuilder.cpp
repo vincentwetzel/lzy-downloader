@@ -100,6 +100,24 @@ void TestYtDlpArgsBuilder::testPlaylistLogicArguments() {
     QVERIFY(!args.contains(QStringLiteral("--no-playlist")));
 }
 
+void TestYtDlpArgsBuilder::testPlaylistExpansionUsesConfiguredBrowserCookies()
+{
+    ConfigManager *config = getConfigManager();
+    config->set(QStringLiteral("General"), QStringLiteral("cookies_from_browser"), QStringLiteral("Firefox"));
+
+    QVariantMap options{
+        {QStringLiteral("type"), QStringLiteral("audio")},
+        {QStringLiteral("playlist_logic"), QStringLiteral("Ask")},
+        {QStringLiteral("is_playlist_expansion"), true}
+    };
+    const QStringList args = YtDlpArgsBuilder().build(config, TEST_URL, options);
+
+    const int cookiesIndex = args.indexOf(QStringLiteral("--cookies-from-browser"));
+    QVERIFY(cookiesIndex >= 0);
+    QVERIFY(cookiesIndex + 1 < args.size());
+    QCOMPARE(args.at(cookiesIndex + 1), QStringLiteral("firefox"));
+}
+
 void TestYtDlpArgsBuilder::testSponsorBlockArguments() {
     ConfigManager *mockConfig = getConfigManager();
     mockConfig->set(QStringLiteral("General"), QStringLiteral("sponsorblock"), true); // Enable SponsorBlock

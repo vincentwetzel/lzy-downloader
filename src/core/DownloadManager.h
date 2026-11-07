@@ -104,6 +104,8 @@ private:
     void startDownloadsToCapacity();
     void checkQueueFinished();
     void updateTotalSpeed();
+    void resumePendingPlaylistExpansions();
+    void launchPlaylistExpansion(const DownloadItem &item);
     void emitDownloadStats();
     void fetchInfoForSections(const QString &url, const QVariantMap &options);
     void fetchFormatsForSelection(const QString &url, const QVariantMap &options);

@@ -118,6 +118,7 @@ void DownloadManager::processPlaylistSelection(const QString &url, const QString
     const QString queueId = options.value(QStringLiteral("playlist_placeholder_id")).toString();
     QVariantMap queueOptions = options;
     queueOptions.remove(QStringLiteral("playlist_placeholder_id"));
+    queueOptions.remove(QStringLiteral("playlist_expansion_pending"));
     queueOptions.insert(QStringLiteral("playlist_logic"), QStringLiteral("Download Single (ignore playlist)"));
     QList<QVariantMap> finalItems;
 
@@ -233,6 +234,7 @@ void DownloadManager::onPlaylistExpanded(const QString &originalUrl, const QList
     QString queueId;
     if (expander) {
         options = expander->property("options").toMap();
+        options.remove(QStringLiteral("playlist_expansion_pending"));
         queueId = expander->property("queueId").toString();
         expander->deleteLater();
     }
@@ -258,6 +260,7 @@ void DownloadManager::onPlaylistExpanded(const QString &originalUrl, const QList
             }
         }
     }
+    options.remove(QStringLiteral("playlist_expansion_pending"));
 
     QList<QVariantMap> itemsToProcess = expandedItems;
 

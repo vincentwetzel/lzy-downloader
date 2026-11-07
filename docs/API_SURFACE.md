@@ -53,19 +53,27 @@ Public methods:
 
 - `void enqueueDownload(const QString &url, const QVariantMap &options)` — queue
   a URL and, when configured, start asynchronous playlist expansion. The
-  metadata-only probe uses flat extraction for search-shaped URLs so each
-  result can become its own queue item. Transient probe failures fall back to a
-  single-item worker only for ordinary URLs; explicit playlist/search URLs and
-  missing yt-dlp remain terminal failures. The
+  metadata-only probe uses configured cookies for authenticated access and
+  flat extraction for search-shaped URLs so each result can become its own
+  queue item. Probe JSON parsing and item conversion run off the GUI thread.
+  Transient probe failures fall back to a single-item worker only for ordinary
+  URLs; explicit playlist/search URLs and missing yt-dlp remain terminal
+  failures. Pending placeholders are re-probed after restart and when retried,
+  so an unresolved playlist is not sent to yt-dlp as one GUI download. The
   optional `playlist_logic` request value (`Ask`, `Download All (no prompt)`,
   or `Download Single (ignore playlist)`) overrides `General/playlist_logic`;
   invalid values use `Ask`, while non-interactive requests force all items.
+  Probe arguments honor the same policy: ask mode expands explicit playlist
+  URLs for selection, all mode forces per-entry expansion, and single mode
+  expands playlist-only URLs before selecting one entry.
 - `void cancelDownload(const QString &id)`, `pauseDownload(const QString &id)`,
   `unpauseDownload(const QString &id)` — control a queued or active item.
 - `void restartDownloadWithOptions(const QVariantMap &itemData)`,
   `retryDownload(const QVariantMap &itemData)`,
   `resumeDownload(const QVariantMap &itemData)` — requeue through identity and
-  active-snapshot duplicate protection.
+  active-snapshot duplicate protection. Failed playlist placeholders are
+  expanded again before they return to the runnable queue; expanded track rows
+  continue to retry as individual downloads.
 - `void finishDownload(const QString &id)` — start post-processing and final
   destination handling.
 - `void moveDownloadUp(const QString &id)`,

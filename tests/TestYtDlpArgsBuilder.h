@@ -10,6 +10,7 @@ private slots:
     void testBasicVideoArguments();
     void testRateLimitUsesSavedSettingAndRequestOverride();
     void testPlaylistLogicArguments();
+    void testPlaylistExpansionUsesConfiguredBrowserCookies();
     void testSponsorBlockArguments();
     void testLivestreamArguments();
     void testPostLiveReplayUsesVideoArguments();

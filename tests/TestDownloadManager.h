@@ -46,6 +46,7 @@ public:
             Q_ARG(QString, id), Q_ARG(bool, success), Q_ARG(QString, message)));
     }
 
+
 private:
     ConfigManager *m_configManager;
 };

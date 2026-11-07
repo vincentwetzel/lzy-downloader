@@ -81,7 +81,7 @@ paths/headless Qt. Main focused files are:
 
 | Concern | Test |
 |---|---|
-| Manager/probe/gallery/playlist | `TestDownloadManager.cpp`, `FakeYtDlp.cpp`, `TestGalleryDlArgsBuilder.cpp`, `TestPlaylistExpansionParser.cpp` |
+| Manager/probe/gallery/playlist | `TestDownloadManager.cpp`, `TestPlaylistRetry.cpp`, `FakeYtDlp.cpp`, `TestGalleryDlArgsBuilder.cpp`, `TestPlaylistExpansionParser.cpp` |
 | UI/startup responsiveness | `TestUIWidgets.cpp`, `TestCoordinatorWindowActivation.cpp`, `TestStartupWorker.cpp` |
 | Audio artwork normalization and edge-region regression coverage (JPEG fixture) | `TestArtworkNormalizer.cpp` |
 | Queue/archive/temp/replacement | `TestDownloadQueueManager.cpp`, `TestDownloadQueueState.cpp`, `TestDownloadTempCleanup.cpp`, `TestFileReplacement.cpp` |

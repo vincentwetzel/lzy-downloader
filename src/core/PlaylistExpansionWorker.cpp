@@ -14,6 +14,8 @@
 #include <QUrl>
 #include <QBuffer>
 #include <QUrlQuery>
+#include <QFutureWatcher>
+#include <QtConcurrent/QtConcurrentRun>
 #include <array>
 
 #include <chrono>
@@ -218,13 +220,20 @@ QStringList PlaylistExpansionWorker::buildProbeArguments(const QString &playlist
         args << QStringLiteral("--flat-playlist");
     }
 
-    // A video-shaped URL carrying a playlist identifier (for example a
-    // YouTube /watch URL with ?list=...) is otherwise commonly interpreted by
-    // yt-dlp as a request for only the selected video. Make the metadata probe
-    // explicit so Ask can actually detect the playlist. The single-item
-    // policy remains authoritative because the builder already adds
-    // --no-playlist for that setting.
-    if (playlistLogic == QStringLiteral("Ask") && looksLikePlaylistUrl(cleanUrl)) {
+    // Playlist expansion probes must apply the selected playlist policy
+    // themselves: YtDlpArgsBuilder intentionally omits these flags for all
+    // metadata-only expansion probes. In particular, video URLs carrying a
+    // playlist identifier are otherwise often reduced to the selected video.
+    args.removeAll(QStringLiteral("--yes-playlist"));
+    args.removeAll(QStringLiteral("--no-playlist"));
+    const bool alwaysExpandPlaylist = playlistLogic == QStringLiteral("Download All (no prompt)")
+        || playlistLogic == QStringLiteral("Download Single (ignore playlist)");
+    const bool askForPlaylistSelection = playlistLogic == QStringLiteral("Ask")
+        && looksLikePlaylistUrl(cleanUrl);
+    if (alwaysExpandPlaylist || askForPlaylistSelection) {
+        // Single mode needs entries for playlist-only URLs; DownloadManager
+        // reduces them to the first item before queueing. Each real track
+        // download receives --no-playlist from its per-item options.
         args << QStringLiteral("--yes-playlist");
     }
 
@@ -283,48 +292,67 @@ void PlaylistExpansionWorker::onProcessFinished(int exitCode, QProcess::ExitStat
     if (stdoutBuffer) stdoutBuffer->write(m_process->readAllStandardOutput());
     const QByteArray jsonData = stdoutBuffer ? stdoutBuffer->data() : m_process->readAllStandardOutput();
 
-    QJsonParseError parseError;
-    const QJsonDocument doc = QJsonDocument::fromJson(jsonData, &parseError);
-
-    if (parseError.error != QJsonParseError::NoError || !doc.isObject()) {
-        emit expansionFinished(m_url, {}, tr("Failed to parse playlist JSON: %1").arg(parseError.errorString()));
-        return;
-    }
-
-    QJsonObject jsonObj = doc.object();
-
-    // Pre-process JSON to ensure is_live is strictly true only for active/upcoming livestreams
-    auto fixLiveStatus = [](QJsonObject& obj) {
-        if (obj.contains(QStringLiteral("live_status"))) {
-            const QString liveStatus = obj.value(QStringLiteral("live_status")).toString();
-            if (liveStatus == QStringLiteral("was_live") || liveStatus == QStringLiteral("not_live") || liveStatus == QStringLiteral("post_live")) {
-                obj.insert(QStringLiteral("is_live"), false);
-            } else if (liveStatus == QStringLiteral("is_live") || liveStatus == QStringLiteral("is_upcoming")) {
-                obj.insert(QStringLiteral("is_live"), true);
-            }
+    const QString originalUrl = m_url;
+    const QString playlistLogic = m_currentPlaylistLogic;
+    const QVariantMap options = m_options;
+    auto *watcher = new QFutureWatcher<QVariantMap>(this);
+    connect(watcher, &QFutureWatcher<QVariantMap>::finished, this, [this, watcher, originalUrl, playlistLogic, options]() {
+        const QVariantMap outcome = watcher->result();
+        watcher->deleteLater();
+        const QString error = outcome.value(QStringLiteral("error")).toString();
+        if (!error.isEmpty()) {
+            emit expansionFinished(originalUrl, {}, tr("Failed to parse playlist JSON: %1").arg(error));
+            return;
         }
-    };
 
-    fixLiveStatus(jsonObj);
-    if (jsonObj.contains(QStringLiteral("entries")) && jsonObj.value(QStringLiteral("entries")).isArray()) {
-        const QJsonArray entries = jsonObj.value(QStringLiteral("entries")).toArray();
-        QJsonArray updatedEntries;
-        for (const QJsonValue &val : std::as_const(entries)) {
-            if (val.isObject()) {
-                QJsonObject entry = val.toObject();
-                fixLiveStatus(entry);
-                updatedEntries.append(entry);
-            } else {
-                updatedEntries.append(val);
-            }
+        const QList<QVariantMap> items = outcome.value(QStringLiteral("items")).value<QList<QVariantMap>>();
+        if (outcome.value(QStringLiteral("is_playlist")).toBool()
+                && playlistLogic == QStringLiteral("Ask")) {
+            emit playlistDetected(originalUrl, items.count(), options, items);
+        } else {
+            emit expansionFinished(originalUrl, items, QString());
         }
-        jsonObj.insert(QStringLiteral("entries"), updatedEntries);
-    }
+    });
+    watcher->setFuture(QtConcurrent::run([jsonData, originalUrl]() {
+        QVariantMap outcome;
+        QJsonParseError parseError;
+        const QJsonDocument doc = QJsonDocument::fromJson(jsonData, &parseError);
+        if (parseError.error != QJsonParseError::NoError || !doc.isObject()) {
+            outcome.insert(QStringLiteral("error"), parseError.errorString());
+            return outcome;
+        }
 
-    const PlaylistExpansionParseResult result = PlaylistExpansionParser::parse(jsonObj, m_url);
-    if (result.isPlaylist && m_currentPlaylistLogic == QStringLiteral("Ask")) {
-        emit playlistDetected(m_url, result.items.count(), m_options, result.items);
-    } else {
-        emit expansionFinished(m_url, result.items, QString());
-    }
+        QJsonObject jsonObj = doc.object();
+        const auto fixLiveStatus = [](QJsonObject &object) {
+            if (!object.contains(QStringLiteral("live_status"))) {
+                return;
+            }
+            const QString status = object.value(QStringLiteral("live_status")).toString();
+            if (status == QStringLiteral("was_live") || status == QStringLiteral("not_live")
+                    || status == QStringLiteral("post_live")) {
+                object.insert(QStringLiteral("is_live"), false);
+            } else if (status == QStringLiteral("is_live") || status == QStringLiteral("is_upcoming")) {
+                object.insert(QStringLiteral("is_live"), true);
+            }
+        };
+
+        fixLiveStatus(jsonObj);
+        if (jsonObj.value(QStringLiteral("entries")).isArray()) {
+            QJsonArray entries = jsonObj.value(QStringLiteral("entries")).toArray();
+            for (qsizetype i = 0; i < entries.size(); ++i) {
+                const QJsonValue value = entries.at(i);
+                if (value.isObject()) {
+                    QJsonObject entry = value.toObject();
+                    fixLiveStatus(entry);
+                    entries.replace(i, entry);
+                }
+            }
+            jsonObj.insert(QStringLiteral("entries"), entries);
+        }
+
+        const PlaylistExpansionParseResult parsed = PlaylistExpansionParser::parse(jsonObj, originalUrl);
+        outcome.insert(QStringLiteral("is_playlist"), parsed.isPlaylist);
+        outcome.insert(QStringLiteral("items"), QVariant::fromValue(parsed.items));
+        return outcome;
+    }));
 }

@@ -136,6 +136,7 @@ void DownloadManager::enqueueDownload(const QString &url, const QVariantMap &opt
         m_queueManager->enqueueDownload(item);
     } else {
         // IMMEDIATE UI FEEDBACK: Create the download item in UI before playlist expansion
+        effectiveOptions.insert(QStringLiteral("playlist_expansion_pending"), true);
         DownloadItem item;
         item.id = QUuid::createUuid().toString(QUuid::WithoutBraces);
         item.url = url;
@@ -153,20 +154,10 @@ void DownloadManager::enqueueDownload(const QString &url, const QVariantMap &opt
         }
         emit downloadAddedToQueue(uiData);
 
-        PlaylistExpansionWorker *expander = new PlaylistExpansionWorker(url, m_configManager, this);
-        expander->setProperty("options", effectiveOptions);
-        expander->setProperty("queueId", item.id); // Store queue ID for later
-
         // Mark the placeholder as pending before it enters the queue so the
         // queue cannot start downloading the original playlist URL first.
-        m_queueManager->m_pendingExpansions[item.id] = url;
         m_queueManager->enqueueDownload(item, false); // Enqueue as placeholder, not a "new" item for UI
-        connect(expander, &PlaylistExpansionWorker::expansionFinished, this, &DownloadManager::onPlaylistExpanded);
-        connect(expander, &PlaylistExpansionWorker::playlistDetected, this, &DownloadManager::onPlaylistDetected);
-
-        QString playlistLogic = effectiveOptions.value(QStringLiteral("playlist_logic"), QStringLiteral("Ask")).toString();
-        expander->startExpansion(playlistLogic);
-        emit playlistExpansionStarted(url);
+        launchPlaylistExpansion(item);
     }
 }
 

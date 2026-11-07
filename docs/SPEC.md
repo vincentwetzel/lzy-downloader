@@ -160,8 +160,16 @@ only the sections relevant to the change.
 ### 4.1 Probing, arguments, and tools
 
 - `yt-dlp` handles video/audio and `gallery-dl` handles galleries through
-  asynchronous `QProcess`. Metadata-only playlist probes are read-only: they
-  omit download forcing, cookies, temp-directory creation, and item limits.
+  asynchronous `QProcess`. Playlist JSON parsing and item conversion run off
+  the GUI thread. Pending playlist placeholders are persisted and re-probed
+  after restart or retry before they can start as ordinary downloads.
+  Metadata-only playlist probes are read-only: they omit download forcing,
+  temp-directory creation, and item limits. They may use configured browser
+  cookies or a request-scoped cookie file so authenticated playlists can be
+  expanded. `Ask` probes explicit playlist URLs with playlist expansion and
+  presents the selection UI, `Download All (no prompt)` forces expansion and
+  queues each entry, and `Download Single (ignore playlist)` expands a
+  playlist-only URL to identify its first entry before queueing that one item.
   Search-shaped URLs use flat playlist extraction so search results can become
   separate queue items without recursively resolving nested playlists during
   the probe. A probe is bounded by a 45-second watchdog. Transient probe/JSON
@@ -376,8 +384,9 @@ only the sections relevant to the change.
   platform build job succeeds.
 - Register tests with `lzy_add_test(...)`; keep them isolated from user files
   and use `QT_QPA_PLATFORM=minimal`. Required coverage includes argument
-  builders, playlist/probe fallback, audio artwork normalization, progress and
-  recovery boundaries,
+  builders, authenticated playlist probes, all Playlist Logic modes,
+  pending-expansion persistence and retry, playlist/probe fallback, audio
+  artwork normalization, progress and recovery boundaries,
   persistence/cleanup, archive identity, API/power/binary behavior, sorting,
   UI row layout, completion-save responsiveness, startup/shutdown lifecycle,
   and the end-to-end fixture.

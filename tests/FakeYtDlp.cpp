@@ -71,6 +71,42 @@ int main(int argc, char **argv)
         ]})" << std::endl;
         return 0;
     }
+    if (isProbe && url.find("authenticated-playlist-retry") != std::string::npos) {
+        bool hasFirefoxCookies = false;
+        for (std::size_t index = 0; index + 1 < arguments.size(); ++index) {
+            if (arguments[index] == "--cookies-from-browser" && arguments[index + 1] == "firefox") {
+                hasFirefoxCookies = true;
+                break;
+            }
+        }
+        if (!hasFirefoxCookies) {
+            std::cerr << "authenticated playlist probe did not receive configured browser cookies" << std::endl;
+            return 7;
+        }
+        if (!hasArgument(arguments, "--yes-playlist")) {
+            std::cerr << "authenticated playlist probe did not enable playlist expansion" << std::endl;
+            return 8;
+        }
+        std::cout << R"({"title":"Authenticated playlist","entries":[
+            {"webpage_url":"https://media.example/watch?id=auth-retry-1","title":"Track 1","playlist_index":1},
+            {"webpage_url":"https://media.example/watch?id=auth-retry-2","title":"Track 2","playlist_index":2},
+            {"webpage_url":"https://media.example/watch?id=auth-retry-3","title":"Track 3","playlist_index":3}
+        ]})" << std::endl;
+        return 0;
+    }
+    if (isProbe && url.find("playlist-policy-probe") != std::string::npos) {
+        if (!hasArgument(arguments, "--yes-playlist")
+                || hasArgument(arguments, "--no-playlist")) {
+            std::cerr << "playlist policy probe must expand playlist metadata" << std::endl;
+            return 9;
+        }
+        std::cout << R"({"title":"Playlist policy results","entries":[
+            {"webpage_url":"https://media.example/watch?id=policy-1","title":"Track 1","playlist_index":1},
+            {"webpage_url":"https://media.example/watch?id=policy-2","title":"Track 2","playlist_index":2},
+            {"webpage_url":"https://media.example/watch?id=policy-3","title":"Track 3","playlist_index":3}
+        ]})" << std::endl;
+        return 0;
+    }
     // Match the stable test marker rather than one exact query serialization;
     // QProcess/URL handling may preserve the marker while encoding the query
     // separator differently on Windows.

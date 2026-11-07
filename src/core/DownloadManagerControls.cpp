@@ -9,6 +9,34 @@
 #include <QMetaObject>
 #include <QProcess>
 #include <QDateTime>
+#include <QStringList>
+#include <QUrl>
+#include <QUrlQuery>
+
+namespace {
+bool looksLikePlaylistUrl(const QString &urlString)
+{
+    const QUrl url(urlString);
+    if (!url.isValid()) {
+        return false;
+    }
+
+    const QStringList pathParts = url.path().split(QLatin1Char('/'), Qt::SkipEmptyParts);
+    for (const QString &part : pathParts) {
+        if (part.compare(QStringLiteral("playlist"), Qt::CaseInsensitive) == 0
+                || part.compare(QStringLiteral("collection"), Qt::CaseInsensitive) == 0
+                || part.compare(QStringLiteral("album"), Qt::CaseInsensitive) == 0) {
+            return true;
+        }
+    }
+
+    const QUrlQuery query(url);
+    return query.hasQueryItem(QStringLiteral("list"))
+        || query.hasQueryItem(QStringLiteral("playlist"))
+        || query.hasQueryItem(QStringLiteral("collection"))
+        || query.hasQueryItem(QStringLiteral("album"));
+}
+}
 
 void DownloadManager::cancelDownload(const QString &id) {
     bool cancelled = false;
@@ -104,6 +132,44 @@ void DownloadManager::cancelDownload(const QString &id) {
 }
 
 void DownloadManager::retryDownload(const QVariantMap &itemData) {
+    const QString id = itemData.value(QStringLiteral("id")).toString();
+    DownloadItem item;
+    item.id = id;
+    item.url = itemData.value(QStringLiteral("url")).toString();
+    item.options = itemData.value(QStringLiteral("options")).toMap();
+    item.playlistIndex = itemData.value(QStringLiteral("playlistIndex"), -1).toInt();
+    if (item.playlistIndex < 0) {
+        item.playlistIndex = item.options.value(QStringLiteral("playlist_index"), -1).toInt();
+    }
+
+    const bool failedExpansionPlaceholder = item.options.value(QStringLiteral("playlist_expansion_pending")).toBool()
+        || (item.playlistIndex < 0
+            && !item.options.value(QStringLiteral("is_playlist"), false).toBool()
+            && looksLikePlaylistUrl(item.url));
+    if (failedExpansionPlaceholder) {
+        const bool hadPausedItem = m_queueManager->m_pausedItems.contains(id);
+        const DownloadItem pausedItem = m_queueManager->m_pausedItems.take(id);
+        const auto duplicateStatus = m_queueManager->getDuplicateStatus(item, m_activeItems);
+        if (duplicateStatus != DownloadQueueManager::NotDuplicate
+                && duplicateStatus != DownloadQueueManager::DuplicateCompleted) {
+            if (hadPausedItem) {
+                m_queueManager->m_pausedItems.insert(id, pausedItem);
+            }
+            emit duplicateDownloadDetected(item.url, tr("An equivalent download is already queued or active."));
+            return;
+        }
+
+        item.options.remove(QStringLiteral("is_stopped"));
+        item.options.remove(QStringLiteral("is_failed"));
+        item.options.insert(QStringLiteral("playlist_expansion_pending"), true);
+        m_queueManager->enqueueDownload(item, false);
+        emit downloadProgress(id, {{QStringLiteral("status"), tr("Checking for playlist...")},
+                                   {QStringLiteral("progress"), 0}});
+        launchPlaylistExpansion(item);
+        m_queueManager->saveQueueStateAsync(m_activeItems);
+        return;
+    }
+
     m_queueManager->retryDownload(itemData, m_activeItems);
 }
 
@@ -149,7 +215,7 @@ void DownloadManager::restartDownloadWithOptions(const QVariantMap &itemData) {
 }
 
 void DownloadManager::resumeDownload(const QVariantMap &itemData) {
-    m_queueManager->resumeDownload(itemData, m_activeItems);
+    retryDownload(itemData);
 }
 
 void DownloadManager::pauseDownload(const QString &id) {

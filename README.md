@@ -192,7 +192,7 @@ the focused test passes. If CTest suppresses output, run the test executable
 directly with `-v2` to expose native loader/runtime errors. Workflow edits are
 reserved for failures shown to be specific to CI setup or orchestration.
 
-Current coverage includes argument construction (including aria2c retry policy), audio artwork normalization, progress parsing and asynchronous size recovery, browser-cookie recovery, queue-backup status/field persistence and malformed-entry filtering, coalesced completion saves, protected temporary-directory root fallback and ownership cleanup, negative aria2c recovery boundaries, archive normalization, configuration defaults/reset cleanup, Local API auth/enqueue behavior, process binary-resolution caching and explicit/WinGet discovery, URL validation, sorting sanitization, playlist range selection, the single-bar download widget and compact External Binaries scroll layout, and a local end-to-end download fixture.
+Current coverage includes argument construction (including aria2c retry policy), audio artwork normalization, progress parsing and asynchronous size recovery, browser-cookie recovery, authenticated playlist probe/retry and Playlist Logic modes, queue-backup status/field persistence and malformed-entry filtering, coalesced completion saves, protected temporary-directory root fallback and ownership cleanup, negative aria2c recovery boundaries, archive normalization, configuration defaults/reset cleanup, Local API auth/enqueue behavior, process binary-resolution caching and explicit/WinGet discovery, URL validation, sorting sanitization, playlist range selection, the single-bar download widget and compact External Binaries scroll layout, and a local end-to-end download fixture.
 
 ### Release Checklist
 
@@ -363,6 +363,9 @@ edges and leaves ambiguous or genuinely landscape artwork unchanged.
 Yes. Playlist and search-shaped URLs are expanded into separate queue items and
 can include every item, the first item, or a selected range. If an ordinary URL
 has a transient probe failure, its fallback remains a single-item download.
+The Start tab's **Playlist Logic** setting controls whether the app asks what
+to queue, adds every playlist entry without prompting, or selects one entry
+from a playlist-only URL.
 Audio playlist filenames can include zero-padded playlist indices so the result
 remains ordered in music players and file browsers.
 
