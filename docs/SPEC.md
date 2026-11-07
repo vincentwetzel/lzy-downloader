@@ -111,9 +111,9 @@ only the sections relevant to the change.
 
 - The Qt Widgets UI uses in-app tabs/buttons/sidebars, not a native top-level
   menu bar. The Start tab provides URL/type controls, Supported Sites, playlist
-  handling, concurrency, global rate limit, duplicate override, and runtime
-  format selection through Advanced Settings. `playlist_logic=Ask` supports all,
-  selected one-based ranges, first item, or cancel.
+  handling, concurrency, a shared live rate limit, duplicate override, and
+  runtime format selection through Advanced Settings. `playlist_logic=Ask`
+  supports all, selected one-based ranges, first item, or cancel.
 - The Start tab shows the browser-cookie setup warning only when no browser is
   selected. Its initial visibility reflects the saved setting before the first
   UI refresh, so configured users do not see a transient warning at startup.
@@ -144,9 +144,14 @@ only the sections relevant to the change.
   segments, merging, verification, sorting, destination movement, embedding,
   and livestream wait countdowns. Controls and descriptive labels have
   tooltips; light/dark themes use palette-aware colors.
-- The footer keeps links, counters, and current speed on its first row, with
-  exit-after-downloads rightmost. Closing the window exits rather than hiding
-  to the tray.
+- The footer keeps links, counters, and current speed on its first row. Current
+  Speed reports measured aggregate bytes delivered through the rate-limit
+  relay, with worker progress as a fallback if the local listener cannot start.
+  The live HTTP/HTTPS cap is shared across active download transfers and
+  responds immediately to Start tab changes without restarting their processes.
+  The relay binds only to loopback. If it cannot start, downloads use the
+  launch-time per-process cap. Keep the exit-after-downloads control rightmost.
+  Closing the window exits rather than hiding to the tray.
 
 ## 4. Download engine
 

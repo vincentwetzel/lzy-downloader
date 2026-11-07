@@ -237,10 +237,11 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
         return {};
     }
     QStringList rawArgs;
+    const QString dynamicRateLimitProxy = options.value(QStringLiteral("rate_limit_proxy")).toString();
 
     // --- Basic arguments ---
     rawArgs << QStringLiteral("--ignore-config");
-    rawArgs << QStringLiteral("--proxy") << QStringLiteral("");
+    rawArgs << QStringLiteral("--proxy") << dynamicRateLimitProxy;
     rawArgs << QStringLiteral("--verbose");
     rawArgs << QStringLiteral("--write-info-json");
     rawArgs << QStringLiteral("--encoding") << QStringLiteral("utf-8");
@@ -675,7 +676,10 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
     }
     // --- Rate Limit ---
     QString rateLimit = options.value(QStringLiteral("rate_limit"), QStringLiteral("Unlimited")).toString(); // "Unlimited" is a UI string
-    if (rateLimit != QLatin1String("Unlimited")) {
+    if (rateLimit == QLatin1String("Unlimited")) {
+        rateLimit = configManager->get(QStringLiteral("General"), QStringLiteral("rate_limit"), QStringLiteral("Unlimited")).toString();
+    }
+    if (dynamicRateLimitProxy.isEmpty() && rateLimit != QLatin1String("Unlimited")) {
         rawArgs << QStringLiteral("--limit-rate") << rateLimit.replace(QLatin1String(" MB/s"), QLatin1String("M")).replace(QLatin1String(" KB/s"), QLatin1String("K")).replace(QLatin1Char(' '), QString());
     }
 

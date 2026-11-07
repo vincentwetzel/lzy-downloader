@@ -63,6 +63,7 @@ Public/project guidance is in `README.md`, `CONTRIBUTING.md`, `SECURITY.md`,
 |---|---|
 | Queue/archive/persistence | `src/core/DownloadManager.*`, `src/core/DownloadQueueManager*.cpp`, `src/core/DownloadQueueState.*`, `src/core/ArchiveManager.*` |
 | Cross-process worker admission | `src/core/GlobalDownloadLimiter.*` |
+| Shared live rate limiting | `src/core/DynamicRateLimitProxy.*`, `src/core/DownloadManager.*` |
 | Runtime coordination | `src/core/RuntimeCoordinator.*`, `main.cpp` |
 | Temp/finalization | `src/core/DownloadFinalizer.*`, `src/core/FileReplacement.*`, `src/core/DownloadTempCleanup.*`, `src/core/DownloadQueueManagerCleanup.cpp` |
 | yt-dlp/gallery pipeline | `src/core/DiagnosticTail.h`, `src/core/YtDlpWorker.*`, `src/core/YtDlpWorkerProcess.cpp`, `src/core/YtDlpWorkerProcessOutput.cpp`, `src/core/YtDlpWorkerInfoJson.cpp`, `src/core/YtDlpWorkerProcessHelpers.h`, `src/core/YtDlpWorkerDiagnostics.cpp`, `src/core/YtDlpWorkerFfmpegDiagnostics.cpp`, `src/core/YtDlpWorkerTransfers.cpp`, `src/core/GalleryDlWorker.*` |
@@ -85,6 +86,7 @@ paths/headless Qt. Main focused files are:
 | Audio artwork normalization and edge-region regression coverage (JPEG fixture) | `TestArtworkNormalizer.cpp` |
 | Queue/archive/temp/replacement | `TestDownloadQueueManager.cpp`, `TestDownloadQueueState.cpp`, `TestDownloadTempCleanup.cpp`, `TestFileReplacement.cpp` |
 | Cross-process worker admission and writable-state fallback | `TestGlobalDownloadLimiter.cpp` |
+| Live shared rate cap and throughput reporting | `TestDynamicRateLimitProxy.cpp`, `TestYtDlpArgsBuilder.cpp`, `TestGalleryDlArgsBuilder.cpp` |
 | Single queue coordination | `TestRuntimeCoordinator.cpp` |
 | Coordinator window activation | `TestCoordinatorWindowActivation.cpp` |
 | URL validation with fake yt-dlp | `TestUrlValidator.cpp`, `FakeYtDlp.cpp` |

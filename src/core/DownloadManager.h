@@ -16,6 +16,7 @@ class PlaylistExpansionWorker;
 class DownloadFinalizer;
 class DownloadQueueManager;
 class DownloadQueueState;
+class DynamicRateLimitProxy;
 
 class DownloadManager : public QObject {
     Q_OBJECT
@@ -136,6 +137,7 @@ private:
     qint64 m_lastDownloadFinishTime = 0;
     PowerInhibitor m_powerInhibitor;
     GlobalDownloadLimiter m_globalDownloadLimiter;
+    DynamicRateLimitProxy *m_rateLimitProxy;
 
     DownloadQueueState *m_queueState;
     DownloadQueueManager *m_queueManager;

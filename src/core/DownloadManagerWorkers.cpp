@@ -1,6 +1,7 @@
 #include "DownloadManager.h"
 #include "DownloadFinalizer.h"
 #include "DownloadQueueManager.h"
+#include "DynamicRateLimitProxy.h"
 #include "MetadataEmbedder.h"
 #include <QThread>
 #include <QDebug>
@@ -483,6 +484,9 @@ void DownloadManager::checkQueueFinished() {
 }
 
 void DownloadManager::updateTotalSpeed() {
+    if (m_rateLimitProxy && !m_rateLimitProxy->proxyUrl().isEmpty()) {
+        return;
+    }
     double totalSpeed = 0.0;
     for (auto it = m_workerSpeeds.cbegin(); it != m_workerSpeeds.cend(); ++it) {
         totalSpeed += it.value();

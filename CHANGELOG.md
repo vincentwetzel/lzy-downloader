@@ -9,6 +9,11 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## [Unreleased]
 
+- **Live shared rate limit:** Route download transfers through a local proxy so
+  one HTTP/HTTPS cap can be changed while jobs continue. Current Speed now uses
+  measured aggregate relay throughput, with worker progress as a fallback when
+  the local listener is unavailable. Regression tests cover both cap directions
+  on an open transfer and the shared cap across concurrent tunnels.
 - **Startup responsiveness:** Show the main window before binary discovery,
   keep URL entry available while extractor metadata loads, render command
   previews without resolver probes, defer secondary-tab setup, and avoid

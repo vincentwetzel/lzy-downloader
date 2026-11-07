@@ -41,7 +41,10 @@ QStringList GalleryDlArgsBuilder::build(const QString &url, const QVariantMap &o
         rateLimit = m_configManager->get(QStringLiteral("General"), QStringLiteral("rate_limit"), QStringLiteral("Unlimited")).toString();
     }
 
-    if (rateLimit != QStringLiteral("Unlimited")) {
+    const QString dynamicRateLimitProxy = options.value(QStringLiteral("rate_limit_proxy")).toString();
+    if (!dynamicRateLimitProxy.isEmpty()) {
+        args << QStringLiteral("--proxy") << dynamicRateLimitProxy;
+    } else if (rateLimit != QStringLiteral("Unlimited")) {
         QString formattedRate = rateLimit;
         formattedRate.replace(QLatin1String(" MB/s"), QLatin1String("M")).replace(QLatin1String(" KB/s"), QLatin1String("K")).replace(QLatin1Char(' '), QString());
         args << QStringLiteral("--limit-rate") << formattedRate;

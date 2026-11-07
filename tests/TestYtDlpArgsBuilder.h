@@ -8,6 +8,7 @@ class TestYtDlpArgsBuilder : public BaseTest { // Inherit from BaseTest
 
 private slots:
     void testBasicVideoArguments();
+    void testRateLimitUsesSavedSettingAndRequestOverride();
     void testPlaylistLogicArguments();
     void testSponsorBlockArguments();
     void testLivestreamArguments();

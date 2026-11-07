@@ -34,6 +34,15 @@ void TestGalleryDlArgsBuilder::testRateLimit() {
     args = builder.build(QStringLiteral("https://example.com/gallery"), options);
     QVERIFY(args.contains(QStringLiteral("--limit-rate")));
     QCOMPARE(args.at(args.indexOf(QStringLiteral("--limit-rate")) + 1), QStringLiteral("10K"));
+
+    // The app-managed proxy owns the live shared cap, so gallery-dl must use it
+    // instead of a process-local startup limit.
+    options.insert(QStringLiteral("rate_limit_proxy"), QStringLiteral("http://127.0.0.1:43210"));
+    args = builder.build(QStringLiteral("https://example.com/gallery"), options);
+    const int proxyIndex = args.indexOf(QStringLiteral("--proxy"));
+    QVERIFY(proxyIndex >= 0);
+    QCOMPARE(args.at(proxyIndex + 1), QStringLiteral("http://127.0.0.1:43210"));
+    QVERIFY(!args.contains(QStringLiteral("--limit-rate")));
 }
 
 void TestGalleryDlArgsBuilder::testCookiesFromBrowser() {

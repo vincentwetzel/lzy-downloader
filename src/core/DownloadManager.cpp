@@ -9,6 +9,7 @@
 #include "core/ProcessUtils.h"
 #include "YtDlpWorker.h"
 #include "PowerInhibitor.h"
+#include "DynamicRateLimitProxy.h"
 #include <QDebug>
 #include <QMetaObject>
 #include <QProcess>
@@ -18,8 +19,15 @@
 DownloadManager::DownloadManager(ConfigManager *configManager, QObject *parent) : QObject(parent),
     m_configManager(configManager), m_archiveManager(nullptr), m_sleepMode(NoSleep),
     m_queuedDownloadsCount(0), m_activeDownloadsCount(0), m_completedDownloadsCount(0), m_errorDownloadsCount(0),
-    m_isShuttingDown(false)
+    m_isShuttingDown(false), m_rateLimitProxy(new DynamicRateLimitProxy(this))
 {
+
+    connect(m_rateLimitProxy, &DynamicRateLimitProxy::totalDownloadSpeedUpdated, this, [this](double bytesPerSecond) {
+        emit totalSpeedUpdated(bytesPerSecond);
+    });
+    if (m_rateLimitProxy->start()) {
+        m_rateLimitProxy->setRateLimitPreset(m_configManager->get(QStringLiteral("General"), QStringLiteral("rate_limit"), QStringLiteral("Unlimited")).toString());
+    }
 
     m_queueState = new DownloadQueueState(this);
     m_sortingManager = new SortingManager(m_configManager, this);
@@ -192,6 +200,9 @@ void DownloadManager::shutdown() {
     }
 
     m_workerSpeeds.clear();
+    if (m_rateLimitProxy) {
+        m_rateLimitProxy->stop();
+    }
 }
 
 void DownloadManager::adjustActiveDownloadCount(int delta)
@@ -247,6 +258,18 @@ void DownloadManager::onQueueCountsChanged(int queued, int paused) {
 }
 
 void DownloadManager::onConfigSettingChanged(const QString &section, const QString &key, const QVariant &value) {
+    if (section == QStringLiteral("General") && key == QStringLiteral("rate_limit")) {
+        if (m_rateLimitProxy && m_rateLimitProxy->proxyUrl().isEmpty()) {
+            const bool started = m_rateLimitProxy->start();
+            if (!started) {
+                qWarning() << "Dynamic rate limiting is unavailable; new downloads will use yt-dlp's per-process cap.";
+            }
+        }
+        if (m_rateLimitProxy) {
+            m_rateLimitProxy->setRateLimitPreset(value.toString());
+        }
+        return;
+    }
     if (section != QStringLiteral("General") || key != QStringLiteral("max_threads")) {
         return;
     }

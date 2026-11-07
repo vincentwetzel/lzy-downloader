@@ -4,6 +4,7 @@
 #include "GalleryDlWorker.h"
 #include "YtDlpArgsBuilder.h"
 #include "YtDlpWorker.h"
+#include "DynamicRateLimitProxy.h"
 #include <QDebug>
 #include <QThread>
 #include <QTimer>
@@ -36,7 +37,12 @@ void DownloadManager::startDownloadItem(DownloadItem item, bool alreadyCountedAc
     }
 
     const QString downloadType = item.options.value(QStringLiteral("type"), QStringLiteral("video")).toString();
-
+    if (m_rateLimitProxy) {
+        const QString proxy = m_rateLimitProxy->proxyUrl();
+        if (!proxy.isEmpty()) {
+            item.options.insert(QStringLiteral("rate_limit_proxy"), proxy);
+        }
+    }
     if (downloadType == QStringLiteral("gallery")) {
         item.options.insert(QStringLiteral("id"), item.id);
         item.options.insert(QStringLiteral("playlist_index"), item.playlistIndex);
@@ -58,7 +64,9 @@ void DownloadManager::startDownloadItem(DownloadItem item, bool alreadyCountedAc
         connect(workerThread, &QThread::finished, worker, &QObject::deleteLater);
         connect(workerThread, &QThread::finished, workerThread, &QObject::deleteLater);
         m_activeWorkers.insert(item.id, worker);
-        m_activeItems.insert(item.id, item);
+        DownloadItem persistedItem = item;
+        persistedItem.options.remove(QStringLiteral("rate_limit_proxy"));
+        m_activeItems.insert(item.id, persistedItem);
 
         connect(worker, &GalleryDlWorker::progressUpdated, this, &DownloadManager::onWorkerProgress);
         connect(worker, &GalleryDlWorker::finished, this, &DownloadManager::onGalleryDlWorkerFinished);
@@ -87,7 +95,9 @@ void DownloadManager::startDownloadItem(DownloadItem item, bool alreadyCountedAc
         connect(workerThread, &QThread::finished, worker, &QObject::deleteLater);
         connect(workerThread, &QThread::finished, workerThread, &QObject::deleteLater);
         m_activeWorkers.insert(item.id, worker);
-        m_activeItems.insert(item.id, item);
+        DownloadItem persistedItem = item;
+        persistedItem.options.remove(QStringLiteral("rate_limit_proxy"));
+        m_activeItems.insert(item.id, persistedItem);
 
         connect(worker, &YtDlpWorker::progressUpdated, this, &DownloadManager::onWorkerProgress);
         connect(worker, &YtDlpWorker::finished, this, &DownloadManager::onWorkerFinished);
@@ -128,6 +138,15 @@ void DownloadManager::startDownloadsToCapacity() {
     // is an in-process signal. Sync before admission so a setting changed in
     // the other surface becomes the global limit here as well.
     m_configManager->save();
+    if (m_rateLimitProxy) {
+        if (m_rateLimitProxy->proxyUrl().isEmpty()) {
+            const bool started = m_rateLimitProxy->start();
+            if (!started) {
+                qWarning() << "Dynamic rate limit proxy unavailable; active transfers cannot receive live cap changes.";
+            }
+        }
+        m_rateLimitProxy->setRateLimitPreset(m_configManager->get(QStringLiteral("General"), QStringLiteral("rate_limit"), QStringLiteral("Unlimited")).toString());
+    }
     applyMaxConcurrentSetting(m_configManager->get(QStringLiteral("General"), QStringLiteral("max_threads"), QStringLiteral("4")).toString());
 
     if (m_sleepTimer->isActive()) {

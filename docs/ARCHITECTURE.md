@@ -85,6 +85,7 @@ replacement. Temp cleanup owns root resolution and guarded UUID-folder removal.
 | `ArchiveManager.*` | Schema-compatible SQLite completed-media archive and media identity; asynchronously backfills legacy identity columns and indexes |
 | `DownloadQueueManager.*` | Ordering, concurrency, duplicate checks, retry/resume, and coalesced queue-backup writes |
 | `GlobalDownloadLimiter.*` | Locked per-user process registry for cross-process worker-slot admission and stale-holder cleanup; probes directory write access and falls back from ACL-blocked app-local storage |
+| `DynamicRateLimitProxy.*` | Loopback HTTP/CONNECT relay that applies one adjustable aggregate download cap and reports measured transfer throughput |
 | `RuntimeCoordinator.*` | Per-user local-socket ownership, GUI activation, API activation, and direct-URL forwarding |
 | `DownloadQueueManagerRecovery.cpp` | Restored stopped/failed replacement recovery |
 | `DownloadQueueState.*` | Atomic `downloads_backup.json` save/load/restore, including path-based worker saves |
@@ -93,6 +94,7 @@ replacement. Temp cleanup owns root resolution and guarded UUID-folder removal.
 | `DownloadManager.*`, `DownloadManagerWorkers.cpp` | Scheduling, shutdown/worker-thread lifecycle, terminal classification, power, video quality warnings |
 | `DownloadManagerPlaylist.cpp`, `PlaylistExpansionWorker.*`, `PlaylistExpansionParser.*` | Read-only probing, item selection, placeholders, thumbnails, playlist metadata, fallback |
 | `YtDlpArgsBuilder.*` | Settings/options to yt-dlp/aria2c arguments and replay-safe live classification |
+| `GalleryDlArgsBuilder.*` | Settings/options to gallery-dl arguments, including the shared local rate-limit proxy |
 | `src/utils/UrlUtils.*` | Generic extraction of HTTP(S) targets from plain text and Markdown links |
 | `ArtworkNormalizer.*` | Worker-thread detection, complete-edge sampling, and atomic codec-buffer rewriting that removes high-confidence borders around square audio artwork |
 | `DiagnosticTail.h`, `YtDlpWorker.*`, `YtDlpWorkerProcess.cpp`, `YtDlpWorkerProcessOutput.cpp`, `YtDlpWorkerInfoJson.cpp`, `YtDlpWorkerProcessHelpers.h` | Async yt-dlp process, bounded diagnostics, output/progress parsing, metadata loading, cookies, livestream wait, aria2c recovery |

@@ -78,6 +78,7 @@ input are reported as incomplete-transfer failures before metadata embedding.
 - 🔄 **App Updates** — Checks validated GitHub Releases for newer installers, saves unfinished downloads, stops downloader processes, and automatically restarts the app after installation
 - 🔌 **Local API** — Optional localhost API for trusted local integrations such as Discord bots and the browser companion
 - 📊 **Concurrent Downloads** — Queue and manage multiple downloads simultaneously
+- 🚦 **Live Shared Rate Limit** — Apply one HTTP/HTTPS transfer cap across active downloads and adjust it without restarting them
 - 🌙 **Sleep Prevention** — Prevents system idle sleep while downloads, post-processing, or finalization are active in GUI and non-interactive server/headless/background modes; the display may still turn off normally
 - 📌 **Compact Footer Status** — Download counters and current speed share the footer's first row, with the exit-after-downloads switch at the far right
 - ⏸️ **Pause & Resume** — Stop downloads while preserving partial `.part` files for resume, with explicit cleanup actions for discarded temporary data

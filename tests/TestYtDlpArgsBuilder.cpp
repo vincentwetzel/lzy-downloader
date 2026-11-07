@@ -43,6 +43,38 @@ void TestYtDlpArgsBuilder::testBasicVideoArguments() {
     QVERIFY(args.contains(QStringLiteral("mp4")));
 }
 
+void TestYtDlpArgsBuilder::testRateLimitUsesSavedSettingAndRequestOverride() {
+    ConfigManager *mockConfig = getConfigManager();
+    mockConfig->set(QStringLiteral("Video"), QStringLiteral("video_quality"), QStringLiteral("best"));
+    mockConfig->set(QStringLiteral("Video"), QStringLiteral("video_extension"), QStringLiteral("mp4"));
+    mockConfig->set(QStringLiteral("General"), QStringLiteral("rate_limit"), QStringLiteral("1 MB/s"));
+
+    YtDlpArgsBuilder builder;
+    QVariantMap options;
+    options.insert(QStringLiteral("type"), QStringLiteral("video"));
+
+    // Normal queued downloads carry no per-request rate_limit option, so they
+    // must use the saved global preset.
+    QStringList args = builder.build(mockConfig, TEST_URL, options);
+    const int rateLimitIndex = args.indexOf(QStringLiteral("--limit-rate"));
+    QVERIFY(rateLimitIndex >= 0);
+    QCOMPARE(args.at(rateLimitIndex + 1), QStringLiteral("1M"));
+
+    // A caller that supplies a specific preset can still override the global one.
+    options.insert(QStringLiteral("rate_limit"), QStringLiteral("500 KB/s"));
+    args = builder.build(mockConfig, TEST_URL, options);
+    const int overrideIndex = args.indexOf(QStringLiteral("--limit-rate"));
+    QVERIFY(overrideIndex >= 0);
+    QCOMPARE(args.at(overrideIndex + 1), QStringLiteral("500K"));
+
+    options.insert(QStringLiteral("rate_limit_proxy"), QStringLiteral("http://127.0.0.1:43210"));
+    args = builder.build(mockConfig, TEST_URL, options);
+    const int proxyIndex = args.indexOf(QStringLiteral("--proxy"));
+    QVERIFY(proxyIndex >= 0);
+    QCOMPARE(args.at(proxyIndex + 1), QStringLiteral("http://127.0.0.1:43210"));
+    QVERIFY(!args.contains(QStringLiteral("--limit-rate")));
+}
+
 void TestYtDlpArgsBuilder::testPlaylistLogicArguments() {
     ConfigManager *mockConfig = getConfigManager();
     mockConfig->set(QStringLiteral("Video"), QStringLiteral("video_quality"), QStringLiteral("best"));
