@@ -113,11 +113,11 @@ replacement. Temp cleanup owns root resolution and guarded UUID-folder removal.
 
 | Component | Owns |
 |---|---|
-| `MainWindow.*`, `MainWindowConnections.cpp`, `MainWindowDownloadConnections.cpp`, `MainWindowUiBuilder.*` | Shell, tabs, footer, global actions, deferred startup checks and secondary-tab construction, external-tool update handoff, webhook wiring |
+| `MainWindow.*`, `MainWindowConnections.cpp`, `MainWindowDownloadConnections.cpp`, `MainWindowStartupConnections.cpp`, `MainWindowUiBuilder.*` | Shell, tabs, footer, global actions, deferred startup checks and secondary-tab construction, external-tool update handoff, webhook wiring |
 | `CoordinatorWindowActivation.*` | Cross-platform coordinator window reveal, including native Windows restore/foreground handling |
 | `StartTab.*`, `StartTabUiBuilder.cpp`, `start_tab/*` | URL submission, clipboard, playlist/runtime selection, startup-safe command preview and saved cookie-warning state |
 | `ActiveDownloadsTab.*`, `DownloadItemWidget.cpp`, `DownloadItemWidgetProgress.cpp`, `DownloadItemWidgetIcons.h` | Download rows, thumbnails, async owned-temp checks, compact layout, one focused progress bar, actions, and newest-row visibility |
-| `DownloadHistoryTab.*`, `DownloadHistoryStorage.*` | Asynchronous `download_history.json` loading, display cache, bounded row rendering, atomic coalesced saves, and off-thread local thumbnail decoding |
+| `DownloadHistoryTab.*`, `DownloadHistoryStorage.*`, `DownloadHistoryThumbnailPath.h` | Asynchronous `download_history.json` loading, display cache, bounded row rendering, atomic coalesced saves, off-thread local thumbnail decoding, and retention of usable thumbnail references while cache copies are pending |
 | `advanced_settings/*`, `MissingBinariesDialog.*` | Settings pages, templates, and consolidated binary setup/provisioning |
 | `LocalApiServer.*`, `integration/LocalApiEndpoint.h` | Authenticated localhost enqueue/status/cancel, aggregate progress, tracked-job signals, and app-local port discovery |
 | `integration/BrowserNativeMessagingHost.cpp`, `integration/BrowserNativeHostRegistration.*`, `integration/BrowserCookieFile.*` | Bounded cross-platform Chrome native-messaging bridge and registration, plus request-scoped cookie-file ownership; requests the coordinator's Local API and relays allowlisted operations |

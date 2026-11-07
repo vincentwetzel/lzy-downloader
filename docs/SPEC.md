@@ -132,9 +132,11 @@ only the sections relevant to the change.
   and modal behavior without a minimize button.
 - Download History rows display cached thumbnails when available. A thumbnail
   copied after the row is created updates that row and the persisted history
-  record asynchronously; local image decoding and cache copies never block
-  the GUI thread. History rows are created in small batches to keep large
-  histories from blocking startup.
+  record asynchronously; while a local copy is pending, retain the existing
+  usable thumbnail URL/path instead of storing a transient download-temp path.
+  Local image decoding and cache copies never block the GUI thread. History
+  rows are created in small batches to keep large histories from blocking
+  startup.
 - Every row has one detailed `ProgressLabelBar` for the active transfer or
   processing stage. Use default palette styling for queued/indeterminate,
   light blue for transfer, teal for processing, and green for completed. Paint

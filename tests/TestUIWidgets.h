@@ -22,6 +22,7 @@ private slots:
     void testDenoAppManagedInstallIsRecommended();
     void testRequiredToolsDialogDistinguishesExistingUpdates();
     void testDownloadHistoryUpdatesThumbnailAfterAsyncCacheCopy();
+    void testHistoryThumbnailPathSurvivesPendingCacheCopy();
     void testApplicationUpdateBlocksConflictingClipboardAndDownloads();
 
 private slots:

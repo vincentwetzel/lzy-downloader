@@ -71,7 +71,7 @@ Public/project guidance is in `README.md`, `CONTRIBUTING.md`, `SECURITY.md`,
 | Metadata/FFmpeg | `src/core/ArtworkNormalizer.*`, `src/core/MetadataEmbedder.*`, `src/core/YtDlpWorkerFfmpegDiagnostics.cpp`, `src/core/download_pipeline/FfmpegMuxer.*` |
 | Tools/processes | `src/core/ProcessDiagnostics.*`, `src/core/ProcessUtils.*`, `src/core/SmartBinaryResolver.*`, `src/core/BaseBinaryUpdater.*`, `src/core/StartupWorker.*` |
 | API/update/power/logging | `src/core/LocalApiServer.*`, `src/core/AppUpdater.*`, `src/core/PowerInhibitor.*`, `src/utils/LogManager.*` |
-| Main UI | `src/ui/MainWindow.*`, `src/ui/MainWindowConnections.cpp`, `src/ui/MainWindowDownloadConnections.cpp`, `src/ui/MainWindowUiBuilder.*`, `src/ui/CoordinatorWindowActivation.*`, `src/ui/StartTab.*`, `src/ui/ActiveDownloadsTab.*`, `src/ui/DownloadItemWidget.cpp`, `src/ui/DownloadItemWidgetProgress.cpp`, `src/ui/DownloadItemWidgetIcons.h`, `src/ui/DownloadHistoryTab.*`, `src/ui/DownloadHistoryStorage.*` |
+| Main UI | `src/ui/MainWindow.*`, `src/ui/MainWindowConnections.cpp`, `src/ui/MainWindowDownloadConnections.cpp`, `src/ui/MainWindowStartupConnections.cpp`, `src/ui/MainWindowUiBuilder.*`, `src/ui/CoordinatorWindowActivation.*`, `src/ui/StartTab.*`, `src/ui/ActiveDownloadsTab.*`, `src/ui/DownloadItemWidget.cpp`, `src/ui/DownloadItemWidgetProgress.cpp`, `src/ui/DownloadItemWidgetIcons.h`, `src/ui/DownloadHistoryTab.*`, `src/ui/DownloadHistoryStorage.*`, `src/ui/DownloadHistoryThumbnailPath.h` |
 | Settings UI | `src/ui/advanced_settings/*`, `src/ui/MissingBinariesDialog.*` |
 
 ## Regression-test index

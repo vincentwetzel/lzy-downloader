@@ -7,6 +7,7 @@
 #include "ui/advanced_settings/BinariesPage.h"
 #include "ui/AdvancedSettingsTab.h"
 #include "ui/DownloadHistoryTab.h"
+#include "ui/DownloadHistoryThumbnailPath.h"
 #include <QSignalSpy>
 #include <QVariantMap>
 #include <QPushButton>
@@ -322,6 +323,15 @@ void TestUIWidgets::testDownloadHistoryUpdatesThumbnailAfterAsyncCacheCopy()
         return savedThumbnail;
     })(), 2000);
     QVERIFY(savedThumbnail);
+}
+
+void TestUIWidgets::testHistoryThumbnailPathSurvivesPendingCacheCopy()
+{
+    const QString existingUrl = QStringLiteral("https://images.example.test/thumbnail.jpg");
+    QCOMPARE(DownloadHistoryThumbnailPath::applyCacheResult(existingUrl, QString()), existingUrl);
+
+    const QString cachedPath = QStringLiteral("cache/thumbnails/item_thumbnail.jpg");
+    QCOMPARE(DownloadHistoryThumbnailPath::applyCacheResult(existingUrl, cachedPath), cachedPath);
 }
 
 void TestUIWidgets::testBinariesPageUsesNaturalScrollDocument() {

@@ -5,6 +5,7 @@
 #include "ActiveDownloadsTab.h"
 #include "AdvancedSettingsTab.h"
 #include "DownloadHistoryTab.h"
+#include "DownloadHistoryThumbnailPath.h"
 #include "FormatSelectionDialog.h"
 #include "ui/advanced_settings/BinariesPage.h"
 
@@ -73,7 +74,9 @@ void MainWindow::connectDownloadManagerSignals()
             return cachedThumbnailPaths->value(cacheKey);
         }
         if (thumbnailCopyAttempts->contains(cacheKey)) {
-            return originalPath;
+            // Keep transient temp paths out of history while the background
+            // copy is pending. The completion callback publishes the cache path.
+            return QString();
         }
 
         const QString cacheDir = QDir(m_configManager->getConfigDir()).filePath(QStringLiteral("thumbnails"));
@@ -156,7 +159,9 @@ void MainWindow::connectDownloadManagerSignals()
             const QString originalPath = itemData.value(QStringLiteral("thumbnail_path")).toString();
             const QString finalPath = cacheThumbnail(id, originalPath);
             data.thumbnailPath = finalPath;
-            updatedItemData.insert(QStringLiteral("thumbnail_path"), finalPath);
+            if (!finalPath.isEmpty()) {
+                updatedItemData.insert(QStringLiteral("thumbnail_path"), finalPath);
+            }
         }
 
         (*historyStates)[id] = data;
@@ -170,10 +175,14 @@ void MainWindow::connectDownloadManagerSignals()
                 (*historyStates)[id].title = progressData.value(QStringLiteral("title")).toString().trimmed();
             }
             if (progressData.contains(QStringLiteral("thumbnail_path"))) {
-            const QString originalPath = progressData.value(QStringLiteral("thumbnail_path")).toString();
-            const QString finalPath = cacheThumbnail(id, originalPath);
-                (*historyStates)[id].thumbnailPath = finalPath;
-            updatedProgress.insert(QStringLiteral("thumbnail_path"), finalPath);
+                const QString originalPath = progressData.value(QStringLiteral("thumbnail_path")).toString();
+                const QString finalPath = cacheThumbnail(id, originalPath);
+                if (!finalPath.isEmpty()) {
+                    (*historyStates)[id].thumbnailPath =
+                        DownloadHistoryThumbnailPath::applyCacheResult(
+                            (*historyStates)[id].thumbnailPath, finalPath);
+                    updatedProgress.insert(QStringLiteral("thumbnail_path"), finalPath);
+                }
             }
             if (progressData.contains(QStringLiteral("total_bytes"))) {
                 (*historyStates)[id].totalBytes = progressData.value(QStringLiteral("total_bytes")).toLongLong();
@@ -222,7 +231,9 @@ void MainWindow::connectDownloadManagerSignals()
         Q_UNUSED(message);
         if (success && historyStates->contains(id)) {
             HistoryItemData &historyData = (*historyStates)[id];
-            historyData.thumbnailPath = cacheThumbnail(id, historyData.thumbnailPath);
+            const QString cachedPath = cacheThumbnail(id, historyData.thumbnailPath);
+            historyData.thumbnailPath = DownloadHistoryThumbnailPath::applyCacheResult(
+                historyData.thumbnailPath, cachedPath);
             if (auto *historyTab = findChild<DownloadHistoryTab*>(QStringLiteral("downloadHistoryTab"))) {
                 historyTab->addHistoryItem(historyData);
             }
@@ -372,82 +383,6 @@ void MainWindow::connectDownloadManagerSignals()
             m_downloadManager, &DownloadManager::onItemCleared);
 
     connect(m_urlValidator, &UrlValidator::validationFinished, this, &MainWindow::onValidationFinished);
-}
-
-void MainWindow::connectStartupWorkerSignals()
-{
-    m_startupWorker->moveToThread(m_startupThread);
-    connect(m_startupThread, &QThread::started, m_startupWorker, &StartupWorker::start);
-    connect(m_startupWorker, &StartupWorker::finished, m_startupThread, &QThread::quit);
-    connect(m_startupThread, &QThread::finished, m_startupWorker, &QObject::deleteLater);
-    connect(m_startupWorker, &StartupWorker::binariesChecked, this, [this](const QStringList &missingBinaries) {
-        m_startupMissingBinaries = missingBinaries;
-        if (m_startTab) {
-            m_startTab->setStartupBinaryStatus(missingBinaries);
-        }
-    });
-
-    // Collect startup binary notices and show one consolidated setup window
-    // after all checks complete. This avoids stacking one modal per tool.
-    connect(m_startupWorker, &StartupWorker::binaryUpdateRequired, this, [this](const QString &binaryName, const QString &details) {
-        if (m_nonInteractiveLaunch) return;
-
-        if (m_advancedSettingsTab) {
-            if (auto *binariesPage = m_advancedSettingsTab->findChild<BinariesPage*>()) {
-                binariesPage->setBinaryWarning(binaryName, details);
-            }
-        }
-
-        // Give the application update decision priority over binary updates.
-        // Keep the warning, but defer automatic replacement and the checklist
-        // until the application update check has resolved.
-        if (m_appUpdateCheckPending || m_appUpdatePromptActive || m_appUpdateInstalling) {
-            const bool updateAvailable = m_configManager->get(
-                QStringLiteral("Binaries"), QStringLiteral("%1_update_available").arg(binaryName), false).toBool();
-            if (updateAvailable) {
-                m_startupUpdateDetails.insert(binaryName, details);
-            }
-            return;
-        }
-
-        bool automaticUpdateStarted = false;
-        if (m_configManager->get(QStringLiteral("Binaries"), QStringLiteral("setup_completed"), false).toBool() &&
-            m_configManager->get(QStringLiteral("Binaries"), QStringLiteral("%1_update_available").arg(binaryName), false).toBool() &&
-            m_advancedSettingsTab) {
-            if (auto *binariesPage = m_advancedSettingsTab->findChild<BinariesPage*>()) {
-                automaticUpdateStarted = binariesPage->tryAutomaticUpdate(binaryName);
-            }
-        }
-        statusBar()->showMessage(automaticUpdateStarted
-                                      ? tr("Updating app-managed %1 in the background.").arg(binaryName)
-                                      : tr("%1: %2").arg(binaryName, details),
-                                  8000);
-
-        const bool updateAvailable = m_configManager->get(
-            QStringLiteral("Binaries"), QStringLiteral("%1_update_available").arg(binaryName), false).toBool();
-        if (!automaticUpdateStarted && updateAvailable) {
-            m_startupUpdateDetails.insert(binaryName, details);
-        }
-    });
-    connect(m_startupWorker, &StartupWorker::finished, this, [this]() {
-        if (m_nonInteractiveLaunch) {
-            return;
-        }
-
-        m_startupChecksFinished = true;
-        if (m_startTab) {
-            m_startTab->setStartupChecksFinished(true);
-        }
-        showStartupBinarySetupIfReady();
-    });
-    connect(m_startupWorker, &StartupWorker::ytDlpVersionFetched, this, &MainWindow::setYtDlpVersion);
-    connect(m_startupWorker, &StartupWorker::galleryDlVersionFetched, this, [this](const QString &version) {
-        m_galleryDlVersion = version;
-        if (m_advancedSettingsTab) {
-            m_advancedSettingsTab->setGalleryDlVersion(version);
-        }
-    });
-    connect(m_clipboard, &QClipboard::changed, this, &MainWindow::onClipboardChanged);
 }
 
 void MainWindow::releaseDeferredStartupBinaryUpdates()

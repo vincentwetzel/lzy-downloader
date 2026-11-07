@@ -9,6 +9,9 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## [Unreleased]
 
+- **Download History thumbnails:** Preserve the existing thumbnail reference
+  while a background cache copy is pending, then switch to the stable cached
+  path when the copy completes.
 - **Live shared rate limit:** Route download transfers through a local proxy so
   one HTTP/HTTPS cap can be changed while jobs continue. Current Speed now uses
   measured aggregate relay throughput, with worker progress as a fallback when
