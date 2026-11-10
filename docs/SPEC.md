@@ -31,8 +31,13 @@ only the sections relevant to the change.
 - GUI startup shows the main window without waiting for extractor metadata or
   binary version checks. Start-tab URL entry and command preview remain
   available during those checks; re-evaluate entered URLs when extractor
-  metadata arrives. Render command previews from saved binary paths without
-  launching resolver probes on the GUI thread. Restored queue rows are emitted
+  metadata arrives. Interactive startup shows a non-modal indeterminate
+  progress window while installed-tool checks run; it closes when those checks
+  reach a terminal result and identifies any app-managed update started during
+  the checks. The window reports tool-check state only; the application update
+  check, prompt, or installer handoff can independently pause new download
+  admission. Render command previews from saved binary paths without launching
+  resolver probes on the GUI thread. Restored queue rows are emitted
   in bounded batches; queue start and orphan cleanup wait until every restored
   ID is protected.
 - Network, filesystem scans, long database work, and external processes run

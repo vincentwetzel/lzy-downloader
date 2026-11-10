@@ -9,6 +9,10 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## [Unreleased]
 
+- **Startup progress:** Show a non-modal indeterminate progress window while
+  installed-tool checks run, and identify app-managed updates started during
+  those checks.
+
 ## [1.2.58] - 2026-11-07
 
 - **Playlist enqueue responsiveness:** Use flat extraction for playlist probes

@@ -6,6 +6,7 @@
 #include "ui/advanced_settings/BinariesPage.h"
 
 #include <QClipboard>
+#include <QProgressDialog>
 #include <QStatusBar>
 #include <QThread>
 
@@ -57,6 +58,10 @@ void MainWindow::connectStartupWorkerSignals()
                                       ? tr("Updating app-managed %1 in the background.").arg(binaryName)
                                       : tr("%1: %2").arg(binaryName, details),
                                   8000);
+        if (automaticUpdateStarted && m_startupProgressDialog) {
+            m_startupProgressDialog->setLabelText(
+                tr("Checking downloader tools; updating app-managed %1…").arg(binaryName));
+        }
 
         const bool updateAvailable = m_configManager->get(
             QStringLiteral("Binaries"), QStringLiteral("%1_update_available").arg(binaryName), false).toBool();
@@ -65,6 +70,11 @@ void MainWindow::connectStartupWorkerSignals()
         }
     });
     connect(m_startupWorker, &StartupWorker::finished, this, [this]() {
+        if (m_startupProgressDialog) {
+            m_startupProgressDialog->hide();
+            m_startupProgressDialog->deleteLater();
+            m_startupProgressDialog = nullptr;
+        }
         if (m_nonInteractiveLaunch) {
             return;
         }

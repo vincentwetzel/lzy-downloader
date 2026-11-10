@@ -31,6 +31,7 @@
 #include <QMessageBox>
 #include <QPalette>
 #include <QProcess>
+#include <QProgressDialog>
 #include <QStyleFactory>
 #include <QStyleHints>
 #include <QUrl>
@@ -361,6 +362,19 @@ void MainWindow::startStartupChecks()
         return;
     }
     m_startupChecksStarted = true;
+    if (!m_nonInteractiveLaunch) {
+        m_startupProgressDialog = new QProgressDialog(
+            tr("Checking installed downloader tools and available updates…"),
+            QString(), 0, 0, this);
+        m_startupProgressDialog->setWindowTitle(tr("Startup Checks"));
+        m_startupProgressDialog->setCancelButton(nullptr);
+        m_startupProgressDialog->setAutoClose(false);
+        m_startupProgressDialog->setAutoReset(false);
+        m_startupProgressDialog->setMinimumDuration(0);
+        m_startupProgressDialog->setWindowModality(Qt::NonModal);
+        m_startupProgressDialog->setAccessibleName(tr("Startup checks progress"));
+        m_startupProgressDialog->show();
+    }
     m_startupThread->start();
 }
 

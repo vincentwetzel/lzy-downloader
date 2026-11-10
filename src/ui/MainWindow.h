@@ -28,6 +28,7 @@ class ExtractorJsonParser;
 class YtDlpDownloadInfoExtractor;
 class MainWindowUiBuilder;
 class LocalApiServer;
+class QProgressDialog;
 
 class MainWindow : public QMainWindow {
     Q_OBJECT
@@ -103,6 +104,7 @@ private:
     UrlValidator *m_urlValidator;
     StartupWorker *m_startupWorker;
     QThread *m_startupThread; // New thread for the startup worker
+    QProgressDialog *m_startupProgressDialog = nullptr;
     ExtractorJsonParser *m_extractorJsonParser;
     YtDlpDownloadInfoExtractor *m_runtimeExtractor;
     MainWindowUiBuilder *m_uiBuilder;
