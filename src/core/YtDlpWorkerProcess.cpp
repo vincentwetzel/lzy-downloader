@@ -85,7 +85,7 @@ void YtDlpWorker::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatu
             qWarning() << "[YtDlpWorker] No output lines captured for this warning.";
         }
     }
-    if (!success && retryWithoutBrowserCookiesIfCookieExtractionFailed()) {
+    if (!success && retryWithBrowserCookiesIfAuthenticationRequired()) {
         return;
     }
     QString message = success ? tr("Download completed successfully.") : tr("Download failed.");
@@ -278,16 +278,15 @@ void YtDlpWorker::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatu
             }
         }
 
-        // Add a clear hint about cookie authentication if cookies were utilized or attempted
-        const bool hadCookieFailure = m_retriedWithoutBrowserCookies || hasBrowserCookieFailureDiagnostic();
-        if (hadCookieFailure && !hasFfmpegError) {
+        // If the explicit authentication retry still failed, point to the
+        // configured profile without suggesting that cookies caused the issue.
+        if (m_retriedWithBrowserCookies && !hasFfmpegError) {
             QString browserName = m_configManager ? m_configManager->get(QStringLiteral("General"), QStringLiteral("cookies_from_browser"), tr("None")).toString() : QString();
             if (browserName.isEmpty() || browserName.compare(QStringLiteral("None"), Qt::CaseInsensitive) == 0 || browserName.compare(tr("None"), Qt::CaseInsensitive) == 0) {
                 browserName = tr("configured browser");
             }
-            appendMessage(tr("Authentication Tip: If this platform requires a login (or is a live stream), "
-                             "please verify you are signed in to the service in your %1. "
-                             "Stale or signed-out browser profiles will cause these downloads to fail.")
+            appendMessage(tr("Authentication Tip: The retry with your %1 cookies did not resolve access. "
+                             "Verify that the profile is signed in and has permission to view this content.")
                              .arg(browserName));
         }
 
@@ -336,31 +335,33 @@ void YtDlpWorker::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatu
 
     emit finished(m_id, success, message, m_finalFilename, m_originalDownloadedFilename, metadata);
 }
-bool YtDlpWorker::retryWithoutBrowserCookiesIfCookieExtractionFailed() {
-    if (m_retriedWithoutBrowserCookies) {
+bool YtDlpWorker::retryWithBrowserCookiesIfAuthenticationRequired() {
+    if (m_retriedWithBrowserCookies || !m_configManager) {
         return false;
     }
 
-    const qsizetype cookieArgIndex = m_args.indexOf(QStringLiteral("--cookies-from-browser"));
-    const qsizetype cookiesFileIndex = m_args.indexOf(QStringLiteral("--cookies"));
-    
-    if (cookieArgIndex < 0 && cookiesFileIndex < 0) {
+    // Explicit request cookies are already the caller's authentication choice.
+    // Do not replace them or silently retry with a different credential source.
+    if (m_args.contains(QStringLiteral("--cookies-from-browser"))
+        || m_args.contains(QStringLiteral("--cookies"))) {
         return false;
     }
 
-    if (!hasBrowserCookieFailureDiagnostic()) {
+    const QString browser = m_configManager->get(QStringLiteral("General"),
+        QStringLiteral("cookies_from_browser"), QStringLiteral("None")).toString().trimmed();
+    if (browser.isEmpty() || browser.compare(QStringLiteral("None"), Qt::CaseInsensitive) == 0
+        || !hasAuthenticationRequiredDiagnostic()) {
         return false;
     }
 
-    m_retriedWithoutBrowserCookies = true;
-    
-    removeBrowserCookieArguments();
+    m_retriedWithBrowserCookies = true;
+    m_args << QStringLiteral("--cookies-from-browser") << browser.toLower();
 
-    qWarning() << "[YtDlpWorker] Browser cookies caused yt-dlp failure for" << m_id
-               << "; retrying once without cookie options.";
+    qWarning() << "[YtDlpWorker] Explicit authentication requirement detected for" << m_id
+               << "; retrying once with the configured browser cookies.";
 
     QVariantMap progressData;
-    progressData.insert(QStringLiteral("status"), tr("Browser cookies failed; retrying without browser cookies..."));
+    progressData.insert(QStringLiteral("status"), tr("Sign-in appears to be required; retrying with browser cookies..."));
     progressData.insert(QStringLiteral("progress"), -1);
     emit progressUpdated(m_id, progressData);
 

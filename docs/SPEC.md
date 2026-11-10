@@ -214,10 +214,13 @@ only the sections relevant to the change.
 - SponsorBlock segment removal never delays download admission: video jobs begin
   with the accurate-cut arguments needed to preserve A/V sync, without a
   blocking SponsorBlock API preflight.
-- Browser-cookie extraction and livestream-wait failures may each use one
-  generic fallback retry only with explicit cookie/browser/sign-in or
-  pre-wait evidence. Words such as `locked`, URL text, and ambiguous titles are
-  not evidence. `live_status`/`is_live` select livestream behavior:
+- Configured browser cookies are omitted from the initial video/audio attempt.
+  Retry once with them only after explicit sign-in, age-verification,
+  membership, or CAPTCHA evidence; cookie database errors on that retry are
+  terminal and do not trigger a no-cookie retry. Explicit request-scoped cookie
+  files remain attached to their request. Livestream-wait failures may use one
+  fallback retry only with pre-wait evidence. `live_status`/`is_live` select
+  livestream behavior:
   `post_live`/`was_live`/`not_live` are completed replays and stay non-live.
 
 ### 4.2 Progress and diagnostics

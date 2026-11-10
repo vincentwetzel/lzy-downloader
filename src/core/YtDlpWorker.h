@@ -55,17 +55,15 @@ protected: // Changed from private for testing
     int inferPrimaryStreamIndexFromPath(const QString &path) const;
     int inferPrimaryStreamIndexFromTotalBytes(double totalBytes) const;
     bool requestedAudioExtraction() const;
-    bool isBrowserCookieFailureLine(const QString &line) const;
-    bool hasBrowserCookieFailureDiagnostic() const;
-    /** Removes browser cookie flags and their values from the pending yt-dlp arguments. */
-    void removeBrowserCookieArguments();
+    bool isAuthenticationRequiredLine(const QString &line) const;
+    bool hasAuthenticationRequiredDiagnostic() const;
+    bool retryWithBrowserCookiesIfAuthenticationRequired();
     /** Returns whether one output line proves that the media transfer is unusable. */
     bool isIncompleteMediaDiagnosticLine(const QString &line) const;
     /** Checks retained worker diagnostics before allowing a non-zero exit to finalize. */
     bool hasFatalDownloadDiagnostic() const;
     /** Checks whether retained diagnostics specifically identify incomplete media. */
     bool hasIncompleteMediaDiagnostic() const;
-    bool retryWithoutBrowserCookiesIfCookieExtractionFailed();
     /**
      * Retries a recoverable aria2-backed transfer once through yt-dlp's native downloader.
      *
@@ -108,7 +106,7 @@ protected: // Changed from private for testing
     bool m_errorEmitted;           // Tracks if a specific error has been emitted
     DiagnosticTail m_errorLines;
     bool m_promptDelayActive{false};
-    bool m_retriedWithoutBrowserCookies = false;
+    bool m_retriedWithBrowserCookies = false;
     bool m_retriedWithoutAria2c = false;
     QString m_recoveryDiagnostic;
     QStringList m_requestedTransferStatuses;

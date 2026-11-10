@@ -39,7 +39,7 @@ Application-wide settings that control theme, cookie handling, clipboard behavio
 | `output_template_audio` | String | *(empty; inherits `output_template`)* | Optional audio-specific yt-dlp filename template. Validated asynchronously with `yt-dlp` before saving. |
 | `gallery_output_template` | String | `{category}/{id}_{filename}.{extension}` | Filename template for gallery-dl downloads. Uses gallery-dl's own template syntax. |
 | `theme` | String | `System` | Application visual theme. Options: `System`, `Light`, `Dark`. |
-| `cookies_from_browser` | String | `None` | Browser to extract cookies from for video/audio downloads and metadata-only playlist probes. Options: installed browser names (e.g., `Firefox`, `Chrome`) or `None`. Playlist probes use cookies only for authenticated metadata access and do not download media. If an uncapped or higher-capped bestvideo request selects a combined stream below 480p, the worker retries once without cookies because the cookie manifest may have hidden adaptive formats; direct format choices, caps at the selected resolution, and active livestreams are excluded. |
+| `cookies_from_browser` | String | `None` | Browser to use for authentication when needed for video/audio downloads and metadata-only playlist probes. Options: installed browser names (e.g., `Firefox`, `Chrome`) or `None`. Downloads start without browser cookies and retry once with them only after yt-dlp reports an explicit sign-in, age-verification, membership, or CAPTCHA requirement. Playlist probes may use the configured browser cookies for authenticated metadata access and do not download media. |
 | `gallery_cookies_from_browser` | String | `None` | Browser to extract cookies from for gallery downloads. Options: same as above or `None`. |
 | `sponsorblock` | Boolean | `false` | Enable SponsorBlock integration to skip sponsored segments in downloaded videos. Uses forced keyframes to preserve A/V sync. |
 | `auto_paste_mode` | Integer | `0` | Clipboard auto-paste behavior. See [Auto-Paste Modes](#auto-paste-modes) below. |
@@ -442,7 +442,7 @@ If you see a "database is locked" error when selecting a browser for cookies, cl
 
 ### Browser Cookie Download Failures
 
-If yt-dlp fails during a public video/audio download while browser cookies are enabled, LzyDownloader retries the job once without `--cookies-from-browser`. This covers temporary cookie database permission errors and stale browser-cookie extractor state while still allowing protected media to fail with a clearer diagnostic. Read-only URL validation skips browser cookies to avoid browser-profile locks. Metadata-only playlist-expansion probes use the configured browser cookies when present so authenticated playlists can be identified; they retrieve metadata only and do not download media.
+Video/audio downloads first run without configured browser cookies. If yt-dlp reports a clear sign-in, age-verification, membership, or CAPTCHA requirement, LzyDownloader retries once with the configured browser cookies. Cookie database access errors on that retry are reported directly. Read-only URL validation skips browser cookies to avoid browser-profile locks. Metadata-only playlist-expansion probes may use configured browser cookies to identify authenticated playlists; they retrieve metadata only and do not download media.
 
 ### Missing Binaries
 

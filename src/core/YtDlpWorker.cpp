@@ -49,7 +49,6 @@ YtDlpWorker::YtDlpWorker(const QString &id, const QStringList &args, ConfigManag
 
     connect(m_process, &QProcess::finished, this, [this](int exitCode, QProcess::ExitStatus exitStatus) {
         QString accumulatedStderr = m_process->property("accumulated_stderr").toString();
-        bool cookieRetryAttempted = m_process->property("cookie_retry_attempted").toBool();
         bool waitRetryAttempted = m_process->property("wait_retry_attempted").toBool();
 
         bool isProactiveWaitRetry = this->property("proactiveWaitRetryActive").toBool();
@@ -58,26 +57,10 @@ YtDlpWorker::YtDlpWorker(const QString &id, const QStringList &args, ConfigManag
         }
 
         if ((exitStatus == QProcess::NormalExit && exitCode != 0) || isProactiveWaitRetry) {
-            bool hasCookies = m_args.contains(QStringLiteral("--cookies-from-browser")) || m_args.contains(QStringLiteral("--cookies"));
-            bool browserCookieFailure = hasBrowserCookieFailureDiagnostic();
-            if (!browserCookieFailure && !accumulatedStderr.isEmpty()) {
-                const QStringList stderrLines = accumulatedStderr.split(QRegularExpression(QStringLiteral("[\\r\\n]")), Qt::SkipEmptyParts);
-                for (const QString &line : stderrLines) {
-                    if (isBrowserCookieFailureLine(line)) {
-                        browserCookieFailure = true;
-                        break;
-                    }
-                }
-            }
             bool shouldRetry = false;
-            bool removeCookies = false;
             bool removeWaitForVideo = false;
 
-            if (hasCookies && !cookieRetryAttempted && browserCookieFailure && !isProactiveWaitRetry) {
-                shouldRetry = true;
-                removeCookies = true;
-                qWarning() << "[YtDlpWorker] Browser-cookie extraction failure detected. Retrying once without browser cookies. Error captured:" << accumulatedStderr;
-            } else if (!waitRetryAttempted) {
+            if (!waitRetryAttempted) {
                 static const QRegularExpression offlineRe(QStringLiteral("not currently live|live event has ended|offline"), QRegularExpression::CaseInsensitiveOption);
                 if (isProactiveWaitRetry || offlineRe.match(accumulatedStderr).hasMatch()) {
                     if (m_args.contains(QStringLiteral("--wait-for-video")) || m_args.contains(QStringLiteral("--live-from-start"))) {
@@ -89,15 +72,9 @@ YtDlpWorker::YtDlpWorker(const QString &id, const QStringList &args, ConfigManag
             }
 
             if (shouldRetry) {
-                if (removeCookies) m_process->setProperty("cookie_retry_attempted", true);
                 if (removeWaitForVideo) m_process->setProperty("wait_retry_attempted", true);
                 m_accumulatedStderr.clear();
                 m_process->setProperty("accumulated_stderr", QString()); // Reset for next run
-
-                if (removeCookies) {
-                    m_retriedWithoutBrowserCookies = true;
-                    removeBrowserCookieArguments();
-                }
 
                 if (removeWaitForVideo) {
                     qsizetype waitIndex = m_args.indexOf(QStringLiteral("--wait-for-video"));
@@ -292,23 +269,6 @@ void YtDlpWorker::cleanupMetadataSidecarsForRetry() {
         }
     }
 }
-
-void YtDlpWorker::removeBrowserCookieArguments() {
-    const auto removeFlagAndValue = [this](const QString &flag) {
-        qsizetype flagIndex = m_args.indexOf(flag);
-        while (flagIndex != -1) {
-            m_args.removeAt(flagIndex);
-            if (flagIndex < m_args.size()) {
-                m_args.removeAt(flagIndex);
-            }
-            flagIndex = m_args.indexOf(flag);
-        }
-    };
-
-    removeFlagAndValue(QStringLiteral("--cookies-from-browser"));
-    removeFlagAndValue(QStringLiteral("--cookies"));
-}
-
 
 void YtDlpWorker::finishGracefully() {
     if (m_process && m_process->state() != QProcess::NotRunning) {

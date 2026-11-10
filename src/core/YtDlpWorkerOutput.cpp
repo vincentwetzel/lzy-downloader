@@ -103,6 +103,17 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
         m_errorLines.append(normalizedLine);
 
         auto emitError = [this, normalizedLine](const QString& type, const QString& msg) {
+            const QString configuredBrowser = m_configManager
+                ? m_configManager->get(QStringLiteral("General"), QStringLiteral("cookies_from_browser"), QStringLiteral("None")).toString().trimmed()
+                : QStringLiteral("None");
+            const bool canRetryWithBrowserCookies = !m_retriedWithBrowserCookies
+                && !m_args.contains(QStringLiteral("--cookies"))
+                && !m_args.contains(QStringLiteral("--cookies-from-browser"))
+                && !configuredBrowser.isEmpty()
+                && configuredBrowser.compare(QStringLiteral("None"), Qt::CaseInsensitive) != 0;
+            if (canRetryWithBrowserCookies && isAuthenticationRequiredLine(normalizedLine)) {
+                return;
+            }
             if (!m_errorEmitted) {
                 m_errorEmitted = true;
                 emit ytDlpErrorDetected(m_id, type, msg, normalizedLine);
@@ -147,7 +158,7 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
         else if (cookiePermissionDiagnostic) {
             emitError(QStringLiteral("cookie_permission_denied"),
                 tr("Failed to access browser cookies (the database may be locked by a running browser, or access was denied).\n\n"
-                   "The download will automatically retry once without cookies. If it still fails, please close your browser and try again."));
+                   "Close the browser and try again, or choose another browser profile in Authentication Access."));
         }
         // Check for private video error
         else if (normalizedLine.contains(QStringLiteral("private"), Qt::CaseInsensitive)) {
@@ -164,7 +175,7 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
         }
         // Check for age-restriction error
         else if (normalizedLine.contains(QStringLiteral("age"), Qt::CaseInsensitive) && ageRegex.match(normalizedLine).hasMatch()) {
-            emitError(QStringLiteral("age_restricted"), tr("This video requires age verification. Try enabling cookies from your browser."));
+            emitError(QStringLiteral("age_restricted"), tr("This video requires age verification. If a signed-in browser is configured, LzyDownloader will retry with its cookies."));
         }
         // Check for content removed/unavailable (e.g., deleted tweet)
         else if (contentRemovedRegex.match(normalizedLine).hasMatch()) {
@@ -621,51 +632,36 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
     }
 }
 
-bool YtDlpWorker::isBrowserCookieFailureLine(const QString &line) const {
+bool YtDlpWorker::isAuthenticationRequiredLine(const QString &line) const {
     if (line.isEmpty() || line.startsWith(QStringLiteral("[debug]"), Qt::CaseInsensitive)) {
-        return false;
-    }
-
-    const bool hasCookieContext = line.contains(QStringLiteral("cookie"), Qt::CaseInsensitive) ||
-                                  line.contains(QStringLiteral("temporary.sqlite"), Qt::CaseInsensitive) ||
-                                  line.contains(QStringLiteral("cookies.sqlite"), Qt::CaseInsensitive) ||
-                                  line.contains(QStringLiteral("browser profile"), Qt::CaseInsensitive) ||
-                                  line.contains(QStringLiteral("browser database"), Qt::CaseInsensitive) ||
-                                  line.contains(QStringLiteral("Sign in to confirm"), Qt::CaseInsensitive);
-    if (!hasCookieContext) {
         return false;
     }
 
     const bool isDiagnosticLine = line.startsWith(QStringLiteral("ERROR:"), Qt::CaseInsensitive) ||
                                   line.startsWith(QStringLiteral("WARNING:"), Qt::CaseInsensitive) ||
-                                  line.startsWith(QStringLiteral("[download] Got error:"), Qt::CaseInsensitive) ||
-                                  line.contains(QStringLiteral("PermissionError"), Qt::CaseInsensitive) ||
-                                  line.contains(QStringLiteral("Sign in to confirm"), Qt::CaseInsensitive);
+                                  line.startsWith(QStringLiteral("[download] Got error:"), Qt::CaseInsensitive);
     if (!isDiagnosticLine) {
         return false;
     }
 
-    // Require explicit browser-cookie/authentication evidence. A standalone
-    // word such as "locked" also occurs in ordinary descriptions and must not
-    // kill the active yt-dlp process or leave the retry state unresolved.
-    static const QRegularExpression cookieFailureRegex(
-        QStringLiteral("Sign in to confirm|"
-                       "(?:cookie|cookies?\\.sqlite|temporary\\.sqlite|browser\\s+(?:profile|database|cookies?)).{0,120}"
-                       "(?:invalid|expired|no longer valid|failed|error|permission|denied|locked|decrypt|unable|could not|cannot|access)|"
-                       "(?:invalid|expired|no longer valid|failed|error|permission|denied|locked|decrypt|unable|could not|cannot|access).{0,120}"
-                       "(?:cookie|cookies?\\.sqlite|temporary\\.sqlite|browser)"),
+    static const QRegularExpression authenticationRequiredRegex(
+        QStringLiteral("Sign in to confirm|sign[ -]?in required|sign in if you(?:'ve been| have been| were) granted access|"
+                       "login required|authentication required|"
+                       "logged[ -]?in users|only available to (?:registered users|members|subscribers)|"
+                       "members[- ]only|age[- ]restricted|age verification|verify your age|confirm your age|"
+                       "solve (?:the )?captcha|captcha required"),
         QRegularExpression::CaseInsensitiveOption);
-    return cookieFailureRegex.match(line).hasMatch();
+    return authenticationRequiredRegex.match(line).hasMatch();
 }
 
-bool YtDlpWorker::hasBrowserCookieFailureDiagnostic() const {
+bool YtDlpWorker::hasAuthenticationRequiredDiagnostic() const {
     for (const QString &line : m_errorLines) {
-        if (isBrowserCookieFailureLine(line)) {
+        if (isAuthenticationRequiredLine(line)) {
             return true;
         }
     }
     for (const QString &line : m_allOutputLines) {
-        if (isBrowserCookieFailureLine(line)) {
+        if (isAuthenticationRequiredLine(line)) {
             return true;
         }
     }

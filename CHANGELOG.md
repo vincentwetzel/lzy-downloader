@@ -9,6 +9,11 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## [Unreleased]
 
+- **Browser-cookie authentication fallback:** Start video/audio downloads without
+  configured browser cookies and retry once with them only after an explicit
+  sign-in, age-verification, membership, or CAPTCHA requirement. Remove the
+  previous retry-without-cookies behavior; keep request-scoped cookies and
+  authenticated metadata-only playlist probes intact.
 - **Startup progress:** Show a non-modal indeterminate progress window while
   installed-tool checks run, and identify app-managed updates started during
   those checks.

@@ -641,12 +641,18 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
     rawArgs << QStringLiteral("--windows-filenames");
 
     // --- Cookies ---
+    // Downloads use configured browser cookies only after an unauthenticated
+    // attempt reports an explicit sign-in/verification requirement. Playlist
+    // expansion is metadata-only, so it may use configured cookies up front.
+    // A request-scoped cookie file is an explicit caller-provided credential
+    // and remains attached to its request.
     const QString requestCookieFile = options.value(QStringLiteral("cookie_file")).toString().trimmed();
     if (!requestCookieFile.isEmpty()) {
         rawArgs << QStringLiteral("--cookies") << requestCookieFile;
-    } else {
-        QString cookiesBrowser = configManager->get(QStringLiteral("General"), QStringLiteral("cookies_from_browser"), QStringLiteral("None")).toString();
-        if (cookiesBrowser != QLatin1String("None")) {
+    } else if (isPlaylistExpansion) {
+        const QString cookiesBrowser = configManager->get(QStringLiteral("General"),
+            QStringLiteral("cookies_from_browser"), QStringLiteral("None")).toString().trimmed();
+        if (!cookiesBrowser.isEmpty() && cookiesBrowser.compare(QStringLiteral("None"), Qt::CaseInsensitive) != 0) {
             rawArgs << QStringLiteral("--cookies-from-browser") << cookiesBrowser.toLower();
         }
     }

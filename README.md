@@ -87,7 +87,7 @@ input are reported as incomplete-transfer failures before metadata embedding.
 - 🎚️ **Media-Aware Quality Warnings** — Video-resolution warnings apply only to video downloads; audio extraction remains audio-labeled even when yt-dlp transfers a combined video/audio source
 - 🔗 **Useful Quality Warnings** — Low-quality video warnings include the media title and a clickable source link when the URL is complete
 - 🖼️ **Thumbnail Embedding** — Automatic thumbnail download, bounded preview loading, and embedding for videos and audio
-- 🌐 **Browser Cookies** — Use saved cookies from Firefox, Chrome, Edge, or other browsers for age-restricted content; explicit browser-cookie extraction failures may retry once without cookies
+- 🌐 **Browser Cookies** — yt-dlp video/audio downloads start without browser cookies and retry once with the selected browser's cookies only when yt-dlp reports a sign-in, age-verification, membership, or CAPTCHA requirement
 - 🧩 **Cross-platform Chrome Browser Companion** — The optional extension can enqueue the active
   tab with request-scoped cookies, show only its own jobs, and request
   cancellation through the installed native-messaging host on Windows, Linux,
@@ -290,8 +290,7 @@ queue snapshot before exit.
 - **Output templates** — Type-specific video/audio templates inherit the shared default when blank and are validated with `yt-dlp` before saving
 - **Metadata** — Embed titles, artists, and thumbnails
 - **SponsorBlock** — Automatically skip sponsored segments
-- **Browser Cookies** - Select a browser to use for authentication
-- **Browser Cookie fallback** - Public media can retry once without browser cookies when yt-dlp's cookie extraction or cookie-backed extractor state fails
+- **Browser Cookies** - Select a browser for authentication retries; video/audio downloads use it only after yt-dlp reports an explicit sign-in, age-verification, membership, or CAPTCHA requirement. Metadata-only playlist probes may use the selected browser cookies to identify authenticated playlists.
 - **Livestream replays** - Completed livestreams are detected from yt-dlp `live_status` metadata and downloaded as archived media; active/upcoming streams keep native wait and Finish Now behavior
 - **Download History links** - Valid HTTP/HTTPS source URLs are keyboard-accessible links; malformed or incomplete values remain plain text
 - **Queue previews** - Queued rows begin loading supplied remote thumbnails immediately, newly queued interactive rows are revealed in Active Downloads, and long titles wrap within narrow windows so row actions remain reachable
