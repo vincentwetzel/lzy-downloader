@@ -9,6 +9,8 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## [Unreleased]
 
+## [1.2.59] - 2026-11-10
+
 - **Browser-cookie authentication fallback:** Start video/audio downloads without
   configured browser cookies and retry once with them only after an explicit
   sign-in, age-verification, membership, or CAPTCHA requirement. Remove the
@@ -17,6 +19,7 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 - **Startup progress:** Show a non-modal indeterminate progress window while
   installed-tool checks run, and identify app-managed updates started during
   those checks.
+- **Extractor catalog:** Refresh the yt-dlp and gallery-dl extractor lists.
 
 ## [1.2.58] - 2026-11-07
 
