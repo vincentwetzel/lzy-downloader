@@ -119,9 +119,14 @@ platform branches with a tested fallback or a documented release prerequisite.
 - Releases are CI-first: for each new release, increment the PATCH component
   in `VERSION` by one and synchronize the vcpkg base version, changelog, and
   release notes. Change MAJOR or MINOR only when the user requests it. Then
-  provide the commit and unique `release-*` trigger-tag commands. GitHub
-  Actions appends its run number and creates the versioned release tag. Do not
-  run `python build_release.py` locally or push commits/tags unless the user
+  provide the commit and unique `release-*` trigger-tag commands. Every
+  copy-pasteable command block that stages, commits, pushes, or tags must begin
+  by changing to the verified C++ checkout root and checking `CMakeLists.txt`,
+  `.github/workflows/release.yml`, and the `origin` URL for
+  `vincentwetzel/lzy-downloader`; stop on any mismatch. Never provide bare Git
+  release commands or a bot/extension checkout path. GitHub Actions appends its
+  run number and creates the versioned release tag. Do not run
+  `python build_release.py` locally or push commits/tags unless the user
   explicitly requests local validation or a different release workflow.
 
 ## High-value locations

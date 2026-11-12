@@ -141,28 +141,47 @@ latest state is flushed during shutdown.
 Before running any release, extractor, Git, or packaging command, change into
 the C++ application checkout. Do not run the workflow from the separate
 Discord-bot or browser-extension checkout. Verify the repository using paths
-that must exist in this checkout:
+and the origin URL that identify this checkout. In command handoffs, replace
+`<verified C++ repository root>` with the root printed by `git rev-parse
+--show-toplevel`; never send bare staging, commit, push, or tag commands.
 
 ```powershell
-Set-Location '<repository-root>'
-git rev-parse --show-toplevel
-Test-Path .\CMakeLists.txt
-Test-Path .\.github\workflows\release.yml
+Set-Location '<verified C++ repository root>'
+$repoRoot = (git rev-parse --show-toplevel).Trim()
+$origin = (git remote get-url origin).Trim()
+if (-not (Test-Path .\CMakeLists.txt) -or
+    -not (Test-Path .\.github\workflows\release.yml) -or
+    $origin -notmatch '(?i)(^|[:/])vincentwetzel/lzy-downloader(?:\.git)?$') {
+    throw "Wrong checkout for release preparation. Stop before running Git release commands."
+}
+Write-Host "Verified C++ release checkout: $repoRoot ($origin)"
 ```
 
-The first command must identify the C++ repository root and both `Test-Path`
-commands must return `True`. Stop if `CMakeLists.txt` is missing. This check
-must happen before refreshing extractors or running `git add`, `git commit`,
-`git push`, or `git tag`.
+Run this guard before refreshing extractors or running `git add`, `git commit`,
+`git push`, or `git tag`. Include `Set-Location` and the guard in every
+copy-pasteable release command block, including a tag block copied separately.
+The recipient must replace the root placeholder with the verified C++ checkout
+path; if any check fails, stop without running the following commands.
 
 ### Step 1: Update Extractor Lists
 
 **IMPORTANT:** Before building a new release, you must refresh the extractor lists to ensure the application can handle the latest website changes.
 
-Run the following Python scripts from the project root:
+Run the following from the verified C++ project root:
+
 ```powershell
-python ./tools/update_yt-dlp_extractors.py
-python ./tools/update_gallery-dl_extractors.py
+Set-Location '<verified C++ repository root>'
+$repoRoot = (git rev-parse --show-toplevel).Trim()
+$origin = (git remote get-url origin).Trim()
+if ((Test-Path .\CMakeLists.txt) -and
+    (Test-Path .\.github\workflows\release.yml) -and
+    $origin -match '(?i)(^|[:/])vincentwetzel/lzy-downloader(?:\.git)?$') {
+    Write-Host "Verified C++ release checkout: $repoRoot ($origin)"
+    python ./tools/update_yt-dlp_extractors.py
+    python ./tools/update_gallery-dl_extractors.py
+} else {
+    throw "Wrong checkout for release preparation. Stop before running release commands."
+}
 ```
 This will update `extractors_yt-dlp.json` and `extractors_gallery-dl.json`. Both scripts share `tools/extractor_utils.py` for domain parsing with precompiled regexes, are intentionally non-interactive, and should return directly to the shell when they finish.
 
@@ -332,20 +351,41 @@ created in this C++ repository.
 Before tagging, commit the synchronized release inputs:
 
 ```powershell
-git add VERSION CMakeLists.txt vcpkg.json CHANGELOG.md README.md UPDATE_AND_RELEASE.md docs/ AGENTS.md TODO.md .github/workflows/ build_release.py tools/ triplets/ LzyDownloader.nsi src/ui/LzyDownloader.desktop extractors_yt-dlp.json extractors_gallery-dl.json release-notes/
-git commit -m "Prepare release"
-git push origin HEAD
+Set-Location '<verified C++ repository root>'
+$repoRoot = (git rev-parse --show-toplevel).Trim()
+$origin = (git remote get-url origin).Trim()
+if ((Test-Path .\CMakeLists.txt) -and
+    (Test-Path .\.github\workflows\release.yml) -and
+    $origin -match '(?i)(^|[:/])vincentwetzel/lzy-downloader(?:\.git)?$') {
+    Write-Host "Verified C++ release checkout: $repoRoot ($origin)"
+    git add VERSION CMakeLists.txt vcpkg.json CHANGELOG.md README.md UPDATE_AND_RELEASE.md docs/ AGENTS.md TODO.md .github/workflows/ build_release.py tools/ triplets/ LzyDownloader.nsi src/ui/LzyDownloader.desktop extractors_yt-dlp.json extractors_gallery-dl.json release-notes/
+    git commit -m "Prepare release"
+    git push origin HEAD
+} else {
+    throw "Wrong checkout for release preparation. Stop before running Git release commands."
+}
 ```
 
-The release-preparation handoff should stop after presenting these commands
-unless the user explicitly asks for repository mutation. Do not create a tag
-before the synchronized release commit is available on the remote.
+The release-preparation handoff must include the verified checkout location
+and guard in the same command block as the Git commands. Stop after presenting
+the commands unless the user explicitly asks for repository mutation. Do not
+create a tag before the synchronized release commit is available on the remote.
 
 ### Step 2: Create and Push a Git Tag
 
 ```powershell
-git tag -a release-YYYYMMDD-description -m "Start release build"
-git push origin release-YYYYMMDD-description
+Set-Location '<verified C++ repository root>'
+$repoRoot = (git rev-parse --show-toplevel).Trim()
+$origin = (git remote get-url origin).Trim()
+if ((Test-Path .\CMakeLists.txt) -and
+    (Test-Path .\.github\workflows\release.yml) -and
+    $origin -match '(?i)(^|[:/])vincentwetzel/lzy-downloader(?:\.git)?$') {
+    Write-Host "Verified C++ release checkout: $repoRoot ($origin)"
+    git tag -a release-YYYYMMDD-description -m "Start release build"
+    git push origin release-YYYYMMDD-description
+} else {
+    throw "Wrong checkout for release preparation. Stop before running Git release commands."
+}
 ```
 
 Pushing the trigger tag starts the `Build and Release` workflow. Actions
