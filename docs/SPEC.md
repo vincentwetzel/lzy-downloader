@@ -215,12 +215,14 @@ only the sections relevant to the change.
   with the accurate-cut arguments needed to preserve A/V sync, without a
   blocking SponsorBlock API preflight.
 - Configured browser cookies are omitted from the initial video/audio attempt.
-  Retry once with them only after explicit sign-in, age-verification,
-  membership, or CAPTCHA evidence; cookie database errors on that retry are
-  terminal and do not trigger a no-cookie retry. Explicit request-scoped cookie
-  files remain attached to their request. Livestream-wait failures may use one
-  fallback retry only with pre-wait evidence. `live_status`/`is_live` select
-  livestream behavior:
+  Retry once with them only after explicit authentication-required wording in
+  yt-dlp's diagnostic output, such as “Log in for access,” sign-in,
+  age-verification, membership, or CAPTCHA evidence; process exit status alone
+  does not identify an authentication failure. Cookie database errors on that
+  retry are terminal and do not trigger a no-cookie retry. Explicit
+  request-scoped cookie files remain attached to their request. Livestream-wait
+  failures may use one fallback retry only with pre-wait evidence.
+  `live_status`/`is_live` select livestream behavior:
   `post_live`/`was_live`/`not_live` are completed replays and stay non-live.
 
 ### 4.2 Progress and diagnostics

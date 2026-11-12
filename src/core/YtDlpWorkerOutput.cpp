@@ -646,6 +646,7 @@ bool YtDlpWorker::isAuthenticationRequiredLine(const QString &line) const {
 
     static const QRegularExpression authenticationRequiredRegex(
         QStringLiteral("Sign in to confirm|sign[ -]?in required|sign in if you(?:'ve been| have been| were) granted access|"
+                       "log[ -]?in for access|"
                        "login required|authentication required|"
                        "logged[ -]?in users|only available to (?:registered users|members|subscribers)|"
                        "members[- ]only|age[- ]restricted|age verification|verify your age|confirm your age|"

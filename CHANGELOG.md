@@ -9,6 +9,10 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## [Unreleased]
 
+- **Browser-cookie authentication fallback:** Recognize yt-dlp's “Log in for
+  access” diagnostic so downloads that need sign-in retry once with the
+  configured browser cookies.
+
 ## [1.2.59] - 2026-11-10
 
 - **Browser-cookie authentication fallback:** Start video/audio downloads without
