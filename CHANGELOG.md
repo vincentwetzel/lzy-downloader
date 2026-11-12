@@ -7,11 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIVE.md](docs/CHANGELOG_ARCHIVE.md).
 
-## [Unreleased]
+## [1.2.60] - 2026-11-12
 
 - **Browser-cookie authentication fallback:** Recognize yt-dlp's “Log in for
   access” diagnostic so downloads that need sign-in retry once with the
   configured browser cookies.
+- **Extractor catalogs:** Refresh the yt-dlp and gallery-dl extractor lists.
 
 ## [1.2.59] - 2026-11-10
 
