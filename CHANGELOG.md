@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIVE.md](docs/CHANGELOG_ARCHIVE.md).
 
+## Unreleased
+
+- **HTTP 403 transfer recovery:** Retry aria2c HTTP 403 failures once with a
+  fresh media request, then fall back to yt-dlp's native downloader if the 403
+  repeats. Other aria2c code 22 failures remain terminal.
+
 ## [1.2.60] - 2026-11-12
 
 - **Browser-cookie authentication fallback:** Recognize yt-dlp's “Log in for

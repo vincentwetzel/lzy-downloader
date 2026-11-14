@@ -210,7 +210,10 @@ only the sections relevant to the change.
   file-not-found diagnostic, retry once with native yt-dlp after removing stale
   `.info.json` sidecars; preserve media partials. The EOF and
   unreachable-network classifications may come from combined stdout/stderr
-  diagnostics; unrelated exit code 1 failures remain terminal.
+  diagnostics. An aria2c exit code 22 with an unsuccessful HTTP 403 response
+  first retries once with aria2c after refreshing media metadata; a repeated
+  403 then retries once with native yt-dlp. Other code 22 failures remain
+  terminal.
 - SponsorBlock segment removal never delays download admission: video jobs begin
   with the accurate-cut arguments needed to preserve A/V sync, without a
   blocking SponsorBlock API preflight.

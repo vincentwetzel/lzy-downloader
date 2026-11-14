@@ -65,11 +65,11 @@ protected: // Changed from private for testing
     /** Checks whether retained diagnostics specifically identify incomplete media. */
     bool hasIncompleteMediaDiagnostic() const;
     /**
-     * Retries a recoverable aria2-backed transfer once through yt-dlp's native downloader.
+     * Recovers supported aria2-backed transfer failures with bounded retries.
      *
-     * This is limited to documented transient aria2 exit codes, an aria2 EOF from the
-     * remote server, and the narrow case where aria2 reports success but yt-dlp cannot
-     * find the required media .part output.
+     * This is limited to documented transient aria2 exit codes, specific remote/network
+     * diagnostics (including HTTP 403), and the narrow case where aria2 reports success
+     * but yt-dlp cannot find the required media .part output.
      */
     bool retryWithoutAria2cIfTransientFailure(const QString &diagnostic);
     /** Removes only metadata sidecars that can collide with yt-dlp's atomic JSON write on retry. */
@@ -107,6 +107,7 @@ protected: // Changed from private for testing
     DiagnosticTail m_errorLines;
     bool m_promptDelayActive{false};
     bool m_retriedWithBrowserCookies = false;
+    bool m_retriedAria2cForbiddenResponse = false;
     bool m_retriedWithoutAria2c = false;
     QString m_recoveryDiagnostic;
     QStringList m_requestedTransferStatuses;

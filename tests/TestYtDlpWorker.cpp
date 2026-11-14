@@ -22,6 +22,7 @@ public:
     void callParseStandardError(const QByteArray &output) { parseStandardError(output); }
     void callHandleOutputLine(const QString &line) { handleOutputLine(line); }
     bool callRetryWithoutAria2c(const QString &diagnostic) { return retryWithoutAria2cIfTransientFailure(diagnostic); }
+    bool retryAgainWithoutScheduling(const QString &diagnostic) { m_finishEmitted = true; return retryWithoutAria2cIfTransientFailure(diagnostic); }
     double callInferPrimaryStreamSizeFromMetadata(const QString &formatId) const { return inferPrimaryStreamSizeFromMetadata(formatId); }
     QVariantMap callApplyOverallPrimaryProgress(double percentage, double downloadedBytes, double totalBytes) {
         QVariantMap progressData;
@@ -61,6 +62,7 @@ private slots:
     void testMissingAria2OutputFallsBackToNativeDownloader();
     void testAria2EofFailureFallsBackToNativeDownloader();
     void testAria2UnreachableNetworkFallsBackToNativeDownloader();
+    void testAria2ForbiddenResponseRetriesThenFallsBackToNativeDownloader();
     void testAria2RecoveryRejectsUnrelatedFailuresAndRetriesOnce();
     void testMetadataFormatSizeFallback();
     void testOverallProgressPayloadForDiscord();
@@ -301,7 +303,6 @@ void TestYtDlpWorker::testMissingAria2OutputFallsBackToNativeDownloader() {
     QVERIFY(!progressSpy.isEmpty());
     QVERIFY(progressSpy.last().at(1).toMap().value(QStringLiteral("status")).toString().contains(QStringLiteral("expected media output")));
 }
-
 void TestYtDlpWorker::testAria2EofFailureFallsBackToNativeDownloader() {
     ConfigManager *config = getConfigManager();
     TestableYtDlpWorker worker(QStringLiteral("aria2EofRecovery"),
@@ -339,6 +340,19 @@ void TestYtDlpWorker::testAria2UnreachableNetworkFallsBackToNativeDownloader() {
     QVERIFY(progressSpy.last().at(1).toMap().value(QStringLiteral("status")).toString().contains(QStringLiteral("unreachable network")));
 }
 
+void TestYtDlpWorker::testAria2ForbiddenResponseRetriesThenFallsBackToNativeDownloader() {
+    ConfigManager *config = getConfigManager();
+    TestableYtDlpWorker worker(QStringLiteral("aria2ForbiddenResponseRecovery"),
+                               {QStringLiteral("--external-downloader"), QStringLiteral("aria2c"), QStringLiteral("--external-downloader-args"), QStringLiteral("aria2c:--max-tries=6")}, config, nullptr);
+    QSignalSpy progressSpy(&worker, &YtDlpWorker::progressUpdated);
+    const QString diagnostic = QStringLiteral("Exception: errorCode=22 The response status is not successful. status=403\nERROR: aria2c exited with code 22");
+    QVERIFY(worker.callRetryWithoutAria2c(diagnostic));
+    QVERIFY(worker.arguments().contains(QStringLiteral("--external-downloader")));
+    QVERIFY(progressSpy.last().at(1).toMap().value(QStringLiteral("status")).toString().contains(QStringLiteral("fresh media request")));
+    QVERIFY(worker.retryAgainWithoutScheduling(diagnostic));
+    QVERIFY(!worker.arguments().contains(QStringLiteral("--external-downloader")));
+    QVERIFY(progressSpy.last().at(1).toMap().value(QStringLiteral("status")).toString().contains(QStringLiteral("native downloader")));
+}
 void TestYtDlpWorker::testAria2RecoveryRejectsUnrelatedFailuresAndRetriesOnce() {
     ConfigManager *config = getConfigManager();
     TestableYtDlpWorker worker(QStringLiteral("aria2RecoveryBoundaries"),
@@ -348,11 +362,14 @@ void TestYtDlpWorker::testAria2RecoveryRejectsUnrelatedFailuresAndRetriesOnce() 
 
     QVERIFY(!worker.callRetryWithoutAria2c(QStringLiteral("ERROR: aria2c exited with code 1")));
     QVERIFY(!worker.callRetryWithoutAria2c(QStringLiteral("ERROR: network connection failed")));
+    QVERIFY(!worker.callRetryWithoutAria2c(QStringLiteral(
+        "Exception: errorCode=22 The response status is not successful. status=404\n"
+        "ERROR: aria2c exited with code 22")));
+    QVERIFY(!worker.callRetryWithoutAria2c(QStringLiteral("ERROR: aria2c exited with code 22")));
     QVERIFY(worker.callRetryWithoutAria2c(QStringLiteral("ERROR: aria2c exited with code 6")));
     QVERIFY(!worker.arguments().contains(QStringLiteral("--external-downloader")));
     QVERIFY(!worker.callRetryWithoutAria2c(QStringLiteral("ERROR: aria2c exited with code 29")));
 }
-
 void TestYtDlpWorker::testAudioThumbnailIsNormalizedBeforeNativeEmbedding() {
     ConfigManager *config = getConfigManager();
     const QString thumbnailPath = QDir(getTempDir()).filePath(QStringLiteral("audio-thumbnail.jpg"));

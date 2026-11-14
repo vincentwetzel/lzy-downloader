@@ -137,15 +137,50 @@ bool YtDlpWorker::retryWithoutAria2cIfTransientFailure(const QString &diagnostic
     static const QRegularExpression aria2CodeOneError(
         QStringLiteral("aria2c exited with code\\s+1\\b"),
         QRegularExpression::CaseInsensitiveOption);
+    static const QRegularExpression aria2ForbiddenResponse(
+        QStringLiteral("aria2c exited with code\\s+22\\b"),
+        QRegularExpression::CaseInsensitiveOption);
     const bool codeOneFailure = aria2CodeOneError.match(diagnostic).hasMatch();
+    static const QRegularExpression forbiddenHttpStatus(QStringLiteral("\\bstatus\\s*=\\s*403\\b"),
+                                                        QRegularExpression::CaseInsensitiveOption);
+    const bool forbiddenResponseFailure = aria2ForbiddenResponse.match(diagnostic).hasMatch()
+                                          && diagnostic.contains(QStringLiteral("The response status is not successful"),
+                                                                 Qt::CaseInsensitive)
+                                          && forbiddenHttpStatus.match(diagnostic).hasMatch();
     const bool eofFailure = codeOneFailure
                             && diagnostic.contains(QStringLiteral("Got EOF from the server"), Qt::CaseInsensitive);
     const bool unreachableNetworkFailure = codeOneFailure
                                            && diagnostic.contains(QStringLiteral("Network problem has occurred"), Qt::CaseInsensitive)
                                            && diagnostic.contains(QStringLiteral("unreachable network"), Qt::CaseInsensitive);
     const bool missingOutput = isMissingExternalDownloaderOutputDiagnostic(diagnostic);
-    if (!errorMatch.hasMatch() && !eofFailure && !unreachableNetworkFailure && !missingOutput) {
+    if (!errorMatch.hasMatch() && !eofFailure && !unreachableNetworkFailure && !forbiddenResponseFailure
+        && !missingOutput) {
         return false;
+    }
+
+    if (forbiddenResponseFailure && !m_retriedAria2cForbiddenResponse) {
+        m_retriedAria2cForbiddenResponse = true;
+        cleanupMetadataSidecarsForRetry();
+        if (m_process) {
+            m_process->setProperty("accumulated_stderr", QString());
+        }
+
+        qWarning() << "[YtDlpWorker] aria2c received HTTP 403 for" << m_id
+                   << "; retrying once with aria2c after refreshing media metadata.";
+
+        QVariantMap progressData;
+        progressData.insert(QStringLiteral("status"),
+                            tr("aria2c received an HTTP 403 response; retrying once with a fresh media request..."));
+        progressData.insert(QStringLiteral("progress"), -1);
+        emit progressUpdated(m_id, progressData);
+
+        QTimer::singleShot(RECOVERY_RETRY_DELAY_MS, this, [this]() {
+            if (!m_finishEmitted) {
+                cleanupMetadataSidecarsForRetry();
+                start();
+            }
+        });
+        return true;
     }
 
     m_retriedWithoutAria2c = true;
@@ -155,8 +190,10 @@ bool YtDlpWorker::retryWithoutAria2cIfTransientFailure(const QString &diagnostic
             ? tr("aria2c lost the remote connection before native fallback.")
             : unreachableNetworkFailure
                 ? tr("aria2c encountered an unreachable network before native fallback.")
-                : tr("aria2c exited with transient error code %1 before native fallback.")
-                      .arg(errorMatch.captured(0).section(QLatin1Char(' '), -1));
+                : forbiddenResponseFailure
+                        ? tr("aria2c received HTTP 403 again after one aria2c retry.")
+                        : tr("aria2c exited with transient error code %1 before native fallback.")
+                              .arg(errorMatch.captured(0).section(QLatin1Char(' '), -1));
     removeArgumentAndValue(m_args, QStringLiteral("--external-downloader"));
     removeArgumentAndValue(m_args, QStringLiteral("--external-downloader-args"));
 
@@ -176,7 +213,9 @@ bool YtDlpWorker::retryWithoutAria2cIfTransientFailure(const QString &diagnostic
                                 ? tr("aria2c lost the remote connection; retrying with the native downloader...")
                                 : unreachableNetworkFailure
                                     ? tr("aria2c encountered an unreachable network; retrying with the native downloader...")
-                                    : tr("aria2c encountered a temporary server or network error; retrying with the native downloader..."));
+                                    : forbiddenResponseFailure
+                                        ? tr("aria2c received HTTP 403 again; retrying with the native downloader...")
+                                        : tr("aria2c encountered a temporary server or network error; retrying with the native downloader..."));
     progressData.insert(QStringLiteral("progress"), -1);
     emit progressUpdated(m_id, progressData);
 
