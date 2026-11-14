@@ -7,6 +7,7 @@ import plistlib
 import subprocess
 import re
 import shutil
+import time
 from pathlib import Path
 
 from tools.release_packaging import find_browser_host, package_linux
@@ -22,10 +23,27 @@ def log(msg, color=RESET):
     use_color = sys.stdout.isatty() and os.environ.get("TERM", "") != "dumb"
     print(f"{color}{msg}{RESET}" if use_color else msg)
 
-def run_command(cmd, shell=False, cwd=None):
+def run_command(cmd, shell=False, cwd=None, retryable_error=None, retries=0):
     log(f"Executing: {' '.join(cmd) if isinstance(cmd, list) else cmd}", YELLOW)
-    result = subprocess.run(cmd, shell=shell, cwd=cwd)
-    if result.returncode != 0:
+    for attempt in range(retries + 1):
+        result = subprocess.run(
+            cmd, shell=shell, cwd=cwd,
+            capture_output=retryable_error is not None,
+            text=retryable_error is not None,
+        )
+        if retryable_error is not None:
+            if result.stdout:
+                log(result.stdout.rstrip())
+            if result.stderr:
+                log(result.stderr.rstrip())
+        if result.returncode == 0:
+            return
+        output = f"{result.stdout or ''}\n{result.stderr or ''}"
+        if retryable_error and retryable_error.lower() in output.lower() and attempt < retries:
+            delay = 2 ** attempt
+            log(f"Transient {retryable_error} error; retrying in {delay} seconds.", YELLOW)
+            time.sleep(delay)
+            continue
         log(f"Command failed with exit code {result.returncode}", RED)
         sys.exit(result.returncode)
 
@@ -438,7 +456,7 @@ def main():
         run_command([
             "hdiutil", "create", "-volname", "LzyDownloader",
             "-srcfolder", str(app_bundle), "-ov", "-format", "UDZO", str(target_dmg),
-        ])
+        ], retryable_error="Resource busy", retries=2)
         log(f"\n=== macOS Build Success: {target_dmg} ===", GREEN)
 
     else:

@@ -9,6 +9,13 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## Unreleased
 
+## [1.2.62] - 2026-11-14
+
+- **macOS release packaging:** Retry DMG creation twice when `hdiutil` reports
+  a transient `Resource busy` error, reducing false release failures on hosted
+  macOS runners.
+- **Extractor catalogs:** Refresh the yt-dlp and gallery-dl extractor lists.
+
 ## [1.2.61] - 2026-11-14
 
 - **HTTP 403 transfer recovery:** Retry aria2c HTTP 403 failures once with a

@@ -105,7 +105,7 @@ not automatically use an image merely because it exists in the repository.
 
 5. **macOS Qt deployment (macOS release builds)**
    - GitHub Actions uses Qt 6's universal `clang_64` desktop package on both macOS runners. The archive contains x86_64 and arm64 support; each native runner produces its architecture-specific build and DMG.
-   - `build_release.py` creates a native `.app` bundle, runs `macdeployqt`, embeds an ICNS icon, and packages a separate architecture-labelled DMG. These are unsigned unless a future signing/notarization workflow is configured.
+   - `build_release.py` creates a native `.app` bundle, runs `macdeployqt`, embeds an ICNS icon, and packages a separate architecture-labelled DMG. If `hdiutil` reports `Resource busy`, DMG creation retries twice with short delays. These are unsigned unless a future signing/notarization workflow is configured.
    - The helper is native-only. Use `python build_release.py --target macos` inside the macOS VM to select the macOS path explicitly; `--target auto` remains the default and cross-OS targets are rejected.
 
 6. **yt-dlp Nightly (release validation)**
@@ -247,7 +247,7 @@ On each runner, the workflow:
   the scan so optional drivers cannot break the SQLite-only bundle.
   Platform-service libraries such as D-Bus are excluded from linuxdeploy's ELF
   scan.
-- On macOS, runs `macdeployqt`, converts the release PNG into the bundle's ICNS icon, and emits `LzyDownloader-<version>-macos-x86_64.dmg` or `LzyDownloader-<version>-macos-arm64.dmg` according to the runner architecture.
+- On macOS, runs `macdeployqt`, converts the release PNG into the bundle's ICNS icon, and emits `LzyDownloader-<version>-macos-x86_64.dmg` or `LzyDownloader-<version>-macos-arm64.dmg` according to the runner architecture. A transient `hdiutil` `Resource busy` error is retried twice before packaging fails.
 - Linux packages the browser host into the AppImage; macOS places it inside the
   application bundle. When the installed application first launches, it
   registers Chrome/Chromium native messaging for the current user on that OS.
