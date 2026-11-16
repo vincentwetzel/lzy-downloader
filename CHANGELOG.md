@@ -9,6 +9,8 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## Unreleased
 
+## [1.2.63] - 2026-11-16
+
 - **Livestream format selection:** Select separate best video/audio streams
   first, with a combined-format fallback, so live downloads do not fail when
   the extractor has no pre-merged `best` format.
@@ -18,6 +20,7 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
   remain enabled.
 - **Stream progress status:** Name both video and audio streams when yt-dlp
   selects separate formats for one video download.
+- **Extractor catalogs:** Refresh the yt-dlp and gallery-dl extractor lists.
 
 ## [1.2.62] - 2026-11-14
 

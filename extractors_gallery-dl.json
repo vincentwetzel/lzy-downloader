@@ -1185,6 +1185,13 @@
             "vm.tiktok.com"
         ]
     },
+    "tistory": {
+        "domains": [
+            "cfile1.uf.tistory.com",
+            "tistory.com",
+            "user.tistory.com"
+        ]
+    },
     "tmohentai": {
         "domains": [
             "tmohentai.com"
@@ -1218,6 +1225,11 @@
     "turboimagehost": {
         "domains": [
             "turboimagehost.com"
+        ]
+    },
+    "tw6": {
+        "domains": [
+            "tw6.jp"
         ]
     },
     "twibooru": {
