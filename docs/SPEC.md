@@ -200,7 +200,11 @@ only the sections relevant to the change.
   chapters, SponsorBlock, sections, metadata/thumbnails, cookies, rate limits,
   JS runtime, and archive behavior. Use logical binary names; only resolver
   code adds Windows `.exe`. Preserve explicit runtime format IDs and requested
-  section containers/filename labels.
+  section containers/filename labels. Livestream `best` and `worst` quality
+  selections prefer separate video/audio formats with a combined-format
+  fallback. Active livestreams omit `live_chat` and `all` subtitle selections
+  because yt-dlp's live-chat downloader runs until the broadcast ends; other
+  explicit subtitle languages remain enabled.
 - Aria2c is for ordinary non-livestream transfers. Use bounded retry/backoff,
   conservative per-server connections, and a referer only when the URL has a
   scheme and host. For exit codes 2, 5, 6, or 29, the specific combination of
@@ -234,6 +238,8 @@ only the sections relevant to the change.
   livestream indeterminate output. Emit speed, ETA, downloaded/total sizes,
   status, and active-stream labels. Prefer format IDs, announced formats,
   `FILE:`/URL metadata, and matching `formats` sizes over ambiguous extensions.
+  When a video download selects separate video and audio formats, report both
+  streams in the status label.
 - If `info.json` lacks `requested_downloads`, recover the active stream total
   from matching formats. Progress bytes, speed, and ETA come from the native
   yt-dlp or aria2 output; never infer download completion from the logical size

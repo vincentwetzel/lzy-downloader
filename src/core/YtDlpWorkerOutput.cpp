@@ -596,9 +596,13 @@ void YtDlpWorker::handleOutputLine(const QString &line) {
                 const QString segmentCount = totalFragmentsMatch.captured(1);
                 const QString transferStatus = statusForCurrentTransfer();
                 QString segmentStatus;
-                if (transferStatus.contains(QStringLiteral("audio"), Qt::CaseInsensitive)) {
+                const bool hasVideo = transferStatus.contains(QStringLiteral("video"), Qt::CaseInsensitive);
+                const bool hasAudio = transferStatus.contains(QStringLiteral("audio"), Qt::CaseInsensitive);
+                if (hasVideo && hasAudio) {
+                    segmentStatus = tr("Downloading %1 video/audio segment(s)...").arg(segmentCount);
+                } else if (hasAudio) {
                     segmentStatus = tr("Downloading %1 audio segment(s)...").arg(segmentCount);
-                } else if (transferStatus.contains(QStringLiteral("video"), Qt::CaseInsensitive)) {
+                } else if (hasVideo) {
                     segmentStatus = tr("Downloading %1 video segment(s)...").arg(segmentCount);
                 } else {
                     segmentStatus = tr("Downloading %1 segment(s)...").arg(segmentCount);

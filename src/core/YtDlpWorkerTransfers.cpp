@@ -334,6 +334,15 @@ bool YtDlpWorker::isAuxiliaryTransferTarget(const QString &path) const {
 }
 
 QString YtDlpWorker::statusForCurrentTransfer() const {
+    const bool hasVideoTransfer = std::any_of(m_requestedTransferStatuses.cbegin(), m_requestedTransferStatuses.cend(), [](const QString &status) {
+        return status.contains(QStringLiteral("video"), Qt::CaseInsensitive);
+    });
+    const bool hasAudioTransfer = std::any_of(m_requestedTransferStatuses.cbegin(), m_requestedTransferStatuses.cend(), [](const QString &status) {
+        return status.contains(QStringLiteral("audio"), Qt::CaseInsensitive);
+    });
+    if (hasVideoTransfer && hasAudioTransfer) {
+        return tr("Downloading video and audio streams...");
+    }
     return m_currentTransferStatus.isEmpty() ? tr("Downloading...") : m_currentTransferStatus;
 }
 

@@ -9,6 +9,16 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## Unreleased
 
+- **Livestream format selection:** Select separate best video/audio streams
+  first, with a combined-format fallback, so live downloads do not fail when
+  the extractor has no pre-merged `best` format.
+- **Livestream subtitle handling:** Omit live-chat transcripts and the `all`
+  subtitle selection from active media transfers because yt-dlp keeps live-chat
+  downloads open until the broadcast ends. Other explicit subtitle languages
+  remain enabled.
+- **Stream progress status:** Name both video and audio streams when yt-dlp
+  selects separate formats for one video download.
+
 ## [1.2.62] - 2026-11-14
 
 - **macOS release packaging:** Retry DMG creation twice when `hdiutil` reports

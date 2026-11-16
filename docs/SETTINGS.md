@@ -194,6 +194,12 @@ Configuration for subtitle downloading and embedding.
 | `write_auto_subtitles` | Boolean | `true` | Include automatically-generated subtitles when downloading. |
 | `format` | String | `srt` | Subtitle file format. Options: `srt`, `vtt`, `ass`. Disabled when `embed_subtitles` is enabled. |
 
+Active livestreams omit `live_chat` and `all` from their subtitle selection
+because yt-dlp's live-chat download runs until the broadcast ends and cannot
+share the same process with the media transfer. Other explicitly selected
+subtitle languages still download. Replays can still download live-chat
+transcripts and all subtitles.
+
 ### Available Subtitle Languages
 
 The subtitle language picker includes the following options:

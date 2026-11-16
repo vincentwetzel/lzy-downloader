@@ -57,6 +57,7 @@ private slots:
     void testAria2ProgressParsing();
     void testAria2AdvancedProgressParsing();
     void testAudioExtractionUsesAudioTransferStatusForCombinedSource();
+    void testCombinedVideoDownloadShowsBothStreams();
     void testAudioThumbnailIsNormalizedBeforeNativeEmbedding();
     void testTransientAria2FailureFallsBackToNativeDownloader();
     void testMissingAria2OutputFallsBackToNativeDownloader();
@@ -254,6 +255,20 @@ void TestYtDlpWorker::testAudioExtractionUsesAudioTransferStatusForCombinedSourc
     const QVariantMap progressData = progressSpy.last().at(1).toMap();
     QCOMPARE(progressData.value(QStringLiteral("status")).toString(),
              QStringLiteral("Downloading audio stream..."));
+}
+
+void TestYtDlpWorker::testCombinedVideoDownloadShowsBothStreams() {
+    ConfigManager *config = getConfigManager();
+    TestableYtDlpWorker worker(QStringLiteral("videoWithSeparateAudio"), {}, config, nullptr);
+    QSignalSpy progressSpy(&worker, &YtDlpWorker::progressUpdated);
+
+    worker.callHandleOutputLine(QStringLiteral("[info] Downloading 2 format(s): 248+140"));
+    worker.callHandleOutputLine(QStringLiteral("[download] Destination: output.f248.mp4"));
+    worker.callHandleOutputLine(QStringLiteral("[download] Destination: output.f140.m4a"));
+
+    QVERIFY(!progressSpy.isEmpty());
+    QCOMPARE(progressSpy.last().at(1).toMap().value(QStringLiteral("status")).toString(),
+             QStringLiteral("Downloading video and audio streams..."));
 }
 
 void TestYtDlpWorker::testTransientAria2FailureFallsBackToNativeDownloader() {

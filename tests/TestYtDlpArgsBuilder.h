@@ -13,6 +13,8 @@ private slots:
     void testPlaylistExpansionUsesConfiguredBrowserCookies();
     void testSponsorBlockArguments();
     void testLivestreamArguments();
+    void testLivestreamBestQualitySupportsSeparateStreams();
+    void testLiveChatIsExcludedFromActiveLivestream();
     void testPostLiveReplayUsesVideoArguments();
     void testLivePathIsNotLivestreamEvidence();
     void testAria2RetryPolicyArguments();

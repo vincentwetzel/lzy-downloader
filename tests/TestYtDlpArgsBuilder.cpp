@@ -202,6 +202,49 @@ void TestYtDlpArgsBuilder::testLivestreamArguments() {
     QVERIFY(!args.contains(QStringLiteral("--hls-use-mpegts")));
 }
 
+void TestYtDlpArgsBuilder::testLivestreamBestQualitySupportsSeparateStreams() {
+    ConfigManager *mockConfig = getConfigManager();
+    mockConfig->set(QStringLiteral("Livestream"), QStringLiteral("quality"), QStringLiteral("best"));
+
+    QVariantMap options;
+    options.insert(QStringLiteral("type"), QStringLiteral("video"));
+    options.insert(QStringLiteral("is_live"), true);
+    options.insert(QStringLiteral("live_status"), QStringLiteral("is_live"));
+
+    const QStringList bestArgs = YtDlpArgsBuilder().build(mockConfig, QUrl(TEST_URL).toString(), options);
+    const int bestFormatIndex = bestArgs.indexOf(QStringLiteral("-f"));
+    QVERIFY(bestFormatIndex >= 0);
+    QCOMPARE(bestArgs.value(bestFormatIndex + 1), QStringLiteral("bestvideo+bestaudio/best"));
+
+    mockConfig->set(QStringLiteral("Livestream"), QStringLiteral("quality"), QStringLiteral("worst"));
+    const QStringList worstArgs = YtDlpArgsBuilder().build(mockConfig, QUrl(TEST_URL).toString(), options);
+    const int worstFormatIndex = worstArgs.indexOf(QStringLiteral("-f"));
+    QVERIFY(worstFormatIndex >= 0);
+    QCOMPARE(worstArgs.value(worstFormatIndex + 1), QStringLiteral("worstvideo+worstaudio/worst"));
+}
+
+void TestYtDlpArgsBuilder::testLiveChatIsExcludedFromActiveLivestream() {
+    ConfigManager *mockConfig = getConfigManager();
+    mockConfig->set(QStringLiteral("Subtitles"), QStringLiteral("embed_subtitles"), true);
+    mockConfig->set(QStringLiteral("Subtitles"), QStringLiteral("languages"), QStringLiteral("auto,live_chat,en"));
+
+    QVariantMap options;
+    options.insert(QStringLiteral("type"), QStringLiteral("video"));
+    options.insert(QStringLiteral("is_live"), true);
+    options.insert(QStringLiteral("live_status"), QStringLiteral("is_live"));
+
+    const QStringList args = YtDlpArgsBuilder().build(mockConfig, QUrl(TEST_URL).toString(), options);
+    const int subtitleLanguagesIndex = args.indexOf(QStringLiteral("--sub-langs"));
+    QVERIFY(subtitleLanguagesIndex >= 0);
+    QCOMPARE(args.value(subtitleLanguagesIndex + 1), QStringLiteral("auto,en"));
+    QVERIFY(args.contains(QStringLiteral("--write-subs")));
+
+    mockConfig->set(QStringLiteral("Subtitles"), QStringLiteral("languages"), QStringLiteral("all"));
+    const QStringList allSubtitleArgs = YtDlpArgsBuilder().build(mockConfig, QUrl(TEST_URL).toString(), options);
+    QVERIFY(!allSubtitleArgs.contains(QStringLiteral("--all-subs")));
+    QVERIFY(!allSubtitleArgs.contains(QStringLiteral("--sub-langs")));
+}
+
 void TestYtDlpArgsBuilder::testPostLiveReplayUsesVideoArguments() {
     ConfigManager *mockConfig = getConfigManager();
     mockConfig->set(QStringLiteral("Livestream"), QStringLiteral("live_from_start"), true);

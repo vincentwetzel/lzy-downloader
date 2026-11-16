@@ -277,8 +277,13 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
         QString quality = configManager->get(QStringLiteral("Livestream"), QStringLiteral("quality"), QStringLiteral("best")).toString();
         QString qualityLower = quality.toLower();
 
-        if (qualityLower == QLatin1String("best") || qualityLower == QLatin1String("worst")) {
-            rawArgs << QStringLiteral("-f") << qualityLower;
+        if (qualityLower == QLatin1String("best")) {
+            // Live extractors may expose separate video/audio formats without
+            // a pre-merged `best` format. Prefer the separate streams and keep
+            // a combined-format fallback for extractors that only expose one.
+            rawArgs << QStringLiteral("-f") << QStringLiteral("bestvideo+bestaudio/best");
+        } else if (qualityLower == QLatin1String("worst")) {
+            rawArgs << QStringLiteral("-f") << QStringLiteral("worstvideo+worstaudio/worst");
         } else {
             QString res = quality.split(QLatin1Char(' ')).first().remove(QLatin1Char('p'));
             rawArgs << QStringLiteral("-f") << QStringLiteral("bestvideo[height<=?%1]+bestaudio/best").arg(res);
@@ -614,8 +619,17 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
             subLangsList.removeDuplicates();
         }
 
+        // yt-dlp's live-chat downloader runs until the broadcast ends and
+        // cannot run alongside the media transfer in the same process. The
+        // all-subs switch could select live chat too, so active streams use
+        // only explicitly selected subtitle languages.
+        if (isLivestream) {
+            subLangsList.removeAll(QStringLiteral("live_chat"));
+            subLangsList.removeAll(QStringLiteral("all"));
+        }
+
         if (!subLangsList.isEmpty()) {
-            if (subLangsList.contains(QStringLiteral("all"))) {
+            if (!isLivestream && subLangsList.contains(QStringLiteral("all"))) {
                 rawArgs << QStringLiteral("--all-subs");
             } else {
                 rawArgs << QStringLiteral("--sub-langs") << subLangsList.join(',');
