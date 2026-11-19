@@ -238,8 +238,10 @@ only the sections relevant to the change.
   livestream indeterminate output. Emit speed, ETA, downloaded/total sizes,
   status, and active-stream labels. Prefer format IDs, announced formats,
   `FILE:`/URL metadata, and matching `formats` sizes over ambiguous extensions.
-  When a video download selects separate video and audio formats, report both
-  streams in the status label.
+  For an active livestream using separate video and audio formats, report both
+  streams in the status label. For ordinary downloads using separate formats,
+  report the stream currently transferring; video and audio are downloaded in
+  sequential stages.
 - If `info.json` lacks `requested_downloads`, recover the active stream total
   from matching formats. Progress bytes, speed, and ETA come from the native
   yt-dlp or aria2 output; never infer download completion from the logical size

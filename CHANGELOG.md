@@ -9,6 +9,10 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## Unreleased
 
+- **Stream progress labels:** Show the combined video/audio status only for
+  active livestreams using separate streams. Ordinary separate-format downloads
+  show the current video or audio stage.
+
 ## [1.2.63] - 2026-11-16
 
 - **Livestream format selection:** Select separate best video/audio streams
@@ -18,8 +22,8 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
   subtitle selection from active media transfers because yt-dlp keeps live-chat
   downloads open until the broadcast ends. Other explicit subtitle languages
   remain enabled.
-- **Stream progress status:** Name both video and audio streams when yt-dlp
-  selects separate formats for one video download.
+- **Livestream progress status:** Name both video and audio streams when yt-dlp
+  selects separate formats for an active livestream.
 - **Extractor catalogs:** Refresh the yt-dlp and gallery-dl extractor lists.
 
 ## [1.2.62] - 2026-11-14

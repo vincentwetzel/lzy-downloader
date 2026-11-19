@@ -334,13 +334,17 @@ bool YtDlpWorker::isAuxiliaryTransferTarget(const QString &path) const {
 }
 
 QString YtDlpWorker::statusForCurrentTransfer() const {
+    const QString liveStatus = m_fullMetadata.value(QStringLiteral("live_status")).toString();
+    const bool isLivestream = liveStatus == QStringLiteral("is_live")
+                              || liveStatus == QStringLiteral("is_upcoming")
+                              || (liveStatus.isEmpty() && m_fullMetadata.value(QStringLiteral("is_live")).toBool());
     const bool hasVideoTransfer = std::any_of(m_requestedTransferStatuses.cbegin(), m_requestedTransferStatuses.cend(), [](const QString &status) {
         return status.contains(QStringLiteral("video"), Qt::CaseInsensitive);
     });
     const bool hasAudioTransfer = std::any_of(m_requestedTransferStatuses.cbegin(), m_requestedTransferStatuses.cend(), [](const QString &status) {
         return status.contains(QStringLiteral("audio"), Qt::CaseInsensitive);
     });
-    if (hasVideoTransfer && hasAudioTransfer) {
+    if (isLivestream && hasVideoTransfer && hasAudioTransfer) {
         return tr("Downloading video and audio streams...");
     }
     return m_currentTransferStatus.isEmpty() ? tr("Downloading...") : m_currentTransferStatus;

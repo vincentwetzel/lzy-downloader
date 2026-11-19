@@ -57,7 +57,8 @@ private slots:
     void testAria2ProgressParsing();
     void testAria2AdvancedProgressParsing();
     void testAudioExtractionUsesAudioTransferStatusForCombinedSource();
-    void testCombinedVideoDownloadShowsBothStreams();
+    void testSequentialVideoDownloadShowsCurrentStream();
+    void testLivestreamDownloadShowsBothStreams();
     void testAudioThumbnailIsNormalizedBeforeNativeEmbedding();
     void testTransientAria2FailureFallsBackToNativeDownloader();
     void testMissingAria2OutputFallsBackToNativeDownloader();
@@ -257,10 +258,29 @@ void TestYtDlpWorker::testAudioExtractionUsesAudioTransferStatusForCombinedSourc
              QStringLiteral("Downloading audio stream..."));
 }
 
-void TestYtDlpWorker::testCombinedVideoDownloadShowsBothStreams() {
+void TestYtDlpWorker::testSequentialVideoDownloadShowsCurrentStream() {
     ConfigManager *config = getConfigManager();
     TestableYtDlpWorker worker(QStringLiteral("videoWithSeparateAudio"), {}, config, nullptr);
     QSignalSpy progressSpy(&worker, &YtDlpWorker::progressUpdated);
+
+    worker.callHandleOutputLine(QStringLiteral("[info] Downloading 2 format(s): 248+140"));
+    worker.callHandleOutputLine(QStringLiteral("[download] Destination: output.f248.mp4"));
+    QVERIFY(!progressSpy.isEmpty());
+    QCOMPARE(progressSpy.last().at(1).toMap().value(QStringLiteral("status")).toString(),
+             QStringLiteral("Downloading video stream..."));
+
+    worker.callHandleOutputLine(QStringLiteral("[download] Destination: output.f140.m4a"));
+
+    QVERIFY(!progressSpy.isEmpty());
+    QCOMPARE(progressSpy.last().at(1).toMap().value(QStringLiteral("status")).toString(),
+             QStringLiteral("Downloading audio stream..."));
+}
+
+void TestYtDlpWorker::testLivestreamDownloadShowsBothStreams() {
+    ConfigManager *config = getConfigManager();
+    TestableYtDlpWorker worker(QStringLiteral("liveWithSeparateAudio"), {}, config, nullptr);
+    QSignalSpy progressSpy(&worker, &YtDlpWorker::progressUpdated);
+    worker.setFullMetadata({{QStringLiteral("live_status"), QStringLiteral("is_live")}});
 
     worker.callHandleOutputLine(QStringLiteral("[info] Downloading 2 format(s): 248+140"));
     worker.callHandleOutputLine(QStringLiteral("[download] Destination: output.f248.mp4"));
