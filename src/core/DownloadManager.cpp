@@ -26,9 +26,11 @@ DownloadManager::DownloadManager(ConfigManager *configManager, QObject *parent) 
     connect(m_rateLimitProxy, &DynamicRateLimitProxy::totalDownloadSpeedUpdated, this, [this](double bytesPerSecond) {
         emit totalSpeedUpdated(bytesPerSecond);
     });
-    if (m_rateLimitProxy->start()) {
-        m_rateLimitProxy->setRateLimitPreset(m_configManager->get(QStringLiteral("General"), QStringLiteral("rate_limit"), QStringLiteral("Unlimited")).toString());
+    const bool rateLimitProxyStarted = m_rateLimitProxy->start();
+    if (!rateLimitProxyStarted) {
+        qWarning() << "Dynamic rate limiting is unavailable; downloads will use tool-level rate caps where supported.";
     }
+    m_rateLimitProxy->setRateLimitPreset(m_configManager->get(QStringLiteral("General"), QStringLiteral("rate_limit"), QStringLiteral("Unlimited")).toString());
 
     m_queueState = new DownloadQueueState(this);
     m_sortingManager = new SortingManager(m_configManager, this);

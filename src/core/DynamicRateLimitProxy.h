@@ -40,6 +40,9 @@ private:
     QList<ProxyConnection *> m_connections;
     QElapsedTimer m_clock;
     qint64 m_rateLimitBytesPerSecond = -1;
+    QString m_rateLimitPreset;
+    bool m_hasLoggedRateLimitState = false;
+    bool m_lastLoggedProxyActive = false;
     double m_availableBytes = 0.0;
     qint64 m_lastPumpMs = 0;
     qint64 m_lastSpeedReportMs = 0;

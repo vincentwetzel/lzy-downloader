@@ -9,6 +9,9 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## Unreleased
 
+- **Rate-limit diagnostics:** Log the shared rate-limit preset, effective
+  bytes-per-second cap, and local-proxy availability at startup and when the
+  setting or proxy state changes.
 - **Stream progress labels:** Show the combined video/audio status only for
   active livestreams using separate streams. Ordinary separate-format downloads
   show the current video or audio stage.

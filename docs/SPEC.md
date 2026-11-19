@@ -256,6 +256,10 @@ only the sections relevant to the change.
   device`, errno/ENOSPC 28, and FFmpeg `-28` are terminal before metadata
   embedding. Recoverable non-zero exits retain a visible “Completed with
   warnings” state; optional impersonation warnings are recommendations.
+- `[RateLimit]` diagnostics log the configured shared preset, its effective cap
+  in bytes per second (or `unlimited`), and whether the local proxy is active
+  at startup and whenever that state changes. Unchanged settings are not logged
+  again during later download admission.
 - FFmpeg merger and cut stages emit bounded machine-readable progress, elapsed
   stage timing, and descendant-process resource snapshots from the owning worker;
   metadata rewrite stages emit bounded progress and timing. Resource sampling is

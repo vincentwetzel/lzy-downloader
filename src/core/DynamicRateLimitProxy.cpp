@@ -116,7 +116,24 @@ QString DynamicRateLimitProxy::proxyUrl() const
 
 void DynamicRateLimitProxy::setRateLimitPreset(const QString &preset)
 {
-    setRateLimitBytesPerSecond(parseRatePreset(preset));
+    const QString normalizedPreset = preset.trimmed();
+    const qint64 parsedRate = parseRatePreset(normalizedPreset);
+    setRateLimitBytesPerSecond(parsedRate);
+
+    const bool proxyActive = m_server->isListening();
+    if (!m_hasLoggedRateLimitState || m_rateLimitPreset != normalizedPreset
+        || m_lastLoggedProxyActive != proxyActive) {
+        const QString effectiveLimit = parsedRate > 0
+            ? QStringLiteral("%1 bytes/s").arg(parsedRate)
+            : QStringLiteral("unlimited");
+        qInfo().noquote() << QStringLiteral("[RateLimit] shared preset=\"%1\" effective_cap=%2 proxy=%3")
+                                 .arg(normalizedPreset.isEmpty() ? QStringLiteral("<empty>") : normalizedPreset,
+                                      effectiveLimit,
+                                      proxyActive ? QStringLiteral("active") : QStringLiteral("unavailable"));
+        m_rateLimitPreset = normalizedPreset;
+        m_lastLoggedProxyActive = proxyActive;
+        m_hasLoggedRateLimitState = true;
+    }
 }
 
 void DynamicRateLimitProxy::setRateLimitBytesPerSecond(qint64 bytesPerSecond)
