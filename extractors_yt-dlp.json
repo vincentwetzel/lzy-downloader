@@ -2943,9 +2943,9 @@
             "yinyue.kuwo.cn"
         ]
     },
-    "la7.it": {
+    "la7play.it": {
         "domains": [
-            "la7.it"
+            "la7play.it"
         ]
     },
     "laracasts": {
@@ -4006,7 +4006,7 @@
     },
     "nitter": {
         "domains": [
-            "notabird.site"
+            "nitter.lunar.icu"
         ]
     },
     "njoy": {
@@ -4492,11 +4492,6 @@
     "performgroup": {
         "domains": [
             "player.performgroup.com"
-        ]
-    },
-    "periscope": {
-        "domains": [
-            "periscope.tv"
         ]
     },
     "pgatour": {

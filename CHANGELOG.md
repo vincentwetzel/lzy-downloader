@@ -9,6 +9,8 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## Unreleased
 
+## [1.2.64] - 2026-11-26
+
 - **Rate-limit presets:** Add 128 KB/s and 256 KB/s shared download caps.
 - **Rate-limit proxy recovery:** Preserve HTTP error responses when an upstream
   tunnel fails, and retry a download once when yt-dlp exhausts retries after an
@@ -20,6 +22,7 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 - **Stream progress labels:** Show the combined video/audio status only for
   active livestreams using separate streams. Ordinary separate-format downloads
   show the current video or audio stage.
+- **Extractor catalogs:** Refresh the yt-dlp and gallery-dl extractor lists.
 
 ## [1.2.63] - 2026-11-16
 
