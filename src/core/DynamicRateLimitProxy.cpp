@@ -159,8 +159,7 @@ void DynamicRateLimitProxy::acceptConnections()
             if (!connection->requestStarted) {
                 connection->requestBuffer += bytes;
                 if (connection->requestBuffer.size() > SOCKET_BUFFER_LIMIT) {
-                    writeClientError(connection->client, 431, QByteArrayLiteral("Request Header Too Large"));
-                    closeConnection(connection);
+                    sendErrorAndClose(connection, 431, QByteArrayLiteral("Request Header Too Large"));
                     return;
                 }
                 if (connection->requestBuffer.contains(QByteArrayLiteral("\r\n\r\n"))) {
@@ -191,15 +190,13 @@ void DynamicRateLimitProxy::beginRequest(ProxyConnection *connection)
 
     const QList<QByteArray> lines = header.split('\n');
     if (lines.isEmpty()) {
-        writeClientError(connection->client, 400, QByteArrayLiteral("Bad Request"));
-        closeConnection(connection);
+        sendErrorAndClose(connection, 400, QByteArrayLiteral("Bad Request"));
         return;
     }
     const QByteArray requestLine = lines.first().trimmed();
     const QList<QByteArray> parts = requestLine.split(' ');
     if (parts.size() != 3) {
-        writeClientError(connection->client, 400, QByteArrayLiteral("Bad Request"));
-        closeConnection(connection);
+        sendErrorAndClose(connection, 400, QByteArrayLiteral("Bad Request"));
         return;
     }
 
@@ -216,8 +213,7 @@ void DynamicRateLimitProxy::beginRequest(ProxyConnection *connection)
         if (!connection->tunnelEstablished && !connection->responseBytesSent
             && connection->downstreamPending.isEmpty() && connection->upstream->bytesAvailable() == 0
             && connection->client && connection->client->state() == QAbstractSocket::ConnectedState) {
-            writeClientError(connection->client, 502, QByteArrayLiteral("Bad Gateway"));
-            closeConnection(connection);
+            sendErrorAndClose(connection, 502, QByteArrayLiteral("Bad Gateway"));
             return;
         }
         connection->upstreamClosed = true;
@@ -228,8 +224,7 @@ void DynamicRateLimitProxy::beginRequest(ProxyConnection *connection)
         const QUrl target(QStringLiteral("http://%1/").arg(QString::fromUtf8(parts.at(1))));
         const int port = target.port(443);
         if (!target.isValid() || target.host().isEmpty() || port <= 0) {
-            writeClientError(connection->client, 400, QByteArrayLiteral("Bad CONNECT Target"));
-            closeConnection(connection);
+            sendErrorAndClose(connection, 400, QByteArrayLiteral("Bad CONNECT Target"));
             return;
         }
         connection->upstreamPending = trailing;
@@ -247,14 +242,12 @@ void DynamicRateLimitProxy::beginRequest(ProxyConnection *connection)
 
     const QUrl target = QUrl::fromEncoded(parts.at(1));
     if (!target.isValid() || target.scheme() != QLatin1String("http") || target.host().isEmpty()) {
-        writeClientError(connection->client, 400, QByteArrayLiteral("Unsupported Proxy Request"));
-        closeConnection(connection);
+        sendErrorAndClose(connection, 400, QByteArrayLiteral("Unsupported Proxy Request"));
         return;
     }
     const int port = target.port(80);
     if (port <= 0) {
-        writeClientError(connection->client, 400, QByteArrayLiteral("Bad Proxy Port"));
-        closeConnection(connection);
+        sendErrorAndClose(connection, 400, QByteArrayLiteral("Bad Proxy Port"));
         return;
     }
     QByteArray path = target.path(QUrl::FullyEncoded).toUtf8();
@@ -281,6 +274,36 @@ void DynamicRateLimitProxy::beginRequest(ProxyConnection *connection)
         connection->upstreamPending.clear();
     });
     connection->upstream->connectToHost(target.host(), static_cast<quint16>(port));
+}
+
+void DynamicRateLimitProxy::sendErrorAndClose(ProxyConnection *connection, int code, const QByteArray &reason)
+{
+    if (!connection || !connection->client) {
+        closeConnection(connection);
+        return;
+    }
+
+    QTcpSocket *client = connection->client;
+    if (client->state() != QAbstractSocket::ConnectedState) {
+        closeConnection(connection);
+        return;
+    }
+
+    // Keep the client socket alive until its queued error response drains.
+    // closeConnection() aborts the client and would discard the HTTP status,
+    // making callers see an unexplained proxy disconnect instead of a 502.
+    if (connection->upstream) {
+        connection->upstream->disconnect(this);
+        if (connection->upstream->state() != QAbstractSocket::UnconnectedState) {
+            connection->upstream->abort();
+        }
+        connection->upstream->deleteLater();
+        connection->upstream = nullptr;
+    }
+
+    // Do not touch the connection after this call: disconnectFromHost() may
+    // emit disconnected promptly if the error response drains immediately.
+    writeClientError(client, code, reason);
 }
 
 void DynamicRateLimitProxy::closeConnection(ProxyConnection *connection)

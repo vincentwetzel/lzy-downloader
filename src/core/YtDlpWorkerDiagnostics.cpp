@@ -230,3 +230,38 @@ bool YtDlpWorker::retryWithoutAria2cIfTransientFailure(const QString &diagnostic
     });
     return true;
 }
+
+bool YtDlpWorker::retryForRateLimitProxyDisconnect(const QString &diagnostic)
+{
+    if (m_retriedRateLimitProxyDisconnect) {
+        return false;
+    }
+
+    static const QRegularExpression proxyDisconnect(
+        QStringLiteral("unable to connect to (?:the )?proxy"),
+        QRegularExpression::CaseInsensitiveOption);
+    if (!proxyDisconnect.match(diagnostic).hasMatch()) {
+        return false;
+    }
+
+    m_retriedRateLimitProxyDisconnect = true;
+    cleanupMetadataSidecarsForRetry();
+    if (m_process) {
+        m_process->setProperty("accumulated_stderr", QString());
+    }
+
+    qWarning() << "[YtDlpWorker] The app-managed rate-limit proxy disconnected for" << m_id
+               << "; retrying once with the current downloader.";
+    QVariantMap progressData;
+    progressData.insert(QStringLiteral("status"), tr("The rate-limit proxy disconnected; retrying once..."));
+    progressData.insert(QStringLiteral("progress"), -1);
+    emit progressUpdated(m_id, progressData);
+
+    QTimer::singleShot(RECOVERY_RETRY_DELAY_MS, this, [this]() {
+        if (!m_finishEmitted) {
+            cleanupMetadataSidecarsForRetry();
+            start();
+        }
+    });
+    return true;
+}

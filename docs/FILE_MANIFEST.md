@@ -86,7 +86,7 @@ paths/headless Qt. Main focused files are:
 | Audio artwork normalization and edge-region regression coverage (JPEG fixture) | `TestArtworkNormalizer.cpp` |
 | Queue/archive/temp/replacement | `TestDownloadQueueManager.cpp`, `TestDownloadQueueState.cpp`, `TestDownloadTempCleanup.cpp`, `TestFileReplacement.cpp` |
 | Cross-process worker admission and writable-state fallback | `TestGlobalDownloadLimiter.cpp` |
-| Live shared rate cap and throughput reporting | `TestDynamicRateLimitProxy.cpp`, `TestYtDlpArgsBuilder.cpp`, `TestGalleryDlArgsBuilder.cpp` |
+| Live shared rate cap, preset parsing, upstream error delivery, and retry behavior | `TestDynamicRateLimitProxy.cpp`, `TestYtDlpWorker.cpp`, `TestYtDlpArgsBuilder.cpp`, `TestGalleryDlArgsBuilder.cpp` |
 | Single queue coordination | `TestRuntimeCoordinator.cpp` |
 | Coordinator window activation | `TestCoordinatorWindowActivation.cpp` |
 | URL validation with fake yt-dlp | `TestUrlValidator.cpp`, `FakeYtDlp.cpp` |

@@ -217,7 +217,11 @@ only the sections relevant to the change.
   diagnostics. An aria2c exit code 22 with an unsuccessful HTTP 403 response
   first retries once with aria2c after refreshing media metadata; a repeated
   403 then retries once with native yt-dlp. Other code 22 failures remain
-  terminal.
+  terminal. If yt-dlp exhausts its retries with an explicit proxy-connection
+  failure, retry once with the current downloader after removing stale metadata
+  sidecars while preserving media partials. The app-managed rate-limit proxy
+  must flush its HTTP error response before closing a failed upstream tunnel so
+  clients receive a useful status instead of an empty disconnect.
 - SponsorBlock segment removal never delays download admission: video jobs begin
   with the accurate-cut arguments needed to preserve A/V sync, without a
   blocking SponsorBlock API preflight.

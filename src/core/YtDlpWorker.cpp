@@ -106,6 +106,9 @@ YtDlpWorker::YtDlpWorker(const QString &id, const QStringList &args, ConfigManag
                 }
                 aria2Diagnostic.append(m_allOutputLines.join(QStringLiteral("\n")));
             }
+            if (retryForRateLimitProxyDisconnect(aria2Diagnostic)) {
+                return;
+            }
             if (retryWithoutAria2cIfTransientFailure(aria2Diagnostic)) {
                 return;
             }

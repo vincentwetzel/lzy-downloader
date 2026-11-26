@@ -31,6 +31,7 @@ signals:
 private:
     void acceptConnections();
     void beginRequest(ProxyConnection *connection);
+    void sendErrorAndClose(ProxyConnection *connection, int code, const QByteArray &reason);
     void closeConnection(ProxyConnection *connection);
     void pumpConnections();
     void pumpConnection(ProxyConnection *connection);

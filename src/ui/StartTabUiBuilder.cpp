@@ -156,6 +156,8 @@ void StartTabUiBuilder::build(QWidget *parentWidget, QVBoxLayout *mainLayout)
     settingsLayout->addWidget(rateLabel);
     m_rateLimitCombo = new QComboBox(parentWidget);
     m_rateLimitCombo->addItem(tr("Unlimited"), QStringLiteral("Unlimited"));
+    m_rateLimitCombo->addItem(tr("128 KB/s"), QStringLiteral("128 KB/s"));
+    m_rateLimitCombo->addItem(tr("256 KB/s"), QStringLiteral("256 KB/s"));
     m_rateLimitCombo->addItem(tr("500 KB/s"), QStringLiteral("500 KB/s"));
     m_rateLimitCombo->addItem(tr("1 MB/s"), QStringLiteral("1 MB/s"));
     m_rateLimitCombo->addItem(tr("2 MB/s"), QStringLiteral("2 MB/s"));

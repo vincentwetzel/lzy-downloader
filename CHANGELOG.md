@@ -9,6 +9,11 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## Unreleased
 
+- **Rate-limit presets:** Add 128 KB/s and 256 KB/s shared download caps.
+- **Rate-limit proxy recovery:** Preserve HTTP error responses when an upstream
+  tunnel fails, and retry a download once when yt-dlp exhausts retries after an
+  explicit proxy disconnect. Stale metadata sidecars are cleared while media
+  partials remain resumable.
 - **Rate-limit diagnostics:** Log the shared rate-limit preset, effective
   bytes-per-second cap, and local-proxy availability at startup and when the
   setting or proxy state changes.

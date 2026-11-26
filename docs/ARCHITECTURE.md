@@ -85,7 +85,7 @@ replacement. Temp cleanup owns root resolution and guarded UUID-folder removal.
 | `ArchiveManager.*` | Schema-compatible SQLite completed-media archive and media identity; asynchronously backfills legacy identity columns and indexes |
 | `DownloadQueueManager.*` | Ordering, concurrency, duplicate checks, retry/resume, and coalesced queue-backup writes |
 | `GlobalDownloadLimiter.*` | Locked per-user process registry for cross-process worker-slot admission and stale-holder cleanup; probes directory write access and falls back from ACL-blocked app-local storage |
-| `DynamicRateLimitProxy.*` | Loopback HTTP/CONNECT relay that applies one adjustable aggregate download cap and reports measured transfer throughput |
+| `DynamicRateLimitProxy.*` | Loopback HTTP/CONNECT relay that applies one adjustable aggregate download cap, reports measured throughput, and flushes upstream error responses before closing clients |
 | `RuntimeCoordinator.*` | Per-user local-socket ownership, GUI activation, API activation, and direct-URL forwarding |
 | `DownloadQueueManagerRecovery.cpp` | Restored stopped/failed replacement recovery |
 | `DownloadQueueState.*` | Atomic `downloads_backup.json` save/load/restore, including path-based worker saves |

@@ -23,6 +23,9 @@ public:
     void callHandleOutputLine(const QString &line) { handleOutputLine(line); }
     bool callRetryWithoutAria2c(const QString &diagnostic) { return retryWithoutAria2cIfTransientFailure(diagnostic); }
     bool retryAgainWithoutScheduling(const QString &diagnostic) { m_finishEmitted = true; return retryWithoutAria2cIfTransientFailure(diagnostic); }
+    bool callRetryForProxyDisconnect(const QString &diagnostic) { return retryForRateLimitProxyDisconnect(diagnostic); }
+    bool retryProxyWithoutScheduling(const QString &diagnostic) { m_finishEmitted = true; return retryForRateLimitProxyDisconnect(diagnostic); }
+    bool retryProxyAgainWithoutScheduling(const QString &diagnostic) { m_finishEmitted = true; return retryForRateLimitProxyDisconnect(diagnostic); }
     double callInferPrimaryStreamSizeFromMetadata(const QString &formatId) const { return inferPrimaryStreamSizeFromMetadata(formatId); }
     QVariantMap callApplyOverallPrimaryProgress(double percentage, double downloadedBytes, double totalBytes) {
         QVariantMap progressData;
@@ -66,6 +69,7 @@ private slots:
     void testAria2UnreachableNetworkFallsBackToNativeDownloader();
     void testAria2ForbiddenResponseRetriesThenFallsBackToNativeDownloader();
     void testAria2RecoveryRejectsUnrelatedFailuresAndRetriesOnce();
+    void testProxyDisconnectRetriesOnce();
     void testMetadataFormatSizeFallback();
     void testOverallProgressPayloadForDiscord();
     void testYtDlpProgressStalledParsing();
@@ -405,6 +409,57 @@ void TestYtDlpWorker::testAria2RecoveryRejectsUnrelatedFailuresAndRetriesOnce() 
     QVERIFY(!worker.arguments().contains(QStringLiteral("--external-downloader")));
     QVERIFY(!worker.callRetryWithoutAria2c(QStringLiteral("ERROR: aria2c exited with code 29")));
 }
+
+void TestYtDlpWorker::testProxyDisconnectRetriesOnce() {
+    ConfigManager *config = getConfigManager();
+    const QString tempRoot = QDir(getTempDir()).filePath(QStringLiteral("proxy-retry-temp"));
+    const QString id = QStringLiteral("77777777-7777-4777-8777-777777777777");
+    const QString ownedTempDir = QDir(tempRoot).filePath(id);
+    QVERIFY(QDir().mkpath(ownedTempDir));
+    config->set(QStringLiteral("Paths"), QStringLiteral("temporary_downloads_directory"), tempRoot);
+
+    const QString infoPath = QDir(ownedTempDir).filePath(QStringLiteral("video.info.json"));
+    QFile infoFile(infoPath);
+    QVERIFY(infoFile.open(QIODevice::WriteOnly));
+    infoFile.write("{}");
+    infoFile.close();
+
+    const QString atomicSidecarPath = QDir(ownedTempDir).filePath(QStringLiteral("video.info.json.pending.tmp"));
+    QFile atomicSidecar(atomicSidecarPath);
+    QVERIFY(atomicSidecar.open(QIODevice::WriteOnly));
+    atomicSidecar.write("partial metadata");
+    atomicSidecar.close();
+
+    const QString mediaPartialPath = QDir(ownedTempDir).filePath(QStringLiteral("video.mp4.part"));
+    QFile mediaPartial(mediaPartialPath);
+    QVERIFY(mediaPartial.open(QIODevice::WriteOnly));
+    mediaPartial.write("resumable media");
+    mediaPartial.close();
+
+    TestableYtDlpWorker worker(id,
+                               {QStringLiteral("--proxy"), QStringLiteral("http://127.0.0.1:43210")},
+                               config, nullptr);
+    QSignalSpy progressSpy(&worker, &YtDlpWorker::progressUpdated);
+
+    const QString diagnostic = QStringLiteral(
+        "ERROR: [download] Got error: ('Unable to connect to proxy', "
+        "RemoteDisconnected('Remote end closed connection without response')). Giving up after 10 retries");
+    QVERIFY(worker.retryProxyWithoutScheduling(diagnostic));
+    QVERIFY(!worker.retryProxyAgainWithoutScheduling(diagnostic));
+    QVERIFY(worker.arguments().contains(QStringLiteral("--proxy")));
+    QVERIFY(worker.arguments().contains(QStringLiteral("http://127.0.0.1:43210")));
+    QVERIFY(!QFile::exists(infoPath));
+    QVERIFY(!QFile::exists(atomicSidecarPath));
+    QVERIFY(QFile::exists(mediaPartialPath));
+    QCOMPARE(progressSpy.size(), 1);
+    QVERIFY(progressSpy.first().at(1).toMap().value(QStringLiteral("status")).toString().contains(
+        QStringLiteral("rate-limit proxy disconnected")));
+
+    TestableYtDlpWorker unrelatedWorker(QStringLiteral("unrelatedDisconnect"), {}, config, nullptr);
+    QVERIFY(!unrelatedWorker.callRetryForProxyDisconnect(
+        QStringLiteral("RemoteDisconnected('Remote end closed connection without response')")));
+}
+
 void TestYtDlpWorker::testAudioThumbnailIsNormalizedBeforeNativeEmbedding() {
     ConfigManager *config = getConfigManager();
     const QString thumbnailPath = QDir(getTempDir()).filePath(QStringLiteral("audio-thumbnail.jpg"));

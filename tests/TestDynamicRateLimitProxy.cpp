@@ -12,6 +12,8 @@ private slots:
     void testRateCanChangeWhileTunnelStaysOpen();
     void testRateCanBeCappedWhileTunnelStaysOpen();
     void testRateLimitIsSharedAcrossTunnels();
+    void testRateLimitPresetsUseBinaryBytesPerSecond();
+    void testUpstreamConnectFailureReturnsHttpError();
 };
 
 void TestDynamicRateLimitProxy::testRateCanChangeWhileTunnelStaysOpen()
@@ -164,6 +166,43 @@ void TestDynamicRateLimitProxy::testRateLimitIsSharedAcrossTunnels()
     QTRY_VERIFY_WITH_TIMEOUT(secondResponse.size() >= payload.size(), 5000);
     QCOMPARE(firstResponse.left(payload.size()), payload);
     QCOMPARE(secondResponse.left(payload.size()), payload);
+}
+
+void TestDynamicRateLimitProxy::testUpstreamConnectFailureReturnsHttpError()
+{
+    QTcpServer closedOrigin;
+    QVERIFY(closedOrigin.listen(QHostAddress::LocalHost, 0));
+    const quint16 closedPort = closedOrigin.serverPort();
+    closedOrigin.close();
+
+    DynamicRateLimitProxy proxy;
+    QVERIFY(proxy.start());
+
+    QTcpSocket client;
+    QByteArray received;
+    connect(&client, &QTcpSocket::readyRead, &client, [&client, &received]() {
+        received += client.readAll();
+    });
+    const QUrl proxyUrl(proxy.proxyUrl());
+    client.connectToHost(QHostAddress::LocalHost, proxyUrl.port());
+    QVERIFY(client.waitForConnected(2000));
+    const QByteArray tunnelRequest = QByteArrayLiteral("CONNECT 127.0.0.1:")
+        + QByteArray::number(closedPort) + QByteArrayLiteral(" HTTP/1.1\r\nHost: local-test\r\n\r\n");
+    QCOMPARE(client.write(tunnelRequest), static_cast<qint64>(tunnelRequest.size()));
+
+    QTRY_VERIFY_WITH_TIMEOUT(received.contains(QByteArrayLiteral("HTTP/1.1 502 Bad Gateway")), 3000);
+    QVERIFY(received.contains(QByteArrayLiteral("Content-Length: 12\r\n\r\nBad Gateway\n")));
+    QTRY_VERIFY_WITH_TIMEOUT(client.state() == QAbstractSocket::UnconnectedState, 3000);
+}
+
+void TestDynamicRateLimitProxy::testRateLimitPresetsUseBinaryBytesPerSecond()
+{
+    DynamicRateLimitProxy proxy;
+    proxy.setRateLimitPreset(QStringLiteral("128 KB/s"));
+    QCOMPARE(proxy.rateLimitBytesPerSecond(), static_cast<qint64>(128 * 1024));
+
+    proxy.setRateLimitPreset(QStringLiteral("256 KB/s"));
+    QCOMPARE(proxy.rateLimitBytesPerSecond(), static_cast<qint64>(256 * 1024));
 }
 
 QTEST_MAIN(TestDynamicRateLimitProxy)

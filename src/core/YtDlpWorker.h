@@ -64,6 +64,8 @@ protected: // Changed from private for testing
     bool hasFatalDownloadDiagnostic() const;
     /** Checks whether retained diagnostics specifically identify incomplete media. */
     bool hasIncompleteMediaDiagnostic() const;
+    /** Retries once when the app-managed rate-limit proxy drops its client connection. */
+    bool retryForRateLimitProxyDisconnect(const QString &diagnostic);
     /**
      * Recovers supported aria2-backed transfer failures with bounded retries.
      *
@@ -107,6 +109,7 @@ protected: // Changed from private for testing
     DiagnosticTail m_errorLines;
     bool m_promptDelayActive{false};
     bool m_retriedWithBrowserCookies = false;
+    bool m_retriedRateLimitProxyDisconnect = false;
     bool m_retriedAria2cForbiddenResponse = false;
     bool m_retriedWithoutAria2c = false;
     QString m_recoveryDiagnostic;
