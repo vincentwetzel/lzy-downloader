@@ -63,13 +63,16 @@ void YtDlpWorker::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatu
                    << "exitCode:" << exitCode
                    << "exitStatus:" << exitStatus;
         if (!m_errorLines.isEmpty()) {
-            qWarning().noquote() << "[YtDlpWorker] Error output captured:" << m_errorLines.join(QStringLiteral("\n"));
+            qWarning().noquote() << "[YtDlpWorker] Error output captured:"
+                                 << redactUrlSecrets(m_errorLines.join(QStringLiteral("\n")));
         }
         if (!m_allOutputLines.isEmpty()) {
             constexpr qsizetype MAX_FALLBACK_LOG_LINES = 50; // Log up to 50 lines of context on any failure
             const QStringList outputLines = m_allOutputLines.lines();
             qWarning().noquote() << "[YtDlpWorker] Last diagnostic output (no specific errors captured):"
-                                 << outputLines.mid(qMax(qsizetype(0), outputLines.size() - MAX_FALLBACK_LOG_LINES)).join(QLatin1Char('\n'));
+                                 << redactUrlSecrets(outputLines.mid(
+                                        qMax(qsizetype(0), outputLines.size() - MAX_FALLBACK_LOG_LINES))
+                                        .join(QLatin1Char('\n')));
         }
     }
     // Add specific logging for "completed with warnings" scenarios
@@ -77,10 +80,12 @@ void YtDlpWorker::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatu
         qWarning() << "[YtDlpWorker] yt-dlp exited with code" << exitCode << "after producing final media for" << m_id
                    << ". This is treated as a completion with warnings. Full output for diagnostics:";
         if (!m_errorLines.isEmpty()) {
-            qWarning().noquote() << "[YtDlpWorker] Captured error/warning lines:" << m_errorLines.join(QStringLiteral("\n"));
+            qWarning().noquote() << "[YtDlpWorker] Captured error/warning lines:"
+                                 << redactUrlSecrets(m_errorLines.join(QStringLiteral("\n")));
         }
         if (!m_allOutputLines.isEmpty()) {
-            qWarning().noquote() << "[YtDlpWorker] Full yt-dlp output (stdout/stderr combined):" << m_allOutputLines.join(QStringLiteral("\n"));
+            qWarning().noquote() << "[YtDlpWorker] Full yt-dlp output (stdout/stderr combined):"
+                                 << redactUrlSecrets(m_allOutputLines.join(QStringLiteral("\n")));
         } else {
             qWarning() << "[YtDlpWorker] No output lines captured for this warning.";
         }

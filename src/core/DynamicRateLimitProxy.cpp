@@ -12,8 +12,12 @@
 
 class ProxyConnection final {
 public:
+    quint64 id = 0;
     QTcpSocket *client = nullptr;
     QTcpSocket *upstream = nullptr;
+    QString requestMethod;
+    QString targetHost;
+    quint16 targetPort = 0;
     QByteArray requestBuffer;
     QByteArray upstreamPending;
     QByteArray downstreamPending;
@@ -21,6 +25,7 @@ public:
     bool tunnelEstablished = false;
     bool upstreamClosed = false;
     bool responseBytesSent = false;
+    qint64 downstreamBytesSent = 0;
 };
 
 namespace {
@@ -90,6 +95,8 @@ bool DynamicRateLimitProxy::start()
         qWarning("DynamicRateLimitProxy could not listen on localhost: %s", qPrintable(m_server->errorString()));
         return false;
     }
+    qInfo().noquote() << QStringLiteral("[RateLimitProxy] listening address=127.0.0.1 port=%1")
+                             .arg(m_server->serverPort());
     m_lastPumpMs = m_clock.elapsed();
     m_lastSpeedReportMs = m_lastPumpMs;
     m_pumpTimer->start();
@@ -98,6 +105,9 @@ bool DynamicRateLimitProxy::start()
 
 void DynamicRateLimitProxy::stop()
 {
+    if (m_server->isListening()) {
+        qInfo() << "[RateLimitProxy] stopping; active_connections=" << m_connections.size();
+    }
     m_pumpTimer->stop();
     m_server->close();
     const auto connections = m_connections;
@@ -147,9 +157,14 @@ void DynamicRateLimitProxy::acceptConnections()
 {
     while (m_server->hasPendingConnections()) {
         auto *connection = new ProxyConnection;
+        connection->id = m_nextConnectionId++;
         connection->client = m_server->nextPendingConnection();
         connection->client->setReadBufferSize(SOCKET_BUFFER_LIMIT);
         m_connections.append(connection);
+        qDebug().noquote() << QStringLiteral("[RateLimitProxy] client accepted id=%1 peer=%2 peer_port=%3")
+                                  .arg(connection->id)
+                                  .arg(connection->client->peerAddress().toString())
+                                  .arg(connection->client->peerPort());
 
         connect(connection->client, &QTcpSocket::readyRead, this, [this, connection]() {
             if (!m_connections.contains(connection)) {
@@ -172,7 +187,14 @@ void DynamicRateLimitProxy::acceptConnections()
         connect(connection->client, &QTcpSocket::disconnected, this, [this, connection]() {
             closeConnection(connection);
         });
-        connect(connection->client, &QTcpSocket::errorOccurred, this, [this, connection](QAbstractSocket::SocketError) {
+        connect(connection->client, &QTcpSocket::errorOccurred, this, [this, connection](QAbstractSocket::SocketError error) {
+            if (error != QAbstractSocket::RemoteHostClosedError) {
+                qWarning().noquote() << QStringLiteral(
+                    "[RateLimitProxy] client socket error id=%1 error=%2 message=%3")
+                                            .arg(connection->id)
+                                            .arg(static_cast<int>(error))
+                                            .arg(connection->client->errorString());
+            }
             closeConnection(connection);
         });
     }
@@ -203,18 +225,37 @@ void DynamicRateLimitProxy::beginRequest(ProxyConnection *connection)
     connection->upstream = new QTcpSocket(this);
     connection->upstream->setReadBufferSize(SOCKET_BUFFER_LIMIT);
     connection->requestStarted = true;
+    connection->requestMethod = QString::fromLatin1(parts.at(0)).toUpper();
     connect(connection->upstream, &QTcpSocket::readyRead, this, [this, connection]() { pumpConnection(connection); });
     connect(connection->upstream, &QTcpSocket::bytesWritten, this, [this, connection](qint64) { pumpConnection(connection); });
     connect(connection->upstream, &QTcpSocket::disconnected, this, [this, connection]() {
         connection->upstreamClosed = true;
         pumpConnection(connection);
     });
-    connect(connection->upstream, &QTcpSocket::errorOccurred, this, [this, connection](QAbstractSocket::SocketError) {
-        if (!connection->tunnelEstablished && !connection->responseBytesSent
+    connect(connection->upstream, &QTcpSocket::errorOccurred, this,
+            [this, connection](QAbstractSocket::SocketError error) {
+        const bool connectFailed = !connection->tunnelEstablished && !connection->responseBytesSent
             && connection->downstreamPending.isEmpty() && connection->upstream->bytesAvailable() == 0
-            && connection->client && connection->client->state() == QAbstractSocket::ConnectedState) {
+            && connection->client && connection->client->state() == QAbstractSocket::ConnectedState;
+        const QString logMessage = QStringLiteral(
+            "[RateLimitProxy] upstream socket error id=%1 method=%2 target=%3:%4 error=%5 message=%6 "
+            "tunnel_established=%7 response_bytes_sent=%8")
+                                       .arg(connection->id)
+                                       .arg(connection->requestMethod, connection->targetHost)
+                                       .arg(connection->targetPort)
+                                       .arg(static_cast<int>(error))
+                                       .arg(connection->upstream->errorString())
+                                       .arg(connection->tunnelEstablished)
+                                       .arg(connection->responseBytesSent);
+        if (connectFailed) {
+            qWarning().noquote() << logMessage;
             sendErrorAndClose(connection, 502, QByteArrayLiteral("Bad Gateway"));
             return;
+        }
+        if (error == QAbstractSocket::RemoteHostClosedError) {
+            qDebug().noquote() << logMessage;
+        } else {
+            qWarning().noquote() << logMessage;
         }
         connection->upstreamClosed = true;
         pumpConnection(connection);
@@ -227,9 +268,19 @@ void DynamicRateLimitProxy::beginRequest(ProxyConnection *connection)
             sendErrorAndClose(connection, 400, QByteArrayLiteral("Bad CONNECT Target"));
             return;
         }
+        connection->targetHost = target.host();
+        connection->targetPort = static_cast<quint16>(port);
+        qDebug().noquote() << QStringLiteral("[RateLimitProxy] request id=%1 method=CONNECT target=%2:%3")
+                                  .arg(connection->id)
+                                  .arg(connection->targetHost)
+                                  .arg(connection->targetPort);
         connection->upstreamPending = trailing;
         connect(connection->upstream, &QTcpSocket::connected, this, [connection]() {
             connection->tunnelEstablished = true;
+            qDebug().noquote() << QStringLiteral("[RateLimitProxy] tunnel established id=%1 target=%2:%3")
+                                      .arg(connection->id)
+                                      .arg(connection->targetHost)
+                                      .arg(connection->targetPort);
             connection->client->write(QByteArrayLiteral("HTTP/1.1 200 Connection Established\r\n\r\n"));
             if (!connection->upstreamPending.isEmpty()) {
                 connection->upstream->write(connection->upstreamPending);
@@ -250,6 +301,12 @@ void DynamicRateLimitProxy::beginRequest(ProxyConnection *connection)
         sendErrorAndClose(connection, 400, QByteArrayLiteral("Bad Proxy Port"));
         return;
     }
+    connection->targetHost = target.host();
+    connection->targetPort = static_cast<quint16>(port);
+    qDebug().noquote() << QStringLiteral("[RateLimitProxy] request id=%1 method=%2 target=%3:%4")
+                              .arg(connection->id)
+                              .arg(connection->requestMethod, connection->targetHost)
+                              .arg(connection->targetPort);
     QByteArray path = target.path(QUrl::FullyEncoded).toUtf8();
     if (path.isEmpty()) {
         path = QByteArrayLiteral("/");
@@ -289,6 +346,13 @@ void DynamicRateLimitProxy::sendErrorAndClose(ProxyConnection *connection, int c
         return;
     }
 
+    qWarning().noquote() << QStringLiteral("[RateLimitProxy] returning error id=%1 method=%2 target=%3:%4 status=%5 reason=%6")
+                                .arg(connection->id)
+                                .arg(connection->requestMethod, connection->targetHost)
+                                .arg(connection->targetPort)
+                                .arg(code)
+                                .arg(QString::fromLatin1(reason));
+
     // Keep the client socket alive until its queued error response drains.
     // closeConnection() aborts the client and would discard the HTTP status,
     // making callers see an unexplained proxy disconnect instead of a 502.
@@ -311,6 +375,18 @@ void DynamicRateLimitProxy::closeConnection(ProxyConnection *connection)
     if (!connection || !m_connections.removeOne(connection)) {
         return;
     }
+    qDebug().noquote() << QStringLiteral(
+        "[RateLimitProxy] connection closed id=%1 method=%2 target=%3:%4 tunnel_established=%5 "
+        "response_bytes_sent=%6 downstream_pending_bytes=%7 upstream_pending_bytes=%8 client_state=%9 upstream_state=%10")
+                              .arg(connection->id)
+                              .arg(connection->requestMethod, connection->targetHost)
+                              .arg(connection->targetPort)
+                              .arg(connection->tunnelEstablished)
+                              .arg(connection->downstreamBytesSent)
+                              .arg(connection->downstreamPending.size())
+                              .arg(connection->upstreamPending.size())
+                              .arg(connection->client ? static_cast<int>(connection->client->state()) : -1)
+                              .arg(connection->upstream ? static_cast<int>(connection->upstream->state()) : -1);
     if (connection->client) {
         connection->client->disconnect(this);
         if (connection->client->state() != QAbstractSocket::UnconnectedState) {
@@ -333,6 +409,10 @@ void DynamicRateLimitProxy::pumpConnections()
     const qint64 now = m_clock.elapsed();
     const qint64 elapsed = qMax<qint64>(0, now - m_lastPumpMs);
     m_lastPumpMs = now;
+    if (elapsed > PUMP_INTERVAL_MS * 10 && !m_connections.isEmpty()) {
+        qWarning() << "[RateLimitProxy] pump delayed with active connections; delayed_ms=" << elapsed
+                   << "active_connections=" << m_connections.size();
+    }
     if (m_rateLimitBytesPerSecond > 0) {
         // Bound the burst to 100 ms of allowance while retaining scheduler jitter.
         const double burst = qMax(1.0, static_cast<double>(m_rateLimitBytesPerSecond) * 0.1);
@@ -397,6 +477,7 @@ void DynamicRateLimitProxy::pumpConnection(ProxyConnection *connection)
     connection->downstreamPending.remove(0, static_cast<qsizetype>(sendCount));
     connection->client->write(chunk);
     connection->responseBytesSent = true;
+    connection->downstreamBytesSent += sendCount;
     m_bytesSentSinceSpeedReport += sendCount;
     if (m_rateLimitBytesPerSecond > 0) {
         m_availableBytes -= sendCount;

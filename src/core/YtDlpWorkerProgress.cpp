@@ -1,4 +1,5 @@
 #include "YtDlpWorker.h"
+#include "YtDlpWorkerProcessHelpers.h"
 
 #include <QDebug>
 #include <QRegularExpression>
@@ -123,7 +124,8 @@ bool YtDlpWorker::parseYtDlpProgressLine(const QString &line) {
             if (match.hasMatch()) {
                 matchedIndeterminate = true;
             } else {
-                qWarning() << "[YtDlpWorker] Unmatched native progress line:" << normalizedView;
+                qWarning() << "[YtDlpWorker] Unmatched native progress line:"
+                           << YtDlpWorkerProcessHelpers::redactUrlSecrets(normalizedView.toString());
                 return false;
             }
         }

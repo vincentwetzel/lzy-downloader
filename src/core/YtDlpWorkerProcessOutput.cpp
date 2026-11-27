@@ -53,7 +53,8 @@ void YtDlpWorker::parseProcessBuffer(QByteArray &buffer, const QByteArray &newDa
                 const QString trimmedLine = QString::fromUtf8(chunk).trimmed();
                 if (!trimmedLine.isEmpty()) {
                     if (m_args.contains(QStringLiteral("--external-downloader"))) {
-                        qDebug().noquote() << "[YtDlpWorker][raw " + channelName + "]" << trimmedLine;
+                        qDebug().noquote() << "[YtDlpWorker][raw " + channelName + "]"
+                                           << redactUrlSecrets(trimmedLine);
                     }
                     handleOutputLine(trimmedLine);
                 }

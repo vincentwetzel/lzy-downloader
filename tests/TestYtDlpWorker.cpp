@@ -2,6 +2,7 @@
 #include "core/YtDlpWorker.h"
 #include "core/ConfigManager.h"
 #include "core/DiagnosticTail.h"
+#include "core/YtDlpWorkerProcessHelpers.h"
 
 #include <QtTest/QtTest>
 #include <QColor>
@@ -78,6 +79,7 @@ private slots:
     void testIncompleteMediaDiagnosticClassification();
     void testDiskSpaceFailureClassification();
     void testDiagnosticTailRetainsBoundedNewestLines();
+    void testDiagnosticUrlSecretsAreRedacted();
 };
 
 void TestYtDlpWorker::init() {
@@ -400,6 +402,10 @@ void TestYtDlpWorker::testAria2RecoveryRejectsUnrelatedFailuresAndRetriesOnce() 
                                config, nullptr);
 
     QVERIFY(!worker.callRetryWithoutAria2c(QStringLiteral("ERROR: aria2c exited with code 1")));
+    QVERIFY(!worker.callRetryWithoutAria2c(QStringLiteral(
+        "Exception: [AbstractProxyResponseCommand.cc:75] errorCode=1 Proxy connection failed.\n"
+        "ERROR: aria2c exited with code 1")));
+    QVERIFY(worker.arguments().contains(QStringLiteral("--external-downloader")));
     QVERIFY(!worker.callRetryWithoutAria2c(QStringLiteral("ERROR: network connection failed")));
     QVERIFY(!worker.callRetryWithoutAria2c(QStringLiteral(
         "Exception: errorCode=22 The response status is not successful. status=404\n"
@@ -498,6 +504,12 @@ void TestYtDlpWorker::testDiagnosticTailRetainsBoundedNewestLines() {
     DiagnosticTail textTail(3, 100);
     textTail.appendText(QStringLiteral("one\ntwo\nthree\nfour"));
     QCOMPARE(textTail.lines(), QStringList({QStringLiteral("two"), QStringLiteral("three"), QStringLiteral("four")}));
+}
+
+void TestYtDlpWorker::testDiagnosticUrlSecretsAreRedacted() {
+    const QString input = QStringLiteral("aria2 URI=https://user:pass@example.test/media?id=one&signature=secret");
+    QCOMPARE(YtDlpWorkerProcessHelpers::redactUrlSecrets(input),
+             QStringLiteral("aria2 URI=https://example.test/media?REDACTED"));
 }
 
 void TestYtDlpWorker::testOverallProgressPayloadForDiscord() {

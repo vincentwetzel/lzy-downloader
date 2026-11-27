@@ -89,6 +89,8 @@ Read the relevant section only.
 - Validate external input, prevent traversal/injection, and never log tokens,
   cookies, credentials, or credential-bearing URLs. Keep user data on-device,
   use UUIDs for IDs, and protect `api_token.txt`.
+- When logging external-downloader diagnostics, redact URL user information and
+  query strings because media URLs may contain short-lived signed credentials.
 - Keep Local API traffic bearer-authenticated, localhost/origin-checked,
   bounded, and routed through the manager. Use HTTPS and explicit network
   timeouts for remote traffic.

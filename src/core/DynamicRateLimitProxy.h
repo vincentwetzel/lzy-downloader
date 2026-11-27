@@ -49,4 +49,5 @@ private:
     qint64 m_lastSpeedReportMs = 0;
     qint64 m_bytesSentSinceSpeedReport = 0;
     int m_roundRobinStart = 0;
+    quint64 m_nextConnectionId = 1;
 };

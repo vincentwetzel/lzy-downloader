@@ -5,6 +5,12 @@ Only unfinished work belongs here; completed work is recorded in
 
 ## Planned
 
+- [ ] Continue validating intermittent aria2 failures through the shared
+  rate-limit proxy. A successful run confirms the configured path can work,
+  but does not yet establish that the earlier `Proxy connection failed`
+  reports are resolved; retain aria2 selection and use the expanded diagnostics
+  if the failure recurs.
+
 - [ ] Split the remaining oversized C++ files, starting with
   `src/ui/advanced_settings/BinariesPage.cpp`, `src/core/ProcessUtils.cpp`,
   and `src/core/YtDlpWorkerOutput.cpp`; keep each production source file below

@@ -9,6 +9,13 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## Unreleased
 
+- **aria2/proxy diagnostics:** Log local rate-limit proxy client requests,
+  CONNECT tunnel outcomes, upstream socket errors, and connection byte counts.
+  Redact URL credentials and query strings from captured aria2 output and
+  failure summaries. A generic aria2 proxy-connection failure remains visible
+  as a failure while the explicitly selected downloader is retained, with
+  diagnostics available to investigate the cause.
+
 ## [1.2.65] - 2026-11-26
 
 - **Extractor catalogs:** Refresh the yt-dlp extractor domain catalog.
