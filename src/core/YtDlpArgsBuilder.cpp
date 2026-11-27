@@ -634,6 +634,9 @@ QStringList YtDlpArgsBuilder::build(ConfigManager *configManager, const QString 
             } else {
                 rawArgs << QStringLiteral("--sub-langs") << subLangsList.join(',');
             }
+            // Pace subtitle requests separately from the main media transfer.
+            // yt-dlp's download interval does not apply before subtitle files.
+            rawArgs << QStringLiteral("--sleep-subtitles") << QStringLiteral("5");
             if (configManager->get(QStringLiteral("Subtitles"), QStringLiteral("write_auto_subtitles"), false).toBool()) rawArgs << QStringLiteral("--write-auto-subs");
             if (embedSubs) rawArgs << QStringLiteral("--embed-subs");
             if (writeSubs) {

@@ -204,7 +204,8 @@ only the sections relevant to the change.
   selections prefer separate video/audio formats with a combined-format
   fallback. Active livestreams omit `live_chat` and `all` subtitle selections
   because yt-dlp's live-chat downloader runs until the broadcast ends; other
-  explicit subtitle languages remain enabled.
+  explicit subtitle languages remain enabled. Wait five seconds before each
+  subtitle file download with yt-dlp's generic `--sleep-subtitles` option.
 - Aria2c is for ordinary non-livestream transfers. Use bounded retry/backoff,
   conservative per-server connections, and a referer only when the URL has a
   scheme and host. For exit codes 2, 5, 6, or 29, the specific combination of

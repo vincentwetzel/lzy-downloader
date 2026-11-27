@@ -238,6 +238,9 @@ void TestYtDlpArgsBuilder::testLiveChatIsExcludedFromActiveLivestream() {
     QVERIFY(subtitleLanguagesIndex >= 0);
     QCOMPARE(args.value(subtitleLanguagesIndex + 1), QStringLiteral("auto,en"));
     QVERIFY(args.contains(QStringLiteral("--write-subs")));
+    const int subtitleSleepIndex = args.indexOf(QStringLiteral("--sleep-subtitles"));
+    QVERIFY(subtitleSleepIndex >= 0);
+    QCOMPARE(args.value(subtitleSleepIndex + 1), QStringLiteral("5"));
 
     mockConfig->set(QStringLiteral("Subtitles"), QStringLiteral("languages"), QStringLiteral("all"));
     const QStringList allSubtitleArgs = YtDlpArgsBuilder().build(mockConfig, QUrl(TEST_URL).toString(), options);

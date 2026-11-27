@@ -9,6 +9,8 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## Unreleased
 
+- **Subtitle request pacing:** Wait five seconds before each subtitle file
+  download to reduce request bursts that can trigger HTTP 429 responses.
 - **aria2/proxy diagnostics:** Log local rate-limit proxy client requests,
   CONNECT tunnel outcomes, upstream socket errors, and connection byte counts.
   Redact URL credentials and query strings from captured aria2 output and
