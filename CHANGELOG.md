@@ -9,6 +9,11 @@ Older historical changelogs (pre-v1.1.25) can be found in [docs/CHANGELOG_ARCHIV
 
 ## Unreleased
 
+## [1.2.65] - 2026-11-26
+
+- **Extractor catalogs:** Refresh the yt-dlp extractor domain catalog.
+- **Release validation:** Stabilize timing checks in the headless release gate.
+
 ## [1.2.64] - 2026-11-26
 
 - **Rate-limit presets:** Add 128 KB/s and 256 KB/s shared download caps.
