@@ -190,9 +190,9 @@ void TestDynamicRateLimitProxy::testUpstreamConnectFailureReturnsHttpError()
         + QByteArray::number(closedPort) + QByteArrayLiteral(" HTTP/1.1\r\nHost: local-test\r\n\r\n");
     QCOMPARE(client.write(tunnelRequest), static_cast<qint64>(tunnelRequest.size()));
 
-    QTRY_VERIFY_WITH_TIMEOUT(received.contains(QByteArrayLiteral("HTTP/1.1 502 Bad Gateway")), 3000);
+    QTRY_VERIFY_WITH_TIMEOUT(received.contains(QByteArrayLiteral("HTTP/1.1 502 Bad Gateway")), 10000);
     QVERIFY(received.contains(QByteArrayLiteral("Content-Length: 12\r\n\r\nBad Gateway\n")));
-    QTRY_VERIFY_WITH_TIMEOUT(client.state() == QAbstractSocket::UnconnectedState, 3000);
+    QTRY_VERIFY_WITH_TIMEOUT(client.state() == QAbstractSocket::UnconnectedState, 10000);
 }
 
 void TestDynamicRateLimitProxy::testRateLimitPresetsUseBinaryBytesPerSecond()

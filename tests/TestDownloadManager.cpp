@@ -16,6 +16,7 @@
 #include <QThread>
 #include <QTimer>
 #include <QUuid>
+#include <atomic>
 
 void TestDownloadManager::init() {
     BaseTest::init();
@@ -201,6 +202,25 @@ void TestDownloadManager::testDownloadWorkerUsesDedicatedThread()
     TestableDownloadManager manager(configManager, this);
     QSignalSpy addedSpy(&manager, &DownloadManager::downloadAddedToQueue);
     QSignalSpy finishedSpy(&manager, &DownloadManager::downloadFinished);
+    std::atomic_bool workerStartedOnDedicatedThread = false;
+    connect(&manager, &DownloadManager::downloadStarted, &manager,
+            [&manager, &addedSpy, &workerStartedOnDedicatedThread](const QString &downloadId) {
+        if (addedSpy.isEmpty()
+                || addedSpy.first().at(0).toMap().value(QStringLiteral("id")).toString() != downloadId) {
+            return;
+        }
+        QObject *worker = manager.m_activeWorkers.value(downloadId);
+        QThread *workerThread = worker ? worker->thread() : nullptr;
+        QThread *guiThread = QCoreApplication::instance()->thread();
+        if (!workerThread || workerThread == guiThread) {
+            return;
+        }
+        connect(workerThread, &QThread::started, &manager,
+                [workerThread, guiThread, &workerStartedOnDedicatedThread]() {
+            workerStartedOnDedicatedThread.store(QThread::currentThread() == workerThread
+                                                 && workerThread != guiThread);
+        }, Qt::DirectConnection);
+    });
 
     QVariantMap options;
     options.insert(QStringLiteral("type"), QStringLiteral("video"));
@@ -211,20 +231,7 @@ void TestDownloadManager::testDownloadWorkerUsesDedicatedThread()
     const QString id = addedSpy.first().at(0).toMap().value(QStringLiteral("id")).toString();
     QVERIFY(!id.isEmpty());
 
-    auto findWorkerThread = [&manager, &id]() -> QThread * {
-        const QString expectedName = QStringLiteral("yt-dlp-download-%1").arg(id);
-        for (QThread *thread : manager.findChildren<QThread *>()) {
-            if (thread->objectName() == expectedName) {
-                return thread;
-            }
-        }
-        return nullptr;
-    };
-
-    QTRY_VERIFY_WITH_TIMEOUT(findWorkerThread() != nullptr, 5000);
-    QThread *workerThread = findWorkerThread();
-    QVERIFY(workerThread != QThread::currentThread());
-    QVERIFY(workerThread->isRunning());
+    QTRY_VERIFY_WITH_TIMEOUT(workerStartedOnDedicatedThread.load(), 5000);
 
     QTRY_COMPARE_WITH_TIMEOUT(finishedSpy.count(), 1, 15000);
     QCOMPARE(finishedSpy.first().at(0).toString(), id);
